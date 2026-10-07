@@ -37,6 +37,7 @@ final class Scenarios {
         list.add(of("double-submit", Scenarios::doubleSubmit));
         list.add(of("forged-clicks", Scenarios::forgedClicks));
         list.add(of("baltop", Scenarios::baltop));
+        list.add(of("extras", Scenarios::extras));
         list.addAll(FeatureScenarios.all());
         return list;
     }
@@ -195,6 +196,30 @@ final class Scenarios {
         victim.rawClick(id, new CompoundTag());
         e2e.sleep(800);
         e2e.expect(e2e.money(FORGEBOT) == 100_000, "attacker received exactly $100,000: " + e2e.money(FORGEBOT));
+    }
+
+    static void extras(E2E e2e) {
+        String name = e2e.name("Extra");
+        String other = e2e.name("Other");
+        Bot a = e2e.bot(name);
+        e2e.bot(other);
+        e2e.step("/rules opens the rules notice");
+        a.command("rules");
+        Bot.SeenDialog rules = e2e.dialog(a, "Rules");
+        e2e.expect(rules.bodyText().contains("No cheats"), "rules text: " + rules.body());
+        e2e.click(a, "I understand");
+        e2e.eventually(() -> a.dialog() == null, "the notice closes");
+        e2e.step("/help links to the menu");
+        a.command("help");
+        e2e.dialog(a, "Getting started");
+        e2e.click(a, "Open the menu");
+        e2e.dialog(a, "SiftVanilla");
+        e2e.step("/ping and /seen");
+        a.clearLogs();
+        a.command("ping");
+        e2e.eventually(() -> a.actionBarContains("Your ping is"), "ping on the action bar: " + a.actionBar());
+        a.command("seen " + other);
+        e2e.eventually(() -> a.chatContains(other + " is online now."), "seen online: " + a.chat());
     }
 
     static void baltop(E2E e2e) {

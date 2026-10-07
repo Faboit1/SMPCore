@@ -1,0 +1,9 @@
+# Small quality-of-life commands (/rules, /help, /ping, /seen, /links) and join/leave messages.
+
+messages:
+  # Show "<name> joined" when a player who has played before joins. Off keeps chat for things worth reading.
+  join: false
+  # Show "<name> left" when a player leaves.
+  quit: false
+  # Welcome brand-new players in chat with their join number ("Welcome Alex, player #1,204").
+  first-join-welcome: true

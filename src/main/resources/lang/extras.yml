@@ -1,0 +1,37 @@
+extras:
+  rules:
+    label: "Rules"
+    description: "What's allowed on SiftVanilla"
+    title: "Rules"
+    button: "I understand"
+    body:
+      - "<primary>1. Be decent. No harassment, hate or threats."
+      - "<primary>2. No cheats, hacked clients, x-ray or macros."
+      - "<primary>3. No exploiting bugs or duplication. Report them instead."
+      - "<primary>4. No real-money trading outside the official store."
+      - "<primary>5. One account per person for rewards and the AFK zone."
+      - "<primary>6. PvP and raiding are part of the game, but no spawn camping."
+      - ""
+      - "<secondary>Staff decisions are final. Breaking the rules can mean a ban."
+  help:
+    title: "Getting started"
+    menu: "Open the menu"
+    body:
+      - "<primary>Welcome to SiftVanilla."
+      - "<secondary>Everything is in the menu: press Escape and pick SiftVanilla, or type /menu."
+      - ""
+      - "<primary>/rtp <secondary>takes you somewhere new to start."
+      - "<primary>/sell <secondary>turns what you gather into money."
+      - "<primary>/shop <secondary>and <primary>/ah <secondary>are where you spend it."
+      - "<primary>/sethome <secondary>and <primary>/home <secondary>bring you back."
+      - "<primary>/team <secondary>lets you play with friends."
+      - "<primary>/spawn <secondary>takes you back here."
+  ping:
+    self: "<primary>Your ping is <ping> ms."
+    other: "<primary><name>'s ping is <ping> ms."
+  seen:
+    online: "<primary><name> is online now. <secondary>Joined <since> ago."
+    offline: "<primary><name> was last online <ago> ago. <secondary>First joined <first>."
+  join: "<secondary><name> joined"
+  quit: "<secondary><name> left"
+  first-join: "<primary>Welcome <name> to SiftVanilla. <secondary>Player number <number>."

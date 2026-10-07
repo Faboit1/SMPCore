@@ -8,6 +8,7 @@ import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
+import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
 
 /**
@@ -35,6 +36,7 @@ final class FeatureCatalog {
         HubFeature hub = new HubFeature(this.services, this.problems);
         features.add(economy);
         features.add(hub);
+        features.add(new ExtrasFeature(this.services, this.problems));
         features.add(admin);
         return features;
     }
