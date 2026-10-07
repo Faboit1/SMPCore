@@ -1,3 +1,4 @@
+-- rewards: crate keys, crate log, kit claims
 CREATE TABLE IF NOT EXISTS crate_keys (
     uuid {uuid} NOT NULL,
     crate VARCHAR(32) NOT NULL,

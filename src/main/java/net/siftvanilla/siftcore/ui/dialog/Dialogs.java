@@ -231,7 +231,7 @@ public final class Dialogs implements Listener {
         Button button = buttons.get(buttonIndex);
         Validation validation = validate(view, values);
         this.handled.incrementAndGet();
-        this.scheduler.entity(player, () -> {
+        Runnable run = () -> {
             if (!player.isOnline()) {
                 return;
             }
@@ -255,7 +255,12 @@ public final class Dialogs implements Listener {
             if (!submission.responded) {
                 player.closeDialog();
             }
-        }, null);
+        };
+        if (this.scheduler.owns(player)) {
+            run.run();
+        } else {
+            this.scheduler.entity(player, run, null);
+        }
     }
 
     private record Validation(FormValues values, Component invalidLabel) {

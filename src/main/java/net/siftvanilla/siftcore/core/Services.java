@@ -7,6 +7,7 @@ import net.siftvanilla.siftcore.core.command.Cooldowns;
 import net.siftvanilla.siftcore.core.config.Configs;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
+import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
@@ -48,6 +49,7 @@ public record Services(
     HubRegistry hub,
     CommandSupport commands,
     Placeholders placeholders,
+    Permissions permissions,
     Teleports teleports) {
 
     /** The current money format (follows reloads). */

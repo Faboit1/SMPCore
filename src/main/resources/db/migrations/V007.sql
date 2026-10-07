@@ -1,4 +1,4 @@
--- Lifetime counters (write-behind from memory) and the kill log used by anti-farm rules.
+-- combat: stats, kill log, bounties
 CREATE TABLE IF NOT EXISTS stats (
     uuid {uuid} NOT NULL PRIMARY KEY,
     kills INTEGER NOT NULL DEFAULT 0,

@@ -37,6 +37,7 @@ public final class HubFeature implements Feature {
         this.services = services;
         this.settings = services.configs().register("features/hub.yml", HubSettings::parse, problems);
         services.lang().register(HubMessages.class);
+        services.permissions().declare("siftcore.command.menu", "Open the main menu with /menu", true);
     }
 
     @Override
@@ -74,6 +75,9 @@ public final class HubFeature implements Feature {
         this.addedLinks.clear();
         for (HubSettings.Link link : this.settings.get().links()) {
             this.addedLinks.add(links.addLink(Component.text(link.label()), link.url()));
+        }
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.sendLinks(links);
         }
     }
 

@@ -24,6 +24,7 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Configs;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.config.YamlFiles;
+import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
 import net.siftvanilla.siftcore.core.player.PlayerLifecycle;
@@ -86,6 +87,7 @@ public final class SiftCore implements CoreControl {
     private MenuListener menuListener;
     private CommandService commandService;
     private Placeholders placeholders;
+    private Permissions permissions;
     private Services services;
     private volatile boolean debug;
     private long startedAt;
@@ -111,7 +113,8 @@ public final class SiftCore implements CoreControl {
         this.scheduler = new RegionizedScheduler(this.plugin);
 
         this.database = openDatabase(this.core.get().storage());
-        int version = new Migrations(this.database, this.logger, this.plugin::getResource, MigrationList.ALL).migrate();
+        int version = new Migrations(this.database, this.logger, this.plugin::getResource,
+            Migrations.discover(this.plugin::getResource)).migrate();
         this.ledger = new Ledger(this.database, this.logger, this.core.get().money().maxAmount());
         this.ledger.load();
         this.core.onReload(settings -> this.ledger.maxBalance(settings.money().maxAmount()));
@@ -143,12 +146,13 @@ public final class SiftCore implements CoreControl {
             () -> this.core.get().money());
         this.commandService = new CommandService(this.plugin, commandSettings);
         this.placeholders = new Placeholders();
+        this.permissions = new Permissions();
         CombatTags combatTags = new CombatTags();
         Teleports teleports = new Teleports(this.scheduler, messenger, combatTags);
 
         this.services = new Services(this.plugin, this.scheduler, this.configs, this.core, this.database, this.ledger,
             deliveries, directory, playerSettings, audit, cooldowns, this.lang, messenger, this.dialogs, templates,
-            menus, hub, commandSupport, this.placeholders, teleports);
+            menus, hub, commandSupport, this.placeholders, this.permissions, teleports);
 
         this.features.addAll(new FeatureCatalog(this.services, combatTags, this, problems).create());
 
@@ -174,6 +178,7 @@ public final class SiftCore implements CoreControl {
             feature.selfTest(this.selfTest);
         }
         registerCoreSelfTests();
+        this.permissions.install();
 
         listen(new PlayerLifecycle(directory, playerSettings, cooldowns, this.logger));
         listen(this.dialogs);
@@ -339,6 +344,9 @@ public final class SiftCore implements CoreControl {
         this.enabled.clear();
         if (this.dialogs != null) {
             this.dialogs.clear();
+        }
+        if (this.permissions != null) {
+            this.permissions.uninstall();
         }
         if (this.scheduler != null) {
             this.scheduler.cancelAll();

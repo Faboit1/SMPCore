@@ -1,4 +1,4 @@
--- Virtually stacked spawners and their stored drops (plain item types counted, never real item entities).
+-- spawners: stacked spawners and stored drops
 CREATE TABLE IF NOT EXISTS spawners (
     id {bigint} NOT NULL PRIMARY KEY,
     world VARCHAR(64) NOT NULL,

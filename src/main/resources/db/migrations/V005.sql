@@ -1,3 +1,4 @@
+-- teams and members
 CREATE TABLE IF NOT EXISTS teams (
     id {bigint} NOT NULL PRIMARY KEY,
     name VARCHAR(16) NOT NULL,

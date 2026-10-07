@@ -1,4 +1,5 @@
--- Buy orders. Money for unfilled units sits in the orders escrow account; delivered items are counted in
+-- orders: buy orders and their fills
+-- Money for unfilled units sits in the orders escrow account; delivered items are counted in
 -- filled - collected and handed out as plain stacks of item_type.
 CREATE TABLE IF NOT EXISTS orders (
     id {bigint} NOT NULL PRIMARY KEY,

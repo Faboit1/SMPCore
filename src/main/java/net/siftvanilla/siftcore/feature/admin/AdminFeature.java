@@ -35,6 +35,14 @@ public final class AdminFeature implements Feature {
         this.services = services;
         this.control = control;
         services.lang().register(AdminMessages.class);
+        var perms = services.permissions();
+        perms.declare("siftcore.admin", "Use /sift", false);
+        perms.declare("siftcore.admin.reload", "Reload SiftCore's files", false);
+        perms.declare("siftcore.admin.debug", "Toggle debug logging", false);
+        perms.declare("siftcore.admin.metrics", "See internal metrics", false);
+        perms.declare("siftcore.admin.selftest", "Run the self-test", false);
+        perms.declare("siftcore.bypass.cooldown", "Skip command cooldowns", false);
+        perms.declare("siftcore.teleport.bypass-warmup", "Teleport without a warmup", false);
     }
 
     /** Adds a /sift subcommand; call from a feature constructor. */

@@ -1,3 +1,4 @@
+-- social: ignore lists
 CREATE TABLE IF NOT EXISTS ignores (
     uuid {uuid} NOT NULL,
     ignored {uuid} NOT NULL,

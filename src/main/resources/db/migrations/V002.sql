@@ -1,3 +1,4 @@
+-- auction house listings
 CREATE TABLE IF NOT EXISTS auction_listings (
     id {bigint} NOT NULL PRIMARY KEY,
     seller {uuid} NOT NULL,

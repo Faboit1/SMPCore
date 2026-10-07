@@ -1,4 +1,4 @@
--- Players, currency accounts, the append-only ledger, per-player settings, the claim box and the audit log.
+-- core: players, accounts, ledger, settings, claim box, audit log
 CREATE TABLE IF NOT EXISTS players (
     uuid {uuid} NOT NULL PRIMARY KEY,
     name VARCHAR(16) NOT NULL,

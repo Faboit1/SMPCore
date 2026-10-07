@@ -1,3 +1,4 @@
+-- homes
 CREATE TABLE IF NOT EXISTS homes (
     uuid {uuid} NOT NULL,
     name VARCHAR(32) NOT NULL,

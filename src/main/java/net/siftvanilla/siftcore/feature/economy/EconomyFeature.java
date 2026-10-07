@@ -41,6 +41,13 @@ public final class EconomyFeature implements Feature, Listener {
             reader -> EconomySettings.parse(reader, services.core().get().money()), problems);
         services.lang().register(EconomyMessages.class);
         services.settings().register(PAY_NOTIFICATIONS);
+        var perms = services.permissions();
+        perms.declare("siftcore.command.balance", "Use /balance", true);
+        perms.declare("siftcore.command.balance.others", "See other players' balances", true);
+        perms.declare("siftcore.command.pay", "Use /pay", true);
+        perms.declare("siftcore.command.baltop", "Use /baltop", true);
+        perms.declare("siftcore.pay.unlimited", "No daily /pay limit", false);
+        perms.declare("siftcore.admin.eco", "Change balances and read the ledger with /eco", false);
         BalanceTop top = new BalanceTop(services.ledger(), services.directory());
         this.economy = new EconomyService(services.ledger(), top, services.core()::get);
         this.pay = new PayService(services, this.settings, new PayLimits(services.database()), PAY_NOTIFICATIONS);
