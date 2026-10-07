@@ -1,0 +1,106 @@
+# Icons are vanilla atlas sprites shown inline in text (scoreboard lines, dialog bodies, hover cards).
+# No resource pack is needed. Lang files use them as <icon:name>, always followed by a space.
+#
+# atlas:  the atlas the sprite lives in. Item textures are in minecraft:items, block textures in minecraft:blocks,
+#         HUD and menu sprites in minecraft:gui. Using the wrong atlas shows a magenta square, so every entry is
+#         checked against the real 26.2 client assets when the plugin starts; a bad entry is reported and skipped.
+# sprite: the sprite path inside that atlas, e.g. item/gold_ingot or hud/heart/full.
+# tint:   keep    = show the sprite in its own colours.
+#         inherit = take the colour of the surrounding text (good for white/grey sprites).
+icons:
+  money:
+    atlas: minecraft:items
+    sprite: item/gold_ingot
+  shard:
+    atlas: minecraft:items
+    sprite: item/amethyst_shard
+  kill:
+    atlas: minecraft:items
+    sprite: item/iron_sword
+  death:
+    atlas: minecraft:particles
+    sprite: damage
+  streak:
+    atlas: minecraft:particles
+    sprite: flame
+  kdr:
+    atlas: minecraft:particles
+    sprite: critical_hit
+    tint: inherit
+  playtime:
+    atlas: minecraft:items
+    sprite: item/clock_00
+  mobs:
+    atlas: minecraft:items
+    sprite: item/bone
+  blocks:
+    atlas: minecraft:items
+    sprite: item/iron_pickaxe
+  ping:
+    atlas: minecraft:gui
+    sprite: icon/ping_5
+  online:
+    atlas: minecraft:gui
+    sprite: icon/accessibility
+    tint: inherit
+  team:
+    atlas: minecraft:map_decorations
+    sprite: white_banner
+    tint: inherit
+  home:
+    atlas: minecraft:map_decorations
+    sprite: plains_village
+  warning:
+    atlas: minecraft:gui
+    sprite: icon/unseen_notification
+  info:
+    atlas: minecraft:gui
+    sprite: icon/info
+  bounty:
+    atlas: minecraft:blocks
+    sprite: block/target_top
+  crate:
+    atlas: minecraft:blocks
+    sprite: block/vault_front_on
+  key:
+    atlas: minecraft:items
+    sprite: item/trial_key
+  spawner:
+    atlas: minecraft:blocks
+    sprite: block/spawner
+  shop:
+    atlas: minecraft:items
+    sprite: item/emerald
+  auction:
+    atlas: minecraft:items
+    sprite: item/bell
+  order:
+    atlas: minecraft:items
+    sprite: item/writable_book
+  afk:
+    atlas: minecraft:blocks
+    sprite: block/cobweb
+    tint: inherit
+  rank:
+    atlas: minecraft:items
+    sprite: item/nether_star
+  health:
+    atlas: minecraft:gui
+    sprite: hud/heart/full
+  hunger:
+    atlas: minecraft:gui
+    sprite: hud/food_full
+  armor:
+    atlas: minecraft:gui
+    sprite: hud/armor_full
+  experience:
+    atlas: minecraft:items
+    sprite: item/experience_bottle
+  bullet:
+    atlas: minecraft:map_decorations
+    sprite: player_off_map
+    tint: inherit
+  star:
+    atlas: minecraft:particles
+    sprite: glow
+    tint: inherit

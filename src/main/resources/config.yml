@@ -1,0 +1,81 @@
+# SiftCore core settings. Every feature has its own file in features/, every text lives in lang/.
+# Changes apply with /sift reload. If any file has a mistake, nothing is applied and every problem is listed.
+
+storage:
+  # sqlite (default, one file, no setup) or mysql (also works for MariaDB).
+  # Switching type does not move data between backends.
+  type: sqlite
+  sqlite:
+    # Relative to plugins/SiftCore/.
+    file: data/siftcore.db
+  mysql:
+    host: localhost
+    port: 3306
+    database: siftcore
+    username: siftcore
+    password: ""
+    pool-size: 6
+    ssl: false
+
+currency:
+  # How money is shown. <amount> is replaced by the number. "$<amount>" shows $1,500.
+  format: "$<amount>"
+  # Use thousands separators for full amounts (1,500 instead of 1500).
+  grouping: true
+  # Amounts at or above this are shown short, like $2.5m. Set to 0 to always show full amounts.
+  # Confirmations and receipts that need exactness always show the full amount.
+  compact-from: 1000000
+  # Decimals kept in the short form ($2.53m). Trailing zeros are dropped.
+  compact-decimals: 2
+  # Suffixes players may type and that the short form uses. 1.5k = 1500. Results must be whole.
+  suffixes:
+    k: 1000
+    m: 1000000
+    b: 1000000000
+    t: 1000000000000
+  # The largest balance any player can hold. Credits above it are refused.
+  max-balance: 1000000000000000
+  # Text after shard amounts.
+  shards-suffix: " shards"
+
+# The whole colour system. Nothing else is coloured.
+palette:
+  primary: "#FFFFFF"     # main text
+  secondary: "#AAAAAA"   # descriptions and less important text
+  money: "#1AFF1A"       # money amounts only
+
+# The small set of UI sounds. State is told by wording and these sounds, never by colour.
+# sound is any sound key from the game (for example ui.button.click). volume 0-2, pitch 0.5-2.
+sounds:
+  success:
+    enabled: true
+    sound: entity.experience_orb.pickup
+    volume: 0.35
+    pitch: 1.6
+  error:
+    enabled: true
+    sound: block.note_block.bass
+    volume: 0.6
+    pitch: 0.7
+  click:
+    enabled: true
+    sound: ui.button.click
+    volume: 0.25
+    pitch: 1.0
+  notify:
+    enabled: true
+    sound: block.note_block.pling
+    volume: 0.4
+    pitch: 1.5
+
+gui:
+  # Clicks closer together than this are ignored in every menu (stops macro spam).
+  click-interval: 75ms
+
+crash-safety:
+  # Save a player's inventory to disk right after a trade that moved items (sell, auction, orders, claims),
+  # so a server crash cannot roll back their inventory while keeping the money change.
+  save-player-after-trade: true
+
+# Extra logging for troubleshooting. Also toggled live with /sift debug.
+debug: false

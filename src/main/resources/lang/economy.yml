@@ -1,0 +1,53 @@
+economy:
+  balance:
+    self: "<primary>You have <amount> and <shards> shards."
+    other: "<primary><name> has <amount> and <shards> shards."
+  pay:
+    sent: "<primary>You paid <name> <amount>."
+    received: "<primary><name> paid you <amount>."
+    minimum: "<primary>The smallest payment is <amount>."
+    limit: "<primary>You can send <left> more today. Your daily limit is <limit> and grows the more you play."
+    offline: "<primary><name> has to be online to receive money."
+    target-full: "<primary><name> can't hold that much money."
+    cancelled: "<secondary>Payment cancelled."
+    confirm-title: "Confirm payment"
+    confirm-body:
+      - "<primary>Send <amount> to <name>?"
+      - "<secondary>You can send <left> more today after this."
+      - "<secondary>Payments can't be undone."
+    confirm-button: "Pay"
+    form-title: "Pay a player"
+    form-player: "Player name"
+    form-amount: "Amount, like 1500 or 1.5k"
+  top:
+    title: "Richest players"
+    header: "<primary>Richest players <secondary>page <page> of <pages>"
+    line: "<secondary><rank>. <primary><name> <amount>"
+    you: "<secondary>You are number <rank> with <amount>."
+    empty: "<secondary>Nobody has money yet."
+    page: "<secondary>Page <page> of <pages>"
+    next: "Next page"
+    previous: "Previous page"
+  admin:
+    given: "<primary>Gave <name> <amount>. They now have <balance>."
+    taken: "<primary>Took <amount> from <name>. They now have <balance>."
+    set: "<primary>Set <name>'s balance to <amount>."
+    failed: "<primary>Nothing changed: <reason>."
+    history-header: "<primary>Ledger of <name> <secondary>page <page>"
+    history-line: "<secondary>#<id> <primary><sign><amount> <secondary><kind>, <ago> ago, balance <primary><balance>"
+    history-empty: "<secondary>No transactions on this page."
+    resumed: "<primary>The economy accepts transactions again."
+  hub:
+    label: "Money"
+    description: "Your balance, payments and the leaderboard"
+    title: "Money"
+    body:
+      - "<primary><icon:money> <amount>"
+      - "<primary><icon:shard> <shards> shards"
+      - "<secondary>Leaderboard place <primary><rank>"
+      - "<secondary>You can still send <primary><left><secondary> today"
+    pay: "Pay a player"
+    top: "Richest players"
+  settings:
+    notifications: "Payment messages"
+    notifications-description: "Tell me when someone pays me"

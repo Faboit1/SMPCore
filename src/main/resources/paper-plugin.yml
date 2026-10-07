@@ -1,0 +1,70 @@
+name: SiftCore
+version: '${project.version}'
+main: net.siftvanilla.siftcore.SiftCorePlugin
+bootstrapper: net.siftvanilla.siftcore.SiftCoreBootstrap
+api-version: '26.2'
+folia-supported: true
+description: The gameplay core of SiftVanilla.
+authors: [SiftVanilla]
+website: https://github.com/faboit1/smpcore
+dependencies:
+  server:
+    LuckPerms:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Vault:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    floodgate:
+      load: BEFORE
+      required: false
+      join-classpath: true
+permissions:
+  siftcore.command.balance:
+    description: Use /balance
+    default: true
+  siftcore.command.balance.others:
+    description: See other players' balances
+    default: true
+  siftcore.command.pay:
+    description: Use /pay
+    default: true
+  siftcore.command.baltop:
+    description: Use /baltop
+    default: true
+  siftcore.command.menu:
+    description: Open the main menu
+    default: true
+  siftcore.pay.unlimited:
+    description: No daily /pay limit
+    default: op
+  siftcore.bypass.cooldown:
+    description: Skip command cooldowns
+    default: op
+  siftcore.teleport.bypass-warmup:
+    description: Teleport without warmup
+    default: op
+  siftcore.admin:
+    description: Use /sift
+    default: op
+  siftcore.admin.reload:
+    description: Reload SiftCore
+    default: op
+  siftcore.admin.debug:
+    description: Toggle debug logging
+    default: op
+  siftcore.admin.metrics:
+    description: See internal metrics
+    default: op
+  siftcore.admin.selftest:
+    description: Run the self-test
+    default: op
+  siftcore.admin.eco:
+    description: Change balances and read the ledger
+    default: op

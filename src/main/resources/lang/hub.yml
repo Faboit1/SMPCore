@@ -1,0 +1,58 @@
+hub:
+  title: "SiftVanilla"
+  body:
+    - "<primary>Welcome back, <name>."
+    - "<primary><icon:money> <balance>   <icon:shard> <shards> shards"
+  menu:
+    label: "Menu"
+    description: "Everything on SiftVanilla in one place"
+  links:
+    label: "Links"
+    description: "Rules, Discord and the store"
+    title: "Links"
+  unavailable: "<primary>That isn't available right now."
+  # Text of the SiftVanilla button in the pause screen. Changes apply after a restart.
+  pause-menu:
+    title: "SiftVanilla"
+    body: "Pick where to go."
+  # Labels used by the pause-screen menu for each entry id (see features/hub.yml). Changes apply after a restart.
+  entries:
+    menu:
+      label: "Main menu"
+      description: "Everything in one place"
+    money:
+      label: "Money"
+      description: "Balance, payments and the leaderboard"
+    shop:
+      label: "Shop"
+      description: "Buy items and spawners"
+    sell:
+      label: "Sell"
+      description: "Sell items for money"
+    auction:
+      label: "Auction house"
+      description: "Buy and sell with other players"
+    orders:
+      label: "Orders"
+      description: "Ask players to deliver items"
+    spawners:
+      label: "Spawners"
+      description: "Your spawners and their loot"
+    teams:
+      label: "Team"
+      description: "Your team, members and home"
+    homes:
+      label: "Homes"
+      description: "Teleport to your homes"
+    rtp:
+      label: "Random teleport"
+      description: "Go somewhere new"
+    spawn:
+      label: "Spawn"
+      description: "Back to spawn"
+    stats:
+      label: "Stats"
+      description: "Your stats and the leaderboards"
+    settings:
+      label: "Settings"
+      description: "Your personal settings"

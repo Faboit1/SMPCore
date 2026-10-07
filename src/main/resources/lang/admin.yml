@@ -1,0 +1,17 @@
+admin:
+  reload:
+    done: "<primary>Reloaded <files> files in <time>."
+    failed: "<primary>Nothing was reloaded. Fix these <count> problems first:"
+  problem: "<secondary><file> <primary><path><secondary>: <message>"
+  debug: "<primary>Debug logging is <state>."
+  version: "<primary>SiftCore <version> <secondary>on <server>, <threading>"
+  metrics:
+    header: "<primary>SiftCore metrics <secondary>up <uptime>"
+    line: "<secondary><name>: <primary><value>"
+  selftest:
+    start: "<primary>Running <count> checks..."
+    pass: "<secondary>pass <primary><feature> <secondary><name> <time>"
+    fail: "<primary>fail <feature> <name>: <detail>"
+    done: "<primary><passed> passed, <failed> failed in <time>."
+  "on": "on"
+  "off": "off"

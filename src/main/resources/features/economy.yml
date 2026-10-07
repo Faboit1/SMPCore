@@ -1,0 +1,30 @@
+# Money: payments and the leaderboard. Amounts accept 1500, 1.5k, 2m and so on.
+
+pay:
+  # The smallest amount one /pay can send.
+  minimum: 1
+  # Payments of at least this much ask for confirmation first. 0 never asks.
+  confirm-above: 100k
+  # Time between two payments by the same player.
+  cooldown: 2s
+  # Whether money can be sent to players who are offline.
+  allow-offline-targets: true
+  # How much a player may send per day (server time zone). It grows with time played so new accounts can't be
+  # used to move a lot of money around. Players with siftcore.pay.unlimited have no limit.
+  daily-limit:
+    enabled: true
+    # Everyone can send this much per day.
+    base: 250k
+    # Plus this much for every full hour played (all time).
+    per-hour-played: 50k
+    # But never more than this per day.
+    maximum: 100m
+
+baltop:
+  # How often the leaderboard is rebuilt (off the main threads, from memory).
+  refresh: 60s
+  # How many places are kept.
+  size: 100
+
+# Lines per page in /baltop and /eco history.
+page-size: 10
