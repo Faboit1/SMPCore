@@ -136,9 +136,20 @@ public final class HubFeature implements Feature {
             }
             return missing.isEmpty() ? null : "no feature provides " + String.join(", ", missing);
         });
-        test.check(id(), "pause menu dialog is registered", () -> {
+        test.check(id(), "pause menu dialog is registered and tagged", () -> {
             var registry = io.papermc.paper.registry.RegistryAccess.registryAccess().getRegistry(io.papermc.paper.registry.RegistryKey.DIALOG);
-            return registry.get(net.siftvanilla.siftcore.SiftCoreBootstrap.HUB_DIALOG) != null ? null : "siftcore:hub is not in the dialog registry";
+            var key = io.papermc.paper.registry.TypedKey.create(io.papermc.paper.registry.RegistryKey.DIALOG,
+                net.siftvanilla.siftcore.SiftCoreBootstrap.HUB_DIALOG);
+            if (registry.get(net.siftvanilla.siftcore.SiftCoreBootstrap.HUB_DIALOG) == null) {
+                return "siftcore:hub is not in the dialog registry";
+            }
+            for (var tag : java.util.List.of(io.papermc.paper.registry.keys.tags.DialogTagKeys.PAUSE_SCREEN_ADDITIONS,
+                io.papermc.paper.registry.keys.tags.DialogTagKeys.QUICK_ACTIONS)) {
+                if (!registry.hasTag(tag) || !registry.getTag(tag).contains(key)) {
+                    return "siftcore:hub is missing from " + tag.key().asString();
+                }
+            }
+            return null;
         });
     }
 }
