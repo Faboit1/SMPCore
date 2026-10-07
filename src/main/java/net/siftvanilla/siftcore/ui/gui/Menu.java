@@ -56,6 +56,7 @@ public abstract class Menu implements InventoryHolder {
 
     /** Opens (or re-opens) the menu for its viewer, on the viewer's thread. */
     public final void open() {
+        this.ctx.dialogs().markShown(this.viewer);
         this.ctx.scheduler().entity(this.viewer, () -> {
             redrawNow();
             this.viewer.openInventory(this.inventory);

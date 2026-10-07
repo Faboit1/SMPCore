@@ -5,3 +5,4 @@ target/
 *.class
 dependency-reduced-pom.xml
 .claude/worktrees/
+tools/e2e/SiftE2E.jar

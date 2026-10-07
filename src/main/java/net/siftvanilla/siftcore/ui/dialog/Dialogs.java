@@ -64,6 +64,7 @@ public final class Dialogs implements Listener {
     private final SecureRandom random = new SecureRandom();
     private final Map<UUID, Map<Long, Session>> sessions = new ConcurrentHashMap<>();
     private final Map<String, Consumer<Player>> routes = new ConcurrentHashMap<>();
+    private final Map<UUID, AtomicLong> shown = new ConcurrentHashMap<>();
     private final AtomicLong rejected = new AtomicLong();
     private final AtomicLong handled = new AtomicLong();
     private volatile FormBridge bedrock;
@@ -98,8 +99,22 @@ public final class Dialogs implements Listener {
         return this.rejected.get();
     }
 
+    /**
+     * Records that something new was put on the player's screen (a dialog or a menu), so the router does not
+     * close it after the handler that opened it returns.
+     */
+    public void markShown(Player player) {
+        this.shown.computeIfAbsent(player.getUniqueId(), k -> new AtomicLong()).incrementAndGet();
+    }
+
+    private long shownCount(Player player) {
+        AtomicLong counter = this.shown.get(player.getUniqueId());
+        return counter == null ? 0 : counter.get();
+    }
+
     /** Shows a view, replacing whatever dialog is open. Safe from any thread. */
     public void show(Player player, View view) {
+        markShown(player);
         FormBridge bridge = this.bedrock;
         if (bridge != null && bridge.handles(player)) {
             long token = register(player, view);
@@ -146,6 +161,7 @@ public final class Dialogs implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         this.sessions.remove(event.getPlayer().getUniqueId());
+        this.shown.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -245,6 +261,7 @@ public final class Dialogs implements Listener {
                 return;
             }
             SubmissionImpl submission = new SubmissionImpl(player, validation.values(), view);
+            long shownBefore = shownCount(player);
             try {
                 button.handler().handle(submission);
             } catch (Throwable t) {
@@ -252,7 +269,7 @@ public final class Dialogs implements Listener {
                 this.messenger.send(player, CoreMessages.ACTION_FAILED);
                 submission.close();
             }
-            if (!submission.responded) {
+            if (!submission.responded && shownCount(player) == shownBefore) {
                 player.closeDialog();
             }
         };
@@ -420,6 +437,10 @@ public final class Dialogs implements Listener {
             case LIST, FORM -> {
                 List<ActionButton> actions = view.exit() == null ? rendered : rendered.subList(0, rendered.size() - 1);
                 ActionButton exit = view.exit() == null ? null : rendered.getLast();
+                if (actions.isEmpty()) {
+                    // Vanilla needs at least one action in a multi-action dialog; a lone footer is a notice.
+                    yield DialogType.notice(exit);
+                }
                 yield DialogType.multiAction(actions).exitAction(exit).columns(view.columns()).build();
             }
         };
