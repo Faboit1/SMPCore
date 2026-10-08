@@ -139,6 +139,21 @@ class StatsStoreTest {
     }
 
     @Test
+    void preloadMakesOfflinePlayersExact() throws Exception {
+        this.storage.put(ALEX, new StatsSnapshot(7, 3, 0, 2, 0, 0, 0, 0));
+        this.storage.put(BLAKE, new StatsSnapshot(4, 9, 0, 1, 0, 0, 0, 0));
+        assertEquals(0, this.store.get(ALEX, StatsRecorder.Stat.KILLS), "offline and not in memory");
+        this.store.preload(List.of(ALEX, BLAKE, ALEX)).get(5, TimeUnit.SECONDS);
+        assertEquals(7, this.store.get(ALEX, StatsRecorder.Stat.KILLS));
+        assertEquals(3, this.store.get(ALEX, StatsRecorder.Stat.DEATHS));
+        assertEquals(9, this.store.get(BLAKE, StatsRecorder.Stat.DEATHS));
+        assertEquals(2, this.storage.loadCalls.get(), "each player is read once");
+        this.store.preload(List.of(ALEX)).get(5, TimeUnit.SECONDS);
+        assertEquals(2, this.storage.loadCalls.get(), "players in memory are not read again");
+        assertNull(StatsRecorder.NONE.preload(List.of(ALEX)).get(1, TimeUnit.SECONDS), "NONE completes at once");
+    }
+
+    @Test
     void offlinePlayersAreUpdatedWithoutLoading() throws Exception {
         this.storage.put(BLAKE, new StatsSnapshot(0, 0, 0, 0, 0, 0, 1_000, 0));
         this.store.add(BLAKE, StatsRecorder.Stat.MONEY_EARNED, 500);

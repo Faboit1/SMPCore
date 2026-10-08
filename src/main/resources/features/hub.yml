@@ -22,6 +22,7 @@ pause-menu:
     - spawn
     - stats
     - settings
+    - report
 
 # Links shown in the pause screen's "Server links" and the menu's Links button.
 # label: what the button says. url: https or http address.

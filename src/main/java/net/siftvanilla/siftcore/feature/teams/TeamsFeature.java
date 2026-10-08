@@ -3,7 +3,12 @@ package net.siftvanilla.siftcore.feature.teams;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.core.Feature;
@@ -112,7 +117,9 @@ public final class TeamsFeature implements Feature {
         var scheduler = this.services.scheduler();
         this.tasks.add(scheduler.asyncTimer(() -> this.invites.sweep(System.currentTimeMillis()), INVITE_SWEEP, INVITE_SWEEP));
         this.tasks.add(scheduler.asyncTimer(this.limits::refreshOnlineOwners, OWNER_REFRESH, OWNER_REFRESH));
-        refreshTop();
+        // A first board from what is in memory now, then a full one once offline members' stats are read.
+        refreshTop(false);
+        this.tasks.add(scheduler.asyncLater(() -> refreshTop(true), Duration.ofSeconds(5)));
         scheduleTop();
         this.settings.onReload(s -> scheduleTop());
 
@@ -141,10 +148,28 @@ public final class TeamsFeature implements Feature {
     private synchronized void scheduleTop() {
         this.topTask.cancel();
         Duration period = this.settings.get().topRefresh();
-        this.topTask = this.services.scheduler().asyncTimer(this::refreshTop, period, period);
+        this.topTask = this.services.scheduler().asyncTimer(() -> refreshTop(true), period, period);
     }
 
-    private void refreshTop() {
+    /**
+     * @param preload read offline members' stats first (async threads only), so team kill totals count everyone.
+     *                Loading also keeps them cached until the next refresh, which makes /team info exact as well.
+     */
+    private void refreshTop(boolean preload) {
+        if (preload) {
+            List<UUID> members = new ArrayList<>();
+            for (Team team : this.registry.all()) {
+                members.addAll(team.memberIds());
+            }
+            try {
+                this.stats.preload(members).get(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (ExecutionException | TimeoutException e) {
+                this.services.plugin().getLogger().log(Level.WARNING, "Team leaderboards: member stats took too long to load", e);
+            }
+        }
         this.top.refresh(this.registry.all(),
             member -> this.stats.get(member, StatsRecorder.Stat.KILLS),
             member -> this.services.ledger().balance(member, Currency.MONEY),

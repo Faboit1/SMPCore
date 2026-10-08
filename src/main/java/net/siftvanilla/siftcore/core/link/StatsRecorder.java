@@ -1,6 +1,8 @@
 package net.siftvanilla.siftcore.core.link;
 
+import java.util.Collection;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /** Records lifetime statistics. Implemented by the stats feature; thread-safe and cheap (memory, write-behind). */
 public interface StatsRecorder {
@@ -52,4 +54,13 @@ public interface StatsRecorder {
     int streak(UUID player);
 
     int bestStreak(UUID player);
+
+    /**
+     * Brings these players' stats into memory (offline players are read from storage), so {@link #get} is exact for
+     * them for a while. Team totals use it before adding up members who are offline. Never fails: a player whose
+     * stats can't be read counts as 0.
+     */
+    default CompletableFuture<Void> preload(Collection<UUID> players) {
+        return CompletableFuture.completedFuture(null);
+    }
 }

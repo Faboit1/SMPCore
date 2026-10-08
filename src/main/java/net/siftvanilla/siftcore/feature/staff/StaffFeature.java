@@ -100,7 +100,7 @@ public final class StaffFeature implements Feature {
             this.punishments.sweep();
             this.reports.sweep();
         }, SWEEP, SWEEP));
-        this.services.hub().register(new HubEntry("report", 95, StaffMessages.HUB_REPORT, StaffMessages.HUB_REPORT_DESCRIPTION,
+        this.services.hub().register(new HubEntry("report", 90, StaffMessages.HUB_REPORT, StaffMessages.HUB_REPORT_DESCRIPTION,
             StaffNodes.REPORT, player -> this.reportDialogs.openForm(player, "", "")));
         registerPlaceholders();
     }

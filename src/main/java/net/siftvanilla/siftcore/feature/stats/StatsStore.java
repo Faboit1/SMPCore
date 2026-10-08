@@ -153,6 +153,14 @@ public final class StatsStore implements StatsRecorder {
 
     // ------------------------------------------------------------------ loading
 
+    @Override
+    public CompletableFuture<Void> preload(Collection<UUID> players) {
+        CompletableFuture<?>[] loads = players.stream()
+            .map(player -> load(player).handle((snapshot, error) -> null))
+            .toArray(CompletableFuture[]::new);
+        return CompletableFuture.allOf(loads);
+    }
+
     /**
      * Loads a player's stats if they are not in memory yet and completes with their current values. Concurrent
      * calls share one load; a load waits for a write of the same player that is still running.
