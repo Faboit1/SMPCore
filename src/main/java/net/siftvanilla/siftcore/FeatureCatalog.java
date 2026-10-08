@@ -7,13 +7,14 @@ import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
+import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
-import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
 import net.siftvanilla.siftcore.feature.bounties.BountiesFeature;
+import net.siftvanilla.siftcore.feature.chat.ChatFeature;
 import net.siftvanilla.siftcore.feature.combat.CombatFeature;
 import net.siftvanilla.siftcore.feature.crates.CratesFeature;
 import net.siftvanilla.siftcore.feature.displays.DisplaysFeature;
@@ -24,6 +25,7 @@ import net.siftvanilla.siftcore.feature.hub.HubFeature;
 import net.siftvanilla.siftcore.feature.orders.OrdersFeature;
 import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
 import net.siftvanilla.siftcore.feature.sell.SellFeature;
+import net.siftvanilla.siftcore.feature.settings.SettingsFeature;
 import net.siftvanilla.siftcore.feature.shards.ShardsFeature;
 import net.siftvanilla.siftcore.feature.shop.ShopFeature;
 import net.siftvanilla.siftcore.feature.spawn.SpawnFeature;
@@ -70,8 +72,10 @@ final class FeatureCatalog {
             this.combatTags);
         CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
             this.combatTags, afk.status());
+        ChatFeature chat = new ChatFeature(this.services, this.problems, Ranks.NONE, teams.lookup(), stats.recorder(),
+            staff.mutes(), staff.vanish(), afk.status());
         OrdersFeature orders = new OrdersFeature(this.services, this.problems, this.combatTags, sell.worth(),
-            () -> sell.worth().current().highestMultiplier(), spawners.items(), IgnoreLookup.NONE, staff.vanish());
+            () -> sell.worth().current().highestMultiplier(), spawners.items(), chat.ignores(), staff.vanish());
         orderMarket.set(orders.market());
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
             FriendLookup.NONE, staff.vanish(), spawn.area());
@@ -80,6 +84,8 @@ final class FeatureCatalog {
         features.add(teams);
         features.add(hub);
         features.add(staff);
+        features.add(chat);
+        features.add(new SettingsFeature(this.services, this.problems));
         features.add(stats);
         features.add(sell);
         features.add(spawners);
@@ -91,7 +97,7 @@ final class FeatureCatalog {
         features.add(spawn);
         features.add(new HomesFeature(this.services, this.problems, spawn.area()));
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
-        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), FriendLookup.NONE, IgnoreLookup.NONE));
+        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), FriendLookup.NONE, chat.ignores()));
         features.add(new ExtrasFeature(this.services, this.problems, staff.vanish()));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(combat);

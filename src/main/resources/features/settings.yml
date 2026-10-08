@@ -1,0 +1,10 @@
+# The settings dialog (/settings, and Settings in the main menu and the pause screen).
+# Every feature adds its own switches, grouped by category (Chat, General...); their text lives in that feature's
+# lang file. This file only shapes the dialog.
+
+# How many switches one page of a group shows. Longer groups get Previous page and Next page buttons; switches
+# flipped on one page are kept while moving between pages and saved together.
+page-size: 8
+
+# When a player can only see one group of switches, open that group directly instead of a list with one entry.
+skip-single-group: true

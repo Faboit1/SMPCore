@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.core.player;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,11 +16,16 @@ import net.siftvanilla.siftcore.storage.Database;
 /**
  * Per-player toggles. Loaded when a player logs in (off-thread, before they enter the world), changed only by the
  * player, written through immediately and forgotten when they quit. Unknown players read as defaults.
+ * <p>
+ * Toggles can be registered into a {@link SettingCategory}, which groups them in the settings dialog.
  */
 public final class PlayerSettings {
 
     private final Database database;
     private final Map<String, Toggle> toggles = new LinkedHashMap<>();
+    private final Map<String, SettingCategory> categories = new LinkedHashMap<>();
+    /** Toggle id to the id of its category; toggles without one are not listed. */
+    private final Map<String, String> toggleCategories = new HashMap<>();
     private final Map<UUID, Map<String, String>> values = new ConcurrentHashMap<>();
 
     public PlayerSettings(Database database) {
@@ -31,6 +37,33 @@ public final class PlayerSettings {
         if (this.toggles.putIfAbsent(toggle.id(), toggle) != null) {
             throw new IllegalStateException("Toggle " + toggle.id() + " is registered twice");
         }
+    }
+
+    /**
+     * Registers a toggle in a category (registering the category too, the first time); call during startup. A
+     * category id can only stand for one category: registering a different category under a used id fails.
+     */
+    public synchronized void register(SettingCategory category, Toggle toggle) {
+        SettingCategory known = this.categories.get(category.id());
+        if (known != null && !known.equals(category)) {
+            throw new IllegalStateException("Setting category " + category.id() + " is registered twice with different text");
+        }
+        register(toggle);
+        this.categories.putIfAbsent(category.id(), category);
+        this.toggleCategories.put(toggle.id(), category.id());
+    }
+
+    /** Every category that holds a toggle, lowest {@link SettingCategory#order()} first, then by id. */
+    public synchronized List<SettingCategory> categories() {
+        List<SettingCategory> list = new ArrayList<>(this.categories.values());
+        list.sort(Comparator.comparingInt(SettingCategory::order).thenComparing(SettingCategory::id));
+        return list;
+    }
+
+    /** The category a toggle was registered in, or null when it has none. */
+    public synchronized SettingCategory category(Toggle toggle) {
+        String id = this.toggleCategories.get(toggle.id());
+        return id == null ? null : this.categories.get(id);
     }
 
     public synchronized List<Toggle> toggles() {

@@ -134,14 +134,19 @@ public final class Bot {
     /**
      * A dialog as the client received it. {@code after} is what the client does after a click: close, none (stay until
      * the next dialog) or wait_for_response. {@code initial} holds the text inputs' pre-filled values (what the player
-     * would see typed in the fields).
+     * would see typed in the fields), {@code initials} the value each toggle input starts with.
      */
     public record SeenDialog(String type, String title, List<String> body, List<Button> buttons, Map<String, String> inputs, long at,
-                             String after, Map<String, String> initial) {
+                             String after, Map<String, String> initial, Map<String, Boolean> initials) {
 
         /** The pre-filled text of a text input, or null when the dialog has no such input. */
         public String initial(String key) {
             return this.initial.get(key);
+        }
+
+        /** The value a toggle input starts with, or null when there is no such toggle. */
+        public Boolean toggleValue(String key) {
+            return this.initials.get(key);
         }
 
         public Button button(String labelContains) {
@@ -289,7 +294,7 @@ public final class Bot {
         return List.copyOf(this.chat);
     }
 
-    /** Chat messages as the components the server sent (system chat only), to check their styling. */
+    /** Chat messages as the components the server sent (system and player chat, in the order of {@link #chat()}), to check their styling, hover and click events. */
     public List<Component> chatComponents() {
         return List.copyOf(this.chatComponents);
     }
@@ -826,9 +831,15 @@ public final class Bot {
                     this.chatDialogs.add(new ChatDialog(sc.content().getString(), embedded));
                 }
             }
-            case net.minecraft.network.protocol.game.ClientboundPlayerChatPacket pc ->
-                this.chat.add(pc.unsignedContent() != null ? pc.unsignedContent().getString() : pc.body().content());
-            case net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket dc -> this.chat.add(dc.message().getString());
+            case net.minecraft.network.protocol.game.ClientboundPlayerChatPacket pc -> {
+                Component content = pc.unsignedContent() != null ? pc.unsignedContent() : Component.literal(pc.body().content());
+                this.chatComponents.add(content);
+                this.chat.add(content.getString());
+            }
+            case net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket dc -> {
+                this.chatComponents.add(dc.message());
+                this.chat.add(dc.message().getString());
+            }
             case ClientboundSetActionBarTextPacket ab -> this.actionBar.add(ab.text().getString());
             case ClientboundSetTitleTextPacket t -> this.titles.add(t.text().getString());
             case ClientboundSetHealthPacket health -> {
@@ -909,7 +920,7 @@ public final class Bot {
             }
             default -> {
                 return new SeenDialog(dialog.getClass().getSimpleName(), "", List.of(), List.of(), Map.of(), System.currentTimeMillis(), "",
-                    Map.of());
+                    Map.of(), Map.of());
             }
         }
         List<String> body = new ArrayList<>();
@@ -922,7 +933,11 @@ public final class Bot {
         }
         Map<String, String> inputs = new java.util.LinkedHashMap<>();
         Map<String, String> initial = new java.util.LinkedHashMap<>();
+        Map<String, Boolean> initials = new java.util.LinkedHashMap<>();
         for (Input input : common.inputs()) {
+            if (input.control() instanceof BooleanInput toggle) {
+                initials.put(input.key(), toggle.initial());
+            }
             if (input.control() instanceof TextInput text) {
                 initial.put(input.key(), text.initial());
             }
@@ -935,7 +950,7 @@ public final class Bot {
             });
         }
         return new SeenDialog(type, common.title().getString(), body, buttons, inputs, System.currentTimeMillis(),
-            common.afterAction().getSerializedName(), initial);
+            common.afterAction().getSerializedName(), initial, initials);
     }
 
     /** The dialog a chat component opens when clicked (its own or a child's show_dialog click event), or null. */

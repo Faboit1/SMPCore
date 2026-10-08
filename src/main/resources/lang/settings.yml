@@ -1,0 +1,34 @@
+# Text of the settings dialog (/settings, and Settings in the main menu). Every feature adds its own switches and
+# groups; their labels and descriptions live in that feature's lang file.
+# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+
+settings:
+  title: "Settings"
+  # The list of groups (shown when a player can see switches in more than one group).
+  groups-intro: "<secondary>Pick a group of settings."
+  group-line: "<primary><label><secondary>: <description>"
+  # The title of one group's page, like "Chat settings".
+  group-title: "<label> settings"
+  intro: "<secondary>Switch things on or off, then save."
+  # One line per switch above the switches: its label and what it does.
+  line: "<primary><label><secondary>: <description>"
+  page: "<secondary>Page <page> of <pages>"
+  # Shown when switches were flipped on another page of the group and are not saved yet.
+  pending: "<secondary>Changes on other pages: <primary><count><secondary>, saved with this page."
+  empty: "<secondary>There is nothing to set yet."
+  save: "Save"
+  next: "Next page"
+  previous: "Previous page"
+  saved-one: "<primary><label> turned <state>."
+  saved-many: "<primary>Saved <count> settings."
+  unchanged: "<secondary>Nothing changed."
+  unknown-group: "<primary>There is no settings group called <name>."
+  state-on: "on"
+  state-off: "off"
+  # The group of switches that no feature put in a group of its own.
+  general:
+    label: "General"
+    description: "Notifications, requests and more"
+  hub:
+    label: "Settings"
+    description: "Chat, messages and notifications"

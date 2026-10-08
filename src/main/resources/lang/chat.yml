@@ -1,0 +1,138 @@
+# Text of public chat, private messages (/msg, /r), ignore lists (/ignore) and the chat staff tools (/chat).
+# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Player text (<message>, names) is always inserted as typed and never read as tags.
+
+chat:
+  # A public chat line. <rank> is the player's rank label, <name> their name (hover it for their card, click it
+  # to message them) and <message> what they typed.
+  format: "<secondary><rank> <primary><name><secondary>: <primary><message>"
+  # The same for players without a rank label.
+  format-unranked: "<primary><name><secondary>: <primary><message>"
+
+  # The card shown when a name in chat is hovered.
+  card:
+    name: "<primary><name>"
+    rank: "<secondary><icon:rank> Rank <primary><rank>"
+    team: "<secondary><icon:team> Team <primary><team>"
+    no-team: "<secondary><icon:team> No team"
+    balance: "<secondary><icon:money> Balance <balance>"
+    kills: "<secondary><icon:kill> Kills <kills>"
+    playtime: "<secondary><icon:playtime> Playtime <playtime>"
+    click: "<secondary>Click to message <name>"
+
+  # What [item] or [i] turns into. Hover it to see the item.
+  item:
+    single: "[<item>]"
+    stack: "[<item> x<amount>]"
+
+  # Why a message didn't go through (action bar).
+  blocked:
+    too-long: "<primary>That message is too long. <secondary>The limit is <max> characters."
+    too-fast: "<primary>Slow down. <secondary>You can talk again in <time>."
+    rate: "<primary>You are sending messages too fast. <secondary>Wait <time>."
+    repeat: "<primary>You just said that."
+    caps: "<primary>Please don't type in capitals."
+    filtered: "<primary>Your message has a word that isn't allowed here."
+    link: "<primary>Links and server addresses aren't allowed in chat."
+    locked: "<primary>Chat is locked right now."
+    slow: "<primary>Slow mode is on. <secondary>You can talk again in <time>."
+
+  mention:
+    notice: "<primary><name> mentioned you"
+    afk: "<secondary><name> is AFK."
+
+  private:
+    # What the sender sees, what the receiver sees, and what staff with social spy see.
+    to: "<secondary>To <primary><name><secondary>: <primary><message>"
+    from: "<secondary>From <primary><name><secondary>: <primary><message>"
+    spy: "<secondary>Spy <primary><from><secondary> to <primary><to><secondary>: <primary><message>"
+    name-hover: "<secondary>Click to message <primary><name>"
+    # How the console is named in private messages.
+    console: "Console"
+    empty: "<primary>Type a message after the name."
+    no-reply: "<primary>You have nobody to reply to."
+    self: "<primary>You can't message yourself."
+    blocked: "<primary>You can't message <name>."
+    ignoring: "<primary>You ignore <name>. <secondary>Use /ignore <name> to stop."
+    disabled: "<primary><name> isn't taking private messages."
+    afk: "<secondary><name> is AFK and may answer later."
+    muted: "<primary>You are muted for <time> more. <secondary>Reason: <primary><reason>"
+    muted-permanent: "<primary>You are muted. <secondary>Reason: <primary><reason>"
+    no-reason: "No reason given"
+    toggled-on: "<primary>Players can send you private messages again."
+    toggled-off: "<primary>Private messages to you are off. <secondary>Staff and people you write to can still reach you."
+
+  spy:
+    "on": "<primary>Social spy on. <secondary>You see private messages between players."
+    "off": "<primary>Social spy off."
+
+  ignore:
+    added: "<primary>You now ignore <name>. <secondary>You won't see their chat or messages."
+    removed: "<primary>You no longer ignore <name>."
+    staff: "<primary>You can't ignore <name>, they are staff."
+    full: "<primary>You can ignore up to <max> players. <secondary>Stop ignoring someone first."
+    not-ignored: "<primary>You don't ignore <name>."
+    list:
+      title: "Ignored players"
+      empty: "<secondary>You don't ignore anyone."
+      one: "<primary>You ignore 1 player. <secondary>Pick them to stop ignoring them."
+      many: "<primary>You ignore <count> players. <secondary>Pick one to stop ignoring them."
+      page: "<secondary>Page <page> of <pages>"
+      add: "Ignore a player"
+      next: "Next page"
+      previous: "Previous page"
+    form:
+      title: "Ignore a player"
+      body: "<secondary>You won't see their chat, private messages or teleport requests."
+      name: "Player name"
+      submit: "Ignore"
+    confirm:
+      title: "Stop ignoring"
+      body: "<primary>Stop ignoring <name>? <secondary>You will see their chat and messages again."
+      button: "Stop ignoring"
+
+  # Staff tools (/chat). Lock and slow mode announcements go to everyone.
+  admin:
+    locked: "<primary>Chat is locked. <secondary>Only staff can talk for now."
+    unlocked: "<primary>Chat is open again."
+    already-locked: "<primary>Chat is already locked."
+    already-unlocked: "<primary>Chat isn't locked."
+    slow-on: "<primary>Slow mode is on. <secondary>Everyone can send one message every <time>."
+    slow-off: "<primary>Slow mode is off."
+    slow-invalid: "<primary><input> is not a duration. <secondary>Try 5s, 30s or off."
+    slow-too-long: "<primary>Slow mode can be at most <max>."
+    status:
+      - "<primary>Chat <lock>"
+      - "<secondary>Slow mode <primary><slow>"
+      - "<secondary>Filtered words <primary><words>"
+      - "<secondary>Links <primary><links>"
+      - "<secondary>Ignore entries <primary><ignores>"
+      - "<secondary>Anti-spam <rate><secondary> messages per <window><secondary>, <cooldown><secondary> apart"
+    status-locked: "locked"
+    status-open: "open"
+    status-slow-off: "off"
+    status-links-block: "refused"
+    status-links-replace: "replaced"
+    status-links-off: "allowed"
+    test-clean: "<primary>The filter lets that message through unchanged."
+    test-replaced: "<primary>The filter sends: <secondary><text> <primary>(matched <words>)"
+    test-blocked: "<primary>The filter refuses that message. <secondary>Matched <words>"
+    test-caps-lowered: "<secondary>Anti-spam would send it in lowercase."
+    test-caps-blocked: "<secondary>Anti-spam would refuse it for capitals."
+    test-too-long: "<secondary>Anti-spam would refuse it: longer than <max> characters."
+    test-link-blocked: "<primary>The link check refuses that message. <secondary>Found <links>"
+    test-link-replaced: "<primary>The link check sends: <secondary><text> <primary>(found <links>)"
+    ignores-header: "<primary>Players <name> ignores <secondary>(<count>)"
+    ignores-line: "<primary><name>"
+    ignores-none: "<primary><name> doesn't ignore anyone."
+
+  # The chat group of the settings dialog and its switches.
+  settings:
+    category: "Chat"
+    category-description: "Mentions and private messages"
+    mentions: "Mention alerts"
+    mentions-description: "Play a sound when someone mentions me in chat"
+    private-messages: "Private messages"
+    private-messages-description: "Let players send me private messages"
+    social-spy: "Social spy"
+    social-spy-description: "See private messages between other players"

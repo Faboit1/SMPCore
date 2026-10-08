@@ -1,0 +1,101 @@
+# Public chat, private messages (/msg, /r) and ignore lists (/ignore).
+# The chat line itself and every message are in lang/chat.yml. Durations look like 30s, 5m or 1h.
+
+format:
+  # Hovering a name in chat shows a card with the player's rank, team, balance, kills and playtime; clicking it
+  # starts a private message (/msg <name>).
+  hover-card: true
+  # Typing [item] or [i] shows the item in your hand, which others can hover to see (permission siftcore.chat.item).
+  item-tag: true
+
+anti-spam:
+  # Players with siftcore.chat.bypass skip everything in this section, and also chat lock and slow mode.
+  # The most characters one message may have (the game itself allows 256).
+  max-length: 200
+  # The shortest time between two messages of one player. 0s turns it off.
+  cooldown: 1s
+  rate-limit:
+    # A player can send at most this many messages...
+    messages: 5
+    # ...within this time. 0 messages turns the rate limit off.
+    window: 10s
+  repeats:
+    # A message that repeats one of the player's recent messages is refused if it comes within this time.
+    # 0s turns the check off. Private messages are never checked for repeats.
+    window: 30s
+    # How alike two messages must be to count as a repeat, from 0.5 to 1 (1 means only exact repeats). Case,
+    # spaces, punctuation and stretched letters (heyyyy) never make a message different.
+    similarity: 0.9
+    # How many of the player's recent messages a new one is compared with.
+    compare-last: 3
+  caps:
+    # The largest share of capital letters a message may have, from 0 to 1. 1 turns the check off.
+    max-ratio: 0.6
+    # Messages with fewer letters than this are never treated as shouting, so "GG" or "OK" are fine.
+    min-letters: 8
+    # lowercase: the message is sent in lowercase. block: the message is refused.
+    action: lowercase
+
+filter:
+  enabled: true
+  # replace: filtered words are replaced and the message goes through. block: the message is refused.
+  action: replace
+  # What a filtered word is replaced with (at most 32 characters).
+  replacement: "***"
+  # Also catch words written with digits or symbols for letters (k1ll, $hit).
+  leetspeak: true
+  # Also catch words typed one letter at a time with gaps (k y s, k.y.s).
+  join-spaced-letters: true
+  # Filter private messages too.
+  private-messages: true
+  # Write messages the filter or the link check refused or changed to the console so staff can review them.
+  log: true
+  # Words and phrases, matched as whole words ignoring case and accents. End a word with * to also match longer
+  # words that start with it (idiot* matches idiots). Players with siftcore.chat.filter.bypass are not filtered.
+  # /chat test <message> shows what the filter does with a message.
+  words:
+    - kys
+    - kill yourself
+    - kill urself
+
+links:
+  # Stops players advertising other servers: links (https://...), IP addresses (1.2.3.4:25565) and domain names
+  # (play.example.net) are refused or replaced. Version numbers like 1.21.5 and e-mail addresses are fine.
+  # Players with siftcore.chat.links can post any address. /chat test <message> shows what the check does.
+  enabled: true
+  # block: the message is refused. replace: each address is replaced with the filter's replacement.
+  action: block
+  # Check private messages too.
+  private-messages: true
+  # Addresses that are always fine. A domain allows its subdomains and pages too (siftvanilla.net allows
+  # store.siftvanilla.net/rank); an entry with a page allows only that page (discord.gg/siftvanilla).
+  allowed:
+    - siftvanilla.net
+    - discord.gg/siftvanilla
+  # A word with dots counts as an address when it ends in one of these (play.example.net). Add the endings
+  # advertisers use on your server; leave out common words so normal chat isn't refused.
+  top-level-domains: [com, net, org, gg, io, me, co, us, uk, de, eu, fr, nl, pl, es, ru, br, ca, au, xyz, club, fun,
+    pro, tk, ml, ga, cf, gq, cc, tv, info, biz, online, site, network, games, host, top, icu, dev, app, ws]
+
+mentions:
+  # Writing @name (or just the name, see below) of an online player plays a sound for them and tells them on the
+  # action bar. Players turn this off for themselves in /settings. Players who ignore you are never pinged.
+  enabled: true
+  # A player's name written as a whole word mentions them too, not only @name.
+  plain-names: true
+  # Names shorter than this only mention with @, so a player called "ok" isn't pinged all day.
+  min-plain-length: 3
+  # How often one player can ping the same player.
+  cooldown: 3s
+
+private-messages:
+  # How long /r keeps answering the last person you talked to.
+  reply-expiry: 10m
+  # Write every private message to the console.
+  log-to-console: true
+
+ignore:
+  # The most players one player can ignore.
+  max: 100
+  # Names per page in the /ignore list dialog.
+  page-size: 10
