@@ -82,4 +82,41 @@ class YamlFilesTest {
         assertFalse(added.contains("messages.first-join"));
         assertEquals("none", server.getString("messages"));
     }
+
+    @Test
+    void entriesNobodyEditedFollowTheNewDefaults() throws Exception {
+        YamlConfiguration previous = yaml("""
+            rewards: "Shards every <time> (ranks pay more)"
+            billboard: center
+            limit: 5
+            list:
+              - a
+              - b
+            gone: 1
+            """);
+        YamlConfiguration server = yaml("""
+            rewards: "Shards every <time> (ranks pay more)"
+            billboard: fixed
+            limit: 5
+            list:
+              - a
+              - b
+            gone: 1
+            """);
+        YamlConfiguration jar = yaml("""
+            rewards: "Shards every <time>"
+            billboard: vertical
+            limit: 5
+            list:
+              - a
+              - c
+            """);
+        List<String> updated = YamlFiles.updateUnedited(server, jar, previous);
+        assertEquals(List.of("rewards", "list"), updated);
+        assertEquals("Shards every <time>", server.getString("rewards"), "never edited: follows the new text");
+        assertEquals("fixed", server.getString("billboard"), "the admin's choice stays");
+        assertEquals(5, server.getInt("limit"), "unchanged default");
+        assertEquals(List.of("a", "c"), server.getStringList("list"));
+        assertEquals(1, server.getInt("gone"), "keys the jar no longer ships are left alone");
+    }
 }

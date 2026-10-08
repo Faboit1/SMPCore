@@ -26,6 +26,10 @@ import org.bukkit.plugin.Plugin;
  * new since the file was last synced is written into the server's file (with its comments), and logged. Keys the
  * jar shipped before are never re-added, so entries an admin deleted on purpose (a crate, a shop item) stay
  * deleted. Which keys the jar shipped is remembered in {@code data/shipped-keys/}.
+ * <p>
+ * Updates also change shipped defaults (better text, new colours). An entry the server still has exactly as an
+ * earlier version shipped it was never edited, so it gets this version's value; an edited entry is never touched.
+ * The values each file was last shipped with are kept in {@code data/shipped/}.
  */
 public final class YamlFiles {
 
@@ -84,14 +88,17 @@ public final class YamlFiles {
      */
     private void syncNewKeys(String resource, Path path, boolean created) {
         Path record = dataFolder().resolve("data").resolve("shipped-keys").resolve(resource.replace('/', '_') + ".txt");
+        Path shippedCopy = dataFolder().resolve("data").resolve("shipped").resolve(resource);
         try {
             YamlConfiguration jar = new YamlConfiguration();
             jar.options().parseComments(true);
+            String jarText;
             try (InputStream in = this.plugin.getResource(resource)) {
                 if (in == null) {
                     return;
                 }
-                jar.loadFromString(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+                jarText = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                jar.loadFromString(jarText);
             }
             Set<String> shipped = leafKeys(jar);
             if (!created) {
@@ -102,18 +109,58 @@ public final class YamlFiles {
                 Set<String> known = Files.exists(record) ? new HashSet<>(Files.readAllLines(record, StandardCharsets.UTF_8))
                     : leafKeys(server);
                 List<String> added = addNewKeys(server, jar, known);
-                if (!added.isEmpty()) {
+                List<String> updated = List.of();
+                if (Files.exists(shippedCopy)) {
+                    YamlConfiguration previous = new YamlConfiguration();
+                    previous.loadFromString(Files.readString(shippedCopy, StandardCharsets.UTF_8));
+                    updated = updateUnedited(server, jar, previous);
+                }
+                if (!added.isEmpty() || !updated.isEmpty()) {
                     Files.writeString(path, server.saveToString(), StandardCharsets.UTF_8);
+                }
+                if (!added.isEmpty()) {
                     this.plugin.getLogger().info("Added " + added.size() + (added.size() == 1 ? " new key" : " new keys")
-                        + " from this version to " + resource + ": " + String.join(", ", added.size() > 12 ? added.subList(0, 12) : added)
-                        + (added.size() > 12 ? ", ..." : ""));
+                        + " from this version to " + resource + ": " + list(added));
+                }
+                if (!updated.isEmpty()) {
+                    this.plugin.getLogger().info("Updated " + updated.size() + (updated.size() == 1 ? " entry" : " entries")
+                        + " you never edited to this version's default in " + resource + ": " + list(updated));
                 }
             }
             Files.createDirectories(record.getParent());
             Files.write(record, shipped, StandardCharsets.UTF_8);
+            Files.createDirectories(shippedCopy.getParent());
+            Files.writeString(shippedCopy, jarText, StandardCharsets.UTF_8);
         } catch (IOException | InvalidConfigurationException | RuntimeException e) {
             this.plugin.getLogger().log(Level.WARNING, "Could not add new keys to " + resource + "; it is read as it is", e);
         }
+    }
+
+    private static String list(List<String> keys) {
+        return String.join(", ", keys.size() > 12 ? keys.subList(0, 12) : keys) + (keys.size() > 12 ? ", ..." : "");
+    }
+
+    /**
+     * Gives every value key of {@code server} that still holds exactly what {@code previous} (the last shipped copy)
+     * had the value {@code jar} ships now, when that differs. Edited entries, and keys either side lacks, are left
+     * alone. Returns the keys updated.
+     */
+    static List<String> updateUnedited(YamlConfiguration server, YamlConfiguration jar, YamlConfiguration previous) {
+        List<String> updated = new ArrayList<>();
+        for (String key : leafKeys(jar)) {
+            if (!server.contains(key) || server.isConfigurationSection(key) || !previous.contains(key)
+                || previous.isConfigurationSection(key)) {
+                continue;
+            }
+            Object now = server.get(key);
+            Object before = previous.get(key);
+            Object next = jar.get(key);
+            if (java.util.Objects.equals(now, before) && !java.util.Objects.equals(next, before)) {
+                server.set(key, next);
+                updated.add(key);
+            }
+        }
+        return updated;
     }
 
     /** Every key that holds a value (not a section), in file order. */
