@@ -130,7 +130,9 @@ import net.minecraft.world.phys.Vec3;
 public final class Bot {
 
     /** A dialog as the client received it. */
-    public record SeenDialog(String type, String title, List<String> body, List<Button> buttons, Map<String, String> inputs, long at) {
+    /** @param after what the client does after a click: close, none (stay until the next dialog) or wait_for_response */
+    public record SeenDialog(String type, String title, List<String> body, List<Button> buttons, Map<String, String> inputs, long at,
+                             String after) {
         public Button button(String labelContains) {
             for (Button button : this.buttons) {
                 if (button.label().toLowerCase().contains(labelContains.toLowerCase())) {
@@ -831,7 +833,7 @@ public final class Bot {
                 multi.exitAction().ifPresent(exit -> buttons.add(button(exit)));
             }
             default -> {
-                return new SeenDialog(dialog.getClass().getSimpleName(), "", List.of(), List.of(), Map.of(), System.currentTimeMillis());
+                return new SeenDialog(dialog.getClass().getSimpleName(), "", List.of(), List.of(), Map.of(), System.currentTimeMillis(), "");
             }
         }
         List<String> body = new ArrayList<>();
@@ -852,7 +854,8 @@ public final class Bot {
                 default -> "unknown";
             });
         }
-        return new SeenDialog(type, common.title().getString(), body, buttons, inputs, System.currentTimeMillis());
+        return new SeenDialog(type, common.title().getString(), body, buttons, inputs, System.currentTimeMillis(),
+            common.afterAction().getSerializedName());
     }
 
     /** The dialog a chat component opens when clicked (its own or a child's show_dialog click event), or null. */

@@ -55,7 +55,8 @@ public final class SiftCoreBootstrap implements PluginBootstrap {
                     .externalTitle(menu.title())
                     .canCloseWithEscape(true)
                     .pause(false)
-                    .afterAction(DialogBase.DialogAfterAction.CLOSE)
+                    // Stays on screen until the chosen screen replaces it (the router closes it if nothing opens).
+                    .afterAction(DialogBase.DialogAfterAction.NONE)
                     .body(menu.body() == null ? List.of() : List.of(DialogBody.plainMessage(menu.body(), 250)))
                     .build())
                 .type(DialogType.multiAction(menu.buttons()).columns(2).build()))));

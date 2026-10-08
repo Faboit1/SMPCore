@@ -49,7 +49,10 @@ public final class HubFeature implements Feature {
     public void enable() {
         this.services.hub().register(new HubEntry("menu", 0, HubMessages.MENU_LABEL, HubMessages.MENU_DESCRIPTION, null, this::open));
         this.services.hub().register(new HubEntry("links", 95, HubMessages.LINKS, HubMessages.LINKS_DESCRIPTION, null,
-            player -> player.showDialog(Dialog.SERVER_LINKS)));
+            player -> {
+                this.services.dialogs().markShown(player);
+                player.showDialog(Dialog.SERVER_LINKS);
+            }));
         for (String id : this.settings.get().pauseEntries()) {
             this.services.dialogs().route("hub/" + id, player -> openEntry(player, id));
         }

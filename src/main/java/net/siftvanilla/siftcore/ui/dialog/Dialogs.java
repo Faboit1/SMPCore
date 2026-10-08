@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -45,8 +44,14 @@ import org.bukkit.event.player.PlayerQuitEvent;
  * Each shown view gets a random session token; its buttons send {@code siftcore:ui/<token>/<button>}. The router
  * accepts a click only for a live, unconsumed token of that same player, consumes it (so double clicks and replays
  * do nothing), re-validates every input against the view's own definition, and runs the handler on the player's
- * thread. Dialogs wait for the server's response, so the client cannot click twice. Invalid input re-opens the view
- * with an error and the typed values. Bedrock players get the same views as forms when a bridge is installed.
+ * thread. Invalid input re-opens the view with an error and the typed values. Bedrock players get the same views as
+ * forms when a bridge is installed.
+ * <p>
+ * Dialogs stay on screen after a click until the server shows the next one (no "waiting for response" screen), so
+ * moving between screens feels instant. Every click therefore ends in a new dialog or a close: when a handler shows
+ * nothing (within a short grace, for screens that load data first), the router closes the dialog. A dialog with a {@link Button#waits() waiting} button (searches) shows the
+ * client's waiting screen instead, and one whose buttons all close does so on the client at once. A second click
+ * that lands before the next dialog arrives hits a consumed session and is ignored without a message.
  */
 public final class Dialogs implements Listener {
 
@@ -54,8 +59,17 @@ public final class Dialogs implements Listener {
     private static final String UI_PREFIX = "ui/";
     private static final int MAX_SESSIONS_PER_PLAYER = 8;
     private static final long SESSION_TTL_MILLIS = 15 * 60 * 1000L;
+    /**
+     * How long the router waits for a handler's screen before closing the dialog it was clicked in. Many handlers
+     * show their next screen after loading something (a database read), so the close waits a moment instead of
+     * flashing the world between two screens.
+     */
+    private static final long CLOSE_GRACE_TICKS = 6;
+    /** How long after a click a second click on the same dialog counts as a double click (ignored silently). */
+    private static final long DOUBLE_CLICK_MILLIS = 5_000L;
 
-    private record Session(long token, View view, long created, AtomicBoolean consumed) {
+    /** @param consumedAt when the session's one click was accepted, 0 while it is unused */
+    private record Session(long token, View view, long created, AtomicLong consumedAt) {
     }
 
     private final Scheduler scheduler;
@@ -154,7 +168,7 @@ public final class Dialogs implements Listener {
                     return size() > MAX_SESSIONS_PER_PLAYER;
                 }
             }));
-        map.put(token, new Session(token, view, System.currentTimeMillis(), new AtomicBoolean()));
+        map.put(token, new Session(token, view, System.currentTimeMillis(), new AtomicLong()));
         return token;
     }
 
@@ -182,7 +196,16 @@ public final class Dialogs implements Listener {
                 return;
             }
             this.handled.incrementAndGet();
-            this.scheduler.entity(player, () -> route.accept(player), null);
+            this.scheduler.entity(player, () -> {
+                long shownBefore = shownCount(player);
+                try {
+                    route.accept(player);
+                } catch (Throwable t) {
+                    this.logger.log(Level.SEVERE, "A menu route failed for " + player.getName(), t);
+                    this.messenger.send(player, CoreMessages.ACTION_FAILED);
+                }
+                closeUnlessAnswered(player, shownBefore);
+            }, null);
             return;
         }
         String[] parts = path.substring(UI_PREFIX.length()).split("/");
@@ -204,6 +227,17 @@ public final class Dialogs implements Listener {
             this.rejected.incrementAndGet();
             this.messenger.send(player, CoreMessages.UI_EXPIRED);
             close(player);
+            return;
+        }
+        long consumedAt = session.consumedAt().get();
+        if (consumedAt != 0) {
+            this.rejected.incrementAndGet();
+            if (System.currentTimeMillis() - consumedAt > DOUBLE_CLICK_MILLIS) {
+                // Not a double click: an old dialog opened again (from chat, say) whose one click was already used.
+                this.messenger.send(player, CoreMessages.UI_EXPIRED);
+                close(player);
+            }
+            // Otherwise a second click while the first click's answer is on its way: nothing to do.
             return;
         }
         List<Button> buttons = session.view().allButtons();
@@ -230,14 +264,12 @@ public final class Dialogs implements Listener {
     /** Validates and runs one click. {@code values} holds raw client values (String, Boolean or Float). */
     void dispatch(Player player, long token, int buttonIndex, Map<String, Object> values) {
         Session session = session(player, token);
-        if (session == null || !session.consumed().compareAndSet(false, true)) {
+        if (session == null || !session.consumedAt().compareAndSet(0, Math.max(1, System.currentTimeMillis()))) {
             this.rejected.incrementAndGet();
             return;
         }
-        Map<Long, Session> map = this.sessions.get(player.getUniqueId());
-        if (map != null) {
-            map.remove(token);
-        }
+        // The consumed session stays (until it ages out or is pushed out by newer ones), so a late second click on
+        // the same dialog is recognised and ignored instead of being answered with "this menu expired".
         View view = session.view();
         List<Button> buttons = view.allButtons();
         if (buttonIndex < 0 || buttonIndex >= buttons.size()) {
@@ -269,8 +301,8 @@ public final class Dialogs implements Listener {
                 this.messenger.send(player, CoreMessages.ACTION_FAILED);
                 submission.close();
             }
-            if (!submission.responded && shownCount(player) == shownBefore) {
-                closeAfterClick(player);
+            if (!submission.responded) {
+                closeUnlessAnswered(player, shownBefore);
             }
         };
         if (this.scheduler.owns(player)) {
@@ -281,9 +313,24 @@ public final class Dialogs implements Listener {
     }
 
     /**
-     * Closes the screen a click left the client on. After a click the client shows its "waiting for response" screen,
-     * which ignores the clear-dialog packet (it only closes a dialog screen), so a container close is sent as well:
-     * the client handles that by closing whatever screen is open. Runs on the player's thread.
+     * Closes the dialog a click came from unless something new is shown within {@link #CLOSE_GRACE_TICKS}: a screen
+     * the handler opens after loading data replaces the dialog directly instead of after a close. Player's thread.
+     */
+    private void closeUnlessAnswered(Player player, long shownBefore) {
+        if (shownCount(player) != shownBefore) {
+            return;
+        }
+        this.scheduler.entityLater(player, () -> {
+            if (player.isOnline() && shownCount(player) == shownBefore) {
+                closeAfterClick(player);
+            }
+        }, null, CLOSE_GRACE_TICKS);
+    }
+
+    /**
+     * Closes the screen a click left the client on: the dialog itself, or the "waiting for response" screen of a
+     * waiting dialog. That screen ignores the clear-dialog packet (it only closes a dialog screen), so a container
+     * close is sent as well: the client handles that by closing whatever screen is open. Runs on the player's thread.
      */
     private void closeAfterClick(Player player) {
         Runnable close = () -> {
@@ -446,7 +493,7 @@ public final class Dialogs implements Listener {
         DialogBase base = DialogBase.builder(view.title())
             .canCloseWithEscape(view.escapable())
             .pause(false)
-            .afterAction(DialogBase.DialogAfterAction.WAIT_FOR_RESPONSE)
+            .afterAction(afterAction(all))
             .body(bodies)
             .inputs(inputs)
             .build();
@@ -464,6 +511,21 @@ public final class Dialogs implements Listener {
             }
         };
         return Dialog.create(factory -> factory.empty().base(base).type(type));
+    }
+
+    /**
+     * What the client does after any click, for a whole dialog (Minecraft has no per-button setting): wait when a
+     * button asks for it, close at once when every button closes, otherwise keep the dialog until the next one.
+     */
+    static DialogBase.DialogAfterAction afterAction(List<Button> buttons) {
+        boolean allClose = true;
+        for (Button button : buttons) {
+            if (button.after() == Button.After.WAIT) {
+                return DialogBase.DialogAfterAction.WAIT_FOR_RESPONSE;
+            }
+            allClose &= button.closesOnClient();
+        }
+        return allClose ? DialogBase.DialogAfterAction.CLOSE : DialogBase.DialogAfterAction.NONE;
     }
 
     /** Renders a plain text component for logs and Bedrock forms. */

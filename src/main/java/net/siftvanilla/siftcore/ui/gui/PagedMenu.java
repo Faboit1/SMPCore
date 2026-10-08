@@ -232,7 +232,7 @@ public abstract class PagedMenu<T> extends Menu {
             submission -> {
                 submission.close();
                 open();
-            }));
+            }).waiting());
     }
 
     /** The entries currently visible after filter, search and sort. */

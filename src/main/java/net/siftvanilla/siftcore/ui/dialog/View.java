@@ -69,6 +69,19 @@ public record View(Kind kind, Component title, List<Body> body, List<Input> inpu
         return all;
     }
 
+    /**
+     * A copy whose buttons show the client's "waiting for response" screen after a click, for dialogs whose answer
+     * takes a moment, such as searches. See {@link Button.After}.
+     */
+    public View waiting() {
+        List<Button> waiting = new ArrayList<>(this.buttons.size());
+        for (Button button : this.buttons) {
+            waiting.add(button.waits());
+        }
+        return new View(this.kind, this.title, this.body, this.inputs, waiting, this.exit == null ? null : this.exit.waits(),
+            this.columns, this.escapable);
+    }
+
     /** A copy with an error line appended to the body and inputs pre-filled with what the player typed. */
     public View withError(Component error, FormValues typed) {
         List<Body> newBody = new ArrayList<>();

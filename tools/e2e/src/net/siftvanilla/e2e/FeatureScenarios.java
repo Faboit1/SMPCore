@@ -21,6 +21,7 @@ final class FeatureScenarios {
         list.addAll(CombatScenarios.all());
         list.addAll(TeleportScenarios.all());
         list.addAll(VaultScenarios.all());
+        list.addAll(UiScenarios.all());
         list.addAll(AxAuctionsScenarios.all());
         return list;
     }
