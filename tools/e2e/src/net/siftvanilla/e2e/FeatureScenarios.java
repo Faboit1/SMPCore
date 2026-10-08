@@ -10,6 +10,8 @@ final class FeatureScenarios {
     }
 
     static List<Scenario> all() {
-        return new ArrayList<>();
+        List<Scenario> list = new ArrayList<>();
+        list.addAll(StatsScenarios.all());
+        return list;
     }
 }

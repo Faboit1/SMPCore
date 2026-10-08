@@ -19,6 +19,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.ByteTag;
@@ -67,7 +69,9 @@ import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.login.ClientLoginPacketListener;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ClientboundLoginCompressionPacket;
@@ -92,10 +96,13 @@ import net.minecraft.server.dialog.input.TextInput;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.server.network.EventLoopGroupHolder;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.ChatVisiblity;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * A scripted test player: a real protocol client running inside the server JVM (it uses the server's own codecs),
@@ -151,6 +158,7 @@ public final class Bot {
     private final List<SeenDialog> dialogs = new CopyOnWriteArrayList<>();
     private final AtomicInteger deaths = new AtomicInteger();
     private final AtomicInteger dialogsCleared = new AtomicInteger();
+    private final AtomicInteger sequence = new AtomicInteger();
 
     public Bot(String name) {
         this.name = name;
@@ -246,7 +254,11 @@ public final class Bot {
         });
     }
 
+    /** Disconnects. Safe to call again (a scenario may quit a bot before the cleanup does). */
     public void quit() {
+        if (this.exec.isShutdown()) {
+            return;
+        }
         Connection c = this.conn;
         if (c != null) {
             this.exec.execute(() -> c.disconnect(Component.literal("bot quit")));
@@ -280,6 +292,22 @@ public final class Bot {
 
     public void respawn() {
         send(new ServerboundClientCommandPacket(ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
+    }
+
+    /**
+     * Starts breaking a block, like a left click. The server breaks it at once when the player mines fast enough
+     * ("insta mine"), so give the player a fast tool or a high block break speed first.
+     */
+    public void breakBlock(int x, int y, int z) {
+        send(new ServerboundPlayerActionPacket(ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, new BlockPos(x, y, z),
+            Direction.UP, this.sequence.incrementAndGet()));
+    }
+
+    /** Right-clicks the top face of a block with the main hand item (a block item is placed on top of it). */
+    public void useItemOnTop(int x, int y, int z) {
+        BlockPos pos = new BlockPos(x, y, z);
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos).add(0, 0.5, 0), Direction.UP, pos, false);
+        send(new ServerboundUseItemOnPacket(InteractionHand.MAIN_HAND, hit, this.sequence.incrementAndGet()));
     }
 
     /**

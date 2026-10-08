@@ -1,5 +1,6 @@
 package net.siftvanilla.e2e;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
+import net.siftvanilla.siftcore.SiftCore;
 import net.siftvanilla.siftcore.SiftCorePlugin;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.core.Services;
@@ -43,6 +45,29 @@ public final class E2E {
             throw new Failure("SiftCore is not running");
         }
         return core.core().services();
+    }
+
+    /**
+     * The running instance of a SiftCore feature, for scenarios that drive a feature's service directly (for example
+     * the stats recorder that the combat feature reports kills to). Test-only access to the composition root.
+     */
+    public <T> T feature(Class<T> type) {
+        SiftCorePlugin core = (SiftCorePlugin) Bukkit.getPluginManager().getPlugin("SiftCore");
+        if (core == null || core.core() == null) {
+            throw new Failure("SiftCore is not running");
+        }
+        try {
+            Field field = SiftCore.class.getDeclaredField("features");
+            field.setAccessible(true);
+            for (Object feature : (List<?>) field.get(core.core())) {
+                if (type.isInstance(feature)) {
+                    return type.cast(feature);
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new Failure("cannot read SiftCore's features: " + e);
+        }
+        throw new Failure("SiftCore has no " + type.getSimpleName());
     }
 
     /** A player name unique to this run (base name up to 10 characters plus a run suffix). */
