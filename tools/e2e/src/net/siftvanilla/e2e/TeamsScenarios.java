@@ -498,11 +498,15 @@ final class TeamsScenarios {
             "the owner is away from the home");
         e2e.sleep(500);
         owner.clearLogs();
+        long start = System.currentTimeMillis();
         owner.command("team home");
         e2e.eventually(() -> owner.actionBarContains("Teleporting in"), "a warmup: " + owner.actionBar());
-        e2e.eventually(() -> owner.actionBarContains("Teleported"), 12_000, "teleported: " + owner.actionBar());
+        // Checked on the server (the bots' client side can lag on a busy machine); the warmup must have passed.
         e2e.eventually(() -> e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getLocation().distance(home)) < 1.0,
-            "back at the home");
+            30_000, "back at the home");
+        long took = System.currentTimeMillis() - start;
+        e2e.expect(took >= 4_500, "the teleport waited for the 5s warmup, took " + took + " ms");
+        e2e.eventually(() -> owner.actionBarContains("Teleported"), 30_000, "teleported: " + owner.actionBar());
 
         e2e.step("members use the home too, and the menu shows it");
         Bot.SeenDialog main = openTeamMenu(e2e, member, "Team " + team);
