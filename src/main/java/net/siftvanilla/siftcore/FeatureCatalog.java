@@ -71,7 +71,7 @@ final class FeatureCatalog {
         features.add(new HomesFeature(this.services, this.problems, spawn.area()));
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
         features.add(new TpaFeature(this.services, this.problems, staff.vanish(), AfkStatus.NONE, FriendLookup.NONE, IgnoreLookup.NONE));
-        features.add(new ExtrasFeature(this.services, this.problems));
+        features.add(new ExtrasFeature(this.services, this.problems, staff.vanish()));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(combat);
         features.add(new BountiesFeature(this.services, this.problems));

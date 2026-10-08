@@ -17,6 +17,7 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.ui.dialog.Button;
@@ -31,7 +32,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
  * Small things every SMP has: /rules, /help, /ping, /seen, /links, and quiet join/leave messages with a welcome
- * for first-time players.
+ * for first-time players. Vanished staff join and leave without a message.
  */
 public final class ExtrasFeature implements Feature, Listener {
 
@@ -39,9 +40,11 @@ public final class ExtrasFeature implements Feature, Listener {
 
     private final Services services;
     private final Setting<ExtrasSettings> settings;
+    private final VanishStatus vanish;
 
-    public ExtrasFeature(Services services, List<ConfigProblem> problems) {
+    public ExtrasFeature(Services services, List<ConfigProblem> problems, VanishStatus vanish) {
         this.services = services;
+        this.vanish = vanish;
         this.settings = services.configs().register("features/extras.yml", ExtrasSettings::parse, problems);
         services.lang().register(ExtrasMessages.class);
         var perms = services.permissions();
@@ -161,7 +164,9 @@ public final class ExtrasFeature implements Feature, Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         ExtrasSettings s = this.settings.get();
-        if (!player.hasPlayedBefore() && s.firstJoinWelcome()) {
+        if (this.vanish.vanished(player.getUniqueId())) {
+            event.joinMessage(null);
+        } else if (!player.hasPlayedBefore() && s.firstJoinWelcome()) {
             event.joinMessage(this.services.lang().get(ExtrasMessages.FIRST_JOIN, Arg.text("name", player.getName()),
                 Arg.number("number", this.services.directory().size())));
         } else if (s.joinMessages()) {
@@ -173,7 +178,7 @@ public final class ExtrasFeature implements Feature, Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onQuit(PlayerQuitEvent event) {
-        if (this.settings.get().quitMessages()) {
+        if (this.settings.get().quitMessages() && !this.vanish.vanished(event.getPlayer().getUniqueId())) {
             event.quitMessage(this.services.lang().get(ExtrasMessages.QUIT, Arg.text("name", event.getPlayer().getName())));
         } else {
             event.quitMessage(null);

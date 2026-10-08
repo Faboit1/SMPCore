@@ -60,6 +60,7 @@ final class StaffScenarios {
         list.add(of("staff-ban", StaffScenarios::ban));
         list.add(of("staff-freeze", StaffScenarios::freeze));
         list.add(of("staff-vanish", StaffScenarios::vanish));
+        list.add(of("staff-vanish-join-messages", StaffScenarios::vanishJoinMessages));
         list.add(of("staff-report", StaffScenarios::report));
         list.add(of("staff-invsee", StaffScenarios::invsee));
         list.add(of("staff-chat", StaffScenarios::staffChat));
@@ -481,6 +482,47 @@ final class StaffScenarios {
         e2e.sleep(800);
         e2e.expect(!staff.vanish().vanished(watcherId), "the watcher did not vanish");
         e2e.console("deop " + MOD);
+    }
+
+    /** With join and leave messages on, a vanished moderator comes and goes without a message; a visible one doesn't. */
+    static void vanishJoinMessages(E2E e2e) throws Exception {
+        String MOD = e2e.name("VanMsg");
+        String WATCHER = e2e.name("MsgWatch");
+        java.nio.file.Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/extras.yml");
+        String original = java.nio.file.Files.readString(config);
+        e2e.expect(original.contains("join: false") && original.contains("quit: false"), "the default extras messages");
+        try {
+            java.nio.file.Files.writeString(config, original.replace("join: false", "join: true").replace("quit: false", "quit: true"));
+            e2e.console("sift reload");
+            Bot mod = e2e.bot(MOD);
+            e2e.console("op " + MOD);
+            Bot watcher = e2e.bot(WATCHER);
+            UUID modId = e2e.uuid(MOD);
+
+            e2e.step("a vanished moderator leaves without a message");
+            mod.command("vanish");
+            e2e.eventually(() -> staff().vanish().vanished(modId), "the moderator is vanished");
+            watcher.clearLogs();
+            mod.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(MOD) == null, "the moderator left");
+            e2e.sleep(1_000);
+            e2e.expect(!watcher.chatContains(MOD + " left"), "no leave message: " + watcher.chat());
+
+            e2e.step("and comes back without a message");
+            Bot back = e2e.bot(MOD);
+            e2e.eventually(() -> back.actionBarContains("You are vanished"), 6_000, "still vanished: " + back.actionBar());
+            e2e.expect(!watcher.chatContains(MOD + " joined"), "no join message: " + watcher.chat());
+
+            e2e.step("once visible again, leaving is announced as usual");
+            back.command("vanish");
+            e2e.eventually(() -> !staff().vanish().vanished(modId), "the moderator is visible");
+            back.quit();
+            e2e.eventually(() -> watcher.chatContains(MOD + " left"), "the leave message: " + watcher.chat());
+        } finally {
+            java.nio.file.Files.writeString(config, original);
+            e2e.console("sift reload");
+            e2e.console("deop " + MOD);
+        }
     }
 
     // ------------------------------------------------------------------ reports
