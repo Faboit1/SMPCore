@@ -37,7 +37,7 @@ protection:
     to: "64 320 64"
   # Blocks players may still right click (or step on) inside spawn: a block name like oak_door or a block tag like
   # #minecraft:buttons. Everything else, chests and other containers included, can't be used.
-  # Add the blocks of your crates here (for example ender_chest) so players can open them.
+  # Crate blocks (/crates block add) always work and don't need to be listed here.
   allowed-interactions:
     - "#minecraft:buttons"
     - "#minecraft:doors"

@@ -16,6 +16,7 @@ pause-menu:
     - auction
     - orders
     - spawners
+    - crates
     - teams
     - homes
     - rtp

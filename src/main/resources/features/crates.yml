@@ -1,0 +1,423 @@
+# Crates, virtual keys and the keyall (/crates, /keys, /keyall).
+#
+# Players open crates with keys. Keys are virtual (no key items): they come from the keyall below, the store, the
+# shard shop and staff (/keys give). Opening a crate spends one key and pays one reward, drawn by weight. The key,
+# the reward and the crate log row are stored together in one transaction, so a crash or a full balance can never
+# spend a key without paying or pay without a key. Won items go into the inventory, or into the claim box when they
+# don't fit.
+#
+# Changes apply with /sift reload. A mistake is reported precisely and the reload is refused; at startup a broken
+# reward is left out of its crate and a broken keyall is switched off.
+
+# Shortest time between two crate openings with /crates open or a crate block (bypass permission:
+# siftcore.bypass.cooldown). The crates dialog and the preview menu wait for each opening to finish instead.
+open-cooldown: 1s
+
+# Players in combat can't open crates (no totems or golden apples in the middle of a fight). They can still look
+# at the crates and their rewards. The combat feature sets how long a combat tag lasts.
+block-in-combat: true
+
+# The most keys one click opens in a row ("Open 10" in the crate screens, /crates open <crate> <amount>). Each key
+# is still opened, stored and paid out on its own, one after another; the player gets one summary. 0 or 1 turns it
+# off (one key at a time). At most 64.
+bulk-open: 10
+
+# Sneaking and right-clicking a crate block opens a key straight away, without the crate screen.
+quick-open: true
+
+# Players who have unopened keys get a short reminder in chat a few seconds after joining.
+join-reminder: true
+
+grants:
+  # A key grant with a reference (store purchases, shard shop, every player's keyall keys) is applied once: the
+  # same reference again is refused. References are remembered this long (1d to 3650d).
+  remember: 90d
+
+# Rarity tiers, in order from most common to rarest. Every reward names one (the first one is the default).
+#   label:    the plain text shown in the preview and in the result (no tags or colour codes).
+#   audit:    wins of this rarity are also written to the audit log (every win is always in the crate log).
+#   announce: wins of this rarity are announced in chat to everyone (never for vanished staff).
+rarities:
+  common:
+    label: "Common"
+    audit: false
+    announce: false
+  uncommon:
+    label: "Uncommon"
+    audit: false
+    announce: false
+  rare:
+    label: "Rare"
+    audit: true
+    announce: false
+  epic:
+    label: "Epic"
+    audit: true
+    announce: true
+  legendary:
+    label: "Legendary"
+    audit: true
+    announce: true
+
+# The keyall: every interval, everyone online gets keys of one crate.
+keyall:
+  enabled: true
+  # Time between two keyalls (5m to 7d). The next time is stored, so restarts keep the schedule.
+  interval: 4h
+  # The crate whose keys it gives, and how many each player gets (1 to 64).
+  crate: basic
+  amount: 1
+  # When the server was offline at keyall time, the keyall runs this long after the next startup (0s to 1h), so
+  # players have time to come back.
+  missed-delay: 10m
+  # Whether vanished staff get keys too.
+  include-vanished: false
+  # Whether players who are AFK get keys too (as on most SMPs, staying online is what earns them). Set it to false
+  # to give keys only to players who are active; the AFK feature decides who is AFK.
+  include-afk: true
+  countdown:
+    # Announcements in chat this long before the keyall (each at least 10s and shorter than the interval).
+    chat: [5m, 1m]
+    # The last seconds are counted down in everyone's action bar (0s turns it off, at most 1m).
+    action-bar: 10s
+
+# The crates. The key (basic, rare, ...) is the crate's id: 1 to 32 lowercase letters, digits, - or _. It is stored
+# with every player's keys, so renaming it loses those keys; change name instead.
+#
+#   name:    plain short name. Text says "Basic crate" and "Basic key".
+#   icon:    the item shown for the crate in /crates.
+#   blocks:  optional blocks that act as this crate, as "world x y z". Staff can also add blocks in-game with
+#            /crates block add <crate> while looking at a block (stored in the database, not here).
+#            Right-click shows the crate, sneak + right-click opens a key, left-click shows the rewards.
+#   rewards: the rewards, keyed by an id (1 to 32 lowercase letters, digits, - or _; stored in the crate log).
+#
+# Every reward has:
+#   weight:  how likely it is compared to the other rewards of the crate (the chance is weight / sum of weights;
+#            the preview shows it as a percentage). Decimals are fine.
+#   rarity:  a rarity id from above.
+#   display: optional plain text naming the reward in messages ("You won 8 diamonds from the Basic crate.").
+#            Without it, it is made from the reward ("8 diamond", "$5,000", "50 shards", "2 Rare keys").
+#   icon:    optional item shown in the preview instead of the reward's own item.
+# and exactly one of:
+#   item: <item id>        items. amount (default 1, at most 640), optional name and lore (plain text, at most 8
+#                          lines), enchants (enchantment: level; levels above the normal maximum need
+#                          unsafe-enchants: true). Enchanted books get the enchantments stored in the book.
+#   money: <amount>        money (1500, 1.5k, 2m). Paid with the ledger kind crate_reward.
+#   shards: <amount>       shards. Paid with the ledger kind crate_reward.
+#   keys: <crate id>       keys of a crate (amount, default 1, at most 64).
+#   spawner: <mob id>      spawner items made by the spawners feature (amount, default 1). While that feature can't
+#                          make this mob's spawner the reward is left out and the other chances grow to fill in.
+#   commands: [...]        console commands run when the reward is won (%player% is the winner's name, %uuid% the
+#                          UUID). Needs display and icon. Commands run after the win is stored; a failing command is
+#                          logged so staff can give the reward by hand. Example:
+#                            vip_week:
+#                              commands: ["lp user %player% parent addtemp patron 7d"]
+#                              display: "a week of Patron"
+#                              icon: name_tag
+#                              weight: 1
+#                              rarity: legendary
+#
+# What a key is worth on average: /crates info <crate> (money, shards, the sell value of the items and the keys of
+# other crates). The shipped crates keep money a small extra: see docs/features/crates.md for their numbers.
+crates:
+  basic:
+    name: "Basic"
+    icon: chest
+    blocks: []
+    rewards:
+      iron:
+        item: iron_ingot
+        amount: 16
+        weight: 18
+        rarity: common
+        display: "16 iron ingots"
+      gold:
+        item: gold_ingot
+        amount: 12
+        weight: 12
+        rarity: common
+        display: "12 gold ingots"
+      steak:
+        item: cooked_beef
+        amount: 32
+        weight: 12
+        rarity: common
+        display: "32 steak"
+      experience:
+        item: experience_bottle
+        amount: 16
+        weight: 8
+        rarity: common
+        display: "16 bottles of experience"
+      pickaxe:
+        item: iron_pickaxe
+        enchants: {efficiency: 3, unbreaking: 2}
+        weight: 8
+        rarity: common
+        display: "an enchanted iron pickaxe"
+      chestplate:
+        item: iron_chestplate
+        enchants: {protection: 2}
+        weight: 6
+        rarity: common
+        display: "an enchanted iron chestplate"
+      money-small:
+        money: 750
+        weight: 10
+        rarity: common
+      shards:
+        shards: 10
+        weight: 6
+        rarity: common
+      diamonds:
+        item: diamond
+        amount: 3
+        weight: 8
+        rarity: uncommon
+        display: "3 diamonds"
+      golden-apples:
+        item: golden_apple
+        amount: 3
+        weight: 6
+        rarity: uncommon
+        display: "3 golden apples"
+      money-large:
+        money: 2500
+        weight: 4
+        rarity: uncommon
+      rare-key:
+        keys: rare
+        weight: 2
+        rarity: rare
+
+  rare:
+    name: "Rare"
+    icon: ender_chest
+    blocks: []
+    rewards:
+      diamonds:
+        item: diamond
+        amount: 8
+        weight: 14
+        rarity: common
+        display: "8 diamonds"
+      emeralds:
+        item: emerald
+        amount: 16
+        weight: 10
+        rarity: common
+        display: "16 emeralds"
+      money-small:
+        money: 3000
+        weight: 12
+        rarity: common
+      shards:
+        shards: 40
+        weight: 8
+        rarity: common
+      basic-keys:
+        keys: basic
+        amount: 3
+        weight: 6
+        rarity: common
+      golden-apples:
+        item: golden_apple
+        amount: 8
+        weight: 10
+        rarity: uncommon
+        display: "8 golden apples"
+      pickaxe:
+        item: diamond_pickaxe
+        enchants: {efficiency: 4, unbreaking: 3, fortune: 2}
+        weight: 8
+        rarity: uncommon
+        display: "an enchanted diamond pickaxe"
+      sword:
+        item: diamond_sword
+        enchants: {sharpness: 3, unbreaking: 2}
+        weight: 8
+        rarity: uncommon
+        display: "an enchanted diamond sword"
+      chestplate:
+        item: diamond_chestplate
+        enchants: {protection: 3, unbreaking: 2}
+        weight: 6
+        rarity: uncommon
+        display: "an enchanted diamond chestplate"
+      money-large:
+        money: 7500
+        weight: 6
+        rarity: uncommon
+      mending:
+        item: enchanted_book
+        enchants: {mending: 1}
+        weight: 5
+        rarity: rare
+        display: "a Mending book"
+      totem:
+        item: totem_of_undying
+        weight: 4
+        rarity: rare
+        display: "a totem of undying"
+      epic-key:
+        keys: epic
+        weight: 3
+        rarity: rare
+
+  epic:
+    name: "Epic"
+    icon: shulker_box
+    blocks: []
+    rewards:
+      diamond-blocks:
+        item: diamond_block
+        amount: 4
+        weight: 12
+        rarity: common
+        display: "4 diamond blocks"
+      money-small:
+        money: 15000
+        weight: 12
+        rarity: common
+      rare-keys:
+        keys: rare
+        amount: 3
+        weight: 6
+        rarity: common
+      netherite-scrap:
+        item: netherite_scrap
+        amount: 2
+        weight: 8
+        rarity: uncommon
+        display: "2 netherite scrap"
+      shards:
+        shards: 150
+        weight: 8
+        rarity: uncommon
+      helmet:
+        item: diamond_helmet
+        enchants: {protection: 4, unbreaking: 3}
+        weight: 7
+        rarity: uncommon
+        display: "a Protection IV diamond helmet"
+      leggings:
+        item: diamond_leggings
+        enchants: {protection: 4, unbreaking: 3}
+        weight: 7
+        rarity: uncommon
+        display: "Protection IV diamond leggings"
+      boots:
+        item: diamond_boots
+        enchants: {protection: 4, unbreaking: 3, feather_falling: 4}
+        weight: 7
+        rarity: uncommon
+        display: "Protection IV diamond boots"
+      enchanted-apple:
+        item: enchanted_golden_apple
+        weight: 6
+        rarity: rare
+        display: "an enchanted golden apple"
+      sword:
+        item: diamond_sword
+        enchants: {sharpness: 5, unbreaking: 3, looting: 3}
+        weight: 7
+        rarity: rare
+        display: "a Sharpness V diamond sword"
+      pickaxe:
+        item: diamond_pickaxe
+        enchants: {efficiency: 5, unbreaking: 3, fortune: 3}
+        weight: 7
+        rarity: rare
+        display: "an Efficiency V diamond pickaxe"
+      money-large:
+        money: 40000
+        weight: 5
+        rarity: rare
+      elytra:
+        item: elytra
+        weight: 2
+        rarity: epic
+        display: "an elytra"
+      zombie-spawner:
+        spawner: zombie
+        weight: 4
+        rarity: epic
+        display: "a zombie spawner"
+      legendary-key:
+        keys: legendary
+        weight: 2
+        rarity: epic
+
+  legendary:
+    name: "Legendary"
+    icon: beacon
+    blocks: []
+    rewards:
+      netherite:
+        item: netherite_ingot
+        amount: 2
+        weight: 14
+        rarity: uncommon
+        display: "2 netherite ingots"
+      money-small:
+        money: 75000
+        weight: 17
+        rarity: uncommon
+      epic-keys:
+        keys: epic
+        amount: 2
+        weight: 8
+        rarity: uncommon
+      sword:
+        item: netherite_sword
+        enchants: {sharpness: 5, unbreaking: 3, looting: 3, mending: 1}
+        weight: 8
+        rarity: rare
+        display: "a maxed netherite sword"
+      pickaxe:
+        item: netherite_pickaxe
+        enchants: {efficiency: 5, unbreaking: 3, fortune: 3, mending: 1}
+        weight: 8
+        rarity: rare
+        display: "a maxed netherite pickaxe"
+      chestplate:
+        item: netherite_chestplate
+        enchants: {protection: 4, unbreaking: 3, mending: 1}
+        weight: 8
+        rarity: rare
+        display: "a maxed netherite chestplate"
+      enchanted-apples:
+        item: enchanted_golden_apple
+        amount: 3
+        weight: 8
+        rarity: rare
+        display: "3 enchanted golden apples"
+      shards:
+        shards: 500
+        weight: 8
+        rarity: rare
+      elytra:
+        item: elytra
+        enchants: {unbreaking: 3, mending: 1}
+        weight: 5
+        rarity: epic
+        display: "a Mending elytra"
+      beacon:
+        item: beacon
+        weight: 4
+        rarity: epic
+        display: "a beacon"
+      skeleton-spawner:
+        spawner: skeleton
+        weight: 5
+        rarity: epic
+        display: "a skeleton spawner"
+      money-large:
+        money: 200000
+        weight: 4
+        rarity: epic
+      blaze-spawner:
+        spawner: blaze
+        weight: 3
+        rarity: legendary
+        display: "a blaze spawner"

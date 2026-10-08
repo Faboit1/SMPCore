@@ -1,0 +1,152 @@
+# Text of /crates, /keys and /keyall.
+# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, click and hover, plus each message's own
+# placeholders. Money amounts are coloured automatically. Bold, gradients and other colours are rejected on load.
+# Crate names, reward lines and rarity labels come from features/crates.yml and are inserted as plain text.
+
+crates:
+  keys:
+    # Used inside other messages: "You got 3 Basic keys."
+    one: "1 <name> key"
+    many: "<count> <name> keys"
+    received: "<primary>You got <keys>. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
+    reminder: "<primary>You have <keys> to open. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
+  count:
+    # A key count without the crate name: "You have 3 keys".
+    none: "<secondary>no keys"
+    one: "<primary>1 <secondary>key"
+    many: "<primary><count> <secondary>keys"
+
+  open:
+    no-keys: "<primary>You have no <name> keys."
+    unknown: "<primary>There is no crate called <input>."
+    nothing: "<primary>The <name> crate has nothing to give right now."
+    cancelled: "<secondary>The <name> crate didn't open."
+    failed: "<primary>The crate didn't open. Your key is safe."
+    balance-full: "<primary>You can't hold that much money. Your key wasn't used."
+    key-limit: "<primary>You can't hold more <name> keys."
+    busy: "<primary>Your last crate is still opening."
+    in-combat: "<primary>You can't open crates in combat. <time> left."
+    # The receipt in chat after every opening.
+    won: "<primary>You won <reward> from the <name> crate."
+    won-claim-box: "<primary>You won <reward> from the <name> crate. <secondary>It didn't fit, so it's waiting in your claim box."
+    # The receipt after several openings in a row: one line per reward, with how often it was won.
+    batch: "<primary>You opened <count> <name> crates.<newline><rewards>"
+    batch-claim-box: "<primary>You opened <count> <name> crates.<newline><rewards><newline><secondary>Some of it didn't fit, so it's waiting in your claim box."
+    batch-line: "<primary><reward><secondary>, <times> times"
+    batch-line-once: "<primary><reward>"
+    bulk-limit: "<primary>You can open at most <max> crates at once."
+    # Sent to everyone else for rarities with announce: true.
+    announce: "<secondary><player> won <primary><reward> <secondary>from the <name> crate."
+
+  list:
+    title: "Crates"
+    entry:
+      - "<primary><name> crate"
+      - "<secondary>You have <keys>"
+    empty: "<secondary>There are no crates yet."
+    keyall:
+      - "<secondary><icon:key> Next keyall in <primary><time>"
+      - "<secondary>Everyone online gets <keys>"
+    open: "Open <name>"
+    preview: "Preview <name>"
+
+  view:
+    title: "<name> crate"
+    body:
+      - "<secondary>You have <keys>"
+      - "<secondary>Rewards to win <primary><rewards>"
+    open: "Open"
+    open-many: "Open <count>"
+    preview: "Preview"
+
+  result:
+    won:
+      - "<primary>You won <reward>"
+      - "<secondary><rarity>"
+    left: "<secondary>You have <keys> left."
+    last: "<secondary>That was your last key."
+    claim-box: "<secondary>It didn't fit in your inventory, so it's waiting in your claim box."
+    again: "Open another"
+    many: "Open <count> more"
+    batch: "<primary>You opened <count> crates"
+
+  preview:
+    title: "<name> crate rewards"
+    name: "<primary><reward>"
+    chance: "<secondary>Chance <primary><chance>"
+    rarity: "<secondary>Rarity <primary><rarity>"
+    worth: "<secondary>Sells for <worth>"
+    opens: "<secondary>Opens the <name> crate"
+    sort-order: "Crate order"
+    sort-likely: "Most likely first"
+    sort-rarest: "Rarest first"
+    open: "<primary>Open one"
+    open-lore:
+      - "<secondary>You have <keys>"
+      - "<secondary>Click to open one"
+    open-many-lore:
+      - "<secondary>Right-click to open <count>"
+    no-keys: "<primary>No keys"
+    no-keys-lore:
+      - "<secondary>Keys come from the keyall,"
+      - "<secondary>the shard shop and the store"
+
+  keyall:
+    countdown: "<primary>Keyall in <time>. <secondary>Everyone online gets <keys>."
+    action-bar: "<primary>Keyall in <time>"
+    done: "<primary>Keyall: everyone online got <keys>. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
+    # To players left out because they were AFK (only when keyall.include-afk is false).
+    missed-afk: "<secondary>You were away, so you didn't get <keys> from this keyall."
+    info: "<primary>The next keyall is in <time>. <secondary>Everyone online gets <keys>."
+    "off": "<primary>There is no keyall scheduled."
+    ran: "<primary>Gave <keys> to everyone online. <secondary>Players: <primary><count>"
+    stopped: "<primary>Another plugin stopped the keyall."
+    nobody: "<primary>Nobody online could get keys."
+    set: "<primary>The next keyall is in <time>."
+    bad-time: "<primary><input> is not a time from 10s to 7d. Try 30m or 1h."
+
+  admin:
+    given: "<primary>Gave <player> <keys>. <secondary>They have <primary><total> <secondary>now."
+    taken: "<primary>Took <keys> from <player>. <secondary>They have <primary><total> <secondary>left."
+    not-enough: "<primary><player> only has <keys>."
+    duplicate: "<primary>The reference <ref> was used before, so nothing was given."
+    failed: "<primary>That didn't work (<reason>). Nothing was changed."
+    check-header: "<primary>Keys of <player>"
+    check-line: "<secondary><name> <primary><count>"
+    check-empty: "<primary><player> has no keys."
+    log-header: "<primary>Crates opened by <player> <secondary>(<count> in total)"
+    log-line: "<secondary><ago> ago <primary><name> <secondary><reward>"
+    log-empty: "<primary><player> hasn't opened a crate yet."
+    info-header: "<primary><name> crate <secondary>with <count> rewards"
+    info-line: "<secondary><chance> <primary><reward> <secondary><rarity>"
+    info-value: "<secondary>Average per key: money <money><secondary>, shards <primary><shards><secondary>, items that sell for <items>"
+    info-keys: "<secondary>Average <name> keys per key: <primary><amount>"
+    info-commands: "<secondary>A command reward runs <primary><chance> <secondary>of the time"
+    info-left-out: "<secondary>Spawner rewards left out until spawner items are available: <primary><count>"
+    crates-header: "<primary>Crates <secondary>(<count>)"
+    crates-line: "<secondary><id> <primary><name> crate <secondary><rewards> rewards, <keys> keys held"
+
+  block:
+    look: "<primary>Look at a block up to 6 blocks away."
+    added: "<primary><position> is now the <name> crate."
+    taken: "<primary>That block is already the <name> crate."
+    removed: "<primary><position> is no longer a crate."
+    not-crate: "<primary>That block isn't a crate."
+    in-file: "<primary><position> is set in crates.yml. <secondary>Remove it there, then run /sift reload."
+    busy: "<primary>That block is still being saved."
+    failed: "<primary>That block couldn't be saved. Try again."
+    protected: "<primary>This is the <name> crate. <secondary>Remove it with /crates block remove first."
+    no-world: "<primary>There is no world called <input>."
+    list-header: "<primary>Crate blocks <secondary>(<count>)"
+    list-line: "<primary><name> <secondary>at <position>, <source>"
+    list-empty: "<primary>There are no crate blocks."
+    source-file: "from crates.yml"
+    source-placed: "placed in game"
+
+  settings:
+    wins: "Crate wins"
+    wins-description: "Tell me when someone wins something big from a crate"
+
+  hub:
+    label: "Crates"
+    description: "Open crates with your keys"
