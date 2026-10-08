@@ -148,6 +148,13 @@ public final class PlayerDirectory {
         return this.byUuid.size();
     }
 
+    /** A snapshot of every known player's UUID and last name. */
+    public Map<UUID, String> names() {
+        Map<UUID, String> names = new java.util.HashMap<>(this.byUuid.size() * 2);
+        this.byUuid.forEach((uuid, known) -> names.put(uuid, known.name()));
+        return names;
+    }
+
     private String hashIp(String ip) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

@@ -30,6 +30,10 @@
       <id>papermc</id>
       <url>https://repo.papermc.io/repository/maven-public/</url>
     </repository>
+    <repository>
+      <id>vaultunlocked</id>
+      <url>https://repo.codemc.io/repository/creatorfromhell/</url>
+    </repository>
   </repositories>
 
   <dependencies>
@@ -40,6 +44,15 @@
       <groupId>io.canvasmc.canvas</groupId>
       <artifactId>canvas-api</artifactId>
       <version>${server.api.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- VaultUnlocked (plugin name "Vault"): the legacy net.milkbowl.vault and modern net.milkbowl.vault2 economy
+         interfaces SiftCore registers when the plugin is installed. Only loaded after checking it is present. -->
+    <dependency>
+      <groupId>net.milkbowl.vault</groupId>
+      <artifactId>VaultUnlockedAPI</artifactId>
+      <version>2.20</version>
       <scope>provided</scope>
     </dependency>
 

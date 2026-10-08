@@ -11,6 +11,7 @@ import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
+import net.siftvanilla.siftcore.integration.vault.VaultHook;
 import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
@@ -34,6 +35,8 @@ public final class EconomyFeature implements Feature, Listener {
     private final EconomyService economy;
     private final PayService pay;
     private final EconomyCommands commands;
+    /** The Vault economy registration, when VaultUnlocked is installed. */
+    private volatile VaultHook vault;
 
     public EconomyFeature(Services services, List<ConfigProblem> problems) {
         this.services = services;
@@ -73,6 +76,18 @@ public final class EconomyFeature implements Feature, Listener {
         this.services.hub().register(new HubEntry("money", 10, EconomyMessages.HUB_LABEL, EconomyMessages.HUB_DESCRIPTION,
             null, this::openHub));
         registerPlaceholders();
+        if (Bukkit.getPluginManager().isPluginEnabled(VaultHook.PLUGIN)) {
+            this.vault = VaultHook.register(this.services.plugin(), this.services.ledger(), this.services.directory(),
+                this.services.money(), this.services.plugin().getLogger());
+        }
+    }
+
+    @Override
+    public void disable() {
+        if (this.vault != null) {
+            this.vault.unregister();
+            this.vault = null;
+        }
     }
 
     private void registerPlaceholders() {
@@ -159,5 +174,12 @@ public final class EconomyFeature implements Feature, Listener {
             return parsed.ok() && parsed.amount() == 1500 ? null : "1.5k did not parse to 1500";
         });
         test.check(id(), "leaderboard is built", () -> this.economy.top(Currency.MONEY, 1) != null ? null : "no leaderboard");
+        test.check(id(), "Vault economy is SiftCore's", () -> {
+            if (!Bukkit.getPluginManager().isPluginEnabled(VaultHook.PLUGIN)) {
+                return null;
+            }
+            VaultHook hook = this.vault;
+            return hook != null && hook.active() ? null : "another economy plugin is registered with Vault above SiftCore";
+        });
     }
 }

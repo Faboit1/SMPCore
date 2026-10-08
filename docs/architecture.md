@@ -195,5 +195,26 @@ changes:
 
 Events fired from a world thread are synchronous; others are asynchronous (`isAsynchronous()` tells which).
 
-A Vault `Economy` provider and a PlaceholderAPI expansion (`%siftcore_<name>%`) are registered when those
-plugins are present.
+A PlaceholderAPI expansion (`%siftcore_<name>%`) is registered when PlaceholderAPI is present.
+
+### Vault
+
+When VaultUnlocked (plugin name `Vault`) is installed, the economy feature registers SiftCore's money as the
+server's Vault economy (`integration/vault`). It registers both interfaces at the highest priority, because
+VaultUnlocked does not bridge them: the classic `net.milkbowl.vault.economy.Economy`, which most shop and auction
+plugins use, and the modern `net.milkbowl.vault2.economy.Economy`. `/vault-info` lists SiftCore for both, and
+`/sift selftest` fails if another economy plugin sits above it.
+
+- **Whole dollars.** `fractionalDigits()` is 0. Every rounding favours the server: money paid to a player rounds
+  down and money taken rounds up, so rounding can never create money. Amounts are first rounded to six decimals,
+  so floating-point noise such as 10.000000000000002 is charged as $10, not $11. An amount that rounds to nothing
+  succeeds without a ledger row. Negative, NaN, infinite or out-of-range amounts fail.
+- **One ledger transaction per call.** Each call is a ledger transaction (source or sink), applied in memory at
+  once and stored write-behind. The ledger kind is `vault_<plugin>`, for example `vault_axauctions`, and the actor
+  is `vault:<Plugin>`. The modern interface names its caller. For the classic interface, the plugin is found on
+  the call stack. `/eco history` therefore shows which plugin moved money, and stats can count a plugin's payouts
+  as earnings (`money-earned.kinds` in `features/stats.yml` includes `vault_axauctions`).
+- **Accounts are implicit.** Every player who joined has one, and so does any account holding money.
+  `createPlayerAccount` always succeeds. Worlds are ignored. Banks, shared accounts and other currencies are
+  refused (`NOT_IMPLEMENTED` or a failure with a reason).
+- **Threads.** Any thread may call it: balances come from memory and never block on the database.

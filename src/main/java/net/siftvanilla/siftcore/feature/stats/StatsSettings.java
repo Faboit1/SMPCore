@@ -23,7 +23,8 @@ public record StatsSettings(
     Set<String> earnKinds,
     Set<String> taxKinds) {
 
-    static final List<String> DEFAULT_EARN_KINDS = List.of("sell", "ah_sale", "order_fill", "bounty_claim", "spawner_sell", "crate_reward");
+    static final List<String> DEFAULT_EARN_KINDS = List.of("sell", "ah_sale", "order_fill", "bounty_claim", "spawner_sell", "crate_reward",
+        "vault_axauctions");
     static final List<String> DEFAULT_TAX_KINDS = List.of("ah_tax", "order_tax");
     static final List<String> DEFAULT_IGNORED_BLOCKS = List.of("melon", "pumpkin", "cactus", "bamboo", "sugar_cane", "kelp",
         "kelp_plant", "cocoa", "chorus_plant", "chorus_flower");

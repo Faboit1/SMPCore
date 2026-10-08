@@ -15,7 +15,8 @@ The test server directory must contain `versions/` (the patched Canvas jar) and 
 
 ## Run
 
-1. Copy `SiftCore-1.0.0.jar` and `tools/e2e/SiftE2E.jar` into the test server's `plugins/`.
+1. Copy `SiftCore-1.0.0.jar` and `tools/e2e/SiftE2E.jar` into the test server's `plugins/`, plus
+   VaultUnlocked 2.20.3 (`VaultUnlocked-2.20.3.jar`, plugin name `Vault`) for the `vault-economy` scenario.
 2. Use `online-mode=false`, `allow-flight=true` (bots don't simulate gravity) and a high
    `packet-limiter.all-packets.max-packet-rate` in `config/paper-global.yml` (the bot's client-side connection
    reuses the server's packet limiter).
