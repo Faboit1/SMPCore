@@ -210,10 +210,10 @@ friends:
     announce: "Tell friends when I join"
     submit: "Save"
     saved: "<secondary>Friend settings saved."
-    set: "<secondary>Set <primary><key> <secondary>to <primary><value><secondary>."
-    current: "<secondary><key>: <primary><value>"
+    set: "<secondary>Set <primary><setting> <secondary>to <primary><value><secondary>."
+    current: "<secondary><setting>: <primary><value>"
     unknown-key: "<primary>Unknown setting. Use one of: <keys>."
-    unknown-value: "<primary>Use one of these for <key>: <values>."
+    unknown-value: "<primary>Use one of these for <setting>: <values>."
     # Shown in the general settings dialog.
     toggle-leave: "Friend leave alerts"
     toggle-leave-description: "Tell me when a friend goes offline"

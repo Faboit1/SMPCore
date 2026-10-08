@@ -1,5 +1,5 @@
 # Text of /spawn, /setspawn, spawn protection and the first-join welcome.
-# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
 
 spawn:
   not-available: "<primary>Spawn isn't available right now."

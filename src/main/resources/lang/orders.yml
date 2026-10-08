@@ -1,4 +1,4 @@
-# Text of buy orders (/orders). Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each
+# Text of buy orders (/orders). Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each
 # message's own placeholders. Money and numbers are coloured automatically.
 
 orders:

@@ -101,7 +101,7 @@ class FriendsResourcesTest {
         assertEquals("Page 2 of 3.", lang.plain(FriendsMessages.PAGE, Arg.number("page", 2), Arg.number("pages", 3)));
         assertEquals("Cancel your request to Cara?", lang.plain(FriendsMessages.REQUESTS_CANCEL_BODY, Arg.text("name", "Cara")));
         assertEquals("Use one of these for requests: everyone, known, nobody.", lang.plain(FriendsMessages.SETTINGS_UNKNOWN_VALUE,
-            Arg.text("key", "requests"), Arg.text("values", "everyone, known, nobody")));
+            Arg.text("setting", "requests"), Arg.text("values", "everyone, known, nobody")));
         assertEquals("That didn't work. Run /tpa Alex instead.", lang.plain(FriendsMessages.LINK_COMMAND,
             Arg.component("command", Component.text("/tpa Alex"))));
     }

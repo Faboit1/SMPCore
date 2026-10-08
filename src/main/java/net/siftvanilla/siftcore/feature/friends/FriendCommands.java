@@ -300,7 +300,7 @@ final class FriendCommands {
             // A stored "favourites" while favourites are off: show what it does (the settings form shows it the same way).
             value = FriendPrefs.JoinAlerts.OFF.id();
         }
-        this.messenger.chat(player, FriendsMessages.SETTINGS_CURRENT, Arg.text("key", key.id()), Arg.text("value", value));
+        this.messenger.chat(player, FriendsMessages.SETTINGS_CURRENT, Arg.text("setting", key.id()), Arg.text("value", value));
     }
 
     private void setSetting(Player player, String keyText, String value) {
@@ -312,11 +312,11 @@ final class FriendCommands {
         List<String> allowed = this.views.settingValues(key);
         String normalized = value.strip().toLowerCase(Locale.ROOT);
         if (!allowed.contains(normalized) || !this.service.prefs().set(player.getUniqueId(), key, normalized)) {
-            this.messenger.chat(player, FriendsMessages.SETTINGS_UNKNOWN_VALUE, Arg.text("key", key.id()),
+            this.messenger.chat(player, FriendsMessages.SETTINGS_UNKNOWN_VALUE, Arg.text("setting", key.id()),
                 Arg.text("values", String.join(", ", allowed)));
             return;
         }
-        this.messenger.send(player, FriendsMessages.SETTINGS_SET, Arg.text("key", key.id()),
+        this.messenger.send(player, FriendsMessages.SETTINGS_SET, Arg.text("setting", key.id()),
             Arg.text("value", this.service.prefs().value(player.getUniqueId(), key)));
     }
 

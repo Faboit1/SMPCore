@@ -1,4 +1,4 @@
-# Text of stats and leaderboards. Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>,
+# Text of stats and leaderboards. Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>,
 # plus each message's own placeholders (shown in angle brackets). Numbers, times and money are coloured automatically.
 
 stats:

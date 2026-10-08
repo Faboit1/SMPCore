@@ -1,4 +1,4 @@
-# Shared text. Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's
+# Shared text. Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's
 # own placeholders (shown in angle brackets). Money and numbers are coloured automatically.
 # Bold, gradients, other colours and decorations are not part of the design and are rejected on load.
 

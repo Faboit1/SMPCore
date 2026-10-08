@@ -57,6 +57,15 @@ class TextStyleTest {
     }
 
     @Test
+    void placeholdersWinOverTagsOfTheSameName() {
+        Component parsed = this.style.parse("<primary>A <b> and <money>.",
+            net.kyori.adventure.text.minimessage.tag.resolver.TagResolver.resolver(
+                net.kyori.adventure.text.minimessage.tag.resolver.Placeholder.unparsed("b", "Bob"),
+                net.kyori.adventure.text.minimessage.tag.resolver.Placeholder.unparsed("money", "$5")));
+        assertEquals("A Bob and $5.", PlainTextComponentSerializer.plainText().serialize(parsed));
+    }
+
+    @Test
     void untrustedTextCannotInject() {
         String hostile = "<click:run_command:/op me><bold>pwn</bold> <icon:money> \\<red>";
         Component parsed = this.style.parse("<primary>Hello <name>.",

@@ -1,5 +1,5 @@
 # Text of random teleport (/rtp).
-# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
 
 rtp:
   searching: "<secondary>Looking for a safe spot..."

@@ -1,5 +1,5 @@
 # Text of public chat, private messages (/msg, /r), ignore lists (/ignore) and the chat staff tools (/chat).
-# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
 # Player text (<message>, names) is always inserted as typed and never read as tags.
 
 chat:

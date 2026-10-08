@@ -205,10 +205,10 @@ public final class FriendsMessages {
     public static final MessageKey SETTINGS_ANNOUNCE = MessageKey.ui("friends.settings.announce");
     public static final MessageKey SETTINGS_SUBMIT = MessageKey.ui("friends.settings.submit");
     public static final MessageKey SETTINGS_SAVED = MessageKey.success("friends.settings.saved");
-    public static final MessageKey SETTINGS_SET = MessageKey.success("friends.settings.set", "key", "value");
-    public static final MessageKey SETTINGS_CURRENT = MessageKey.chat("friends.settings.current", "key", "value");
+    public static final MessageKey SETTINGS_SET = MessageKey.success("friends.settings.set", "setting", "value");
+    public static final MessageKey SETTINGS_CURRENT = MessageKey.chat("friends.settings.current", "setting", "value");
     public static final MessageKey SETTINGS_UNKNOWN_KEY = MessageKey.error("friends.settings.unknown-key", "keys");
-    public static final MessageKey SETTINGS_UNKNOWN_VALUE = MessageKey.error("friends.settings.unknown-value", "key", "values");
+    public static final MessageKey SETTINGS_UNKNOWN_VALUE = MessageKey.error("friends.settings.unknown-value", "setting", "values");
 
     /** Labels of the three on/off settings in the general settings dialog. */
     public static final MessageKey SETTING_LEAVE_ALERTS = MessageKey.ui("friends.settings.toggle-leave");

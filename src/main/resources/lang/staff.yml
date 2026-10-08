@@ -1,4 +1,4 @@
-# Text of the staff tools. Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each
+# Text of the staff tools. Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each
 # message's own placeholders (shown in angle brackets). Player names, reasons and messages are inserted literally.
 # A value may be a list: each entry is one line.
 

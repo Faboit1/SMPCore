@@ -1,5 +1,5 @@
 # Text of homes (/sethome, /home, /delhome, /homes).
-# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
 
 homes:
   set: "<primary>Home <name> set. <secondary>You have <count> of <limit>."
