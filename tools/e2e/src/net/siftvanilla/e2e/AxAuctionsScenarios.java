@@ -25,8 +25,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.item.component.ItemLore;
-import net.siftvanilla.siftcore.feature.auction.Category;
-import net.siftvanilla.siftcore.feature.auction.ItemCategories;
+import net.siftvanilla.siftcore.core.item.ItemCategories;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -1132,9 +1132,9 @@ final class AxAuctionsScenarios {
                 }
             });
             boolean food = material.isEdible() || ItemStack.of(material).hasData(DataComponentTypes.FOOD);
-            Category category = ItemCategories.classify(new ItemCategories.Traits(material.getKey().asString(), member, material.isBlock(), food));
+            ItemCategory category = ItemCategories.classify(new ItemCategories.Traits(material.getKey().asString(), member, material.isBlock(), food));
             String expected = category.id();
-            if ((category == Category.BLOCKS || category == Category.MISC) && redstone(name)) {
+            if ((category == ItemCategory.BLOCKS || category == ItemCategory.MISC) && redstone(name)) {
                 expected = "redstone";
             }
             tsv.append(name).append('\t').append(expected).append('\n');

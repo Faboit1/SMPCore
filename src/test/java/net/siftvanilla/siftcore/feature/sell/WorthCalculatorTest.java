@@ -327,4 +327,125 @@ class WorthCalculatorTest {
         assertThrows(IllegalArgumentException.class, () -> calc(Map.of(), List.of(), 1.2));
         assertThrows(IllegalArgumentException.class, () -> calc(Map.of(), List.of(), 0));
     }
+    // ------------------------------------------------------------------ no recipe gains
+
+    private static RecipeDef smithing(String id, String output, String template, String base, String addition) {
+        return new RecipeDef("test:" + id, RecipeDef.Kind.SMITHING, output, 1,
+            RecipeDef.slots(List.of(List.of(template), List.of(base), List.of(addition))));
+    }
+
+    /** The smithing template copy recipe: 7 diamonds, the template and a block make two templates. */
+    private static RecipeDef copyTemplate() {
+        List<List<String>> slots = new ArrayList<>(times(7, "diamond"));
+        slots.add(List.of("template"));
+        slots.add(List.of("netherrack"));
+        return recipe("template_copy", "template", 2, slots);
+    }
+
+    @Test
+    void aTemplatePricedAboveItsCopyRecipeIsRefused() {
+        // $20,000 template: copying it with 7 diamonds ($2,800) and a netherrack would make $17,199
+        var gain = WorthCalculator.calculate(Map.of("template", 20_000L, "diamond", 400L, "netherrack", 1L), Map.of(),
+            List.of(copyTemplate()), 0.9, MAX);
+        assertEquals(1, gain.problems().size(), gain.problems().toString());
+        assertTrue(gain.problems().getFirst().contains("test:template_copy"), gain.problems().toString());
+        // the price may be at most what the other ingredients of one copy are worth: 2,801
+        assertTrue(gain.problems().getFirst().contains("at most 2801 each"), gain.problems().toString());
+        var safe = WorthCalculator.calculate(Map.of("template", 2_500L, "diamond", 400L, "netherrack", 1L), Map.of(),
+            List.of(copyTemplate()), 0.9, MAX);
+        assertTrue(safe.problems().isEmpty(), safe.problems().toString());
+    }
+
+    @Test
+    void aBasePriceOrOverrideAboveTheIngredientsIsRefused() {
+        RecipeDef block = recipe("block", "block", 1, times(9, "ingot"));
+        var base = WorthCalculator.calculate(Map.of("ingot", 25L, "block", 300L), Map.of(), List.of(block), 0.9, MAX);
+        assertEquals(1, base.problems().size(), base.problems().toString());
+        var override = WorthCalculator.calculate(Map.of("ingot", 25L), Map.of("block", 226L), List.of(block), 0.9, MAX);
+        assertEquals(1, override.problems().size(), override.problems().toString());
+        var equal = WorthCalculator.calculate(Map.of("ingot", 25L), Map.of("block", 225L), List.of(block), 0.9, MAX);
+        assertTrue(equal.problems().isEmpty(), equal.problems().toString());
+    }
+
+    @Test
+    void takingABlockApartIsNoGain() {
+        // the block sells for 202 (9 x 25 x 0.9), its 9 ingots for 225: as an ingredient it counts what it was made of
+        var result = calc(Map.of("ingot", 25L), List.of(recipe("block", "block", 1, times(9, "ingot")),
+            recipe("ingots", "ingot", 9, times(1, "block"))), 0.9);
+        assertTrue(result.problems().isEmpty(), result.problems().toString());
+        assertEquals(0, new java.math.BigDecimal("225").compareTo(result.table().asIngredient().get("block")));
+    }
+
+    @Test
+    void furnaceRecipesMayAddValue() {
+        RecipeDef smelt = new RecipeDef("test:smelt", RecipeDef.Kind.SMELTING, "ingot", 1, RecipeDef.slots(times(1, "raw")));
+        var result = WorthCalculator.calculate(Map.of("raw", 20L, "ingot", 25L), Map.of(), List.of(smelt), 0.9, MAX);
+        assertTrue(result.problems().isEmpty(), result.problems().toString());
+    }
+
+    @Test
+    void optionsWorthNothingAreLeftOutOfTheCheck() {
+        // planks from a log or a stripped log (no price, no recipe): the stripped log doesn't make planks a gain
+        var result = calc(Map.of("log", 6L), List.of(recipe("planks", "planks", 4, times(1, "log", "stripped_log"))), 0.9);
+        assertTrue(result.problems().isEmpty(), result.problems().toString());
+        assertEquals(1, result.table().price("planks"));
+        // a recipe made only of worthless things can't be judged, even when its result has a base price
+        var flower = WorthCalculator.calculate(Map.of("dye", 7L), Map.of(), List.of(recipe("dye", "dye", 1, times(1, "rose"))), 0.9, MAX);
+        assertTrue(flower.problems().isEmpty(), flower.problems().toString());
+    }
+
+    @Test
+    void netheriteGearIsPricedFromTheUpgradeTemplate() {
+        List<RecipeDef> recipes = new ArrayList<>(List.of(copyTemplate(),
+            recipe("netherite_ingot", "netherite_ingot", 1, List.of(List.of("scrap"), List.of("scrap"), List.of("scrap"),
+                List.of("scrap"), List.of("gold"), List.of("gold"), List.of("gold"), List.of("gold"))),
+            recipe("diamond_sword", "diamond_sword", 1, List.of(List.of("diamond"), List.of("diamond"), List.of("stick"))),
+            recipe("stick", "stick", 4, times(2, "planks")),
+            recipe("planks", "planks", 4, times(1, "log")),
+            smithing("netherite_sword", "netherite_sword", "template", "diamond_sword", "netherite_ingot")));
+        var result = WorthCalculator.calculate(Map.of("template", 2_500L, "diamond", 400L, "netherrack", 1L,
+            "scrap", 2_000L, "gold", 35L, "log", 6L), Map.of(), recipes, 0.9, MAX);
+        assertTrue(result.problems().isEmpty(), result.problems().toString());
+        // netherite ingot (8,140 x 0.9 = 7,326) + diamond sword (800 x 0.9 = 720) + template 2,500 = 10,546 x 0.9
+        assertEquals(7_326, result.table().price("netherite_ingot"));
+        assertEquals(720, result.table().price("diamond_sword"));
+        assertEquals(9_491, result.table().price("netherite_sword"));
+        assertEquals("test:netherite_sword", result.table().entry("netherite_sword").recipe());
+    }
+
+    // ------------------------------------------------------------------ sub-dollar chains
+
+    @Test
+    void ingredientsUnderADollarCountAtTheirValueWhenEveryRecipeRoundsToZero() {
+        // sticks (0.45) and a slab (0.45) round to $0 each, so the armor stand would be $0; at their exact value it is
+        // (6 x 0.45 + 0.45) x 0.9 = 2.835 -> $2
+        var result = calc(Map.of("log", 6L, "stone", 2L), List.of(
+            recipe("planks", "planks", 4, times(1, "log")),
+            recipe("stick", "stick", 4, times(2, "planks")),
+            new RecipeDef("test:smooth", RecipeDef.Kind.SMELTING, "smooth_stone", 1, RecipeDef.slots(times(1, "stone"))),
+            recipe("slab", "slab", 6, times(3, "smooth_stone")),
+            recipe("armor_stand", "armor_stand", 1, List.of(List.of("stick"), List.of("stick"), List.of("stick"),
+                List.of("stick"), List.of("stick"), List.of("stick"), List.of("slab")))), 0.9);
+        assertEquals(2, result.table().price("armor_stand"));
+        assertTrue(result.problems().isEmpty(), result.problems().toString());
+    }
+
+    @Test
+    void anItemIsNeverPricedAboveItsCheapestRecipe() {
+        // chiseled bricks: cut from a $2 stone ($1.80), or crafted from two slabs worth $0.45 each ($0.81): the cheap
+        // recipe decides, so they stay under a dollar and crafting slabs into them can't pay
+        var result = calc(Map.of("stone", 2L), List.of(
+            new RecipeDef("test:cut_bricks", RecipeDef.Kind.STONECUTTING, "bricks", 1, RecipeDef.slots(times(1, "stone"))),
+            new RecipeDef("test:cut_slabs", RecipeDef.Kind.STONECUTTING, "brick_slab", 2, RecipeDef.slots(times(1, "bricks"))),
+            new RecipeDef("test:cut_chiseled", RecipeDef.Kind.STONECUTTING, "chiseled", 1, RecipeDef.slots(times(1, "stone"))),
+            recipe("chiseled", "chiseled", 1, times(2, "brick_slab"))), 0.9);
+        assertFalse(result.table().sellable("chiseled"));
+        assertEquals(0.81, result.table().belowOne().get("chiseled"), 1e-9);
+        // sticks keep their price when another recipe (bamboo) would pay more: the cheapest recipe always decides
+        var sticks = calc(Map.of("log", 6L, "bamboo", 2L), List.of(
+            recipe("planks", "planks", 4, times(1, "log")),
+            recipe("stick", "stick", 4, times(2, "planks")),
+            recipe("stick_from_bamboo", "stick", 1, times(2, "bamboo"))), 0.9);
+        assertFalse(sticks.table().sellable("stick"));
+    }
 }

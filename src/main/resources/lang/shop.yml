@@ -9,10 +9,20 @@ shop:
     category-hint: "<secondary>Click to browse"
     balance: "<primary>Balance <balance>"
     balance-lore: "<secondary>Earn more with /sell"
+    search: "<primary>Search"
+    search-lore: "<secondary>Find any item in the shop"
+    # The "Buy again" row: the player's last purchases.
+    recent: "<secondary>You last bought <amount> for <total>"
+    recent-hint: "<secondary>Click to buy again"
   entry:
     price: "<secondary>Price <price> each"
     max: "<secondary>Up to <primary><max> <secondary>per purchase"
     hint: "<secondary>Click to buy"
+    # The viewer's own sell price (rank and mastery included), shown for items the server buys.
+    sells-back: "<secondary>Sells back for <price> each"
+    sell-hint: "<secondary>Right click to sell yours"
+    # Shop search: which category an entry is in.
+    category: "<secondary>In <category>"
     # How spawner entries are named in text ("zombie spawner").
     spawner: "<mob> spawner"
   sort:
@@ -20,12 +30,17 @@ shop:
     cheapest: "Cheapest first"
     priciest: "Most expensive first"
     name: "Name"
+  search:
+    title: "Shop search"
+    filter-all: "All categories"
   buy:
     title: "Buy <item>"
     body:
       - "<primary><price> <secondary>each"
       - "<secondary>You have <balance>"
       - "<secondary>Up to <primary><max> <secondary>per purchase"
+    sells-back: "<secondary>Sells back for <price> each"
+    you-have: "<secondary>You have <count>"
     amount: "Amount"
     exact: "Or type an amount"
     # The buy button always says what it buys.
@@ -35,6 +50,11 @@ shop:
     price-changed: "<primary>The price is now <price> each. Check the total, then buy."
     not-enough: "<primary>That costs <total> and you have <balance>."
     too-expensive: "<primary>That's more than one purchase can cost. Buy fewer."
+    # Quick amount buttons; pressing one shows the new total before anything is bought.
+    max-button: "Max you can afford"
+    fill-button: "Fill your inventory"
+    cant-afford: "<primary>You can't afford one. They cost <price> each."
+    no-room: "<primary>Your inventory has no room for more."
   confirm:
     title: "Confirm purchase"
     body:
@@ -48,6 +68,7 @@ shop:
   cancelled: "<secondary>Purchase cancelled."
   failed: "<primary>The purchase didn't go through. You weren't charged."
   unknown-category: "<primary>There's no shop category called <name>."
+  in-combat: "<primary>You can't use the shop in combat. <time> left."
   hub:
     label: "Shop"
     description: "Buy blocks, farming supplies and spawners"

@@ -24,17 +24,30 @@ public final class SaleMath {
      * @throws ArithmeticException if the result does not fit in a long
      */
     public static long withMultiplier(long base, double multiplier) {
+        if (!Double.isFinite(multiplier)) {
+            throw new IllegalArgumentException("A multiplier is at least 1.0, got " + multiplier);
+        }
+        return withMultiplier(base, BigDecimal.valueOf(multiplier));
+    }
+
+    /** {@link #withMultiplier(long, double)} with an exact multiplier (rank plus mastery bonus). */
+    public static long withMultiplier(long base, BigDecimal multiplier) {
         if (base < 0) {
             throw new IllegalArgumentException("A sale total is never negative");
         }
-        if (!Double.isFinite(multiplier) || multiplier < 1.0) {
+        if (multiplier.compareTo(BigDecimal.ONE) < 0) {
             throw new IllegalArgumentException("A multiplier is at least 1.0, got " + multiplier);
         }
         if (base == 0) {
             return 0;
         }
-        return BigDecimal.valueOf(base).multiply(BigDecimal.valueOf(multiplier))
+        return BigDecimal.valueOf(base).multiply(multiplier)
             .setScale(0, RoundingMode.FLOOR)
             .longValueExact();
+    }
+
+    /** What the server pays for one unit worth {@code worth} at {@code multiplier}, exactly (not rounded). */
+    public static BigDecimal unit(long worth, BigDecimal multiplier) {
+        return BigDecimal.valueOf(worth).multiply(multiplier);
     }
 }

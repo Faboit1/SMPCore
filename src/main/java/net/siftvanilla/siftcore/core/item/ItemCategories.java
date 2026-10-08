@@ -1,12 +1,12 @@
-package net.siftvanilla.siftcore.feature.auction;
+package net.siftvanilla.siftcore.core.item;
 
 import java.util.Locale;
 import java.util.Set;
 
 /**
- * Sorts an item type into an auction category. Pure: the server-side caller gathers the facts (the type key, the
- * vanilla item tags the type is in, whether it places a block and whether it is food) and this decides. The first
- * matching rule wins:
+ * Sorts an item type into an {@link ItemCategory}; one classifier for the auction house and orders. Pure: the
+ * server-side caller gathers the facts (the type key, the vanilla item tags the type is in, whether it places a
+ * block and whether it is food) and this decides. The first matching rule wins:
  * <ol>
  *   <li>spawners: {@code spawner}, {@code trial_spawner};</li>
  *   <li>potions: {@code potion}, {@code splash_potion}, {@code lingering_potion}, {@code ominous_bottle};</li>
@@ -64,36 +64,36 @@ public final class ItemCategories {
     private ItemCategories() {
     }
 
-    public static Category classify(Traits traits) {
+    public static ItemCategory classify(Traits traits) {
         String path = path(traits.key());
         if (SPAWNERS.contains(path)) {
-            return Category.SPAWNERS;
+            return ItemCategory.SPAWNERS;
         }
         if (POTIONS.contains(path)) {
-            return Category.POTIONS;
+            return ItemCategory.POTIONS;
         }
         if (BOOKS.contains(path)) {
-            return Category.BOOKS;
+            return ItemCategory.BOOKS;
         }
         if (intersects(traits.tags(), COMBAT_TAGS) || COMBAT.contains(path)
             || path.endsWith("_horse_armor") || path.endsWith("_nautilus_armor")) {
-            return Category.COMBAT;
+            return ItemCategory.COMBAT;
         }
         if (intersects(traits.tags(), TOOL_TAGS) || TOOLS.contains(path)
             || path.endsWith("bucket") || path.endsWith("minecart") || path.endsWith("_boat") || path.endsWith("_raft")) {
-            return Category.TOOLS;
+            return ItemCategory.TOOLS;
         }
         if (traits.food()) {
-            return Category.FOOD;
+            return ItemCategory.FOOD;
         }
         if (traits.block()) {
-            return Category.BLOCKS;
+            return ItemCategory.BLOCKS;
         }
-        return Category.MISC;
+        return ItemCategory.MISC;
     }
 
     /** The part of a key after the namespace. */
-    static String path(String key) {
+    public static String path(String key) {
         int colon = key.indexOf(':');
         return colon < 0 ? key : key.substring(colon + 1);
     }

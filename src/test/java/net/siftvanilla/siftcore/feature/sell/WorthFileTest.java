@@ -60,7 +60,7 @@ class WorthFileTest {
         assertTrue(text.contains("\"minecraft:stick\": 1  # override\n"), text);
         assertTrue(text.contains("\"minecraft:iron_ingot\": 18  # from recipe minecraft:iron_ingot_from_smelting_raw_iron\n"), text);
         assertTrue(text.contains("# generated: 2026-10-08T07:00:00Z\n"), text);
-        assertTrue(text.contains("# best sell multiplier: 1.5\n"), text);
+        assertTrue(text.contains("# best sell multiplier: 1.75 (rank 1.5 plus mastery 0.25)\n"), text);
     }
 
     @Test

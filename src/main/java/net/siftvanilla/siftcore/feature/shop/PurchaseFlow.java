@@ -15,11 +15,13 @@ import net.siftvanilla.siftcore.api.event.ShopPurchaseEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.feature.sell.ItemHandout;
+import net.siftvanilla.siftcore.feature.sell.SellLink;
 import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.FormValues;
@@ -38,7 +40,11 @@ import org.bukkit.inventory.ItemStack;
  * checked a last time inside the transaction.
  * <p>
  * The money is taken in one ledger transaction that also puts whatever won't fit in the inventory into the claim
- * box; the rest is handed out only after that transaction is stored.
+ * box (and remembers the purchase for "Buy again"); the rest is handed out only after that transaction is stored.
+ * <p>
+ * The dialog also shows what the item sells back for (the player's own rate) and how many they have, and offers
+ * "Max you can afford" and "Fill your inventory", which work the amount out when pressed and show the new total
+ * before anything is bought. Combat-tagged players can't open it or buy (checked again on every press).
  */
 final class PurchaseFlow {
 
@@ -49,16 +55,50 @@ final class PurchaseFlow {
     private final Setting<ShopSettings> settings;
     private final ShopItems items;
     private final ItemHandout handout;
+    private final SellLink sell;
+    private final CombatStatus combat;
+    private final RecentPurchases recent;
 
-    PurchaseFlow(Services services, Setting<ShopSettings> settings, ShopItems items, ItemHandout handout) {
+    PurchaseFlow(Services services, Setting<ShopSettings> settings, ShopItems items, ItemHandout handout, SellLink sell,
+                 CombatStatus combat, RecentPurchases recent) {
         this.services = services;
         this.settings = settings;
         this.items = items;
         this.handout = handout;
+        this.sell = sell;
+        this.combat = combat;
+        this.recent = recent;
+    }
+
+    /** True (after telling the player) when combat keeps them out of the shop. */
+    boolean blocked(Player player) {
+        if (this.settings.get().blockInCombat() && this.combat.tagged(player.getUniqueId())) {
+            this.services.messenger().send(player, ShopMessages.IN_COMBAT,
+                Arg.time("time", this.combat.remaining(player.getUniqueId())));
+            return true;
+        }
+        return false;
+    }
+
+    /** A dialog press while tagged: closes the dialog and says why. */
+    private boolean blocked(Submission s) {
+        if (blocked(s.player())) {
+            s.close();
+            return true;
+        }
+        return false;
     }
 
     /** Opens the purchase dialog of an entry. {@code back} returns to where the player came from. */
     void open(Player player, String ref, Runnable back) {
+        open(player, ref, back, 0);
+    }
+
+    /** Opens the purchase dialog starting at {@code amount} (0 for the usual stack; capped at the entry's limit). */
+    void open(Player player, String ref, Runnable back, int amount) {
+        if (blocked(player)) {
+            return;
+        }
         ShopSettings.Entry entry = this.settings.get().entry(ref);
         if (entry == null) {
             this.services.messenger().send(player, ShopMessages.NO_LONGER_SOLD);
@@ -69,8 +109,9 @@ final class PurchaseFlow {
             this.services.messenger().send(player, ShopMessages.UNAVAILABLE);
             return;
         }
-        int amount = PurchaseMath.defaultAmount(entry.spawner() ? 1 : unit.get().getMaxStackSize(), entry.max());
-        this.services.dialogs().show(player, view(player, entry, unit.get(), amount, null, back));
+        int start = amount > 0 ? Math.min(amount, entry.max())
+            : PurchaseMath.defaultAmount(entry.spawner() ? 1 : unit.get().getMaxStackSize(), entry.max());
+        this.services.dialogs().show(player, view(player, entry, unit.get(), start, null, back));
     }
 
     private View view(Player player, ShopSettings.Entry entry, ItemStack unit, int amount, Component note, Runnable back) {
@@ -81,6 +122,17 @@ final class PurchaseFlow {
         body.add(Body.item(unit, null));
         body.add(Body.text(Component.join(JoinConfiguration.newlines(), lang.lines(ShopMessages.BUY_BODY,
             Arg.money("price", entry.price()), Arg.money("balance", balance), Arg.number("max", entry.max())))));
+        List<Component> extra = new ArrayList<>(2);
+        if (!entry.spawner()) {
+            long sellBack = this.sell.sellBack(player, entry.item());
+            if (sellBack > 0) {
+                extra.addAll(lang.lines(ShopMessages.BUY_SELLS_BACK, Arg.money("price", sellBack)));
+            }
+            extra.addAll(lang.lines(ShopMessages.BUY_YOU_HAVE, Arg.number("count", this.sell.carried(player, entry.item()))));
+        }
+        if (!extra.isEmpty()) {
+            body.add(Body.text(Component.join(JoinConfiguration.newlines(), extra)));
+        }
         if (note != null) {
             body.add(Body.text(note));
         }
@@ -97,12 +149,63 @@ final class PurchaseFlow {
             s.close();
             back.run();
         }).width(150);
+        List<Button> buttons = new ArrayList<>(4);
+        if (entry.max() > 1) {
+            buttons.add(Button.of(lang.get(ShopMessages.BUY_MAX), s -> onQuick(s, ref, price, false, back)).width(150));
+            buttons.add(Button.of(lang.get(ShopMessages.BUY_FILL), s -> onQuick(s, ref, price, true, back)).width(150));
+        }
+        buttons.add(buy);
+        buttons.add(backButton);
         return new View(View.Kind.FORM, lang.get(ShopMessages.BUY_TITLE, Arg.text("item", this.items.name(entry))), body,
-            inputs, List.of(buy, backButton), null, 2, true);
+            inputs, buttons, null, 2, true);
+    }
+
+    /**
+     * "Max you can afford" or "Fill your inventory": works the amount out now (balance, free space, the limit) and
+     * shows the dialog with it, so the Buy button names the new amount and total before anything is bought.
+     */
+    private void onQuick(Submission s, String ref, long price, boolean fill, Runnable back) {
+        if (blocked(s)) {
+            return;
+        }
+        ShopSettings.Entry entry = this.settings.get().entry(ref);
+        Optional<ItemStack> unit = entry == null ? Optional.empty() : this.items.unit(entry);
+        if (entry == null || unit.isEmpty()) {
+            s.close();
+            this.services.messenger().send(s.player(), entry == null ? ShopMessages.NO_LONGER_SOLD : ShopMessages.UNAVAILABLE);
+            return;
+        }
+        Lang lang = this.services.lang();
+        int current = Math.max(1, Math.min(entry.max(), (int) Math.max(1, s.values().number(AMOUNT))));
+        if (entry.price() != price) {
+            showError(s, entry, unit.get(), current, lang.get(ShopMessages.BUY_PRICE_CHANGED, Arg.money("price", entry.price())), back);
+            return;
+        }
+        Player player = s.player();
+        int amount;
+        if (fill) {
+            amount = PurchaseMath.fill(capacity(player, unit.get()), entry.max());
+            if (amount == 0) {
+                showError(s, entry, unit.get(), current, lang.get(ShopMessages.BUY_NO_ROOM), back);
+                return;
+            }
+        } else {
+            // Every entry's price x max fits the money limit (checked when the config is read).
+            long balance = this.services.ledger().balance(player.getUniqueId(), Currency.MONEY);
+            amount = PurchaseMath.affordable(balance, entry.price(), entry.max());
+            if (amount == 0) {
+                showError(s, entry, unit.get(), current, lang.get(ShopMessages.BUY_CANT_AFFORD, Arg.money("price", entry.price())), back);
+                return;
+            }
+        }
+        s.show(view(player, entry, unit.get(), amount, lang.get(ShopMessages.BUY_CHANGED), back));
     }
 
     /** The Buy button: buys what it said, or shows the new total when the player changed the amount. */
     private void onBuy(Submission s, String ref, long price, int amount, Runnable back) {
+        if (blocked(s)) {
+            return;
+        }
         ShopSettings.Entry entry = this.settings.get().entry(ref);
         Optional<ItemStack> unit = entry == null ? Optional.empty() : this.items.unit(entry);
         if (entry == null || unit.isEmpty()) {
@@ -146,6 +249,9 @@ final class PurchaseFlow {
     }
 
     private void onConfirm(Submission s, String ref, long price, int amount, Runnable back) {
+        if (blocked(s)) {
+            return;
+        }
         ShopSettings.Entry entry = this.settings.get().entry(ref);
         Optional<ItemStack> unit = entry == null ? Optional.empty() : this.items.unit(entry);
         if (entry == null || unit.isEmpty()) {
@@ -210,6 +316,7 @@ final class PurchaseFlow {
         if (toClaimBox > 0) {
             this.services.deliveries().add(tx, uuid, "shop", ref, unit.asQuantity(toClaimBox));
         }
+        this.recent.contribute(tx, uuid, ref, amount);
         TransactionResult result = this.services.ledger().execute(tx.build());
         switch (result.status()) {
             case SUCCESS -> {

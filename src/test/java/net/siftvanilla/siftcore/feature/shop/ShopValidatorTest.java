@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.siftvanilla.siftcore.feature.sell.Mastery;
 import net.siftvanilla.siftcore.feature.sell.Pricing;
 import net.siftvanilla.siftcore.feature.sell.RecipeDef;
 import net.siftvanilla.siftcore.feature.sell.WorthCalculator;
@@ -163,5 +165,20 @@ class ShopValidatorTest {
         assertFalse(analysis.settled());
         assertFalse(analysis.loopItems().isEmpty());
         assertNotNull(ShopValidator.check("diamond", 1_000_000, pricing, analysis));
+    }
+
+    @Test
+    void theHighestMultiplierIncludesTheTopMasteryBonus() {
+        // legend 1.5 alone: 400 x 1.5 x 1.1 = 660, so 700 would be safe; with five mastery levels (+0.25) the best
+        // seller gets 1.75x: 400 x 1.75 x 1.1 = 770, so the price must be at least 771
+        Pricing rankOnly = pricing(Map.of("diamond", 400L), List.of(), 1.5);
+        assertNull(check("diamond", 700, rankOnly));
+        double best = new BigDecimal("1.5").add(Mastery.DEFAULT.maxBonus()).doubleValue();
+        Pricing withMastery = pricing(Map.of("diamond", 400L), List.of(), best);
+        String problem = check("diamond", 700, withMastery);
+        assertNotNull(problem);
+        assertTrue(problem.contains("at least 771"), problem);
+        assertTrue(problem.contains("1.75x"), problem);
+        assertNull(check("diamond", 771, withMastery));
     }
 }

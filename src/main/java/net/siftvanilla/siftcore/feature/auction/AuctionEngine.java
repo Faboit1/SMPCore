@@ -21,6 +21,7 @@ import java.util.logging.Logger;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 import net.siftvanilla.siftcore.economy.IdSequence;
 import net.siftvanilla.siftcore.economy.Ledger;
 import net.siftvanilla.siftcore.economy.LedgerTx;
@@ -55,7 +56,7 @@ public final class AuctionEngine<T> {
     }
 
     /** A listing to create. */
-    public record Draft<T>(UUID seller, T item, String typeKey, String searchText, Category category, int amount,
+    public record Draft<T>(UUID seller, T item, String typeKey, String searchText, ItemCategory category, int amount,
                            long price, Duration duration) {
         public Draft {
             Objects.requireNonNull(seller, "seller");
@@ -155,9 +156,9 @@ public final class AuctionEngine<T> {
         for (Row row : rows) {
             try {
                 T item = this.codec.decode(row.item());
-                Category category = Category.byId(row.category());
+                ItemCategory category = ItemCategory.byId(row.category());
                 this.book.open(new Listing<>(row.id(), row.seller(), item, row.type(), row.search(),
-                    category == null ? Category.MISC : category, row.amount(), row.price(), row.created(), row.expires()), true);
+                    category == null ? ItemCategory.MISC : category, row.amount(), row.price(), row.created(), row.expires()), true);
             } catch (RuntimeException e) {
                 bad++;
                 this.logger.log(Level.SEVERE, "Auction listing " + row.id() + " could not be loaded and stays in storage untouched", e);

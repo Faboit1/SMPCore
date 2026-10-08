@@ -13,8 +13,9 @@ import org.bukkit.inventory.ItemStack;
 
 /**
  * The items of one shop category, with paging, sorting and search. Entries are read from the current config on
- * every redraw, so a reload shows up the next time the page is drawn. Clicking an item opens its purchase dialog;
- * leaving the dialog comes back to this page as it was.
+ * every redraw, so a reload shows up the next time the page is drawn. Clicking an item opens its purchase dialog
+ * (right clicking one the server buys offers to sell the player's own instead); leaving the dialog comes back to
+ * this page as it was.
  */
 final class CategoryMenu extends PagedMenu<ShopSettings.Entry> {
 
@@ -35,12 +36,16 @@ final class CategoryMenu extends PagedMenu<ShopSettings.Entry> {
 
     @Override
     protected ItemStack icon(ShopSettings.Entry entry) {
-        return this.shop.entryIcon(entry);
+        return this.shop.entryIcon(entry, this.viewer, null);
     }
 
     @Override
     protected void clicked(ShopSettings.Entry entry, ClickContext click) {
         click(Feedback.CLICK);
+        if (click.right() && !click.shift()) {
+            this.shop.sell(this.viewer, entry, this::open);
+            return;
+        }
         this.shop.buy(this.viewer, entry, this::open);
     }
 

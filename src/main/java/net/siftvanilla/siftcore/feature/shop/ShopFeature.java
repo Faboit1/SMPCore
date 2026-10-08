@@ -15,11 +15,20 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.feature.sell.ItemHandout;
 import net.siftvanilla.siftcore.feature.sell.Pricing;
+import net.siftvanilla.siftcore.feature.sell.SellLink;
+import net.siftvanilla.siftcore.feature.sell.ShopOffers;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -27,7 +36,7 @@ import org.bukkit.inventory.ItemStack;
  * is validated against the worth table so buying something and selling it back (or crafting it into something
  * that sells) can never pay out, even with the best rank multiplier.
  */
-public final class ShopFeature implements Feature {
+public final class ShopFeature implements Feature, Listener {
 
     static final String PERMISSION = "siftcore.command.shop";
 
@@ -36,13 +45,17 @@ public final class ShopFeature implements Feature {
     private final Pricing.Source pricing;
     private final Setting<ShopSettings> settings;
     private final ShopItems items;
+    private final RecentPurchases recent;
     private final ShopMenus menus;
 
     /**
      * @param pricing  the worth table and multipliers to validate prices against (the sell feature)
+     * @param sell     selling as the shop shows it: sell-back prices, carried counts, right-click selling
      * @param spawners makes spawner items for spawner entries (the spawners feature)
+     * @param combat   what keeps combat-tagged players out of the shop
      */
-    public ShopFeature(Services services, List<ConfigProblem> problems, Pricing.Source pricing, SpawnerItems spawners) {
+    public ShopFeature(Services services, List<ConfigProblem> problems, Pricing.Source pricing, SellLink sell,
+                       SpawnerItems spawners, CombatStatus combat) {
         this.services = services;
         this.logger = services.plugin().getLogger();
         this.pricing = pricing;
@@ -52,9 +65,15 @@ public final class ShopFeature implements Feature {
         services.lang().register(ShopMessages.class);
         services.permissions().declare(PERMISSION, "Open the shop with /shop", true);
         this.items = new ShopItems(spawners, services.lang());
+        this.recent = new RecentPurchases(services.database(), this.logger);
         PurchaseFlow purchases = new PurchaseFlow(services, this.settings, this.items,
-            new ItemHandout(services.deliveries(), this.logger));
-        this.menus = new ShopMenus(services, this.settings, this.items, purchases);
+            new ItemHandout(services.deliveries(), this.logger), sell, combat, this.recent);
+        this.menus = new ShopMenus(services, this.settings, this.items, purchases, sell, this.recent);
+    }
+
+    /** The shop as other features see it: shop prices of plain items and opening their purchase dialog. */
+    public ShopOffers offers() {
+        return this.menus.offers();
     }
 
     @Override
@@ -64,10 +83,24 @@ public final class ShopFeature implements Feature {
 
     @Override
     public void enable() {
+        Bukkit.getPluginManager().registerEvents(this, this.services.plugin());
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            this.recent.load(online.getUniqueId());
+        }
         this.services.hub().register(new HubEntry("shop", 20, ShopMessages.HUB_LABEL, ShopMessages.HUB_DESCRIPTION,
             PERMISSION, this.menus::openShop));
         summary(this.settings.get());
         this.settings.onReload(this::summary);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        this.recent.load(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent event) {
+        this.recent.forget(event.getPlayer().getUniqueId());
     }
 
     private void summary(ShopSettings settings) {
@@ -100,9 +133,28 @@ public final class ShopFeature implements Feature {
                     }
                     return CommandSupport.OK;
                 })
+                .then(Commands.literal("search")
+                    .executes(ctx -> {
+                        Player player = support.player(ctx);
+                        if (player != null) {
+                            this.menus.openSearch(player, null);
+                        }
+                        return CommandSupport.OK;
+                    })
+                    .then(Commands.argument("text", StringArgumentType.greedyString())
+                        .executes(ctx -> {
+                            Player player = support.player(ctx);
+                            if (player != null) {
+                                this.menus.openSearch(player, StringArgumentType.getString(ctx, "text"));
+                            }
+                            return CommandSupport.OK;
+                        })))
                 .then(Commands.argument("category", StringArgumentType.word())
                     .suggests((ctx, builder) -> {
                         String typed = builder.getRemainingLowerCase();
+                        if ("search".startsWith(typed)) {
+                            builder.suggest("search");
+                        }
                         for (ShopSettings.Category category : this.menus.visibleCategories()) {
                             if (category.id().startsWith(typed)) {
                                 builder.suggest(category.id());

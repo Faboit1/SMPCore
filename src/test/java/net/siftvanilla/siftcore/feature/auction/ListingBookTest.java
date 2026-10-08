@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 import org.junit.jupiter.api.Test;
 
 class ListingBookTest {
@@ -25,7 +26,7 @@ class ListingBookTest {
     private static final UUID OTHER = new UUID(3, 3);
 
     private static Listing<String> listing(long id, UUID seller, long price, long created, long expires) {
-        return new Listing<>(id, seller, "item" + id, "minecraft:stone", "stone", Category.BLOCKS, 1, price, created, expires);
+        return new Listing<>(id, seller, "item" + id, "minecraft:stone", "stone", ItemCategory.BLOCKS, 1, price, created, expires);
     }
 
     @Test
@@ -191,7 +192,7 @@ class ListingBookTest {
         assertThrows(IllegalArgumentException.class, () -> listing(1, SELLER, 0, 0, 1000));
         assertThrows(IllegalArgumentException.class, () -> listing(1, SELLER, 100, 1000, 1000));
         assertThrows(IllegalArgumentException.class,
-            () -> new Listing<>(1, SELLER, "x", "minecraft:stone", "", Category.BLOCKS, 0, 1, 0, 10));
+            () -> new Listing<>(1, SELLER, "x", "minecraft:stone", "", ItemCategory.BLOCKS, 0, 1, 0, 10));
         Listing<String> listing = listing(7, SELLER, 100, 0, 1000);
         assertEquals("listing:7", listing.ref());
         assertEquals(400, listing.millisLeft(600));
@@ -224,9 +225,9 @@ class ListingBookTest {
             assertEquals(refusal, Refusal.from(refusal.id()));
         }
         assertNull(Refusal.from("overflow"));
-        for (Category category : Category.values()) {
-            assertEquals(category, Category.byId(category.id()));
+        for (ItemCategory category : ItemCategory.values()) {
+            assertEquals(category, ItemCategory.byId(category.id()));
         }
-        assertNull(Category.byId("weapons"));
+        assertNull(ItemCategory.byId("weapons"));
     }
 }

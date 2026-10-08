@@ -25,6 +25,7 @@ final class FeatureScenarios {
         list.addAll(AxAuctionsScenarios.all());
         list.addAll(SpawnerScenarios.all());
         list.addAll(AfkScenarios.all());
+        list.addAll(SellPlusScenarios.all());
         return list;
     }
 }

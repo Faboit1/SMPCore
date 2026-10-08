@@ -76,7 +76,9 @@ class SellSettingsTest {
         assertEquals(WorthTable.Origin.DERIVED, table.entry("minecraft:iron_ingot").origin());
         assertEquals(1, table.price("minecraft:stick"));
         assertFalse(table.sellable("minecraft:iron_block"));
-        assertEquals(1.5, settings.highestMultiplier());
+        assertEquals(1.5, settings.highestRankMultiplier());
+        // the best rank plus the top mastery bonus (five levels of 0.05)
+        assertEquals(1.75, settings.highestMultiplier(), 1e-12);
         assertEquals(Set.of(RecipeDef.Kind.CRAFTING, RecipeDef.Kind.SMELTING), settings.recipeKinds());
         assertEquals(3, settings.recipes().size());
     }
@@ -131,5 +133,100 @@ class SellSettingsTest {
         // what was valid still applies
         assertEquals(400, settings.table().price("minecraft:diamond"));
         assertEquals(0.9, settings.craftLoss());
+    }
+    @Test
+    void newKeysAreOptionalWithTheirDefaults() {
+        List<ConfigProblem> problems = new ArrayList<>();
+        SellSettings settings = parse(VALID, problems);
+        assertTrue(problems.isEmpty(), problems.toString());
+        assertEquals(SellSettings.Confirm.ABOVE, settings.sellAll().confirm());
+        assertEquals(10_000, settings.sellAll().confirmAbove());
+        assertTrue(settings.sellAll().shulkerContents());
+        assertTrue(settings.shulkerContents());
+        assertFalse(settings.bundleContents());
+        assertTrue(settings.blockInCombat());
+        assertTrue(settings.markTrades());
+        assertFalse(settings.actionBarTotal());
+        assertEquals(Mastery.DEFAULT, settings.mastery());
+        assertEquals(java.time.Duration.ofMinutes(5), settings.topRefresh());
+    }
+
+    @Test
+    void sellAllAsksAccordingToTheSettingAndThePlayer() {
+        SellSettings.SellAll above = new SellSettings.SellAll(true, false, SellSettings.Confirm.ABOVE, 10_000, true);
+        assertTrue(above.asks(10_000, true));
+        assertFalse(above.asks(9_999, true));
+        assertFalse(above.asks(1_000_000, false), "players who turned asking off sell right away");
+        SellSettings.SellAll always = new SellSettings.SellAll(true, false, SellSettings.Confirm.ALWAYS, 10_000, true);
+        assertTrue(always.asks(1, false));
+        SellSettings.SellAll never = new SellSettings.SellAll(true, false, SellSettings.Confirm.NEVER, 10_000, true);
+        assertFalse(never.asks(Long.MAX_VALUE, true));
+    }
+
+    @Test
+    void readsTheNewKeys() {
+        List<ConfigProblem> problems = new ArrayList<>();
+        SellSettings settings = parse(VALID + """
+            block-in-combat: false
+            mark-villager-trades: false
+            shulker-contents: false
+            bundle-contents: true
+            feedback:
+              action-bar: true
+            top:
+              refresh: 2m
+            mastery:
+              enabled: false
+            """, problems);
+        assertTrue(problems.isEmpty(), problems.toString());
+        assertFalse(settings.blockInCombat());
+        assertFalse(settings.markTrades());
+        assertFalse(settings.shulkerContents());
+        assertTrue(settings.bundleContents());
+        assertTrue(settings.actionBarTotal());
+        assertEquals(java.time.Duration.ofMinutes(2), settings.topRefresh());
+        assertFalse(settings.mastery().enabled());
+        // without mastery the best multiplier is the best rank
+        assertEquals(1.5, settings.highestMultiplier(), 1e-12);
+        problems.clear();
+        parse(VALID.replace("skip-hotbar: false", "skip-hotbar: false\n  confirm: sometimes"), problems);
+        assertEquals(List.of("sell-all.confirm"), problems.stream().map(ConfigProblem::path).toList());
+    }
+
+    @Test
+    void patternsPriceWhatIdsAndTagsLeaveOpen() {
+        ItemCatalog catalog = new ItemCatalog(
+            Set.of("minecraft:music_disc_13", "minecraft:music_disc_cat", "minecraft:oak_log", "minecraft:birch_log",
+                "minecraft:brain_coral", "minecraft:brain_coral_block", "minecraft:dead_brain_coral"),
+            Map.of("minecraft:logs", Set.of("minecraft:oak_log", "minecraft:birch_log")), List.of());
+        YamlConfiguration config = new YamlConfiguration();
+        try {
+            config.loadFromString("""
+                base-prices:
+                  "music_disc_*": 200
+                  music_disc_cat: 250
+                  "*_log": 1
+                  "#minecraft:logs": 6
+                  "*_coral": 1
+                  "*_coral_block": 3
+                  "*_nothing": 5
+                  "bad pattern*": 5
+                """);
+        } catch (InvalidConfigurationException e) {
+            throw new IllegalStateException(e);
+        }
+        ConfigReader reader = new ConfigReader("features/sell.yml", config);
+        Map<String, Long> prices = SellSettings.prices(reader.section("base-prices"), catalog, MoneyFormat.defaults(), false);
+        assertEquals(200L, prices.get("minecraft:music_disc_13"));
+        // an id wins over a pattern
+        assertEquals(250L, prices.get("minecraft:music_disc_cat"));
+        // a tag wins over a pattern
+        assertEquals(6L, prices.get("minecraft:oak_log"));
+        assertEquals(1L, prices.get("minecraft:brain_coral"));
+        assertEquals(1L, prices.get("minecraft:dead_brain_coral"));
+        assertEquals(3L, prices.get("minecraft:brain_coral_block"));
+        // patterns match whole ids: *_coral doesn't price coral blocks
+        List<String> paths = reader.problems().stream().map(ConfigProblem::path).toList();
+        assertEquals(List.of("base-prices.*_nothing", "base-prices.bad pattern*"), paths);
     }
 }

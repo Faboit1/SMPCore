@@ -88,4 +88,20 @@ class PurchaseMathTest {
         assertArrayEquals(new int[] {10, 0}, PurchaseMath.split(10, 100));
         assertArrayEquals(new int[] {0, 5}, PurchaseMath.split(5, 0));
     }
+    @Test
+    void maxYouCanAffordIsCappedByTheLimit() {
+        assertEquals(16, PurchaseMath.affordable(100, 6, 640));
+        assertEquals(640, PurchaseMath.affordable(1_000_000, 6, 640));
+        assertEquals(1, PurchaseMath.affordable(6, 6, 640));
+        assertEquals(0, PurchaseMath.affordable(5, 6, 640));
+        assertEquals(0, PurchaseMath.affordable(Long.MAX_VALUE, 0, 640));
+    }
+
+    @Test
+    void fillYourInventoryIsCappedByTheLimit() {
+        assertEquals(2304, PurchaseMath.fill(2304, 6400));
+        assertEquals(640, PurchaseMath.fill(2304, 640));
+        assertEquals(0, PurchaseMath.fill(0, 640));
+        assertEquals(37, PurchaseMath.fill(PurchaseMath.capacity(new int[] {27}, 0, 64), 640));
+    }
 }

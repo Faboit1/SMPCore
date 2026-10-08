@@ -16,6 +16,7 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
@@ -199,12 +200,12 @@ public final class AuctionFeature implements Feature, Listener {
         test.check(id(), "item categories", () -> {
             AuctionItems items = this.service.items();
             Object[][] expected = {
-                {Material.STONE, Category.BLOCKS}, {Material.DIAMOND_PICKAXE, Category.TOOLS},
-                {Material.DIAMOND_SWORD, Category.COMBAT}, {Material.NETHERITE_CHESTPLATE, Category.COMBAT},
-                {Material.BREAD, Category.FOOD}, {Material.GOLDEN_APPLE, Category.FOOD}, {Material.POTION, Category.POTIONS},
-                {Material.ENCHANTED_BOOK, Category.BOOKS}, {Material.SPAWNER, Category.SPAWNERS}, {Material.STICK, Category.MISC}};
+                {Material.STONE, ItemCategory.BLOCKS}, {Material.DIAMOND_PICKAXE, ItemCategory.TOOLS},
+                {Material.DIAMOND_SWORD, ItemCategory.COMBAT}, {Material.NETHERITE_CHESTPLATE, ItemCategory.COMBAT},
+                {Material.BREAD, ItemCategory.FOOD}, {Material.GOLDEN_APPLE, ItemCategory.FOOD}, {Material.POTION, ItemCategory.POTIONS},
+                {Material.ENCHANTED_BOOK, ItemCategory.BOOKS}, {Material.SPAWNER, ItemCategory.SPAWNERS}, {Material.STICK, ItemCategory.MISC}};
             for (Object[] row : expected) {
-                Category actual = items.category(ItemStack.of((Material) row[0]));
+                ItemCategory actual = items.category(ItemStack.of((Material) row[0]));
                 if (actual != row[1]) {
                     return row[0] + " is " + actual + ", expected " + row[1];
                 }
@@ -243,7 +244,7 @@ public final class AuctionFeature implements Feature, Listener {
         for (int round = 1; round <= rounds; round++) {
             long created = 1_000;
             long expires = 2_000;
-            book.open(new Listing<>(round, seller, "item", "minecraft:stone", "stone", Category.BLOCKS, 1, 10, created, expires), true);
+            book.open(new Listing<>(round, seller, "item", "minecraft:stone", "stone", ItemCategory.BLOCKS, 1, 10, created, expires), true);
             long now = expires + ThreadLocalRandom.current().nextInt(-1, 2);
             List<ListingBook.Closing> attempts = List.of(new ListingBook.Sale(buyer, 10, now),
                 new ListingBook.Cancellation(seller), new ListingBook.Expiry(now), new ListingBook.Sale(buyer, 10, now));

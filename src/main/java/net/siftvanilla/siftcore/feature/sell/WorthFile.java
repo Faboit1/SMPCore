@@ -39,7 +39,9 @@ final class WorthFile {
             .append(" (").append(table.count(WorthTable.Origin.BASE)).append(" base, ")
             .append(table.count(WorthTable.Origin.DERIVED)).append(" derived, ")
             .append(table.count(WorthTable.Origin.OVERRIDE)).append(" overrides)\n");
-        out.append("# best sell multiplier: ").append(Multipliers.format(settings.highestMultiplier())).append('\n');
+        out.append("# best sell multiplier: ").append(Multipliers.format(settings.highestMultiplier()))
+            .append(" (rank ").append(Multipliers.format(settings.highestRankMultiplier())).append(" plus mastery ")
+            .append(Multipliers.format(settings.mastery().maxBonus().doubleValue())).append(")\n");
         out.append('\n');
         out.append("# Price of one plain item in whole dollars, and where it came from.\n");
         out.append("prices:\n");

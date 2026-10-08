@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 import net.siftvanilla.siftcore.core.player.Limits;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
@@ -74,7 +75,7 @@ final class AuctionMenu extends PagedMenu<Listing<ItemStack>> {
         return new Cycle<>(options, initial);
     }
 
-    static MessageKey categoryLabel(Category category) {
+    static MessageKey categoryLabel(ItemCategory category) {
         return switch (category) {
             case BLOCKS -> AuctionMessages.CATEGORY_BLOCKS;
             case TOOLS -> AuctionMessages.CATEGORY_TOOLS;
@@ -90,7 +91,7 @@ final class AuctionMenu extends PagedMenu<Listing<ItemStack>> {
     static Cycle<Predicate<Listing<ItemStack>>> filterCycle(Lang lang, String initial) {
         List<Cycle.Option<Predicate<Listing<ItemStack>>>> options = new ArrayList<>();
         options.add(new Cycle.Option<>("all", label(lang, AuctionMessages.FILTER_ALL), listing -> true));
-        for (Category category : Category.values()) {
+        for (ItemCategory category : ItemCategory.values()) {
             options.add(new Cycle.Option<>(category.id(), label(lang, categoryLabel(category)), listing -> listing.category() == category));
         }
         return new Cycle<>(options, initial);

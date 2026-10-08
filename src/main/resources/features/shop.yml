@@ -14,14 +14,20 @@ confirm-above: 50k
 default-max: 640
 
 menu:
-  # Rows of the category screen (2 to 6). Your balance is shown in the middle of the bottom row.
-  rows: 4
+  # Rows of the category screen (2 to 6). The balance is shown in the middle of the bottom row with the search button
+  # left of it. With 5 or more rows the centre of the row above the bottom row shows the player's last five
+  # purchases ("Buy again"). Category slots must not use any of these.
+  rows: 5
+
+# Combat-tagged players can't open the shop or buy (checked again when they press Buy, so nothing can be bought
+# mid-fight from a dialog opened before the fight).
+block-in-combat: true
 
 # Categories in the order they are listed. For each:
 #   name:        what the category is called (plain text, up to 32 characters)
 #   description: one short line under the name (optional, up to 64 characters)
 #   icon:        the item shown for it
-#   slot:        where it sits on the category screen (0 is the top left; not the balance slot)
+#   slot:        where it sits on the category screen (0 is the top left; not the balance, search or "Buy again" slots)
 #   default-max: the most of one item per purchase in this category (optional)
 #   items:       what it sells. The key is an item id (stone) or any id you like with item: set (wool: {item: white_wool}).
 #                price is per item; max (optional) is the most per purchase.
@@ -170,7 +176,7 @@ categories:
     slot: 19
     items:
       redstone: {price: 15}
-      redstone_block: {price: 100}
+      redstone_block: {price: 110}
       redstone_torch: {price: 15}
       repeater: {price: 45}
       comparator: {price: 70}
@@ -191,7 +197,7 @@ categories:
       rail: {price: 20}
       powered_rail: {price: 70}
       detector_rail: {price: 60}
-      slime_block: {price: 250, max: 256}
+      slime_block: {price: 275, max: 256}
       honey_block: {price: 80, max: 256}
       tnt: {price: 150, max: 256}
 

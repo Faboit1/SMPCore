@@ -86,6 +86,7 @@ import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
 import net.minecraft.network.protocol.game.ServerboundRenameItemPacket;
+import net.minecraft.network.protocol.game.ServerboundSelectTradePacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
@@ -459,6 +460,11 @@ public final class Bot {
     /** Right-clicks an entity with the main hand, like the vanilla client does. */
     public void interact(int entityId) {
         send(new ServerboundInteractPacket(entityId, InteractionHand.MAIN_HAND, Vec3.ZERO, false));
+    }
+
+    /** Picks a trade in an open villager or wandering trader screen (the server moves the payment in). */
+    public void selectTrade(int index) {
+        send(new ServerboundSelectTradePacket(index));
     }
 
     /**

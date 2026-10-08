@@ -13,6 +13,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.item.ItemCategories;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 import net.siftvanilla.siftcore.core.text.TextStyle;
 import net.siftvanilla.siftcore.ui.gui.Items;
 import org.bukkit.GameMode;
@@ -79,7 +81,7 @@ final class AuctionItems {
     }
 
     /** The category of a stack. */
-    Category category(ItemStack item) {
+    ItemCategory category(ItemStack item) {
         Material type = item.getType();
         Set<String> member = new HashSet<>();
         this.tags.forEach((name, tag) -> {

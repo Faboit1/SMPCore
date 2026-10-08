@@ -10,55 +10,58 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import net.siftvanilla.siftcore.core.item.ItemCategories;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
+import net.siftvanilla.siftcore.core.item.ItemPatterns;
 import org.junit.jupiter.api.Test;
 
 /** Categories, blacklist patterns, sort orders and inventory planning: the pure rules behind the menus. */
 class ItemRulesTest {
 
-    private static Category classify(String key, Set<String> tags, boolean block, boolean food) {
+    private static ItemCategory classify(String key, Set<String> tags, boolean block, boolean food) {
         return ItemCategories.classify(new ItemCategories.Traits(key, tags, block, food));
     }
 
     @Test
     void categories() {
-        assertEquals(Category.SPAWNERS, classify("minecraft:spawner", Set.of(), true, false));
-        assertEquals(Category.SPAWNERS, classify("minecraft:trial_spawner", Set.of(), true, false));
-        assertEquals(Category.POTIONS, classify("minecraft:splash_potion", Set.of(), false, false));
-        assertEquals(Category.POTIONS, classify("minecraft:ominous_bottle", Set.of(), false, false));
-        assertEquals(Category.BOOKS, classify("minecraft:enchanted_book", Set.of(), false, false));
-        assertEquals(Category.BOOKS, classify("minecraft:writable_book", Set.of(), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:diamond_sword", Set.of("swords"), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:iron_spear", Set.of("spears"), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:netherite_helmet", Set.of("head_armor"), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:spectral_arrow", Set.of("arrows"), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:mace", Set.of(), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:totem_of_undying", Set.of(), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:end_crystal", Set.of(), false, false));
-        assertEquals(Category.COMBAT, classify("minecraft:diamond_horse_armor", Set.of(), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:netherite_axe", Set.of("axes"), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:diamond_pickaxe", Set.of("pickaxes"), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:water_bucket", Set.of(), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:axolotl_bucket", Set.of(), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:hopper_minecart", Set.of(), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:oak_boat", Set.of("boats"), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:elytra", Set.of(), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:shears", Set.of(), false, false));
-        assertEquals(Category.FOOD, classify("minecraft:golden_apple", Set.of(), false, true));
-        assertEquals(Category.FOOD, classify("minecraft:bread", Set.of(), false, true));
-        assertEquals(Category.BLOCKS, classify("minecraft:stone", Set.of(), true, false));
-        assertEquals(Category.BLOCKS, classify("minecraft:shulker_box", Set.of(), true, false));
-        assertEquals(Category.BLOCKS, classify("minecraft:cake", Set.of(), true, false));
-        assertEquals(Category.MISC, classify("minecraft:stick", Set.of(), false, false));
-        assertEquals(Category.MISC, classify("minecraft:diamond", Set.of(), false, false));
-        assertEquals(Category.MISC, classify("", Set.of(), false, false));
+        assertEquals(ItemCategory.SPAWNERS, classify("minecraft:spawner", Set.of(), true, false));
+        assertEquals(ItemCategory.SPAWNERS, classify("minecraft:trial_spawner", Set.of(), true, false));
+        assertEquals(ItemCategory.POTIONS, classify("minecraft:splash_potion", Set.of(), false, false));
+        assertEquals(ItemCategory.POTIONS, classify("minecraft:ominous_bottle", Set.of(), false, false));
+        assertEquals(ItemCategory.BOOKS, classify("minecraft:enchanted_book", Set.of(), false, false));
+        assertEquals(ItemCategory.BOOKS, classify("minecraft:writable_book", Set.of(), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:diamond_sword", Set.of("swords"), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:iron_spear", Set.of("spears"), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:netherite_helmet", Set.of("head_armor"), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:spectral_arrow", Set.of("arrows"), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:mace", Set.of(), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:totem_of_undying", Set.of(), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:end_crystal", Set.of(), false, false));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:diamond_horse_armor", Set.of(), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:netherite_axe", Set.of("axes"), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:diamond_pickaxe", Set.of("pickaxes"), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:water_bucket", Set.of(), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:axolotl_bucket", Set.of(), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:hopper_minecart", Set.of(), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:oak_boat", Set.of("boats"), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:elytra", Set.of(), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:shears", Set.of(), false, false));
+        assertEquals(ItemCategory.FOOD, classify("minecraft:golden_apple", Set.of(), false, true));
+        assertEquals(ItemCategory.FOOD, classify("minecraft:bread", Set.of(), false, true));
+        assertEquals(ItemCategory.BLOCKS, classify("minecraft:stone", Set.of(), true, false));
+        assertEquals(ItemCategory.BLOCKS, classify("minecraft:shulker_box", Set.of(), true, false));
+        assertEquals(ItemCategory.BLOCKS, classify("minecraft:cake", Set.of(), true, false));
+        assertEquals(ItemCategory.MISC, classify("minecraft:stick", Set.of(), false, false));
+        assertEquals(ItemCategory.MISC, classify("minecraft:diamond", Set.of(), false, false));
+        assertEquals(ItemCategory.MISC, classify("", Set.of(), false, false));
     }
 
     @Test
     void categoryRulesAreOrdered() {
         // A spawner is a block, a potion is drinkable: the specific rule wins over the general one.
-        assertEquals(Category.SPAWNERS, classify("minecraft:spawner", Set.of(), true, true));
-        assertEquals(Category.COMBAT, classify("minecraft:turtle_helmet", Set.of("head_armor"), false, false));
-        assertEquals(Category.TOOLS, classify("minecraft:milk_bucket", Set.of(), false, false));
+        assertEquals(ItemCategory.SPAWNERS, classify("minecraft:spawner", Set.of(), true, true));
+        assertEquals(ItemCategory.COMBAT, classify("minecraft:turtle_helmet", Set.of("head_armor"), false, false));
+        assertEquals(ItemCategory.TOOLS, classify("minecraft:milk_bucket", Set.of(), false, false));
     }
 
     @Test
@@ -99,7 +102,7 @@ class ItemRulesTest {
     }
 
     private static Listing<String> listing(long id, long price, long created, long expires) {
-        return new Listing<>(id, new UUID(0, id), "x", "minecraft:stone", "stone", Category.BLOCKS, 1, price, created, expires);
+        return new Listing<>(id, new UUID(0, id), "x", "minecraft:stone", "stone", ItemCategory.BLOCKS, 1, price, created, expires);
     }
 
     @Test

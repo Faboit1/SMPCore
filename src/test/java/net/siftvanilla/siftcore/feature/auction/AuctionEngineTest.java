@@ -33,6 +33,7 @@ import java.util.logging.Logger;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 import net.siftvanilla.siftcore.economy.Ledger;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.storage.JdbcDatabase;
@@ -139,7 +140,7 @@ class AuctionEngineTest {
 
     private Listing<String> list(UUID seller, String item, long price, int limit) throws Exception {
         AuctionEngine.Created<String> created = this.engine.create(
-            new AuctionEngine.Draft<>(seller, item, "minecraft:" + item, item, Category.MISC, 1, price, DURATION), limit, seller.toString());
+            new AuctionEngine.Draft<>(seller, item, "minecraft:" + item, item, ItemCategory.MISC, 1, price, DURATION), limit, seller.toString());
         assertTrue(created.result().success(), () -> "listing failed: " + created.result());
         created.saved().get(10, TimeUnit.SECONDS);
         return created.listing();
@@ -200,7 +201,7 @@ class AuctionEngineTest {
         list(SELLER, "a", 10, 2);
         list(SELLER, "b", 10, 2);
         AuctionEngine.Created<String> third = this.engine.create(
-            new AuctionEngine.Draft<>(SELLER, "c", "minecraft:c", "c", Category.MISC, 1, 10, DURATION), 2, SELLER.toString());
+            new AuctionEngine.Draft<>(SELLER, "c", "minecraft:c", "c", ItemCategory.MISC, 1, 10, DURATION), 2, SELLER.toString());
         assertEquals(TransactionStatus.REJECTED, third.result().status());
         assertEquals(Refusal.SLOTS_FULL.id(), third.result().reason());
         assertEquals(2, this.engine.book().count(SELLER));
@@ -219,7 +220,7 @@ class AuctionEngineTest {
             return null;
         });
         AuctionEngine.Created<String> created = this.engine.create(
-            new AuctionEngine.Draft<>(SELLER, "slow", "minecraft:slow", "slow", Category.MISC, 1, 100, DURATION), 10, SELLER.toString());
+            new AuctionEngine.Draft<>(SELLER, "slow", "minecraft:slow", "slow", ItemCategory.MISC, 1, 100, DURATION), 10, SELLER.toString());
         assertTrue(created.result().success());
         long id = created.listing().id();
         assertFalse(this.engine.book().saved(id));
@@ -449,7 +450,7 @@ class AuctionEngineTest {
             return null;
         }).get(10, TimeUnit.SECONDS);
         AuctionEngine.Created<String> created = this.engine.create(
-            new AuctionEngine.Draft<>(SELLER, "clash", "minecraft:clash", "clash", Category.MISC, 1, 10, DURATION), 10, SELLER.toString());
+            new AuctionEngine.Draft<>(SELLER, "clash", "minecraft:clash", "clash", ItemCategory.MISC, 1, 10, DURATION), 10, SELLER.toString());
         assertTrue(created.result().success());
         assertEquals(existing.id() + 1, created.listing().id());
         assertThrows(ExecutionException.class, () -> created.saved().get(10, TimeUnit.SECONDS));
@@ -492,10 +493,10 @@ class AuctionEngineTest {
         assertEquals("kept", restarted.book().get(kept.id()).item());
         assertTrue(restarted.book().saved(kept.id()));
         assertNull(restarted.book().get(sold.id()));
-        assertEquals(Category.MISC, restarted.book().get(901).category(), "unknown categories fall back to misc");
+        assertEquals(ItemCategory.MISC, restarted.book().get(901).category(), "unknown categories fall back to misc");
         assertNull(restarted.verify().get(10, TimeUnit.SECONDS), "the unreadable row is accounted for");
         AuctionEngine.Created<String> next = restarted.create(
-            new AuctionEngine.Draft<>(SELLER, "next", "minecraft:next", "next", Category.MISC, 1, 10, DURATION), 10, SELLER.toString());
+            new AuctionEngine.Draft<>(SELLER, "next", "minecraft:next", "next", ItemCategory.MISC, 1, 10, DURATION), 10, SELLER.toString());
         assertEquals(902, next.listing().id(), "ids continue after the highest stored id");
     }
 

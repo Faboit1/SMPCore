@@ -1,4 +1,4 @@
-package net.siftvanilla.siftcore.feature.auction;
+package net.siftvanilla.siftcore.core.item;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,5 @@
-# Selling to the server (/sell, /sell hand, /sell all, /worth) and the worth table every feature uses.
+# Selling to the server (/sell, /sell hand, /sell hand all, /sell all, /sell mastery, /sell top, /sell history,
+# /worth) and the worth table every feature uses.
 #
 # The worth table is generated when the server starts and on /sift reload:
 #   1. base-prices give raw and natural materials a price (logs, ores, crops, mob drops, natural blocks).
@@ -7,10 +8,14 @@
 #      (ingot -> block -> ingot, re-dyeing a shulker box) are priced from the loop member that already has a price,
 #      so going round a loop never changes what anything is worth.
 #   3. overrides set the final price of single items (0 makes an item unsellable).
+#   4. No crafting, stonecutting or smithing recipe may turn items into something that sells for more than they do
+#      (a base price or override set too high, a smithing template priced above what copying it costs). Such a
+#      table is a config problem: /sift reload refuses it and startup reports it.
 # The result is written to data/worth-generated.yml (with where each price came from) for reading.
 #
 # Only plain items sell: renamed, enchanted (enchanted books too), damaged, dyed, filled or otherwise changed items
-# can't be sold, because their value depends on what was done to them.
+# can't be sold, because their value depends on what was done to them. Items from villager trades are marked and
+# never sell either (see mark-villager-trades).
 
 # Every recipe step keeps this share of the ingredients' value (0.5 to 1). Below 1, crafting never turns items
 # into more money than selling the ingredients.
@@ -22,22 +27,109 @@ recipe-types: [crafting, smelting, blasting, smoking, campfire, stonecutting, sm
 
 # Rank sell bonuses. A player with siftcore.sell.multiplier.<tier> gets that multiplier; with several, the highest
 # wins; with none, 1. Only permissions given explicitly (for example to a LuckPerms group) count, so operators
-# don't get a bonus by default. The shop checks its prices against the highest multiplier listed here.
+# don't get a bonus by default. The shop checks its prices against the highest multiplier listed here plus the
+# top mastery bonus.
 multipliers:
   supporter: 1.1
   patron: 1.2
   elite: 1.35
   legend: 1.5
 
+# Combat-tagged players can't sell (/sell, /sell hand, /sell all, the menu's Sell button). The menu stays open.
+block-in-combat: true
+
+# The villager money printer: villagers buy cheap items (sticks, rotten flesh) for emeralds and sell goods for
+# emeralds, so trading halls would turn almost nothing into money. With this on, everything a villager or wandering
+# trader hands out carries a marker, which makes it a changed item that can't be sold. The marker follows the item:
+# what is crafted, smelted, cut, smithed, repaired or ground from marked items is marked; a marked block keeps it when
+# placed and mined, sheared, blown up or moved again (redstone dust and banners too); emptying a marked bucket of fish
+# leaves a marked bucket (and a marked fish), and filling, milking or using a cauldron with it keeps the marker.
+# Dispensers, catching fish and recipes or fuel that would hand back a new plain bucket refuse marked buckets. What
+# crops and saplings grow into is ordinary farming and stays plain.
+# Marked items work everywhere else, including paying villagers. Turning it off stops new marking only.
+mark-villager-trades: true
+
+# Shulker boxes: /sell hand on a box, and a box put into the sell menu, sell what is inside that can be sold. The box
+# itself and everything else in it stay (an emptied plain box is a plain box again). /sell hand on an empty plain box
+# still sells the box.
+shulker-contents: true
+# The same for bundles.
+bundle-contents: false
+
 sell-all:
-  # /sell all leaves items that don't stack (tools, weapons, armor, shulker boxes) where they are.
-  # /sell hand and the /sell menu still sell them.
+  # /sell all (and /sell hand all, and selling a mastery category) leaves items that don't stack (tools, weapons,
+  # armor, shulker boxes) where they are. /sell hand and the /sell menu still sell them.
   skip-unstackable: true
-  # /sell all leaves the hotbar alone.
+  # /sell all leaves the hotbar alone (also what the menu's Add button takes).
   skip-hotbar: false
+  # Show the total and ask before selling everything: always, above (from confirm-above, for players who keep
+  # "Ask before /sell all" on in /settings) or never. Confirming sells exactly what was shown; if the inventory
+  # changed in between, the new total is shown first. /sell hand all and category selling ask the same way.
+  confirm: above
+  confirm-above: 10k
+  # /sell all also sells what is inside shulker boxes (never the box itself).
+  shulker-contents: true
+
+feedback:
+  # Also show "+$total" on the action bar after a sale (the chat receipt stays, unless the player turned it off).
+  action-bar: false
+
+top:
+  # How often /sell top and the sell_top_* placeholders read the totals from storage.
+  refresh: 5m
+
+# Sell categories group items for mastery, the price list's filter and "sell everything of this kind". items lists
+# ids, item tags (#minecraft:logs) and * patterns (raw_*, *_ingot); an item may be in one category only. Items no
+# category lists take the category of the most valuable ingredient of the recipe their price comes from (an iron
+# block is mining, bread is farming, planks are wood); everything else is in other, the fallback.
+# Renaming or removing a category keeps what players sold in it in storage; it is just not used any more.
+categories:
+  farming:
+    name: "Farming"
+    icon: wheat
+    items: [wheat, wheat_seeds, carrot, potato, beetroot, beetroot_seeds, melon_slice, melon, melon_seeds,
+      pumpkin, pumpkin_seeds, torchflower_seeds, pitcher_pod, sugar_cane, cactus, bamboo, kelp, sweet_berries,
+      glow_berries, cocoa_beans, apple, nether_wart, chorus_fruit, honeycomb, honey_bottle, honey_block,
+      brown_mushroom, red_mushroom]
+  wood:
+    name: "Wood"
+    icon: oak_log
+    items: ["#minecraft:logs"]
+  mining:
+    name: "Mining"
+    icon: diamond
+    items: [coal, "raw_*", "*_ingot", "*_ore", diamond, emerald, lapis_lazuli, redstone, quartz, amethyst_shard,
+      glowstone_dust, ancient_debris, netherite_scrap, obsidian, crying_obsidian]
+  mob_drops:
+    name: "Mob drops"
+    icon: bone
+    items: [rotten_flesh, bone, string, spider_eye, gunpowder, ender_pearl, blaze_rod, breeze_rod, ghast_tear,
+      slime_ball, magma_cream, leather, rabbit_hide, rabbit_foot, feather, egg, blue_egg, brown_egg, beef,
+      porkchop, chicken, mutton, rabbit, ink_sac, glow_ink_sac, phantom_membrane, turtle_scute, armadillo_scute,
+      shulker_shell, arrow, wither_skeleton_skull, zombie_head, skeleton_skull, creeper_head, piglin_head,
+      dragon_head, nether_star, totem_of_undying, echo_shard]
+  fishing:
+    name: "Fishing"
+    icon: cod
+    items: [cod, salmon, tropical_fish, pufferfish, nautilus_shell, heart_of_the_sea, "prismarine_*"]
+  other:
+    name: "Blocks and other"
+    icon: grass_block
+    items: []
+
+# Sell mastery: selling a category's items to the server counts toward its levels, and each level adds step to the
+# player's multiplier for that category (on top of the rank multiplier: legend 1.5 + 5 levels x 0.05 = 1.75).
+# Levels count the worth sold before any multiplier. Only /sell counts (not spawner or crate sales).
+# The shop checks its prices against the best rank multiplier plus the top bonus.
+mastery:
+  enabled: true
+  # Worth sold in a category to reach each level (at most 10 levels).
+  levels: [50k, 250k, 1m, 5m, 25m]
+  step: 0.05
 
 # Price of one plain item, in whole dollars (1500, 1.5k and 2m all work). Keys are item ids (diamond or
-# minecraft:diamond) or item tags (#minecraft:logs prices every log and wood). An item listed by id wins over a tag.
+# minecraft:diamond), item tags (#minecraft:logs prices every log and wood) or * patterns (music_disc_*). An item
+# listed by id wins over a tag, and a tag over a pattern; every tag and pattern must name at least one item.
 # Base prices are never replaced by recipes: if a natural block can also be crafted from something expensive
 # (magma blocks from magma cream), give it a base price here so mining it doesn't pay like crafting it.
 base-prices:
@@ -51,6 +143,15 @@ base-prices:
   lily_pad: 1
   brown_mushroom: 2
   red_mushroom: 2
+  wheat_seeds: 1
+  beetroot_seeds: 1
+  melon_seeds: 1
+  pumpkin_seeds: 2
+  torchflower_seeds: 2
+  pitcher_pod: 4
+  "#minecraft:saplings": 2
+  "#minecraft:flowers": 1
+  "#minecraft:leaves": 1
 
   # Crops and food from farms
   wheat: 6
@@ -84,10 +185,30 @@ base-prices:
   amethyst_shard: 10
   glowstone_dust: 4
   diamond: 400
-  # Villagers buy common items for emeralds, so a high emerald price makes trading halls pay well.
+  # Emeralds from villager trades are marked and don't sell (mark-villager-trades); mined ones do.
   emerald: 250
   ancient_debris: 1800
   netherite_scrap: 2000
+  # Ores mined with silk touch sell for at most what one drop does, so placing one and mining it with fortune
+  # always pays more than selling the ore.
+  coal_ore: 8
+  deepslate_coal_ore: 8
+  iron_ore: 20
+  deepslate_iron_ore: 20
+  copper_ore: 4
+  deepslate_copper_ore: 4
+  gold_ore: 30
+  deepslate_gold_ore: 30
+  redstone_ore: 24
+  deepslate_redstone_ore: 24
+  lapis_ore: 40
+  deepslate_lapis_ore: 40
+  diamond_ore: 400
+  deepslate_diamond_ore: 400
+  emerald_ore: 250
+  deepslate_emerald_ore: 250
+  nether_quartz_ore: 12
+  nether_gold_ore: 10
 
   # Natural blocks
   dirt: 1
@@ -143,6 +264,12 @@ base-prices:
   dark_prismarine: 6
   sea_lantern: 20
   sponge: 30
+  wet_sponge: 30
+  "*_coral_block": 3
+  "*_coral": 1
+  "*_coral_fan": 1
+  "*_concrete": 2
+  cobweb: 4
 
   # Mob drops
   rotten_flesh: 3
@@ -186,7 +313,29 @@ base-prices:
   totem_of_undying: 300
   shulker_shell: 600
   wither_skeleton_skull: 5000
+  zombie_head: 100
+  skeleton_skull: 100
+  creeper_head: 100
+  piglin_head: 100
+  dragon_head: 2000
   nether_star: 150000
+
+  # Rare finds. Smithing templates stay below what copying them costs (7 diamonds and a block make two), so copying
+  # never pays; netherite tools and armor get their price from the upgrade template.
+  netherite_upgrade_smithing_template: 2500
+  "*_armor_trim_smithing_template": 1000
+  "music_disc_*": 200
+  "*_pottery_sherd": 50
+  bell: 200
+  goat_horn: 100
+  elytra: 5000
+  # Loot-only copper armor smelts into copper nuggets; a price keeps the shop's safety check from counting nuggets
+  # (and copper lanterns made from them) as free.
+  copper_horse_armor: 2
+  copper_nautilus_armor: 2
+  trident: 500
+  enchanted_golden_apple: 5000
+  experience_bottle: 10
 
 # Final prices for single items, applied after recipes; they don't change any other item. 0 makes an item
 # unsellable. Examples:

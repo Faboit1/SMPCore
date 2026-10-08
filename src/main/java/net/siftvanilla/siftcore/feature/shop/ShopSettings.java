@@ -16,12 +16,18 @@ import net.siftvanilla.siftcore.feature.sell.Pricing;
  * {@link ShopValidator}); an unsafe entry is reported as a config problem and left out of the shop, so a reload
  * with an unsafe price is refused and a startup with one never sells it.
  *
- * @param confirmAbove purchases costing at least this much ask for confirmation (0 never asks)
- * @param defaultMax   the most of one entry a single purchase may buy, unless the entry says otherwise
- * @param rows         rows of the category menu
- * @param categories   categories in file order
+ * @param confirmAbove  purchases costing at least this much ask for confirmation (0 never asks)
+ * @param defaultMax    the most of one entry a single purchase may buy, unless the entry says otherwise
+ * @param rows          rows of the category menu
+ * @param blockInCombat combat-tagged players can't open the shop or buy
+ * @param categories    categories in file order
  */
-public record ShopSettings(long confirmAbove, int defaultMax, int rows, List<Category> categories) {
+public record ShopSettings(long confirmAbove, int defaultMax, int rows, boolean blockInCombat, List<Category> categories) {
+
+    /** How many recent purchases the "Buy again" row shows. */
+    public static final int RECENT = 5;
+    /** The category screen needs this many rows for the "Buy again" row. */
+    public static final int RECENT_MIN_ROWS = 5;
 
     /** The most any single purchase may buy. */
     public static final int MAX_PER_PURCHASE = 6400;
@@ -73,7 +79,33 @@ public record ShopSettings(long confirmAbove, int defaultMax, int rows, List<Cat
 
     /** The slot of the balance display in the category menu (middle of the bottom row). */
     public int balanceSlot() {
-        return (this.rows - 1) * 9 + 4;
+        return balanceSlot(this.rows);
+    }
+
+    /** The slot of the search button, left of the balance. */
+    public int searchSlot() {
+        return balanceSlot() - 1;
+    }
+
+    /** The slots of the "Buy again" row (centre of the row above the bottom row), empty below five rows. */
+    public List<Integer> recentSlots() {
+        return recentSlots(this.rows);
+    }
+
+    private static int balanceSlot(int rows) {
+        return (rows - 1) * 9 + 4;
+    }
+
+    private static List<Integer> recentSlots(int rows) {
+        if (rows < RECENT_MIN_ROWS) {
+            return List.of();
+        }
+        List<Integer> slots = new ArrayList<>(RECENT);
+        int first = (rows - 2) * 9 + 2;
+        for (int i = 0; i < RECENT; i++) {
+            slots.add(first + i);
+        }
+        return slots;
     }
 
     public Category category(String id) {
@@ -115,8 +147,11 @@ public record ShopSettings(long confirmAbove, int defaultMax, int rows, List<Cat
     public static ShopSettings parse(ConfigReader r, Catalog catalog, Pricing pricing, MoneyFormat money) {
         long confirmAbove = r.money("confirm-above", money, true, 50_000);
         int defaultMax = r.integer("default-max", 1, MAX_PER_PURCHASE, 640);
-        int rows = r.section("menu").integer("rows", 2, 6, 4);
-        int balanceSlot = (rows - 1) * 9 + 4;
+        int rows = r.section("menu").integer("rows", 2, 6, 5);
+        int balanceSlot = balanceSlot(rows);
+        int searchSlot = balanceSlot - 1;
+        List<Integer> recentSlots = recentSlots(rows);
+        boolean blockInCombat = !r.has("block-in-combat") || r.bool("block-in-combat", true);
         ShopValidator.Analysis analysis = ShopValidator.analyze(pricing);
 
         List<Category> categories = new ArrayList<>();
@@ -130,6 +165,10 @@ public record ShopSettings(long confirmAbove, int defaultMax, int rows, List<Cat
             ConfigReader c = categoryEntry.getValue();
             if (!id.matches(CATEGORY_ID)) {
                 r.problem("categories." + id, "category ids are lowercase letters, digits, - or _ (up to 24)");
+                continue;
+            }
+            if (id.equals("search")) {
+                r.problem("categories." + id, "search is taken by /shop search; pick another id");
                 continue;
             }
             String name = c.string("name", id).strip();
@@ -146,6 +185,11 @@ public record ShopSettings(long confirmAbove, int defaultMax, int rows, List<Cat
             int slot = c.integer("slot", 0, rows * 9 - 1, 0);
             if (slot == balanceSlot) {
                 c.problem("slot", "is where the balance is shown (slot " + balanceSlot + "); pick another slot");
+            } else if (slot == searchSlot) {
+                c.problem("slot", "is where the search button is (slot " + searchSlot + ", left of the balance); pick another slot");
+            } else if (recentSlots.contains(slot)) {
+                c.problem("slot", "is in the \"Buy again\" row (slots " + recentSlots.getFirst() + " to " + recentSlots.getLast()
+                    + " with " + rows + " rows); pick another slot");
             } else if (!usedSlots.add(slot)) {
                 c.problem("slot", "is used by another category");
             }
@@ -164,7 +208,7 @@ public record ShopSettings(long confirmAbove, int defaultMax, int rows, List<Cat
             }
             categories.add(new Category(id, name, description, icon, slot, entries));
         }
-        return new ShopSettings(confirmAbove, defaultMax, rows, categories);
+        return new ShopSettings(confirmAbove, defaultMax, rows, blockInCombat, categories);
     }
 
     private static Entry entry(ConfigReader c, String category, String id, ConfigReader e, Catalog catalog,

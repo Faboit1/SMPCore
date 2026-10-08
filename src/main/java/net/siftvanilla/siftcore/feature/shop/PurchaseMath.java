@@ -77,6 +77,25 @@ public final class PurchaseMath {
         return space;
     }
 
+    /**
+     * "Max you can afford": the most of one item {@code balance} pays for at {@code unitPrice} each, capped at the
+     * purchase limit {@code max}; 0 when not even one is affordable.
+     */
+    public static int affordable(long balance, long unitPrice, int max) {
+        if (unitPrice < 1 || max < 1 || balance < unitPrice) {
+            return 0;
+        }
+        return (int) Math.min(max, balance / unitPrice);
+    }
+
+    /** "Fill your inventory": as many as fit ({@code capacity}), capped at the purchase limit; 0 when nothing fits. */
+    public static int fill(long capacity, int max) {
+        if (capacity < 1 || max < 1) {
+            return 0;
+        }
+        return (int) Math.min(max, capacity);
+    }
+
     /** How a purchase of {@code quantity} splits: [into the inventory, into the claim box]. */
     public static int[] split(int quantity, long capacity) {
         if (quantity < 0) {

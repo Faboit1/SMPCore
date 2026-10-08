@@ -1,5 +1,7 @@
 package net.siftvanilla.siftcore.feature.sell;
 
+import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,9 +36,41 @@ public final class WorthService implements WorthLookup, Pricing.Source {
         MODIFIED
     }
 
+    /**
+     * What one player gets per sell category right now: the rank multiplier plus each category's mastery bonus.
+     *
+     * @param rank    the rank multiplier
+     * @param sold    base value sold per category (the mastery totals)
+     * @param mastery the mastery rules
+     */
+    public record Rates(BigDecimal rank, Map<String, Long> sold, Mastery mastery) {
+
+        public Rates {
+            sold = Map.copyOf(sold);
+        }
+
+        public int level(String category) {
+            return this.mastery.level(this.sold.getOrDefault(category, 0L));
+        }
+
+        public BigDecimal bonus(String category) {
+            return this.mastery.bonus(level(category));
+        }
+
+        /** Rank plus the category's bonus, exactly. */
+        public BigDecimal multiplier(String category) {
+            return Mastery.multiplier(this.rank, bonus(category));
+        }
+
+        public long sold(String category) {
+            return this.sold.getOrDefault(category, 0L);
+        }
+    }
+
     private final Setting<SellSettings> settings;
     private final AtomicReference<SellSettings> latest;
     private final Predicate<Player> onOwnThread;
+    private final MasteryBook mastery;
     private final Map<Material, ItemStack> prototypes = new ConcurrentHashMap<>();
     private final Map<UUID, Double> multipliers = new ConcurrentHashMap<>();
 
@@ -44,11 +78,14 @@ public final class WorthService implements WorthLookup, Pricing.Source {
      * @param settings    the applied sell settings
      * @param latest      the most recently parsed settings (written by the config parser)
      * @param onOwnThread true when the current thread owns the player (permission checks are only made there)
+     * @param mastery     what online players sold per category
      */
-    public WorthService(Setting<SellSettings> settings, AtomicReference<SellSettings> latest, Predicate<Player> onOwnThread) {
+    WorthService(Setting<SellSettings> settings, AtomicReference<SellSettings> latest, Predicate<Player> onOwnThread,
+                 MasteryBook mastery) {
         this.settings = settings;
         this.latest = latest;
         this.onOwnThread = onOwnThread;
+        this.mastery = mastery;
     }
 
     public static String key(Material material) {
@@ -77,10 +114,44 @@ public final class WorthService implements WorthLookup, Pricing.Source {
     /** True when the stack looks exactly like a fresh stack of its type (amount aside). */
     public boolean pristine(ItemStack item) {
         Material type = item.getType();
-        if (!type.isItem()) {
+        if (!type.isItem() || type.isAir()) {
             return false;
         }
         return this.prototypes.computeIfAbsent(type, ItemStack::of).isSimilar(item);
+    }
+
+    /** The sell category of an item key, or null when it can't be sold. */
+    public String category(String key) {
+        return table().category(key);
+    }
+
+    /** The sell categories in effect. */
+    public SellCategories categories() {
+        return this.settings.get().categories();
+    }
+
+    /** A player's rates for every category. On the player's thread it reads their rank fresh. */
+    public Rates rates(Player player) {
+        return new Rates(BigDecimal.valueOf(multiplier(player)), this.mastery.totals(player.getUniqueId()),
+            this.settings.get().mastery());
+    }
+
+    /** A player's rates from cached values only (any thread, also for placeholders). */
+    public Rates cachedRates(UUID player) {
+        return new Rates(BigDecimal.valueOf(cachedMultiplier(player)), this.mastery.totals(player),
+            this.settings.get().mastery());
+    }
+
+    /**
+     * What a player gets for one plain item of {@code key} with their rank and mastery, rounded down; 0 when the
+     * server doesn't buy it.
+     */
+    public long unitPriceFor(Player player, String key) {
+        WorthTable.Entry entry = table().entry(key);
+        if (entry == null) {
+            return 0;
+        }
+        return SaleMath.withMultiplier(entry.price(), rates(player).multiplier(entry.category()));
     }
 
     @Override
@@ -126,6 +197,11 @@ public final class WorthService implements WorthLookup, Pricing.Source {
      */
     private static boolean granted(Player player, String node) {
         return player.isPermissionSet(node) && player.hasPermission(node);
+    }
+
+    /** Every sellable item key per category, for tooltips and filters (a fresh map). */
+    public Map<String, Integer> categorySizes() {
+        return new HashMap<>(table().categorySizes());
     }
 
     @Override

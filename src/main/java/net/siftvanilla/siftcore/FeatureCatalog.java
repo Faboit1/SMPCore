@@ -8,6 +8,7 @@ import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
+import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
@@ -59,7 +60,7 @@ final class FeatureCatalog {
         AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
         StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
-        SellFeature sell = new SellFeature(this.services, this.problems);
+        SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, () -> OrderMarket.NONE);
         SpawnersFeature spawners = new SpawnersFeature(this.services, this.problems, sell.worth(), teams.lookup(), staff.vanish(), afk.status(),
             this.combatTags);
         CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
@@ -75,7 +76,9 @@ final class FeatureCatalog {
         features.add(sell);
         features.add(spawners);
         features.add(crates);
-        features.add(new ShopFeature(this.services, this.problems, sell.worth(), spawners.items()));
+        ShopFeature shop = new ShopFeature(this.services, this.problems, sell.worth(), sell.link(), spawners.items(), this.combatTags);
+        sell.shop(shop.offers());
+        features.add(shop);
         features.add(spawn);
         features.add(new HomesFeature(this.services, this.problems, spawn.area()));
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));

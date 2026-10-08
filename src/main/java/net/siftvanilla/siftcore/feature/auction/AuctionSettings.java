@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.auction;
 import java.time.Duration;
 import java.util.List;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
+import net.siftvanilla.siftcore.core.item.ItemPatterns;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 
 /**

@@ -2,6 +2,7 @@ package net.siftvanilla.siftcore.feature.auction;
 
 import java.util.Objects;
 import java.util.UUID;
+import net.siftvanilla.siftcore.core.item.ItemCategory;
 
 /**
  * An active auction listing. Immutable: a listing is never edited, only closed (sold, expired or cancelled).
@@ -18,7 +19,7 @@ import java.util.UUID;
  * @param expires    when it expires (epoch millis)
  * @param <T>        the item payload type
  */
-public record Listing<T>(long id, UUID seller, T item, String typeKey, String searchText, Category category,
+public record Listing<T>(long id, UUID seller, T item, String typeKey, String searchText, ItemCategory category,
                          int amount, long price, long created, long expires) {
 
     public Listing {

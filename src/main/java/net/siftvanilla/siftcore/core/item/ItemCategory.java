@@ -1,9 +1,12 @@
-package net.siftvanilla.siftcore.feature.auction;
+package net.siftvanilla.siftcore.core.item;
 
 import java.util.Locale;
 
-/** The auction house filter categories. Every listing is in exactly one; see {@link ItemCategories} for the rules. */
-public enum Category {
+/**
+ * The kinds of item the auction house, the worth browser and orders filter by. Every item type is in exactly one;
+ * see {@link ItemCategories} for the rules.
+ */
+public enum ItemCategory {
     BLOCKS,
     TOOLS,
     COMBAT,
@@ -13,17 +16,17 @@ public enum Category {
     SPAWNERS,
     MISC;
 
-    /** Stable lowercase id, stored in {@code auction_listings.category} and used in lang keys. */
+    /** Stable lowercase id, stored in {@code auction_listings.category} and used in lang keys and settings. */
     public String id() {
         return name().toLowerCase(Locale.ROOT);
     }
 
     /** The category with this id, or null when the id is unknown. */
-    public static Category byId(String id) {
+    public static ItemCategory byId(String id) {
         if (id == null) {
             return null;
         }
-        for (Category category : values()) {
+        for (ItemCategory category : values()) {
             if (category.id().equals(id.trim().toLowerCase(Locale.ROOT))) {
                 return category;
             }

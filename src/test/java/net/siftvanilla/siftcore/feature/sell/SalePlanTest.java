@@ -99,4 +99,41 @@ class SalePlanTest {
         }
         assertEquals(expected.toString(), SalePlan.of(stacks).note());
     }
+    // ------------------------------------------------------------------ categories
+
+    @Test
+    void eachCategoryIsRoundedDownOnceAtItsOwnMultiplier() {
+        // mining at 1.55 (legend 1.5 + level 1): 3 x 7 = 21 -> 32.55 -> 32; farming at 1.5: 7 x 3 = 21 -> 31.5 -> 31
+        SalePlan plan = SalePlan.of(List.of(
+            new SalePlan.Line("minecraft:iron_nugget", 3, 7, "mining"),
+            new SalePlan.Line("minecraft:wheat", 7, 3, "farming"),
+            new SalePlan.Line("minecraft:iron_nugget", 0 + 1, 7, "mining")));
+        assertEquals(java.util.Map.of("mining", 28L, "farming", 21L), plan.categoryBase());
+        java.util.Map<String, java.math.BigDecimal> rates = java.util.Map.of("mining", new java.math.BigDecimal("1.55"),
+            "farming", new java.math.BigDecimal("1.5"));
+        // 28 x 1.55 = 43.4 -> 43, 21 x 1.5 = 31.5 -> 31
+        assertEquals(43 + 31, plan.total(rates::get));
+        assertEquals(43, plan.categoryTotal("mining", rates.get("mining")));
+        // one shared multiplier rounds each category on its own too: 28 x 1.5 = 42, 21 x 1.5 = 31.5 -> 31
+        assertEquals(73, plan.total(1.5));
+    }
+
+    @Test
+    void oneItemCantBeInTwoCategoriesOfASale() {
+        assertThrows(IllegalArgumentException.class, () -> SalePlan.of(List.of(
+            new SalePlan.Line("minecraft:diamond", 1, 400, "mining"), new SalePlan.Line("minecraft:diamond", 1, 400, "other"))));
+    }
+
+    @Test
+    void notesKeepTheirEndingWithinTheLimit() {
+        List<SalePlan.Line> lines = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            lines.add(line("item_number_" + i, 64, 1));
+        }
+        String note = SalePlan.note(lines, " (312 from shulker boxes)");
+        assertTrue(note.length() <= SalePlan.NOTE_LIMIT, note);
+        assertTrue(note.endsWith("more (312 from shulker boxes)"), note);
+        assertEquals("64 minecraft:diamond (5 from shulker boxes)",
+            SalePlan.note(List.of(line("diamond", 64, 400)), " (5 from shulker boxes)"));
+    }
 }
