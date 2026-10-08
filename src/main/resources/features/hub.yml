@@ -18,6 +18,7 @@ pause-menu:
     - spawners
     - crates
     - teams
+    - friends
     - homes
     - rtp
     - spawn

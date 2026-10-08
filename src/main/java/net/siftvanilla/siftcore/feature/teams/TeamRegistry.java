@@ -164,4 +164,9 @@ public final class TeamRegistry implements TeamLookup {
         Team snapshot = this.teams.get(team);
         return snapshot == null ? Set.of() : snapshot.memberIds();
     }
+
+    @Override
+    public boolean canInvite(UUID player) {
+        return of(player).map(team -> TeamRules.invite(team.role(player)) == null).orElse(false);
+    }
 }

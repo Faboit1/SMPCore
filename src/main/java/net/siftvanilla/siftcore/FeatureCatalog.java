@@ -8,7 +8,6 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.integration.Ranks;
-import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
@@ -20,6 +19,7 @@ import net.siftvanilla.siftcore.feature.crates.CratesFeature;
 import net.siftvanilla.siftcore.feature.displays.DisplaysFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
 import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
+import net.siftvanilla.siftcore.feature.friends.FriendsFeature;
 import net.siftvanilla.siftcore.feature.homes.HomesFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
 import net.siftvanilla.siftcore.feature.orders.OrdersFeature;
@@ -64,6 +64,10 @@ final class FeatureCatalog {
         AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
         StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
+        ChatFeature chat = new ChatFeature(this.services, this.problems, Ranks.NONE, teams.lookup(), stats.recorder(),
+            staff.mutes(), staff.vanish(), afk.status());
+        FriendsFeature friends = new FriendsFeature(this.services, this.problems, admin, this.combatTags, chat.ignores(),
+            staff.vanish(), afk.status(), teams.lookup(), Ranks.NONE, staff.mutes());
         // Selling routes items into buy orders, but orders are built after sell (they price with sell.worth()):
         // a late-bound market breaks the cycle.
         AtomicReference<OrderMarket> orderMarket = new AtomicReference<>(OrderMarket.NONE);
@@ -72,16 +76,15 @@ final class FeatureCatalog {
             this.combatTags);
         CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
             this.combatTags, afk.status());
-        ChatFeature chat = new ChatFeature(this.services, this.problems, Ranks.NONE, teams.lookup(), stats.recorder(),
-            staff.mutes(), staff.vanish(), afk.status());
         OrdersFeature orders = new OrdersFeature(this.services, this.problems, this.combatTags, sell.worth(),
             () -> sell.worth().current().highestMultiplier(), spawners.items(), chat.ignores(), staff.vanish());
         orderMarket.set(orders.market());
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
-            FriendLookup.NONE, staff.vanish(), spawn.area());
+            friends.lookup(), staff.vanish(), spawn.area());
         features.add(economy);
         features.add(auction);
         features.add(teams);
+        features.add(friends);
         features.add(hub);
         features.add(staff);
         features.add(chat);
@@ -97,7 +100,7 @@ final class FeatureCatalog {
         features.add(spawn);
         features.add(new HomesFeature(this.services, this.problems, spawn.area()));
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
-        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), FriendLookup.NONE, chat.ignores()));
+        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), friends.lookup(), chat.ignores()));
         features.add(new ExtrasFeature(this.services, this.problems, staff.vanish()));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(combat);

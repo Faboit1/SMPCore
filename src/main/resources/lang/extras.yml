@@ -25,6 +25,7 @@ extras:
       - "<primary>/shop <secondary>and <primary>/ah <secondary>are where you spend it."
       - "<primary>/sethome <secondary>and <primary>/home <secondary>bring you back."
       - "<primary>/team <secondary>lets you play with friends."
+      - "<primary>/friend <secondary>shows who's online and lets you add friends."
       - "<primary>/spawn <secondary>takes you back here."
   ping:
     self: "<primary>Your ping is <ping> ms."

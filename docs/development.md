@@ -116,7 +116,7 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
   48 filter, 49 search, 50-52 extras, 53 next). Buttons: white name, gray description. Sort/filter buttons use
   `Cycle` (gray bullets, selected in white). No filler glass.
 - Hub: register a `HubEntry` in `enable()`. Pause-menu ids are fixed: `shop`, `sell`, `auction`, `orders`,
-  `spawners`, `teams`, `homes`, `rtp`, `spawn`, `stats`, `settings`, `money`. Use them if you own that area.
+  `spawners`, `teams`, `friends`, `homes`, `rtp`, `spawn`, `stats`, `settings`, `money`. Use them if you own that area.
 - Sounds: the messenger plays the key's feedback sound; use `messenger.feedback(player, Feedback.CLICK)` for clicks.
 
 ## Commands and permissions

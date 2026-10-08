@@ -733,7 +733,9 @@ final class TeleportScenarios {
         e2e.eventually(() -> target.actionBarContains("Players can send you teleport requests again"), "on again: " + target.actionBar());
         target.clearLogs();
         target.command("tpatoggle friends");
-        e2e.eventually(() -> target.actionBarContains("There is no friends list"), "no friends system yet: " + target.actionBar());
+        e2e.eventually(() -> target.actionBarContains("Friends can now teleport to you without asking."), "friends on: " + target.actionBar());
+        target.command("tpatoggle friends");
+        e2e.eventually(() -> target.actionBarContains("Friends have to ask before teleporting to you again."), "friends off: " + target.actionBar());
 
         e2e.step("vanished staff can't be asked");
         op(e2e, targetName, true);

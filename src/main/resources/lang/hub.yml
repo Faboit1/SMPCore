@@ -41,6 +41,9 @@ hub:
     teams:
       label: "Team"
       description: "Your team, members and home"
+    friends:
+      label: "Friends"
+      description: "See who's online and add friends"
     homes:
       label: "Homes"
       description: "Teleport to your homes"

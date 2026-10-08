@@ -62,6 +62,9 @@ public final class E2EPlugin extends JavaPlugin {
         // protected spawn then hurt bots, which cancels teleport warmups and kills players mid-scenario.
         org.bukkit.Bukkit.getGlobalRegionScheduler().execute(this, () -> {
             for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
+                if (world.getEnvironment() != org.bukkit.World.Environment.NORMAL) {
+                    continue; // the nether and the end have no world clock
+                }
                 world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, false);
                 world.setTime(6_000);
             }

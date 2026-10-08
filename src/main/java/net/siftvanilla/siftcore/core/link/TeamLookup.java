@@ -44,4 +44,9 @@ public interface TeamLookup {
         Optional<Long> team = team(a);
         return team.isPresent() && team.equals(team(b));
     }
+
+    /** True when the player is in a team and their role lets them invite players to it. */
+    default boolean canInvite(UUID player) {
+        return false;
+    }
 }

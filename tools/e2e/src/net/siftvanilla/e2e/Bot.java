@@ -495,6 +495,16 @@ public final class Bot {
         send(new ServerboundClientCommandPacket(ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
     }
 
+    /** The id of the entity with this uuid as this client knows it, or -1 when it doesn't track it. */
+    public int entityId(UUID uuid) {
+        for (SeenEntity entity : this.entities.values()) {
+            if (entity.uuid().equals(uuid)) {
+                return entity.id();
+            }
+        }
+        return -1;
+    }
+
     /** Attacks an entity, like a left click on it (the server checks the reach). */
     public void attack(int entityId) {
         send(new ServerboundAttackPacket(entityId));
@@ -513,6 +523,11 @@ public final class Bot {
     /** Picks a trade in an open villager or wandering trader screen (the server moves the payment in). */
     public void selectTrade(int index) {
         send(new ServerboundSelectTradePacket(index));
+    }
+
+    /** Right-clicks an entity with the main hand while holding sneak (the packet carries the sneak state). */
+    public void interactSneaking(int entityId) {
+        send(new ServerboundInteractPacket(entityId, InteractionHand.MAIN_HAND, Vec3.ZERO, true));
     }
 
     /**
