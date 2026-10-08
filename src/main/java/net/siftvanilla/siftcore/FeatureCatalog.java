@@ -7,11 +7,15 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
+import net.siftvanilla.siftcore.core.link.MuteStatus;
+import net.siftvanilla.siftcore.core.link.StatsRecorder;
+import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
 import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
 import net.siftvanilla.siftcore.feature.stats.StatsFeature;
+import net.siftvanilla.siftcore.feature.teams.TeamsFeature;
 
 /**
  * Constructs every feature in dependency order with exactly what it needs. A feature that depends on another takes
@@ -37,7 +41,9 @@ final class FeatureCatalog {
         EconomyFeature economy = new EconomyFeature(this.services, this.problems);
         HubFeature hub = new HubFeature(this.services, this.problems);
         StatsFeature stats = new StatsFeature(this.services, this.problems, AfkStatus.NONE, economy.economy(), admin);
+        TeamsFeature teams = new TeamsFeature(this.services, this.problems, StatsRecorder.NONE, MuteStatus.NONE, VanishStatus.NONE);
         features.add(economy);
+        features.add(teams);
         features.add(hub);
         features.add(stats);
         features.add(new ExtrasFeature(this.services, this.problems));

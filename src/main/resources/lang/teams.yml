@@ -1,0 +1,276 @@
+teams:
+  error:
+    not-in-team: "<primary>You're not in a team."
+    already-in-team: "<primary>You're already in a team."
+    owner-only: "<primary>Only the team owner can do that."
+    admins-only: "<primary>Only the team owner and admins can do that."
+    target-not-member: "<primary><name> is not in your team."
+    target-in-team: "<primary><name> is already in a team."
+    target-already-member: "<primary><name> is already in your team."
+    rank-too-high: "<primary>You can't do that to <name>."
+    already-admin: "<primary><name> is already an admin."
+    not-admin: "<primary><name> is not an admin."
+    owner-cant-leave: "<primary>You own this team. Hand it to someone else or disband it first."
+    team-full: "<primary>Your team is full with <members> of <limit> members."
+    other-team-full: "<primary><team> is full."
+    team-gone: "<primary>That team doesn't exist anymore."
+    team-not-found: "<primary>There's no team called <name>."
+    no-invite: "<primary>You don't have an invite from <team>."
+    invite-expired: "<primary>That invite has run out."
+    already-invited: "<primary><name> already has an invite from your team."
+    too-many-invites: "<primary>Your team has too many open invites. Wait for some to run out."
+    no-home: "<primary>Your team has no home yet."
+    home-world-missing: "<primary>The team home is in a world that isn't loaded."
+    name-length: "<primary>Team names are <min> to <max> characters long."
+    name-characters: "<primary>Team names can only use letters, numbers and _."
+    name-blocked: "<primary>That team name isn't allowed."
+    name-taken: "<primary>There's already a team called <name>."
+    name-unchanged: "<primary>That's already the team's name."
+    cost-changed: "<primary>The cost to start a team just changed. Nothing was charged."
+    cancelled: "<primary>That can't be done right now."
+    chat-no-team: "<primary>You're not in a team, so team chat is off."
+    chat-muted: "<primary>You're muted for <time>, so you can't use team chat."
+    chat-muted-permanent: "<primary>You're muted, so you can't use team chat."
+
+  created: "<primary>You created the team <name> for <cost>."
+  created-free: "<primary>You created the team <name>."
+  joined: "<primary>You joined <team>."
+  left: "<primary>You left <team>."
+  kicked: "<primary>You were removed from <team>."
+
+  invite:
+    sent: "<primary>Invited <name>. The invite lasts <time>."
+    received: "<primary><inviter> invited you to join <team>. <secondary>Click to answer."
+    hover: "<secondary>Open the invite"
+    declined: "<secondary>You declined the invite from <team>."
+    declined-inviter: "<secondary><name> declined your team invite."
+    form-title: "Invite a player"
+    form-body: "<secondary>They have <time> to accept."
+    form-player: "Player name"
+    form-button: "Invite"
+    title: "Team invite"
+    body:
+      - "<primary><inviter> invited you to join <team>."
+      - "<secondary>It has <members> of <limit> members. The invite lasts <time>."
+    join: "Join"
+    decline: "Decline"
+
+  friendly-fire:
+    already-on: "<secondary>Friendly fire is already on."
+    already-off: "<secondary>Friendly fire is already off."
+    blocked: "<secondary>Friendly fire is off in your team."
+
+  chat:
+    "on": "<primary>Team chat on. <secondary>Your messages only reach your team."
+    "off": "<primary>Team chat off."
+    # Team chat lines. <message> is the player's text, shown as typed.
+    format: "<secondary>Team <primary><name><secondary>: <message>"
+    # What staff with siftcore.teams.spy (and the console) see from other teams.
+    spy-format: "<secondary>Team <primary><team><secondary>, <primary><name><secondary>: <message>"
+
+  spy:
+    "on": "<primary>Team chat spy on."
+    "off": "<primary>Team chat spy off."
+
+  broadcast:
+    joined: "<primary><name> <secondary>joined the team."
+    left: "<primary><name> <secondary>left the team."
+    kicked: "<primary><actor> <secondary>removed <primary><name> <secondary>from the team."
+    kicked-staff: "<primary><name> <secondary>was removed from the team by staff."
+    promoted: "<primary><actor> <secondary>made <primary><name> <secondary>an admin."
+    demoted: "<primary><actor> <secondary>made <primary><name> <secondary>a member."
+    transferred: "<primary><actor> <secondary>handed the team to <primary><name><secondary>."
+    transferred-staff: "<primary><name> <secondary>now owns the team."
+    disbanded: "<primary><actor> <secondary>disbanded <primary><team><secondary>."
+    disbanded-staff: "<primary><team> <secondary>was disbanded by staff."
+    home-set: "<primary><actor> <secondary>set the team home."
+    home-removed: "<secondary>Staff removed the team home."
+    friendly-fire-on: "<primary><actor> <secondary>turned friendly fire on."
+    friendly-fire-off: "<primary><actor> <secondary>turned friendly fire off."
+    renamed: "<secondary>Your team is now called <primary><name><secondary>."
+
+  menu:
+    title: "Team"
+    team-title: "Team <name>"
+    none:
+      - "<primary>You're not in a team."
+      - "<secondary>Start one for <cost>, or join a team that invites you."
+    none-free:
+      - "<primary>You're not in a team."
+      - "<secondary>Start one, or join a team that invites you."
+    invites: "<primary>Invites"
+    invite-line: "<primary><team> <secondary>from <inviter>, <time> left"
+    summary:
+      - "<secondary>Owner <primary><owner>"
+      - "<secondary>Members <primary><members><secondary> of <primary><limit><secondary>, <primary><online><secondary> online"
+    home: "<icon:home> <secondary>Home at <primary><x>, <y>, <z><secondary> in <primary><world>"
+    no-home: "<icon:home> <secondary>No team home yet"
+    friendly-fire-on: "<secondary>Friendly fire is <primary>on"
+    friendly-fire-off: "<secondary>Friendly fire is <primary>off"
+    chat-on: "<secondary>Your team chat is <primary>on"
+    members: "<primary>Members"
+    member-online: "<primary><name> <secondary><role>, online"
+    member-offline: "<primary><name> <secondary><role>, seen <time> ago"
+
+  roles:
+    owner: "owner"
+    admin: "admin"
+    member: "member"
+  unlimited: "unlimited"
+
+  button:
+    create: "Start a team"
+    create-tooltip: "<secondary>Costs <cost>"
+    answer-invite: "Invite from <team>"
+    home: "Team home"
+    home-tooltip: "<secondary>Teleports after <time>"
+    chat-on: "Turn team chat on"
+    chat-off: "Turn team chat off"
+    chat-tooltip: "<secondary>Or use /tc and a message for one message"
+    invite: "Invite a player"
+    kick: "Remove a member"
+    promote: "Make an admin"
+    demote: "Remove an admin"
+    set-home: "Set home here"
+    set-home-tooltip: "<secondary>Moves the team home to where you stand"
+    friendly-fire-on: "Turn friendly fire on"
+    friendly-fire-off: "Turn friendly fire off"
+    friendly-fire-tooltip: "<secondary>Whether members can hurt each other"
+    transfer: "Hand over the team"
+    transfer-tooltip: "<secondary>You stay in the team as an admin"
+    disband: "Disband the team"
+    leave: "Leave the team"
+    stats: "Team stats"
+    top: "Top teams"
+    list: "All teams"
+
+  create:
+    form-title: "Start a team"
+    form-body:
+      - "<primary>Pick a name for your team."
+      - "<secondary><min> to <max> letters, numbers or _. Starting a team costs <cost>."
+    form-body-free:
+      - "<primary>Pick a name for your team."
+      - "<secondary><min> to <max> letters, numbers or _."
+    form-name: "Team name"
+    form-button: "Continue"
+    confirm-title: "Start a team"
+    confirm-body:
+      - "<primary>Start the team <name> for <cost>?"
+      - "<secondary>The money isn't refunded if the team is disbanded."
+    confirm-button: "Start team"
+
+  pick:
+    kick-title: "Remove a member"
+    promote-title: "Make an admin"
+    demote-title: "Remove an admin"
+    transfer-title: "Hand over the team"
+    label: "Member"
+    option: "<primary><name> <secondary><role>"
+    kick-button: "Remove"
+    promote-button: "Make admin"
+    demote-button: "Make member"
+    transfer-button: "Continue"
+    nobody: "<secondary>There's nobody to pick."
+
+  transfer:
+    title: "Hand over the team"
+    body:
+      - "<primary>Make <name> the owner of <team>?"
+      - "<secondary>You stay in the team as an admin."
+    button: "Hand over"
+
+  disband:
+    title: "Disband the team"
+    body:
+      - "<primary>Disband <team>?"
+      - "<secondary>Everyone is removed from it and the cost to start it isn't refunded."
+    button: "Disband"
+
+  leave:
+    title: "Leave the team"
+    body:
+      - "<primary>Leave <team>?"
+      - "<secondary>You need a new invite to come back."
+    button: "Leave"
+
+  info:
+    body:
+      - "<secondary>Owner <primary><owner>"
+      - "<secondary>Members <primary><members><secondary> of <primary><limit><secondary>, <primary><online><secondary> online"
+      - "<icon:kill> <secondary>Kills <primary><kills><secondary>, deaths <primary><deaths>"
+      - "<icon:money> <money><secondary> between the members"
+      - "<secondary>Started <primary><age><secondary> ago"
+    places: "<secondary>Place <primary><kills><secondary> by kills, <primary><money><secondary> by money"
+    # The same facts as plain lines for the console (no icons there).
+    text:
+      - "<secondary>Owner <primary><owner><secondary>, members <primary><members><secondary> of <primary><limit><secondary>, <primary><online><secondary> online"
+      - "<secondary>Kills <primary><kills><secondary>, deaths <primary><deaths><secondary>, money between the members <money>"
+      - "<secondary>Started <primary><age><secondary> ago"
+    home-text: "<secondary>Home at <primary><x>, <y>, <z><secondary> in <primary><world>"
+    no-home-text: "<secondary>No team home yet"
+    header: "<primary>Team <name>"
+    member-names: "<secondary>Members: <primary><names>"
+
+  list:
+    title: "All teams"
+    page: "<secondary>Page <page> of <pages>, <count> in all"
+    header: "<primary>Teams <secondary>page <page> of <pages>, <count> in all"
+    line: "<primary><name> <secondary>members <primary><members><secondary>, online <primary><online>"
+    empty: "<secondary>There are no teams yet."
+    button-tooltip: "<secondary>Members <primary><members><secondary>, online <primary><online>"
+
+  page:
+    next: "Next page"
+    previous: "Previous page"
+
+  top:
+    kills-title: "Top teams by kills"
+    money-title: "Top teams by money"
+    kills-header: "<primary>Top teams by kills"
+    money-header: "<primary>Top teams by money"
+    kills-line: "<secondary><rank>. <primary><name> <value>"
+    money-line: "<secondary><rank>. <primary><name> <value>"
+    kills-you: "<secondary>Your team is number <rank> with <value> in total."
+    money-you: "<secondary>Your team is number <rank> with <value>."
+    empty: "<secondary>No team is ranked yet."
+    by-kills: "By kills"
+    by-money: "By money"
+
+  help:
+    - "<primary>/team <secondary>opens your team menu"
+    - "<primary>/team create [name] <secondary>starts a team"
+    - "<primary>/team invite [player] <secondary>invites a player"
+    - "<primary>/team join [team] <secondary>accepts an invite"
+    - "<primary>/team leave <secondary>leaves your team"
+    - "<primary>/team home <secondary>teleports to the team home"
+    - "<primary>/tc [message] <secondary>talks to your team, /team chat turns team chat on and off"
+    - "<primary>/team info [team], /team list, /team top <secondary>show teams"
+    - "<primary>/team kick, promote, demote, transfer, sethome, friendlyfire, disband <secondary>manage your team"
+  help-admin:
+    - "<primary>/team admin add [team] [player] <secondary>puts a player in a team"
+    - "<primary>/team admin kick [player] <secondary>removes a player from their team"
+    - "<primary>/team admin transfer [team] [player] <secondary>makes a member the owner"
+    - "<primary>/team admin rename [team] [name] <secondary>renames a team"
+    - "<primary>/team admin delhome [team] <secondary>removes a team home"
+    - "<primary>/team admin disband [team] <secondary>disbands a team"
+
+  admin:
+    added: "<primary>Added <name> to <team>."
+    kicked: "<primary>Removed <name> from <team>."
+    transferred: "<primary><name> now owns <team>."
+    disbanded: "<primary>Disbanded <team>."
+    renamed: "<primary>Renamed <old> to <name>."
+    home-removed: "<primary>Removed the home of <team>."
+    not-in-team: "<primary><name> is not in a team."
+    is-owner: "<primary><name> owns <team>. Make someone else the owner or disband it first."
+    already-owner: "<primary><name> already owns the team."
+    not-member: "<primary><name> is not in <team>."
+
+  hub:
+    label: "Team"
+    description: "Your team, members and home"
+
+  settings:
+    spy: "Team chat spy"
+    spy-description: "See the chat of every team"

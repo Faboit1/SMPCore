@@ -1,0 +1,56 @@
+# Teams: a name, members with roles, a shared home, a private chat and leaderboards.
+# Changes apply with /sift reload.
+
+create:
+  # What creating a team costs. Amounts accept 1500, 1.5k, 2m and so on. 0 makes it free.
+  # Nothing is refunded when a team is disbanded.
+  cost: 50k
+
+names:
+  # Team names use letters, digits and _ only and are unique ignoring case. 16 is the most the database holds.
+  min-length: 3
+  max-length: 16
+  # Words a team name may not contain, ignoring case. Separators, digits used as letters and stretched letters
+  # are caught too (B_A_D, b4d and baaad all contain "bad"). Matching is by substring, so avoid short words that
+  # are part of normal words. Staff can rename a team with /team admin rename.
+  blocked-words: []
+
+members:
+  # Members per team, the owner included. The owner's rank can raise this with the permission
+  # siftcore.teams.size.<number> (the highest one counts) or remove it with siftcore.teams.size.unlimited.
+  # The owner's rank is remembered while they are offline.
+  default-limit: 5
+
+invites:
+  # How long an invite can be accepted.
+  expire-after: 2m
+  # How many invites one team can have open at the same time.
+  max-open: 10
+  # Time between two invites sent by the same player.
+  cooldown: 3s
+
+home:
+  # Wait before /team home teleports. Moving or taking damage cancels it.
+  # Players with siftcore.teleport.bypass-warmup teleport right away.
+  warmup: 5s
+
+friendly-fire:
+  # Whether new teams start with friendly fire on.
+  default: false
+  # While a team has friendly fire off, stop its members from hurting each other: melee, arrows and other
+  # projectiles, splash and lingering potions with harmful effects, and fire. Turn this off only if another
+  # plugin handles it.
+  protect-members: true
+
+chat:
+  # Also print team chat to the server console.
+  log-to-console: true
+
+leaderboard:
+  # How often /team top is rebuilt (off the main threads, from memory).
+  refresh: 60s
+  # How many teams /team top shows.
+  size: 10
+
+# Teams per page in /team list.
+page-size: 10
