@@ -723,6 +723,8 @@ public final class Bot {
         for (var element : common.body()) {
             if (element instanceof PlainMessage message) {
                 body.add(message.contents().getString());
+            } else if (element instanceof net.minecraft.server.dialog.body.ItemBody item) {
+                item.description().ifPresent(description -> body.add(description.contents().getString()));
             }
         }
         Map<String, String> inputs = new java.util.LinkedHashMap<>();

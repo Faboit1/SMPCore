@@ -158,7 +158,22 @@ public final class MoneyFormat {
         if (value.signum() < 0) {
             return ParseResult.fail(ParseError.NOT_POSITIVE);
         }
-        BigDecimal scaled = value.multiply(BigDecimal.valueOf(multiplier));
+        // Exponent notation (1e100000000) is a short input for an enormous number: rescaling it would compute a
+        // power of ten with millions of digits and stall the thread. Digit count and scale are cheap to read, so
+        // anything with a fraction or with more digits than a long can hold is answered from them first.
+        BigDecimal scaled;
+        try {
+            scaled = value.multiply(BigDecimal.valueOf(multiplier)).stripTrailingZeros();
+        } catch (ArithmeticException e) {
+            // Stripping zeros only overflows the scale for exponents far beyond any amount.
+            return ParseResult.fail(ParseError.TOO_LARGE);
+        }
+        if (scaled.scale() > 0) {
+            return ParseResult.fail(ParseError.NOT_WHOLE);
+        }
+        if ((long) scaled.precision() - scaled.scale() > 19) {
+            return ParseResult.fail(ParseError.TOO_LARGE);
+        }
         BigDecimal whole;
         try {
             whole = scaled.setScale(0, RoundingMode.UNNECESSARY);

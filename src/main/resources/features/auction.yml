@@ -1,0 +1,71 @@
+# The auction house (/ah): players list items for a price and other players buy them.
+# Amounts accept 1500, 1.5k, 2m and so on. Changes apply with /sift reload.
+
+listings:
+  # How long a listing stays up (1m to 30d). When it runs out, the item goes back to the seller's claim box.
+  # Changing it only affects new listings.
+  duration: 48h
+  # How many listings a player can have up at once. Ranks raise it with the permission
+  # siftcore.auction.listings.<number> (the highest one wins); siftcore.auction.listings.unlimited removes the limit.
+  # 0 means players need one of those permissions to sell at all.
+  default-slots: 3
+
+price:
+  # The lowest and highest price of a whole listing.
+  minimum: 1
+  maximum: 10b
+  # The lowest price per item: a stack of 64 must cost at least 64 times this. 0 means no limit.
+  minimum-per-item: 1
+  # The highest price per item. 0 means no limit (the maximum above still applies).
+  maximum-per-item: 0
+
+# The share of the price the seller pays as tax when a listing sells, in percent (up to two decimals, like 2.5).
+# It is rounded down and taken out of the economy. Changes apply to sales from then on.
+tax: 5
+
+blacklist:
+  # Items that can't be listed. Use item ids; * matches anything, so minecraft:*_spawn_egg is every spawn egg.
+  items:
+    - minecraft:barrier
+    - minecraft:bedrock
+    - minecraft:command_block
+    - minecraft:chain_command_block
+    - minecraft:repeating_command_block
+    - minecraft:command_block_minecart
+    - minecraft:structure_block
+    - minecraft:structure_void
+    - minecraft:jigsaw
+    - minecraft:light
+    - minecraft:debug_stick
+    - minecraft:knowledge_book
+    - minecraft:test_block
+    - minecraft:test_instance_block
+    - minecraft:*_spawn_egg
+  # Whether shulker boxes and bundles that hold items can be listed. Buyers see the contents in the tooltip.
+  allow-filled-containers: true
+  # The most item data one listing may carry, in KiB (uncompressed; 0 = no limit). Every listing is sent to everyone
+  # who opens the auction house, so huge items (a shulker box full of written books, thousands of lines of lore)
+  # could otherwise make the menu too big for clients and disconnect them.
+  max-item-size: 128
+  # Whether players in creative or spectator mode can list items (they can create items out of nothing).
+  allow-creative-mode: false
+
+# Players who are in combat can't open or use the auction house until their combat timer ends.
+block-in-combat: true
+
+# How often listings whose time ran out are returned to their sellers (from memory, no world access).
+expiry-check: 30s
+
+# Put bought items and taken-down listings straight into the inventory when they fit.
+# When they don't fit (or this is false) they wait in the claim box.
+auto-claim: true
+
+# Tell players when they join that items are waiting in their claim box.
+join-reminder: true
+
+# How many sales and purchases /ah history shows.
+history-size: 20
+
+# The sort order for players who never picked one: newest, ending-soon, lowest-price or highest-price.
+# Each player's own choice of sort and category is remembered.
+default-sort: newest
