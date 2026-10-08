@@ -7,9 +7,13 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
+import net.siftvanilla.siftcore.core.link.FriendLookup;
+import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
+import net.siftvanilla.siftcore.feature.bounties.BountiesFeature;
+import net.siftvanilla.siftcore.feature.combat.CombatFeature;
 import net.siftvanilla.siftcore.feature.displays.DisplaysFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
 import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
@@ -48,6 +52,8 @@ final class FeatureCatalog {
         StatsFeature stats = new StatsFeature(this.services, this.problems, AfkStatus.NONE, economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
         SellFeature sell = new SellFeature(this.services, this.problems);
+        CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
+            FriendLookup.NONE, staff.vanish(), SpawnArea.NONE);
         features.add(economy);
         features.add(auction);
         features.add(teams);
@@ -58,6 +64,8 @@ final class FeatureCatalog {
         features.add(new ShopFeature(this.services, this.problems, sell.worth(), SpawnerItems.NONE));
         features.add(new ExtrasFeature(this.services, this.problems));
         features.add(new DisplaysFeature(this.services, this.problems));
+        features.add(combat);
+        features.add(new BountiesFeature(this.services, this.problems));
         features.add(admin);
         return features;
     }

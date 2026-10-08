@@ -17,6 +17,7 @@ final class FeatureScenarios {
         list.addAll(SellShopScenarios.all());
         list.addAll(DisplaysScenarios.all());
         list.addAll(StaffScenarios.all());
+        list.addAll(CombatScenarios.all());
         return list;
     }
 }

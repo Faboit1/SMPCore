@@ -1,0 +1,41 @@
+combat:
+  tag:
+    action-bar: "<primary>In combat <time>"
+    ended: "<primary>You are no longer in combat."
+  blocked:
+    command: "<primary>You can't use that in combat. <time> left."
+    ender-pearl: "<primary>You can't throw ender pearls in combat. <time> left."
+    elytra: "<primary>You can't fly in combat. <time> left."
+    spawn: "<primary>You can't go into spawn in combat. <time> left."
+  logout:
+    announce: "<primary><name> <secondary>logged out in combat."
+    announce-killed: "<primary><name> <secondary>logged out in combat. <primary><killer> <secondary>gets the kill."
+  death:
+    killed: "<primary><victim> <secondary>was killed by <primary><killer><secondary>."
+    killed-using: "<primary><victim> <secondary>was killed by <primary><killer> <secondary>using <primary><item><secondary>."
+  streak:
+    reached: "<primary><name> <secondary>is on a kill streak of <count><secondary>."
+    ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <count><secondary>."
+  status:
+    tagged: "<primary>You are in combat for <time>."
+    clear: "<primary>You are not in combat."
+  admin:
+    status-tagged: "<primary><name> is in combat for <time>. <secondary>Last hit by <attacker>."
+    status-tagged-no-hit: "<primary><name> is in combat for <time>. <secondary>Nobody hit them."
+    status-clear: "<primary><name> is not in combat."
+    tagged: "<primary><name> is now in combat for <time>."
+    untagged: "<primary><name> is no longer in combat."
+    invalid-time: "<primary><secondary><input></secondary> is not a time from 1s to <max>, like 20s or 2m."
+    kills-header: "<primary>Kills of <name> <secondary>page <page>"
+    kills-counted: "<secondary><ago> ago <primary><killer> <secondary>killed <primary><victim><secondary>, counted"
+    kills-not-counted: "<secondary><ago> ago <primary><killer> <secondary>killed <primary><victim><secondary>, not counted: <reason>"
+    kills-empty: "<secondary>No kills on this page."
+  reason:
+    same-team: "same team"
+    friends: "friends"
+    same-ip: "same IP address"
+    repeated-pair: "killed again too soon"
+    cancelled: "cancelled by a plugin"
+  settings:
+    death-messages: "Death messages"
+    death-messages-description: "Show when other players die"

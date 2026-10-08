@@ -65,6 +65,7 @@ import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
@@ -72,6 +73,7 @@ import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.network.protocol.game.GameProtocols;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundChatCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundChatPacket;
 import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
@@ -81,6 +83,7 @@ import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.login.ClientLoginPacketListener;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
@@ -180,6 +183,7 @@ public final class Bot {
     private final AtomicInteger deaths = new AtomicInteger();
     private final AtomicInteger dialogsCleared = new AtomicInteger();
     private final AtomicInteger sequence = new AtomicInteger();
+    private volatile long lastDeathScreen;
     private final Set<UUID> playerInfo = ConcurrentHashMap.newKeySet();
     private final Set<UUID> everPlayerInfo = ConcurrentHashMap.newKeySet();
 
@@ -410,6 +414,16 @@ public final class Bot {
 
     public void respawn() {
         send(new ServerboundClientCommandPacket(ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
+    }
+
+    /** Attacks an entity, like a left click on it (the server checks the reach). */
+    public void attack(int entityId) {
+        send(new ServerboundAttackPacket(entityId));
+    }
+
+    /** Uses the main hand item in the air, like a right click (throws an ender pearl, for example). */
+    public void useItem() {
+        send(new ServerboundUseItemPacket(InteractionHand.MAIN_HAND, this.sequence.incrementAndGet(), this.yRot, this.xRot));
     }
 
     /** Right-clicks an entity with the main hand, like the vanilla client does. */
@@ -658,9 +672,15 @@ public final class Bot {
             case net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket dc -> this.chat.add(dc.message().getString());
             case ClientboundSetActionBarTextPacket ab -> this.actionBar.add(ab.text().getString());
             case ClientboundSetTitleTextPacket t -> this.titles.add(t.text().getString());
+            case ClientboundSetHealthPacket health -> {
+                // A player who logged in dead gets no death screen packet, only their health: respawn like a client.
+                if (health.getHealth() <= 0) {
+                    deathScreen();
+                }
+            }
             case ClientboundPlayerCombatKillPacket ck -> {
                 this.deaths.incrementAndGet();
-                this.exec.execute(this::respawn);
+                deathScreen();
             }
             case ClientboundAddEntityPacket add -> this.entities.put(add.getId(), new SeenEntity(add.getId(), add.getUUID(),
                 BuiltInRegistries.ENTITY_TYPE.getKey(add.getType()).toString(), add.getX(), add.getY(), add.getZ(), new ConcurrentHashMap<>()));
@@ -692,6 +712,15 @@ public final class Bot {
                     LOG.info("[" + this.name + "] packet " + packet.getClass().getSimpleName());
                 }
             }
+        }
+    }
+
+    /** Answers a death screen with one respawn, however many packets announced it. */
+    private void deathScreen() {
+        long now = System.currentTimeMillis();
+        if (now - this.lastDeathScreen > 2_000 && !this.exec.isShutdown()) {
+            this.lastDeathScreen = now;
+            this.exec.execute(this::respawn);
         }
     }
 
