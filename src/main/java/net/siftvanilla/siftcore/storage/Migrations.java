@@ -9,7 +9,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
@@ -59,7 +61,7 @@ public final class Migrations {
         return found;
     }
 
-    /** Applies every pending migration in order and completes with the resulting schema version. */
+    /** Applies every migration not recorded yet, in version order, and returns the highest applied version. */
     public int migrate() throws Exception {
         Dialect dialect = this.database.dialect();
         this.database.write(c -> {
@@ -69,13 +71,22 @@ public final class Migrations {
             }
             return null;
         }).get();
-        int current = this.database.read(c -> {
-            try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT MAX(version) FROM schema_version")) {
-                return rs.next() ? rs.getInt(1) : 0;
+        // Every feature owns a range of version numbers, so a lower-numbered migration can ship after a higher one
+        // was applied: apply each bundled migration that is not recorded yet, in ascending order.
+        Set<Integer> applied = this.database.read(c -> {
+            Set<Integer> versions = new HashSet<>();
+            try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT version FROM schema_version")) {
+                while (rs.next()) {
+                    versions.add(rs.getInt(1));
+                }
             }
+            return versions;
         }).get();
-        for (Migration migration : this.migrations) {
-            if (migration.version() <= current) {
+        int current = applied.stream().mapToInt(Integer::intValue).max().orElse(0);
+        List<Migration> ordered = new ArrayList<>(this.migrations);
+        ordered.sort(java.util.Comparator.comparingInt(Migration::version));
+        for (Migration migration : ordered) {
+            if (applied.contains(migration.version())) {
                 continue;
             }
             List<String> statements = load(migration, dialect);
@@ -96,7 +107,7 @@ public final class Migrations {
                 return null;
             }).get();
             this.logger.info("Applied database migration V" + migration.version() + " (" + migration.name() + ")");
-            current = migration.version();
+            current = Math.max(current, migration.version());
         }
         return current;
     }
