@@ -24,7 +24,8 @@ The test server directory must contain `versions/` (the patched Canvas jar) and 
 4. Results are logged as `E2E PASS <scenario>` / `E2E FAIL <scenario> at step '...'` and a final
    `E2E SUMMARY passed=N failed=M`.
 
-Each scenario uses fresh bot names (a per-run suffix), so runs never depend on earlier data.
+Each scenario uses fresh bot names (a per-run suffix), so runs never depend on earlier data. A run stops the day
+cycle and sets every world to midday, so hostile mobs don't attack bots during long runs.
 
 New players arrive at the spawn point, inside SiftCore's protected spawn area where nobody can build, fight or be
 hurt. `E2E#bot` therefore moves every freshly joined bot onto the ground just past the edge of that area (within 64

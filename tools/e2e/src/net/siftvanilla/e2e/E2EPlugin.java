@@ -58,6 +58,14 @@ public final class E2EPlugin extends JavaPlugin {
                 selected.add(scenario);
             }
         }
+        // Keep every world at midday for the run: a long run otherwise reaches night, and hostile mobs outside the
+        // protected spawn then hurt bots, which cancels teleport warmups and kills players mid-scenario.
+        org.bukkit.Bukkit.getGlobalRegionScheduler().execute(this, () -> {
+            for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
+                world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, false);
+                world.setTime(6_000);
+            }
+        });
         Thread runner = new Thread(() -> {
             int passed = 0;
             int failed = 0;
