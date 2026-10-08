@@ -79,7 +79,9 @@ public record CoreSettings(
         Palette palette = new Palette(
             color(p, "primary", "#FFFFFF"),
             color(p, "secondary", "#AAAAAA"),
-            color(p, "money", "#1AFF1A"));
+            color(p, "money", "#1AFF1A"),
+            color(p, "error", "#FF5555"),
+            color(p, "error-secondary", "#FF9E9E"));
 
         Map<Feedback, Sound> sounds = new EnumMap<>(Feedback.class);
         ConfigReader sound = r.section("sounds");

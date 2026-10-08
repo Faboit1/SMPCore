@@ -39,12 +39,18 @@ class TextStyleTest {
     }
 
     @Test
-    void boldColoursAndGradientsAreRejected() {
-        assertEquals(1, this.style.findDisallowedTags("<bold>hi", Set.of()).size());
-        assertEquals(1, this.style.findDisallowedTags("<b>hi", Set.of()).size());
-        assertEquals(1, this.style.findDisallowedTags("<red>hi", Set.of()).size());
-        assertEquals(1, this.style.findDisallowedTags("<#ff0000>hi", Set.of()).size());
+    void coloursBoldAndShadowAreAllowed() {
+        assertEquals(List.of(), this.style.findDisallowedTags("<bold>hi</bold> <b>x", Set.of()));
+        assertEquals(List.of(), this.style.findDisallowedTags("<red>hi <#3CC4EE>x <color:gold>y <c:#FF0000>z", Set.of()));
+        assertEquals(List.of(), this.style.findDisallowedTags("<shadow:#000000FF>x</shadow> <error>no", Set.of()));
+    }
+
+    @Test
+    void gradientsAndOtherEffectsAreRejected() {
         assertEquals(1, this.style.findDisallowedTags("<gradient:red:blue>hi", Set.of()).size());
+        assertEquals(1, this.style.findDisallowedTags("<rainbow>hi", Set.of()).size());
+        assertEquals(1, this.style.findDisallowedTags("<obfuscated>hi", Set.of()).size());
+        assertEquals(1, this.style.findDisallowedTags("<#ff00>hi", Set.of()).size(), "not a colour");
         assertEquals(1, this.style.findDisallowedTags("<italic>hi", Set.of()).size(), "italics may only be turned off");
         assertEquals(1, this.style.findDisallowedTags("<player>", Set.of("name")).size(), "undeclared placeholder");
         assertEquals(1, this.style.findDisallowedTags("<icon:nope>", Set.of()).size(), "unknown icon");

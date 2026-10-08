@@ -12,18 +12,21 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
- * The single MiniMessage setup for trusted text (lang and config). It only knows the design-system tags:
- * {@code <primary> <secondary> <money>} colours, {@code <icon:name>} sprites, {@code <!italic>}, {@code <newline>},
- * {@code <reset>}, click/hover/key/lang tags, and the placeholders a message declares. Bold, gradients, rainbow,
- * other colours and decorative tags are deliberately unavailable, and {@link #findDisallowedTags} reports them.
+ * The single MiniMessage setup for trusted text (lang and config). It knows the palette tags
+ * {@code <primary> <secondary> <money> <error>}, any colour ({@code <red>}, {@code <#3CC4EE>}, {@code <color:...>}),
+ * {@code <shadow:...>}, {@code <bold>}, {@code <icon:name>} sprites, {@code <!italic>}, {@code <newline>},
+ * {@code <reset>}, click/hover/key/lang tags, and the placeholders a message declares. Gradients, rainbow,
+ * obfuscation and other decorative tags are unavailable, and {@link #findDisallowedTags} reports them.
  * Untrusted text never goes through MiniMessage: it is inserted with {@link Arg.Text} or {@link #literal(String)}.
  */
 public final class TextStyle {
 
     private static final Pattern TAG = Pattern.compile("<(/?)(!?)([a-zA-Z0-9_#:.\\-]+)");
     private static final Set<String> STRUCTURAL = Set.of(
-        "primary", "secondary", "money", "icon", "italic", "i", "em", "newline", "br", "reset",
-        "click", "hover", "key", "lang", "tr", "translate", "lang_or", "tr_or", "translate_or");
+        "primary", "secondary", "money", "error", "icon", "italic", "i", "em", "newline", "br", "reset",
+        "click", "hover", "key", "lang", "tr", "translate", "lang_or", "tr_or", "translate_or",
+        "color", "colour", "c", "shadow", "bold", "b");
+    private static final Pattern HEX = Pattern.compile("#[0-9a-fA-F]{6}");
     private static final Set<String> NEGATION_ONLY = Set.of("italic", "i", "em");
 
     private volatile Palette palette;
@@ -49,8 +52,12 @@ public final class TextStyle {
             .tag("primary", Tag.styling(p.primary()))
             .tag("secondary", Tag.styling(p.secondary()))
             .tag("money", Tag.styling(p.money()))
+            .tag("error", Tag.styling(p.error()))
             .tag("icon", (args, ctx) -> Tag.selfClosingInserting(i.component(args.popOr("<icon> needs a name").lowerValue())))
             .resolver(StandardTags.decorations(TextDecoration.ITALIC))
+            .resolver(StandardTags.decorations(TextDecoration.BOLD))
+            .resolver(StandardTags.color())
+            .resolver(StandardTags.shadowColor())
             .resolver(StandardTags.newline())
             .resolver(StandardTags.reset())
             .resolver(StandardTags.clickEvent())
@@ -114,7 +121,8 @@ public final class TextStyle {
             String full = matcher.group(3);
             String name = full.contains(":") ? full.substring(0, full.indexOf(':')) : full;
             String lower = name.toLowerCase(java.util.Locale.ROOT);
-            if (placeholders.contains(lower)) {
+            if (placeholders.contains(lower) || HEX.matcher(name).matches()
+                || net.kyori.adventure.text.format.NamedTextColor.NAMES.value(lower) != null) {
                 continue;
             }
             if (!STRUCTURAL.contains(lower)) {

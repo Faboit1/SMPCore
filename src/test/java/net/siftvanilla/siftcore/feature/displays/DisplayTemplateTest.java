@@ -132,11 +132,11 @@ class DisplayTemplateTest {
 
     @Test
     void disallowedTagsAreReportedWithTheirLine() {
-        compile("<primary>fine", "<bold>loud</bold>", "<red>red", "<gradient:red:blue>x", "<icon:nope> x");
-        assertEquals(4, this.problems.size(), this.problems.toString());
-        assertTrue(this.problems.get(0).startsWith("2: uses tags that are not allowed: <bold>"), this.problems.get(0));
-        assertTrue(this.problems.get(1).startsWith("3: "), this.problems.get(1));
-        assertTrue(this.problems.get(3).contains("unknown icon"), this.problems.get(3));
+        compile("<primary>fine", "<bold>loud</bold>", "<red>red", "<gradient:red:blue>x", "<icon:nope> x", "<rainbow>y");
+        assertEquals(3, this.problems.size(), this.problems.toString());
+        assertTrue(this.problems.get(0).startsWith("4: uses tags that are not allowed: <gradient:red:blue>"), this.problems.get(0));
+        assertTrue(this.problems.get(1).contains("unknown icon"), this.problems.get(1));
+        assertTrue(this.problems.get(2).startsWith("6: "), this.problems.get(2));
     }
 
     @Test

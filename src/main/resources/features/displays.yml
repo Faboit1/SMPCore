@@ -9,18 +9,19 @@
 # Changes apply with /sift reload: text and looks change in place, displays with a new position move there.
 
 # What each display shows, one entry per line. Lines use the same tags as the lang files: <primary> (white),
-# <secondary> (gray), <money> (money amounts only), <icon:name> (followed by a space) and <!italic>.
+# <secondary> (gray), <money> (money amounts), <error> (red), any colour (<red>, <gold>, <#3CC4EE>), <bold>,
+# <shadow:#000000> and <icon:name> (followed by a space).
 # "" is an empty line.
 # {name} inserts a SiftCore placeholder that is the same for every player, for example {baltop_name_1} and
 # {baltop_value_1} (/sift placeholders lists them). A placeholder without a value, such as an empty leaderboard
 # place, shows "-".
 templates:
   richest:
-    - "<icon:money> <primary>Richest players"
+    - "<icon:money> <bold><#1AFF1A>Richest players</bold>"
     - ""
-    - "<secondary>1. <primary>{baltop_name_1} <money>{baltop_value_1}"
-    - "<secondary>2. <primary>{baltop_name_2} <money>{baltop_value_2}"
-    - "<secondary>3. <primary>{baltop_name_3} <money>{baltop_value_3}"
+    - "<#FFD43B>1. <primary>{baltop_name_1} <money>{baltop_value_1}"
+    - "<#D9DEE4>2. <primary>{baltop_name_2} <money>{baltop_value_2}"
+    - "<#E0915A>3. <primary>{baltop_name_3} <money>{baltop_value_3}"
     - "<secondary>4. <primary>{baltop_name_4} <money>{baltop_value_4}"
     - "<secondary>5. <primary>{baltop_name_5} <money>{baltop_value_5}"
     - "<secondary>6. <primary>{baltop_name_6} <money>{baltop_value_6}"
@@ -31,53 +32,54 @@ templates:
     - ""
     - "<secondary>Right click to see more"
   top-kills:
-    - "<icon:kill> <primary>Top killers"
+    - "<icon:kill> <bold><#FF4B4B>Top killers</bold>"
     - ""
-    - "<secondary>1. <primary>{top_kills_name_1} <secondary>{top_kills_value_1}"
-    - "<secondary>2. <primary>{top_kills_name_2} <secondary>{top_kills_value_2}"
-    - "<secondary>3. <primary>{top_kills_name_3} <secondary>{top_kills_value_3}"
-    - "<secondary>4. <primary>{top_kills_name_4} <secondary>{top_kills_value_4}"
-    - "<secondary>5. <primary>{top_kills_name_5} <secondary>{top_kills_value_5}"
-    - "<secondary>6. <primary>{top_kills_name_6} <secondary>{top_kills_value_6}"
-    - "<secondary>7. <primary>{top_kills_name_7} <secondary>{top_kills_value_7}"
-    - "<secondary>8. <primary>{top_kills_name_8} <secondary>{top_kills_value_8}"
-    - "<secondary>9. <primary>{top_kills_name_9} <secondary>{top_kills_value_9}"
-    - "<secondary>10. <primary>{top_kills_name_10} <secondary>{top_kills_value_10}"
+    - "<#FFD43B>1. <primary>{top_kills_name_1} <#FF6B6B>{top_kills_value_1}"
+    - "<#D9DEE4>2. <primary>{top_kills_name_2} <#FF6B6B>{top_kills_value_2}"
+    - "<#E0915A>3. <primary>{top_kills_name_3} <#FF6B6B>{top_kills_value_3}"
+    - "<secondary>4. <primary>{top_kills_name_4} <#FF6B6B>{top_kills_value_4}"
+    - "<secondary>5. <primary>{top_kills_name_5} <#FF6B6B>{top_kills_value_5}"
+    - "<secondary>6. <primary>{top_kills_name_6} <#FF6B6B>{top_kills_value_6}"
+    - "<secondary>7. <primary>{top_kills_name_7} <#FF6B6B>{top_kills_value_7}"
+    - "<secondary>8. <primary>{top_kills_name_8} <#FF6B6B>{top_kills_value_8}"
+    - "<secondary>9. <primary>{top_kills_name_9} <#FF6B6B>{top_kills_value_9}"
+    - "<secondary>10. <primary>{top_kills_name_10} <#FF6B6B>{top_kills_value_10}"
     - ""
     - "<secondary>Right click to see more"
   most-active:
-    - "<icon:playtime> <primary>Most active"
+    - "<icon:playtime> <bold><#55D7FF>Most active</bold>"
     - ""
-    - "<secondary>1. <primary>{top_playtime_name_1} <secondary>{top_playtime_value_1}"
-    - "<secondary>2. <primary>{top_playtime_name_2} <secondary>{top_playtime_value_2}"
-    - "<secondary>3. <primary>{top_playtime_name_3} <secondary>{top_playtime_value_3}"
-    - "<secondary>4. <primary>{top_playtime_name_4} <secondary>{top_playtime_value_4}"
-    - "<secondary>5. <primary>{top_playtime_name_5} <secondary>{top_playtime_value_5}"
-    - "<secondary>6. <primary>{top_playtime_name_6} <secondary>{top_playtime_value_6}"
-    - "<secondary>7. <primary>{top_playtime_name_7} <secondary>{top_playtime_value_7}"
-    - "<secondary>8. <primary>{top_playtime_name_8} <secondary>{top_playtime_value_8}"
-    - "<secondary>9. <primary>{top_playtime_name_9} <secondary>{top_playtime_value_9}"
-    - "<secondary>10. <primary>{top_playtime_name_10} <secondary>{top_playtime_value_10}"
+    - "<#FFD43B>1. <primary>{top_playtime_name_1} <#7FE3FF>{top_playtime_value_1}"
+    - "<#D9DEE4>2. <primary>{top_playtime_name_2} <#7FE3FF>{top_playtime_value_2}"
+    - "<#E0915A>3. <primary>{top_playtime_name_3} <#7FE3FF>{top_playtime_value_3}"
+    - "<secondary>4. <primary>{top_playtime_name_4} <#7FE3FF>{top_playtime_value_4}"
+    - "<secondary>5. <primary>{top_playtime_name_5} <#7FE3FF>{top_playtime_value_5}"
+    - "<secondary>6. <primary>{top_playtime_name_6} <#7FE3FF>{top_playtime_value_6}"
+    - "<secondary>7. <primary>{top_playtime_name_7} <#7FE3FF>{top_playtime_value_7}"
+    - "<secondary>8. <primary>{top_playtime_name_8} <#7FE3FF>{top_playtime_value_8}"
+    - "<secondary>9. <primary>{top_playtime_name_9} <#7FE3FF>{top_playtime_value_9}"
+    - "<secondary>10. <primary>{top_playtime_name_10} <#7FE3FF>{top_playtime_value_10}"
     - ""
     - "<secondary>Right click to see more"
   welcome:
-    - "<primary>Welcome to SiftVanilla"
+    - "<bold><#3CC4EE>SIFTVANILLA</bold>"
     - "<secondary>Survival with an economy and PvP"
     - ""
-    - "<secondary>Type <primary>/menu<secondary> to get started"
-    - "<secondary>Read the rules with <primary>/rules"
+    - "<primary>Type <#FDDF00>/menu<primary> to get started"
+    - "<primary>Read the rules with <#97E35E>/rules"
+    - "<primary>Find a spot with <#A578FF>/rtp"
     - ""
-    - "<secondary>siftvanilla.net"
-    - "<secondary>discord.gg/siftvanilla"
+    - "<#3CC4EE>siftvanilla.net"
+    - "<#A578FF>discord.gg/siftvanilla"
 
 # How every display looks unless it says otherwise below.
 defaults:
   # Which way the text turns:
-  #   center      always faces the player looking at it
-  #   vertical    turns left and right only
+  #   center      always faces the player looking at it, tilting up and down too
+  #   vertical    turns left and right to face the player but always stands upright (the default)
   #   horizontal  tilts up and down only
   #   fixed       keeps facing the way it was placed
-  billboard: center
+  billboard: vertical
   # left, center or right.
   alignment: center
   # The longest line in pixels before it wraps (10 to 1000). Most letters are 6 pixels wide.

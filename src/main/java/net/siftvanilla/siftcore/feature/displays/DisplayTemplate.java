@@ -74,7 +74,7 @@ public record DisplayTemplate(String id, List<String> source, List<String> compi
             List<String> bad = style.findDisallowedTags(line, Set.of());
             if (!bad.isEmpty()) {
                 problems.report(number, "uses tags that are not allowed: " + String.join(", ", bad)
-                    + " (allowed: <primary> <secondary> <money> <icon:name> <!italic>)");
+                    + " (allowed: <primary> <secondary> <money> <error>, colours such as <red> or <#3CC4EE>, <bold>, <shadow:#000000>, <icon:name> <!italic>)");
             }
             Matcher matcher = TOKEN.matcher(line);
             StringBuilder out = new StringBuilder(line.length() + 16);

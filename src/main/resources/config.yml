@@ -43,8 +43,10 @@ palette:
   primary: "#FFFFFF"     # main text
   secondary: "#AAAAAA"   # descriptions and less important text
   money: "#1AFF1A"       # money amounts only
+  error: "#FF5555"       # every error message, and <error> in texts
+  error-secondary: "#FF9E9E"   # the secondary (gray) parts of error messages
 
-# The small set of UI sounds. State is told by wording and these sounds, never by colour.
+# The small set of UI sounds. Errors are also shown in the error colour.
 # sound is any sound key from the game (for example ui.button.click). volume 0-2, pitch 0.5-2.
 sounds:
   success:

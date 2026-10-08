@@ -135,7 +135,7 @@ public final class Dialogs implements Listener {
             bridge.show(player, view, (buttonIndex, values) -> dispatch(player, token, buttonIndex, values));
             return;
         }
-        Dialog dialog = render(view, register(player, view));
+        Dialog dialog = render(view, register(player, view), this.messenger.lang().style().palette());
         if (this.scheduler.owns(player)) {
             player.showDialog(dialog);
         } else {
@@ -148,7 +148,7 @@ public final class Dialogs implements Listener {
      * while, so the player can open it from chat later.
      */
     public Dialog inline(Player viewer, View view) {
-        return render(view, register(viewer, view));
+        return render(view, register(viewer, view), this.messenger.lang().style().palette());
     }
 
     public void close(Player player) {
@@ -439,12 +439,12 @@ public final class Dialogs implements Listener {
 
     // ---------------------------------------------------------------- rendering
 
-    private static Dialog render(View view, long token) {
+    private static Dialog render(View view, long token, net.siftvanilla.siftcore.core.text.Palette palette) {
         String tokenText = Long.toString(token, 36);
         List<DialogBody> bodies = new ArrayList<>();
         for (Body body : view.body()) {
             bodies.add(switch (body) {
-                case Body.Text text -> DialogBody.plainMessage(text.text(), text.width());
+                case Body.Text text -> DialogBody.plainMessage(text.error() ? palette.asError(text.text()) : text.text(), text.width());
                 case Body.Item item -> DialogBody.item(item.item())
                     .description(item.description() == null ? null : DialogBody.plainMessage(item.description()))
                     .showDecorations(true)

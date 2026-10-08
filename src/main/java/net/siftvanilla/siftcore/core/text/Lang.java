@@ -91,7 +91,7 @@ public final class Lang {
                 }
                 if (!bad.isEmpty()) {
                     problems.add(new ConfigProblem(fileName, key.path(), "uses tags that are not allowed: " + String.join(", ", bad)
-                        + " (allowed: <primary> <secondary> <money> <icon:name> <!italic> <newline>"
+                        + " (allowed: <primary> <secondary> <money> <error>, colours such as <red> or <#3CC4EE>, <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>"
                         + (key.placeholders().isEmpty() ? "" : " and " + placeholderList(key)) + ")"));
                     chosen = bundledValue;
                 }
@@ -141,15 +141,18 @@ public final class Lang {
     public Component get(MessageKey key, Arg... args) {
         List<String> lines = raw(key);
         TagResolver resolver = resolver(args);
+        Component text;
         if (lines.size() == 1) {
-            return this.style.parse(lines.getFirst(), resolver).colorIfAbsent(this.style.palette().primary());
+            text = this.style.parse(lines.getFirst(), resolver).colorIfAbsent(this.style.palette().primary());
+        } else {
+            List<Component> parts = new ArrayList<>(lines.size());
+            for (String line : lines) {
+                parts.add(this.style.parse(line, resolver));
+            }
+            text = Component.join(net.kyori.adventure.text.JoinConfiguration.newlines(), parts)
+                .colorIfAbsent(this.style.palette().primary());
         }
-        List<Component> parts = new ArrayList<>(lines.size());
-        for (String line : lines) {
-            parts.add(this.style.parse(line, resolver));
-        }
-        return Component.join(net.kyori.adventure.text.JoinConfiguration.newlines(), parts)
-            .colorIfAbsent(this.style.palette().primary());
+        return key.feedback() == Feedback.ERROR ? this.style.palette().asError(text) : text;
     }
 
     /** The message as separate lines, each primary by default and with italics off (for lore and bodies). */

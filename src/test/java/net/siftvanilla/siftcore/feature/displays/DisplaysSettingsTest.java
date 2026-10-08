@@ -72,7 +72,7 @@ class DisplaysSettingsTest {
         assertEquals(List.of("richest", "top-kills", "most-active", "welcome"), List.copyOf(settings.displays().keySet()));
         assertTrue(settings.displays().values().stream().allMatch(d -> d.position() == null), "shipped displays wait to be placed");
         DisplayOptions defaults = settings.defaults();
-        assertEquals(Display.Billboard.CENTER, defaults.billboard());
+        assertEquals(Display.Billboard.VERTICAL, defaults.billboard(), "boards stand upright");
         assertEquals(Background.NONE, defaults.background());
         assertFalse(defaults.seeThrough());
         assertEquals(Duration.ofSeconds(60), defaults.refresh());
@@ -255,8 +255,8 @@ class DisplaysSettingsTest {
 
     @Test
     void templateProblemsCarryTheLineNumber() {
-        parse(DEFAULTS.replace("- \"<primary>Richest\"", "- \"<bold>Richest\""));
-        expectProblem("templates.board", "line 1 uses tags that are not allowed: <bold>");
+        parse(DEFAULTS.replace("- \"<primary>Richest\"", "- \"<rainbow>Richest\""));
+        expectProblem("templates.board", "line 1 uses tags that are not allowed: <rainbow>");
     }
 
     @Test

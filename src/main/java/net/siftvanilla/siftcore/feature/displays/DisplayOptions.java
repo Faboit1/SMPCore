@@ -36,7 +36,7 @@ public record DisplayOptions(
     public static final float BLOCKS_PER_VIEW_RANGE = 64.0f;
 
     /** Used for a broken {@code defaults} section so the server still starts. */
-    public static final DisplayOptions FALLBACK = new DisplayOptions(Display.Billboard.CENTER, TextDisplay.TextAlignment.CENTER,
+    public static final DisplayOptions FALLBACK = new DisplayOptions(Display.Billboard.VERTICAL, TextDisplay.TextAlignment.CENTER,
         200, 1.0f, false, true, Background.NONE, 64, true, Duration.ofSeconds(60));
 
     /** The vanilla view range multiplier for {@link #viewRange()} blocks. */

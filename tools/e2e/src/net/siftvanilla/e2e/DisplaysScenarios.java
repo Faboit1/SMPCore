@@ -111,17 +111,18 @@ final class DisplaysScenarios {
             bot.clearLogs();
             bot.command("displays create " + board + " welcome");
             e2e.eventually(() -> bot.actionBarContains("Placed " + board), "a placed message on the action bar: " + bot.actionBar());
-            e2e.eventually(() -> textDisplay(bot, x, z, "Welcome to SiftVanilla") != null,
+            e2e.eventually(() -> textDisplay(bot, x, z, "SIFTVANILLA") != null,
                 "the bot receives a text display with the welcome text: " + bot.entities());
-            Bot.SeenEntity display = textDisplay(bot, x, z, "Welcome to SiftVanilla");
+            Bot.SeenEntity display = textDisplay(bot, x, z, "SIFTVANILLA");
             e2e.log("text display " + display.id() + " at " + display.x() + " " + display.y() + " " + display.z() + ": " + text(display));
 
-            e2e.step("the metadata is the quiet look from displays.yml");
+            e2e.step("the metadata is the look from displays.yml: upright, no background, shadow, full bright");
             Object background = display.data().get(dataId(Display.TextDisplay.class, "DATA_BACKGROUND_COLOR_ID"));
             e2e.expect(Integer.valueOf(0).equals(background), "no background (0), got " + background);
             Object billboard = display.data().get(dataId(Display.class, "DATA_BILLBOARD_RENDER_CONSTRAINTS_ID"));
-            // Billboard ids are continuous from 0 (fixed, vertical, horizontal, center), so center is its ordinal.
-            e2e.expect(Byte.valueOf((byte) Display.BillboardConstraints.CENTER.ordinal()).equals(billboard), "center billboard, got " + billboard);
+            // Billboard ids are continuous from 0 (fixed, vertical, horizontal, center), so vertical is its ordinal:
+            // the board turns to face players but always stands upright.
+            e2e.expect(Byte.valueOf((byte) Display.BillboardConstraints.VERTICAL.ordinal()).equals(billboard), "vertical billboard, got " + billboard);
             Object flags = display.data().get(dataId(Display.TextDisplay.class, "DATA_STYLE_FLAGS_ID"));
             e2e.expect(Byte.valueOf(Display.TextDisplay.FLAG_SHADOW).equals(flags), "only the shadow flag (not see-through, no default background), got " + flags);
             Object brightness = display.data().get(dataId(Display.class, "DATA_BRIGHTNESS_OVERRIDE_ID"));
@@ -210,8 +211,8 @@ final class DisplaysScenarios {
         double z = bot.z();
         try {
             e2e.console("displays create " + board + " welcome " + at(world, boardX, y, z));
-            e2e.eventually(() -> textDisplay(bot, boardX, z, "Welcome") != null, "the board arrives");
-            int first = textDisplay(bot, boardX, z, "Welcome").id();
+            e2e.eventually(() -> textDisplay(bot, boardX, z, "SIFTVANILLA") != null, "the board arrives");
+            int first = textDisplay(bot, boardX, z, "SIFTVANILLA").id();
 
             e2e.step("the list dialog shows the board and teleports to it");
             bot.command("displays list");
@@ -231,10 +232,10 @@ final class DisplaysScenarios {
             bot.command("displays move " + board);
             e2e.eventually(() -> bot.actionBarContains("Moved " + board), "a moved message: " + bot.actionBar());
             e2e.eventually(() -> !seen(bot, first), "the old entity is removed");
-            e2e.eventually(() -> textDisplay(bot, movedX, z, "Welcome") != null, "a new entity stands at the new place: " + bot.entities());
+            e2e.eventually(() -> textDisplay(bot, movedX, z, "SIFTVANILLA") != null, "a new entity stands at the new place: " + bot.entities());
 
             e2e.step("/displays delete asks for confirmation, cancel keeps it");
-            int moved = textDisplay(bot, movedX, z, "Welcome").id();
+            int moved = textDisplay(bot, movedX, z, "SIFTVANILLA").id();
             bot.command("displays delete " + board);
             Bot.SeenDialog confirm = e2e.dialog(bot, "Delete display");
             e2e.expect(confirm.bodyText().contains("Delete " + board + "?"), "the question names the board: " + confirm.body());
