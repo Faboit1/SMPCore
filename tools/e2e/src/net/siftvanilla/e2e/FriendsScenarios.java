@@ -250,7 +250,7 @@ final class FriendsScenarios {
         e2e.expect(one.bodyText().contains(alex + " wants to be friends.") && one.bodyText().contains("Mutual friends: 0")
             && one.bodyText().contains("ago"), "the request: " + one.body());
         e2e.expect(one.button("Accept") != null && one.button("Deny") != null && one.button("Back") != null, "buttons: " + one.buttons());
-        e2e.expect(one.button("Deny and ignore") == null, "no ignore command, no ignore button");
+        e2e.expect(one.button("Deny and ignore") != null, "chat's ignore list adds Deny and ignore: " + one.buttons());
 
         e2e.step("Accept makes them friends and tells the requester in chat");
         a.clearLogs();
