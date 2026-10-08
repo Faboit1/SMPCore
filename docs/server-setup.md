@@ -13,7 +13,7 @@ values and how to revert each one. The reasoning behind each tuning value is in
 | Limits | 14 GB memory, 300% CPU (three cores' worth of time, not dedicated cores), 23.8 GB disk |
 | Java | 25, heap `-Xms6G -Xmx8G`, G1 (the egg's startup flags; the client API cannot change them) |
 | Server | Canvas 26.2 build 962, a Folia fork that ticks regions of the world in parallel |
-| Clients | 26.2 natively; 26.3 clients through ViaVersion |
+| Clients | 26.2 natively; 26.3 through ViaVersion; 1.9 to 26.1 through ViaBackwards (1.8 and older are refused) |
 
 Canvas logs a SIMD notice at every boot because `--add-modules=jdk.incubator.vector` is not in the egg's
 startup flags. It only affects plugin-rendered map images, so it is safe to ignore.
@@ -27,7 +27,13 @@ startup flags. It only affects plugin-rendered map images, so it is safe to igno
 | PlaceholderAPI | 2.12.3 | Exposes SiftCore's placeholders as `%siftcore_<name>%` to other plugins |
 | VaultUnlocked | 2.20.3 | The Folia-capable Vault; SiftCore registers its economy there so other plugins can use it |
 | ViaVersion | 5.12.0 | Lets newer clients (26.3) join the 26.2 server |
+| ViaBackwards | 5.12.0 | Lets older clients (1.9 to 26.1) join; shows them SiftCore's dialogs as chest menus |
 | Chunky | 1.5.3 | Pre-generates the world inside the border (runs once, then idle) |
+
+Clients older than 1.21.6 have no dialog screen, so ViaBackwards shows every SiftCore dialog to them as a
+chest menu (buttons are items; clicking one sends the same click a modern client would, and SiftCore checks it
+the same way). Its chest labels are restyled to SiftCore's white and gray in `plugins/ViaBackwards/config.yml`.
+1.8 clients would need ViaRewind, which is not installed.
 
 spark is built into Canvas (`/spark profiler`, `/tps`). Floodgate is not installed: there is no Bedrock
 listener. If Geyser and Floodgate are added later, SiftCore picks Floodgate up automatically and shows Bedrock

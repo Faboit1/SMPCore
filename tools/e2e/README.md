@@ -24,3 +24,17 @@ The test server directory must contain `versions/` (the patched Canvas jar) and 
    `E2E SUMMARY passed=N failed=M`.
 
 Each scenario uses fresh bot names (a per-run suffix), so runs never depend on earlier data.
+
+## Older clients (ViaBackwards)
+
+`legacy_client.py` is a minimal 1.21.5 client (protocol 770) for checking that pre-dialog clients can still use
+SiftCore through ViaBackwards, which shows dialogs as chest menus. With ViaVersion and ViaBackwards in the test
+server's `plugins/`:
+
+```sh
+python3 -I tools/e2e/legacy_client.py <port> OldBot 1
+```
+
+It logs in, runs `/menu`, clicks chest slot 1 (the first menu button) and prints every screen it is shown. The
+expected output ends with `SCREENS: ['SiftVanilla', 'Money']`: the click went through ViaBackwards to SiftCore's
+dialog router, which answered with the next screen.

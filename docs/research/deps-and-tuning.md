@@ -128,6 +128,29 @@ If SiftCore ever needs it, the API artifact is `com.viaversion:viaversion-api:5.
 ViaVersion `config.yml` keys worth knowing: `check-for-updates: true` (set to false to avoid update pings),
 `block-versions: []`, `packet-limiter.max-per-second: 800`, and `send-player-details` / `send-server-details` (metrics).
 
+### 1.3b ViaBackwards: older clients (verified 2026-10-08)
+
+ViaBackwards **5.12.0** (Modrinth, released with ViaVersion 5.12.0; `folia-supported: true`, `depend: [ViaVersion]`;
+1,430,897 bytes, sha256 `f902f7da7eb99e8bfaf461f80283c4e2750b7d9727e6b508ea4bb9163f55b1db`) was booted with ViaVersion
+5.12.0 and SiftCore on a copy of the local server. There were no plugin warnings.
+
+Logins (`mcprobe` with the login packet each version expects): every protocol from **107 (1.9) to 777 (26.3)** reached
+`LOGIN SUCCESS`, including 770 (1.21.5), 767 (1.21), 763 (1.20.1), 754 (1.16.5), 340 (1.12.2) and 110 (1.9.4).
+Protocol 47 (1.8) is refused with "Outdated client! Please use 26.2"; it would need ViaRewind.
+
+Dialogs on old clients: clients before 1.21.6 have no dialog screen. ViaBackwards' `dialogs-via-chests: true` (the
+default) renders each dialog as a 27-slot chest:
+- widgets go in slots 0-17, and the body text is merged into one item;
+- the exit or action button goes in slot 18 (13 when there are no widgets);
+- confirmation yes/no go in slots 20 and 24;
+- slot 26 is page navigation.
+
+Clicking a button sends the button's custom click to the server, exactly like a modern client
+(decompiled `ChestDialogViewProvider`). An end-to-end check with a raw 1.21.5 client (`tools/e2e/legacy_client.py`) got
+`/menu` as a chest titled "SiftVanilla"; clicking slot 1 reached SiftCore's dialog router, which validated the token and
+opened the "Money" dialog (shown as a second chest). The `dialog-style` labels default to blue, gold and bold, so the
+live config restyles them to white and gray.
+
 ### 1.4 PlaceholderAPI on Folia
 
 * **No Folia-specific setting is needed.** PAPI 2.12.3 ships its own scheduler abstraction, `me.clip.placeholderapi.scheduler.UniversalScheduler`, with

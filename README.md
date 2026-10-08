@@ -30,7 +30,8 @@ forms and lists, chest menus only where a grid is needed.
 
 - Canvas, Folia or Paper for Minecraft 26.2, Java 25.
 - Optional: LuckPerms (rank labels and rank perks), PlaceholderAPI, Vault/VaultUnlocked (compatibility for other
-  plugins), Floodgate (Bedrock forms), ViaVersion (newer clients).
+  plugins), Floodgate (Bedrock forms), ViaVersion and ViaBackwards (newer and older clients; older
+  clients see dialogs as chest menus).
 
 ## Build
 
