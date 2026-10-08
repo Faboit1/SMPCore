@@ -1,0 +1,131 @@
+# Floating leaderboards and info boards made of text displays, usually at spawn. No hologram plugin is needed.
+#
+# A template is what a display shows; a display is where it stands and how it looks.
+# Place displays in-game: stand where one should go and run /displays create <name> <template>, or
+# /displays move <name> for the displays listed at the bottom of this file. Positions set in-game are kept in the
+# database, so this file never has to be edited to move things around. /displays list shows every display with
+# a button to go there.
+#
+# Changes apply with /sift reload: text and looks change in place, displays with a new position move there.
+
+# What each display shows, one entry per line. Lines use the same tags as the lang files: <primary> (white),
+# <secondary> (gray), <money> (money amounts only), <icon:name> (followed by a space) and <!italic>.
+# "" is an empty line.
+# {name} inserts a SiftCore placeholder that is the same for every player, for example {baltop_name_1} and
+# {baltop_value_1} (/sift placeholders lists them). A placeholder without a value, such as an empty leaderboard
+# place, shows "-".
+templates:
+  richest:
+    - "<icon:money> <primary>Richest players"
+    - ""
+    - "<secondary>1. <primary>{baltop_name_1} <money>{baltop_value_1}"
+    - "<secondary>2. <primary>{baltop_name_2} <money>{baltop_value_2}"
+    - "<secondary>3. <primary>{baltop_name_3} <money>{baltop_value_3}"
+    - "<secondary>4. <primary>{baltop_name_4} <money>{baltop_value_4}"
+    - "<secondary>5. <primary>{baltop_name_5} <money>{baltop_value_5}"
+    - "<secondary>6. <primary>{baltop_name_6} <money>{baltop_value_6}"
+    - "<secondary>7. <primary>{baltop_name_7} <money>{baltop_value_7}"
+    - "<secondary>8. <primary>{baltop_name_8} <money>{baltop_value_8}"
+    - "<secondary>9. <primary>{baltop_name_9} <money>{baltop_value_9}"
+    - "<secondary>10. <primary>{baltop_name_10} <money>{baltop_value_10}"
+    - ""
+    - "<secondary>Right click to see more"
+  top-kills:
+    - "<icon:kill> <primary>Top killers"
+    - ""
+    - "<secondary>1. <primary>{top_kills_name_1} <secondary>{top_kills_value_1}"
+    - "<secondary>2. <primary>{top_kills_name_2} <secondary>{top_kills_value_2}"
+    - "<secondary>3. <primary>{top_kills_name_3} <secondary>{top_kills_value_3}"
+    - "<secondary>4. <primary>{top_kills_name_4} <secondary>{top_kills_value_4}"
+    - "<secondary>5. <primary>{top_kills_name_5} <secondary>{top_kills_value_5}"
+    - "<secondary>6. <primary>{top_kills_name_6} <secondary>{top_kills_value_6}"
+    - "<secondary>7. <primary>{top_kills_name_7} <secondary>{top_kills_value_7}"
+    - "<secondary>8. <primary>{top_kills_name_8} <secondary>{top_kills_value_8}"
+    - "<secondary>9. <primary>{top_kills_name_9} <secondary>{top_kills_value_9}"
+    - "<secondary>10. <primary>{top_kills_name_10} <secondary>{top_kills_value_10}"
+    - ""
+    - "<secondary>Right click to see more"
+  most-active:
+    - "<icon:playtime> <primary>Most active"
+    - ""
+    - "<secondary>1. <primary>{top_playtime_name_1} <secondary>{top_playtime_value_1}"
+    - "<secondary>2. <primary>{top_playtime_name_2} <secondary>{top_playtime_value_2}"
+    - "<secondary>3. <primary>{top_playtime_name_3} <secondary>{top_playtime_value_3}"
+    - "<secondary>4. <primary>{top_playtime_name_4} <secondary>{top_playtime_value_4}"
+    - "<secondary>5. <primary>{top_playtime_name_5} <secondary>{top_playtime_value_5}"
+    - "<secondary>6. <primary>{top_playtime_name_6} <secondary>{top_playtime_value_6}"
+    - "<secondary>7. <primary>{top_playtime_name_7} <secondary>{top_playtime_value_7}"
+    - "<secondary>8. <primary>{top_playtime_name_8} <secondary>{top_playtime_value_8}"
+    - "<secondary>9. <primary>{top_playtime_name_9} <secondary>{top_playtime_value_9}"
+    - "<secondary>10. <primary>{top_playtime_name_10} <secondary>{top_playtime_value_10}"
+    - ""
+    - "<secondary>Right click to see more"
+  welcome:
+    - "<primary>Welcome to SiftVanilla"
+    - "<secondary>Survival with an economy and PvP"
+    - ""
+    - "<secondary>Type <primary>/menu<secondary> to get started"
+    - "<secondary>Read the rules with <primary>/rules"
+    - ""
+    - "<secondary>siftvanilla.net"
+    - "<secondary>discord.gg/siftvanilla"
+
+# How every display looks unless it says otherwise below.
+defaults:
+  # Which way the text turns:
+  #   center      always faces the player looking at it
+  #   vertical    turns left and right only
+  #   horizontal  tilts up and down only
+  #   fixed       keeps facing the way it was placed
+  billboard: center
+  # left, center or right.
+  alignment: center
+  # The longest line in pixels before it wraps (10 to 1000). Most letters are 6 pixels wide.
+  line-width: 200
+  # Text size, 0.1 to 10. 1 is the size of a name tag.
+  scale: 1.0
+  # Show the text through blocks.
+  see-through: false
+  # A soft shadow under the letters, which keeps them readable without a background.
+  text-shadow: true
+  # The box behind the text:
+  #   none         no box, just the text (the quiet look)
+  #   default      the translucent box each player picked in their accessibility settings
+  #   "#AARRGGBB"  a colour with transparency, for example "#40000000" (keep the quotes)
+  background: none
+  # How far away the text can be seen, in blocks (1 to 512), at the default entity distance in the player's
+  # video settings. The display tracking range in spigot.yml (entity-tracking-range.display) is a limit too.
+  view-range: 64
+  # Light the text fully so it stays readable at night and in the shade.
+  full-bright: true
+  # How often placeholders are read again (1s to 1h). Players only get the new text when it changed.
+  refresh: 60s
+
+# The displays. Each one needs a template; any key from defaults can be set here too.
+# world, x, y and z are optional (all four or none). Without them a display waits until it is placed in-game
+# with /displays move <name>. A position set in-game always wins over the one written here.
+# yaw (optional, -360 to 360) is the way a fixed display faces: 0 south, 90 west, 180 north, -90 east.
+# Names use up to 32 lowercase letters, digits, - and _.
+displays:
+  richest:
+    template: richest
+  top-kills:
+    template: top-kills
+  most-active:
+    template: most-active
+  welcome:
+    template: welcome
+    line-width: 240
+
+# Right-clicking a leaderboard opens the full list. An invisible click box is put over every display whose
+# template has a command below.
+interaction:
+  enabled: true
+  # Template name: the command run for the player who clicked, without the slash. It runs with that player's own
+  # permissions. Remove the "Right click" line from a template when its command is removed or this is turned off.
+  commands:
+    richest: "baltop"
+    top-kills: "top kills"
+    most-active: "top playtime"
+  # Time between two clicks by the same player (0s to 1m).
+  cooldown: 1s

@@ -24,6 +24,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.FloatTag;
@@ -53,6 +54,7 @@ import net.minecraft.network.protocol.configuration.ServerboundSelectKnownPacks;
 import net.minecraft.network.protocol.cookie.ClientboundCookieRequestPacket;
 import net.minecraft.network.protocol.cookie.ServerboundCookieResponsePacket;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
@@ -60,7 +62,9 @@ import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.network.protocol.game.GameProtocols;
@@ -70,6 +74,7 @@ import net.minecraft.network.protocol.game.ServerboundChatPacket;
 import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
@@ -81,6 +86,7 @@ import net.minecraft.network.protocol.login.ClientboundLoginDisconnectPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
 import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.network.protocol.login.ServerboundLoginAcknowledgedPacket;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dialog.ActionButton;
@@ -141,6 +147,10 @@ public final class Bot {
     public record ChatDialog(String text, SeenDialog dialog) {
     }
 
+    /** An entity the server added for this client, with its synced data values by data id. */
+    public record SeenEntity(int id, UUID uuid, String type, double x, double y, double z, Map<Integer, Object> data) {
+    }
+
     private static final Logger LOG = Logger.getLogger("SiftE2E");
 
     public final String name;
@@ -163,6 +173,7 @@ public final class Bot {
     private final List<String> titles = new CopyOnWriteArrayList<>();
     private final List<SeenDialog> dialogs = new CopyOnWriteArrayList<>();
     private final List<ChatDialog> chatDialogs = new CopyOnWriteArrayList<>();
+    private final Map<Integer, SeenEntity> entities = new ConcurrentHashMap<>();
     private final AtomicInteger deaths = new AtomicInteger();
     private final AtomicInteger dialogsCleared = new AtomicInteger();
     private final AtomicInteger sequence = new AtomicInteger();
@@ -229,6 +240,23 @@ public final class Bot {
 
     public int deaths() {
         return this.deaths.get();
+    }
+
+    public double x() {
+        return this.x;
+    }
+
+    public double y() {
+        return this.y;
+    }
+
+    public double z() {
+        return this.z;
+    }
+
+    /** Entities currently added for this client (spawned and not yet removed). */
+    public List<SeenEntity> entities() {
+        return List.copyOf(this.entities.values());
     }
 
     public int dialogsCleared() {
@@ -341,6 +369,11 @@ public final class Bot {
 
     public void respawn() {
         send(new ServerboundClientCommandPacket(ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
+    }
+
+    /** Right-clicks an entity with the main hand, like the vanilla client does. */
+    public void interact(int entityId) {
+        send(new ServerboundInteractPacket(entityId, InteractionHand.MAIN_HAND, Vec3.ZERO, false));
     }
 
     /**
@@ -582,6 +615,24 @@ public final class Bot {
             case ClientboundPlayerCombatKillPacket ck -> {
                 this.deaths.incrementAndGet();
                 this.exec.execute(this::respawn);
+            }
+            case ClientboundAddEntityPacket add -> this.entities.put(add.getId(), new SeenEntity(add.getId(), add.getUUID(),
+                BuiltInRegistries.ENTITY_TYPE.getKey(add.getType()).toString(), add.getX(), add.getY(), add.getZ(), new ConcurrentHashMap<>()));
+            case ClientboundSetEntityDataPacket data -> {
+                SeenEntity entity = this.entities.get(data.id());
+                if (entity != null) {
+                    for (SynchedEntityData.DataValue<?> value : data.packedItems()) {
+                        if (value.value() != null) {
+                            entity.data().put(value.id(), value.value());
+                        }
+                    }
+                }
+            }
+            case ClientboundRemoveEntitiesPacket removed -> {
+                var ids = removed.getEntityIds().iterator();
+                while (ids.hasNext()) {
+                    this.entities.remove(ids.nextInt());
+                }
             }
             default -> {
                 if (System.getProperty("sift.e2e.trace") != null) {

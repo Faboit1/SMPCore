@@ -11,6 +11,7 @@ import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
+import net.siftvanilla.siftcore.feature.displays.DisplaysFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
 import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
@@ -52,6 +53,7 @@ final class FeatureCatalog {
         features.add(sell);
         features.add(new ShopFeature(this.services, this.problems, sell.worth(), SpawnerItems.NONE));
         features.add(new ExtrasFeature(this.services, this.problems));
+        features.add(new DisplaysFeature(this.services, this.problems));
         features.add(admin);
         return features;
     }
