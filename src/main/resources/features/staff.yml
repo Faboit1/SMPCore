@@ -1,0 +1,66 @@
+# Staff tools: vanish, freeze, mutes, bans, kicks, warnings, staff chat, reports, inventory inspection and lookups.
+# Times are written like 30s, 5m, 12h, 7d or 1h30m. All text players see is in lang/staff.yml.
+
+vanish:
+  # How often vanished staff are reminded on the action bar that nobody can see them.
+  reminder-interval: 3s
+
+freeze:
+  # How often a frozen player sees "Frozen by staff. Do not log out." on the action bar.
+  reminder-interval: 2s
+  # Commands a frozen player may still use, without the slash. Every other command is blocked.
+  allowed-commands:
+    - msg
+    - r
+    - reply
+    - tell
+    - w
+    - whisper
+  # Logging out while frozen always tells online staff and is written to the audit log. This also bans them.
+  ban-on-logout:
+    enabled: false
+    # How long that ban lasts, like 7d, or the word permanent.
+    duration: permanent
+    # The reason stored with the ban and shown on the ban screen.
+    reason: "Logged out while frozen"
+
+mutes:
+  # Commands a muted player can't use, without the slash. Public chat is always blocked while muted.
+  blocked-commands:
+    - me
+    - say
+    - tell
+    - msg
+    - w
+    - whisper
+    - r
+    - reply
+    - teammsg
+    - tm
+
+bans:
+  # The last line of the ban screen, telling players where to appeal.
+  appeal: "Appeal on our Discord: discord.gg/siftvanilla"
+
+punishments:
+  # The longest temporary ban or mute. Anything longer has to be permanent.
+  max-duration: 3650d
+
+reports:
+  # Time a player has to wait between two reports.
+  cooldown: 60s
+  # The reason has to be at least this long and at most this long (characters).
+  reason-min-length: 3
+  reason-max-length: 100
+  # Open reports one player may have at the same time.
+  max-open-per-player: 5
+  # Reports listed per page in /reports.
+  page-size: 6
+
+history:
+  # Punishments listed per page in /history.
+  page-size: 6
+
+clear-chat:
+  # Blank lines /clearchat sends to push old messages off screen.
+  lines: 100

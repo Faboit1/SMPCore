@@ -11,6 +11,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -61,6 +62,8 @@ import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
@@ -177,6 +180,8 @@ public final class Bot {
     private final AtomicInteger deaths = new AtomicInteger();
     private final AtomicInteger dialogsCleared = new AtomicInteger();
     private final AtomicInteger sequence = new AtomicInteger();
+    private final Set<UUID> playerInfo = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> everPlayerInfo = ConcurrentHashMap.newKeySet();
 
     public Bot(String name) {
         this.name = name;
@@ -263,6 +268,21 @@ public final class Bot {
         return this.dialogsCleared.get();
     }
 
+    /** Whether the client currently has a player info (tab list) entry for this profile. */
+    public boolean hasPlayerInfo(UUID profile) {
+        return this.playerInfo.contains(profile);
+    }
+
+    /** Whether the client was ever sent a player info entry for this profile since it connected. */
+    public boolean everHadPlayerInfo(UUID profile) {
+        return this.everPlayerInfo.contains(profile);
+    }
+
+    /** Whether the client currently tracks an entity with this uuid (it was spawned and not removed). */
+    public boolean seesEntity(UUID uuid) {
+        return this.entities.values().stream().anyMatch(entity -> entity.uuid().equals(uuid));
+    }
+
     /** Forgets everything received so far (start of a step). */
     public void clearLogs() {
         this.chat.clear();
@@ -331,6 +351,18 @@ public final class Bot {
         });
     }
 
+    /**
+     * Waits until a freshly connected client connection is active. {@code connectToServer} returns as soon as the TCP
+     * connect completes, which can be just before netty marks the channel active; anything sent before that is
+     * queued and only flushed by {@code Connection#tick()}, which a bot never calls, so the login would hang.
+     */
+    public static void awaitActive(Connection connection) throws InterruptedException {
+        long end = System.currentTimeMillis() + 5_000;
+        while (!connection.becomeActive() && System.currentTimeMillis() < end) {
+            Thread.sleep(5);
+        }
+    }
+
     /** Disconnects. Safe to call again (a scenario may quit a bot before the cleanup does). */
     public void quit() {
         if (this.exec.isShutdown()) {
@@ -365,6 +397,15 @@ public final class Bot {
         this.x += dx;
         this.yRot += turn;
         send(new ServerboundMovePlayerPacket.PosRot(this.x, this.y, this.z, this.yRot, this.xRot, true, false));
+    }
+
+    /** Moves by the given offsets and turns; the server decides whether the move stands. */
+    public void moveBy(double dx, double dy, double dz, float turn) {
+        this.x += dx;
+        this.y += dy;
+        this.z += dz;
+        this.yRot += turn;
+        send(new ServerboundMovePlayerPacket.PosRot(this.x, this.y, this.z, this.yRot, this.xRot, false, false));
     }
 
     public void respawn() {
@@ -610,6 +651,7 @@ public final class Bot {
             }
             case net.minecraft.network.protocol.game.ClientboundPlayerChatPacket pc ->
                 this.chat.add(pc.unsignedContent() != null ? pc.unsignedContent().getString() : pc.body().content());
+            case net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket dc -> this.chat.add(dc.message().getString());
             case ClientboundSetActionBarTextPacket ab -> this.actionBar.add(ab.text().getString());
             case ClientboundSetTitleTextPacket t -> this.titles.add(t.text().getString());
             case ClientboundPlayerCombatKillPacket ck -> {
@@ -634,6 +676,13 @@ public final class Bot {
                     this.entities.remove(ids.nextInt());
                 }
             }
+            case ClientboundPlayerInfoUpdatePacket info -> {
+                for (ClientboundPlayerInfoUpdatePacket.Entry entry : info.newEntries()) {
+                    this.playerInfo.add(entry.profileId());
+                    this.everPlayerInfo.add(entry.profileId());
+                }
+            }
+            case ClientboundPlayerInfoRemovePacket remove -> remove.profileIds().forEach(this.playerInfo::remove);
             default -> {
                 if (System.getProperty("sift.e2e.trace") != null) {
                     LOG.info("[" + this.name + "] packet " + packet.getClass().getSimpleName());
