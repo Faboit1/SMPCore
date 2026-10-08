@@ -212,7 +212,8 @@ one transaction (one ledger row, ledger invariants hold, refused creations and a
 creations of one name, 12 concurrent joins against a limit of 4, every rule at execution time, staff tools, and a
 storage round trip compared with memory after every test.
 
-End-to-end scenarios (`tools/e2e`, `TeamsScenarios`): `teams-create`, `teams-invite`, `teams-roles`,
+End-to-end scenarios (`tools/e2e`, `TeamsScenarios`): `teams-create`, `teams-cost-change` (a reload changes the
+cost under an open confirmation: nothing is charged, the new cost is shown), `teams-invite`, `teams-roles`,
 `teams-ownership`, `teams-chat`, `teams-home`, `teams-friendly-fire`, `teams-staff`, `teams-menu`.
 
 ## Known limitations

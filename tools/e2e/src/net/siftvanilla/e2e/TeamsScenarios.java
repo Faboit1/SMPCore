@@ -1,5 +1,7 @@
 package net.siftvanilla.e2e;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,7 @@ final class TeamsScenarios {
     static List<Scenario> all() {
         List<Scenario> list = new ArrayList<>();
         list.add(of("teams-create", TeamsScenarios::create));
+        list.add(of("teams-cost-change", TeamsScenarios::costChange));
         list.add(of("teams-invite", TeamsScenarios::invite));
         list.add(of("teams-roles", TeamsScenarios::roles));
         list.add(of("teams-ownership", TeamsScenarios::ownership));
@@ -170,6 +173,40 @@ final class TeamsScenarios {
         e2e.eventually(() -> quick.equals(teamOf(e2e, rival)), "the team exists");
         e2e.sleep(1_500);
         e2e.expect(e2e.money(rival) == 150_000, "charged exactly once: " + e2e.money(rival));
+    }
+
+    static void costChange(E2E e2e) throws Exception {
+        String name = e2e.name("Saver");
+        String team = e2e.name("Juliet");
+        Bot a = e2e.bot(name);
+        Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/teams.yml");
+        String original = Files.readString(config);
+        e2e.expect(original.contains("cost: 50k"), "the test server uses the default cost");
+        try {
+            e2e.console("eco set " + name + " 100k");
+            e2e.eventually(() -> e2e.money(name) == 100_000, "funded");
+            a.command("team create " + team);
+            Bot.SeenDialog confirm = e2e.dialog(a, "Start a team");
+            e2e.expect(confirm.bodyText().contains("$50,000"), "the shown cost: " + confirm.body());
+
+            e2e.step("a reload changes the cost while the confirmation is open: nothing is charged");
+            Files.writeString(config, original.replace("cost: 50k", "cost: 60k"));
+            e2e.console("sift reload");
+            e2e.click(a, "Start team");
+            Bot.SeenDialog again = e2e.dialog(a, "Start a team");
+            e2e.expect("confirm".equals(again.type()) && again.bodyText().contains("$60,000") && again.bodyText().contains("just changed"),
+                "the new cost and why: " + again.body());
+            e2e.expect(e2e.money(name) == 100_000, "nothing charged: " + e2e.money(name));
+            e2e.expect(teamOf(e2e, name).isEmpty(), "no team yet");
+
+            e2e.step("confirming the new cost creates the team for it");
+            e2e.click(a, "Start team");
+            e2e.dialog(a, "Team " + team);
+            e2e.eventually(() -> e2e.money(name) == 40_000, "charged the new cost: " + e2e.money(name));
+        } finally {
+            Files.writeString(config, original);
+            e2e.console("sift reload");
+        }
     }
 
     static void invite(E2E e2e) {
