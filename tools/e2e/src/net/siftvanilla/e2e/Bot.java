@@ -192,6 +192,10 @@ public final class Bot {
     private final List<String> actionBar = new CopyOnWriteArrayList<>();
     private final List<String> titles = new CopyOnWriteArrayList<>();
     private final List<SeenDialog> dialogs = new CopyOnWriteArrayList<>();
+    /** Registry entries the server sent in the configuration phase, in network id order, by registry id. */
+    private final Map<String, List<String>> registries = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Tags the server sent: registry id, then tag id, then the network ids of its entries. */
+    private final Map<String, Map<String, List<Integer>>> tags = new java.util.concurrent.ConcurrentHashMap<>();
     private final List<ChatDialog> chatDialogs = new CopyOnWriteArrayList<>();
     private final Map<Integer, SeenEntity> entities = new ConcurrentHashMap<>();
     private final AtomicInteger deaths = new AtomicInteger();
@@ -231,6 +235,29 @@ public final class Bot {
 
     public String disconnectReason() {
         return this.disconnectReason;
+    }
+
+    /**
+     * The entries of a registry tag as the client received them at login, resolved to entry ids (for example the
+     * dialogs in {@code minecraft:pause_screen_additions}). Vanilla entries the client already knows from a known
+     * pack are listed by the server too, so this is the full order.
+     */
+    public List<String> tag(String registry, String tag) {
+        Map<String, List<Integer>> byTag = this.tags.get(registry);
+        List<String> entries = this.registries.getOrDefault(registry, List.of());
+        if (byTag == null || !byTag.containsKey(tag)) {
+            return null;
+        }
+        List<String> ids = new ArrayList<>();
+        for (int id : byTag.get(tag)) {
+            ids.add(id >= 0 && id < entries.size() ? entries.get(id) : "#" + id);
+        }
+        return ids;
+    }
+
+    /** The ids of a registry's entries as sent at login (empty when it was not sent). */
+    public List<String> registry(String registry) {
+        return this.registries.getOrDefault(registry, List.of());
     }
 
     public SeenDialog dialog() {
@@ -695,6 +722,26 @@ public final class Bot {
                 this.dialogsCleared.incrementAndGet();
             }
             case ClientboundSelectKnownPacks k -> send(new ServerboundSelectKnownPacks(k.knownPacks()));
+            case net.minecraft.network.protocol.configuration.ClientboundRegistryDataPacket rd -> {
+                List<String> ids = new ArrayList<>();
+                for (var entry : rd.entries()) {
+                    ids.add(entry.id().toString());
+                }
+                this.registries.put(rd.registry().identifier().toString(), List.copyOf(ids));
+            }
+            case net.minecraft.network.protocol.common.ClientboundUpdateTagsPacket ut -> ut.getTags().forEach((registry, payload) -> {
+                Map<String, List<Integer>> byTag = new java.util.HashMap<>();
+                try {
+                    java.lang.reflect.Field field = payload.getClass().getDeclaredField("tags");
+                    field.setAccessible(true);
+                    @SuppressWarnings("unchecked")
+                    Map<Object, it.unimi.dsi.fastutil.ints.IntList> raw = (Map<Object, it.unimi.dsi.fastutil.ints.IntList>) field.get(payload);
+                    raw.forEach((tag, ids) -> byTag.put(tag.toString(), List.copyOf(ids)));
+                } catch (ReflectiveOperationException e) {
+                    byTag.put("(unreadable: " + e + ")", List.of());
+                }
+                this.tags.put(registry.identifier().toString(), byTag);
+            });
             case net.minecraft.network.protocol.configuration.ClientboundFinishConfigurationPacket f -> this.exec.execute(() -> {
                 this.conn.setupInboundProtocol(GameProtocols.CLIENTBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(this.registryAccess)),
                     proxy(ClientGamePacketListener.class));

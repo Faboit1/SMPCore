@@ -27,7 +27,35 @@ final class UiScenarios {
                 flow(e2e);
             }
         });
+        list.add(new Scenario() {
+            @Override
+            public String name() {
+                return "ui-pause-menu";
+            }
+
+            @Override
+            public void run(E2E e2e) {
+                pauseMenu(e2e);
+            }
+        });
         return list;
+    }
+
+    /** The client receives the SiftVanilla menu in the pause-screen and quick-action tags, and the menu works. */
+    static void pauseMenu(E2E e2e) {
+        Bot bot = e2e.bot(e2e.name("Pauser"));
+        e2e.step("the client gets the menu dialog and both tags at login");
+        e2e.log("dialog registry: " + bot.registry("minecraft:dialog"));
+        e2e.expect(bot.registry("minecraft:dialog").contains("siftcore:hub"), "siftcore:hub is in the dialog registry: " + bot.registry("minecraft:dialog"));
+        List<String> pause = bot.tag("minecraft:dialog", "minecraft:pause_screen_additions");
+        e2e.expect(pause != null && pause.equals(List.of("siftcore:hub")),
+            "the pause screen tag holds exactly the menu (one entry gives a direct button): " + pause);
+        List<String> quick = bot.tag("minecraft:dialog", "minecraft:quick_actions");
+        e2e.expect(quick != null && quick.contains("siftcore:hub"), "the quick actions tag holds the menu: " + quick);
+
+        e2e.step("its buttons open the pages");
+        bot.rawClick("siftcore:hub/money", null);
+        e2e.dialog(bot, "Money");
     }
 
     static void flow(E2E e2e) {
