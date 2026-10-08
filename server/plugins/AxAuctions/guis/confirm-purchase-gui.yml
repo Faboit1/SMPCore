@@ -1,0 +1,32 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+
+title: "Confirm purchase"
+# a gui can have 1-6 rows
+rows: 3
+# valid values: CHEST, WORKBENCH, HOPPER, DISPENSER, BREWING
+type: CHEST
+
+# ----- ITEMS -----
+
+item:
+  slot: 13
+
+confirm:
+  slot: 11
+  material: "LIME_STAINED_GLASS_PANE"
+  name: "&fBuy"
+  lore:
+    - "&7Pay and take the item"
+  actions:
+    - "[SOUND] ui.button.click|0.25|1"
+
+cancel:
+  slot: 15
+  material: "RED_STAINED_GLASS_PANE"
+  name: "&fCancel"
+  lore:
+    - "&7Back to the auction house"
+  actions:
+    - "[BACK]"
+    - "[SOUND] ui.button.click|0.25|1"

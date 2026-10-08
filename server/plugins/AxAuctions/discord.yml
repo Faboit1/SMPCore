@@ -1,0 +1,78 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# SiftVanilla: Discord webhooks are off (no url, both events disabled).
+
+# REQUIRED
+url: ""
+
+# for more webhook options check out the docs: https://docs.artillex-studios.com/discord-webhook-builder.html
+auction-start:
+  enabled: false
+  content: ""
+  username: ""
+  avatar-url: ""
+  embeds:
+    - title:
+        text: New listing
+        url: ""
+      description: ""
+      color: "#FFFFFF"
+      timestamp: "%timestamp%"
+      image-url: ""
+      thumbnail-url: ""
+      video-url: ""
+      author:
+        name: ""
+        icon-url: ""
+        url: ""
+      footer:
+        icon-url: ""
+        text: ""
+      fields:
+        - inline: false
+          name: Seller
+          value: "%player%"
+        - inline: false
+          name: Item
+          value: "%amount%x %item%"
+        - inline: false
+          name: Price
+          value: "%price%"
+
+auction-buy:
+  enabled: false
+  content: ""
+  username: ""
+  avatar-url: ""
+  embeds:
+    - title:
+        text: Item sold
+        url: ""
+      description: ""
+      color: "#FFFFFF"
+      timestamp: "%timestamp%"
+      image-url: ""
+      thumbnail-url: ""
+      video-url: ""
+      author:
+        name: ""
+        icon-url: ""
+        url: ""
+      footer:
+        icon-url: ""
+        text: ""
+      fields:
+        - inline: true
+          name: Buyer
+          value: "%player%"
+        - inline: true
+          name: Seller
+          value: "%seller%"
+        - inline: false
+          name: Item
+          value: "%amount%x %item%"
+        - inline: true
+          name: Price
+          value: "%price%"
+
+# do not change this
+version: 1

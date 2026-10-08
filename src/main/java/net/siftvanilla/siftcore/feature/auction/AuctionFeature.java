@@ -31,6 +31,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.PermissionDefault;
+import org.bukkit.plugin.Plugin;
 
 /**
  * The auction house: players list items for a price, others buy them; expired and taken-down items and purchases
@@ -41,6 +42,9 @@ public final class AuctionFeature implements Feature, Listener {
 
     public static final Toggle SALE_NOTIFICATIONS = new Toggle("auction-sales", true,
         AuctionMessages.SETTING_SALES, AuctionMessages.SETTING_SALES_DESCRIPTION, null);
+
+    /** The licensed auction plugin that, when it runs, is the server's auction house (docs/features/auction.md). */
+    static final String AXAUCTIONS = "AxAuctions";
 
     private final Services services;
     private final Setting<AuctionSettings> settings;
@@ -108,11 +112,26 @@ public final class AuctionFeature implements Feature, Listener {
         startExpiry(this.settings.get());
         this.settings.onReload(this::startExpiry);
         this.services.hub().register(new HubEntry("auction", 30, AuctionMessages.HUB_LABEL, AuctionMessages.HUB_DESCRIPTION,
-            AuctionService.PERMISSION_USE, this.menus::openMain));
+            AuctionService.PERMISSION_USE, this::openFromHub));
         this.services.placeholders().register("auction_listings", "Your active auction listings",
             player -> Integer.toString(this.engine.book().count(player.getUniqueId())));
         this.services.placeholders().register("auction_claims", "Items waiting in your claim box",
             player -> Integer.toString(this.claims.count(player.getUniqueId())));
+    }
+
+    /**
+     * The main menu's (and pause menu's) auction house button. When AxAuctions runs, it is the server's auction house
+     * (SiftCore's own /ah yields to it through {@code yield-to: AxAuctions} in commands.yml), so the button runs /ah
+     * for the player; otherwise it opens this feature's menu. Checked on every click, so a failed AxAuctions start
+     * falls back to SiftCore's menu.
+     */
+    private void openFromHub(Player player) {
+        Plugin axAuctions = Bukkit.getPluginManager().getPlugin(AXAUCTIONS);
+        if (axAuctions != null && axAuctions.isEnabled()) {
+            player.performCommand("ah");
+            return;
+        }
+        this.menus.openMain(player);
     }
 
     private synchronized void startExpiry(AuctionSettings settings) {

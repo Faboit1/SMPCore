@@ -1,0 +1,115 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# SiftVanilla: one currency, money, through Vault (SiftCore's economy). Every other integration is off.
+
+# you can create your own currencies by using placeholders
+# make sure that none of the placeholders have any formatting on them
+# note: placeholder currencies lack success confirmations that some plugins provide, if possible, always use regular integrations
+# requires PlaceholderAPI
+placeholder-currencies:
+  Example-Currency:
+    register: false
+    # if the currency uses whole numbers, then disable this
+    # 100.5 - true
+    # 100 - false
+    uses-double: true
+    # if the placeholder gets parsed even for offline players, you can enable this
+    works-offline: false
+    # optional: tax (example: 5 is 5% tax)
+    tax: 0
+    min-price: -1
+    max-price: -1
+    settings:
+      raw-placeholder: "%vault_eco_balance_fixed%"
+      give-command: "eco give %player% %amount%"
+      take-command: "eco take %player% %amount%"
+    display:
+      raw: "Money"
+      gui: "&#1AFF1A$%price%"
+      item:
+        material: EMERALD
+        name: "&fMoney"
+        lore:
+          - "&7Click to pick it"
+
+# list of supported plugins: https://docs.artillex-studios.com/integrations.html#currency
+# for multi currency plugins:
+# - you can enable as many currencies as you want, just add the sections the same way as in the example
+#
+# options:
+# - tax (optional, for example: 5 is 5% tax, which will be removed from the earnings after purchases)
+# - min-price/max-price (optional, the minimum/maximum price that items can be sold for in the auction house, if enabled, it overrides the limits set in the config.yml, set to -1 to use the default from the config.yml)
+# - display -> raw (the name of the currency, used for the %selected_currency% placeholder and in tab completion)
+# - display -> gui (format used in the auction guis to display the price)
+# - display -> item (the item shown in the currency selector, items are created using our item builder: https://docs.artillex-studios.com/item-builder.html)
+currencies:
+  Vault:
+    register: true
+    # 5% of the price is taken from the seller when an item sells (a money sink).
+    tax: 5
+    min-price: -1
+    max-price: -1
+    display:
+      raw: "Money"
+      gui: "&#1AFF1A$%price%"
+      item:
+        material: GOLD_INGOT
+        name: "&fMoney"
+        lore:
+          - "&7Click to pick it"
+  Experience:
+    register: false
+    tax: 0
+    min-price: -1
+    max-price: -1
+    display:
+      raw: "Experience"
+      gui: "&f%price% &7experience"
+      item:
+        material: EXPERIENCE_BOTTLE
+        name: "&fExperience"
+        lore:
+          - "&7Click to pick it"
+  Level:
+    register: false
+    tax: 0
+    min-price: -1
+    max-price: -1
+    display:
+      raw: "Level"
+      gui: "&f%price% &7levels"
+      item:
+        material: EXPERIENCE_BOTTLE
+        name: "&fLevels"
+        lore:
+          - "&7Click to pick it"
+  AxHoes:
+    register: false
+  BeastTokens:
+    register: false
+  UltraEconomy:
+    register: false
+  AxQuestBoard:
+    register: false
+  RivalMobSwords:
+    register: false
+  SuperMobCoins:
+    register: false
+  CoinsEngine:
+    register: false
+  ExcellentEconomy:
+    register: false
+  EcoBits:
+    register: false
+  RoyaleEconomy:
+    register: false
+  RivalHarvesterHoes:
+    register: false
+  RivalCredits:
+    register: false
+  TokenManager:
+    register: false
+  PlayerPoints:
+    register: false
+
+# do not change this
+version: 8

@@ -1,0 +1,139 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+# SiftVanilla: the categories of categories.yml (the same as SiftCore's, plus redstone).
+
+title: "Categories"
+# a gui can have 1-6 rows
+rows: 3
+# valid values: CHEST, WORKBENCH, HOPPER, DISPENSER, BREWING
+type: CHEST
+
+# ----- ITEMS -----
+
+all:
+  slot: 4
+  material: "CHEST"
+  name: "&fAll items"
+  lore:
+    - "&7Click to show everything"
+  actions:
+    - "[CATEGORY] all"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+blocks:
+  slot: 9
+  material: "GRASS_BLOCK"
+  name: "&fBlocks"
+  lore:
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] blocks"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+tools:
+  slot: 10
+  material: "IRON_PICKAXE"
+  item-flags:
+    - attribute_modifiers
+  name: "&fTools"
+  lore:
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] tools"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+combat:
+  slot: 11
+  material: "IRON_SWORD"
+  item-flags:
+    - attribute_modifiers
+  name: "&fCombat"
+  lore:
+    - "&7Weapons and armor"
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] combat"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+food:
+  slot: 12
+  material: "BREAD"
+  name: "&fFood"
+  lore:
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] food"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+potions:
+  slot: 13
+  material: "POTION"
+  item-flags:
+    - potion_contents
+  name: "&fPotions"
+  lore:
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] potions"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+books:
+  slot: 14
+  material: "ENCHANTED_BOOK"
+  name: "&fBooks"
+  lore:
+    - "&7Enchanted books and more"
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] books"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+spawners:
+  slot: 15
+  material: "SPAWNER"
+  name: "&fSpawners"
+  lore:
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] spawners"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+redstone:
+  slot: 16
+  material: "REDSTONE"
+  name: "&fRedstone"
+  lore:
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] redstone"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+misc:
+  slot: 17
+  material: "AMETHYST_SHARD"
+  name: "&fEverything else"
+  lore:
+    - "&7Click to show these"
+  actions:
+    - "[CATEGORY] misc"
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+back:
+  slot: 22
+  material: "OAK_DOOR"
+  name: "&fBack"
+  lore:
+    - "&7To the auction house"
+  actions:
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"

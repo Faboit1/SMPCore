@@ -43,6 +43,11 @@ final class AuctionScenarios {
     private record Named(String name, Body body) implements Scenario {
         @Override
         public void run(E2E e2e) throws Exception {
+            if (AxAuctionsScenarios.running()) {
+                // AxAuctions is the auction house then: /ah and the main menu button open it (AxAuctionsScenarios).
+                e2e.log("AxAuctions runs, so SiftCore's own auction house is not in use; skipped");
+                return;
+            }
             this.body.run(e2e);
         }
     }

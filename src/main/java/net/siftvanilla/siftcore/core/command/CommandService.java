@@ -8,12 +8,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.core.config.Setting;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * Registers every feature's commands with Paper's Brigadier registrar. Registration happens in the commands
  * lifecycle event, which Paper also re-runs on a datapack reload, so commands survive {@code /minecraft:reload}.
- * {@code commands.yml} can disable a command or replace its aliases.
+ * {@code commands.yml} can disable a command, replace its aliases, or leave it to another plugin while that plugin
+ * runs ({@code yield-to}, checked at registration, which Paper runs after every plugin was enabled).
  */
 public final class CommandService {
 
@@ -49,12 +52,21 @@ public final class CommandService {
         this.plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> register(event.registrar()));
     }
 
+    private static boolean running(String plugin) {
+        Plugin other = Bukkit.getPluginManager().getPlugin(plugin);
+        return other != null && other.isEnabled();
+    }
+
     private synchronized void register(Commands registrar) {
         this.registeredLabels.clear();
         CommandSettings config = this.settings.get();
         for (SiftCommand command : this.commands.values()) {
             CommandSettings.Entry entry = config.get(command.name());
             if (!entry.enabled()) {
+                continue;
+            }
+            if (entry.yieldTo() != null && running(entry.yieldTo())) {
+                this.logger.info("/" + command.name() + " is left to " + entry.yieldTo() + " (commands.yml yield-to)");
                 continue;
             }
             List<String> aliases = entry.aliases() == null ? command.aliases() : entry.aliases();

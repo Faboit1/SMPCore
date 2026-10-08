@@ -61,6 +61,7 @@ import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
@@ -83,6 +84,9 @@ import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
+import net.minecraft.network.protocol.game.ServerboundRenameItemPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.login.ClientLoginPacketListener;
@@ -145,8 +149,12 @@ public final class Bot {
     public record Button(String label, String actionId, CompoundTag additions) {
     }
 
-    /** An open container screen. */
-    public record Screen(int containerId, String title, long at) {
+    /** An open container screen: its menu type id (e.g. {@code minecraft:generic_9x6}) and the title as sent. */
+    public record Screen(int containerId, String title, long at, String type, Component titleComponent) {
+    }
+
+    /** A sign editor the server opened for this client (sign input), and which side of the sign it edits. */
+    public record SignEditor(BlockPos pos, boolean front, long at) {
     }
 
     /** A chat message that opens a dialog when clicked (a show_dialog click event), and that dialog. */
@@ -175,6 +183,8 @@ public final class Bot {
     private volatile Screen screen;
     private final Map<Integer, ItemStack> screenItems = new ConcurrentHashMap<>();
     private final List<String> chat = new CopyOnWriteArrayList<>();
+    private final List<Component> chatComponents = new CopyOnWriteArrayList<>();
+    private volatile SignEditor signEditor;
     private final List<String> actionBar = new CopyOnWriteArrayList<>();
     private final List<String> titles = new CopyOnWriteArrayList<>();
     private final List<SeenDialog> dialogs = new CopyOnWriteArrayList<>();
@@ -239,6 +249,16 @@ public final class Bot {
         return List.copyOf(this.chat);
     }
 
+    /** Chat messages as the components the server sent (system chat only), to check their styling. */
+    public List<Component> chatComponents() {
+        return List.copyOf(this.chatComponents);
+    }
+
+    /** The last sign editor the server opened, or null. */
+    public SignEditor signEditor() {
+        return this.signEditor;
+    }
+
     public List<String> actionBar() {
         return List.copyOf(this.actionBar);
     }
@@ -290,6 +310,8 @@ public final class Bot {
     /** Forgets everything received so far (start of a step). */
     public void clearLogs() {
         this.chat.clear();
+        this.chatComponents.clear();
+        this.signEditor = null;
         this.actionBar.clear();
         this.titles.clear();
         this.dialogs.clear();
@@ -493,6 +515,61 @@ public final class Bot {
         send(new ServerboundContainerClickPacket(container, state, (short) slot, (byte) button, input, Int2ObjectMaps.emptyMap(), HashedStack.EMPTY));
     }
 
+    /** Shift-clicks a slot of the open screen (quick move). */
+    public void shiftClick(int slot) {
+        clickSlot(slot, 0, ContainerInput.QUICK_MOVE);
+    }
+
+    /** Right-clicks a slot of the open screen. */
+    public void rightClick(int slot) {
+        clickSlot(slot, 1, ContainerInput.PICKUP);
+    }
+
+    /** Presses a hotbar number key (0-8) while hovering a slot: swaps that slot with the hotbar slot. */
+    public void numberKey(int slot, int hotbar) {
+        clickSlot(slot, hotbar, ContainerInput.SWAP);
+    }
+
+    /** Selects a hotbar slot (0-8), like scrolling or pressing its number outside a screen. */
+    public void selectHotbar(int hotbar) {
+        send(new ServerboundSetCarriedItemPacket(hotbar));
+    }
+
+    /** Drops the held item (Q), or the whole stack (Ctrl+Q); a modified client can send this with a screen open. */
+    public void dropHeld(boolean wholeStack) {
+        send(new ServerboundPlayerActionPacket(wholeStack ? ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS
+            : ServerboundPlayerActionPacket.Action.DROP_ITEM, BlockPos.ZERO, Direction.DOWN, 0));
+    }
+
+    /** Swaps the held item with the off hand (F). */
+    public void swapHands() {
+        send(new ServerboundPlayerActionPacket(ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ZERO,
+            Direction.DOWN, 0));
+    }
+
+    /** Types into the open anvil's name field. */
+    public void renameInAnvil(String name) {
+        send(new ServerboundRenameItemPacket(name));
+    }
+
+    /**
+     * Finishes the open sign editor with these lines (missing lines are empty), like pressing Done. Returns false
+     * when no sign editor was opened.
+     */
+    public boolean signDone(String... lines) {
+        SignEditor editor = this.signEditor;
+        if (editor == null) {
+            return false;
+        }
+        String[] four = new String[] {"", "", "", ""};
+        for (int i = 0; i < Math.min(4, lines.length); i++) {
+            four[i] = lines[i];
+        }
+        send(new ServerboundSignUpdatePacket(editor.pos(), editor.front(), four[0], four[1], four[2], four[3]));
+        this.signEditor = null;
+        return true;
+    }
+
     public void closeScreen() {
         Screen current = this.screen;
         if (current != null) {
@@ -631,8 +708,10 @@ public final class Bot {
             }
             case ClientboundOpenScreenPacket os -> {
                 this.screenItems.clear();
-                this.screen = new Screen(os.getContainerId(), os.getTitle().getString(), System.currentTimeMillis());
+                this.screen = new Screen(os.getContainerId(), os.getTitle().getString(), System.currentTimeMillis(),
+                    String.valueOf(BuiltInRegistries.MENU.getKey(os.getType())), os.getTitle());
             }
+            case ClientboundOpenSignEditorPacket se -> this.signEditor = new SignEditor(se.getPos(), se.isFrontText(), System.currentTimeMillis());
             case ClientboundContainerClosePacket cc -> {
                 this.screen = null;
                 this.screenItems.clear();
@@ -662,6 +741,9 @@ public final class Bot {
             }
             case ClientboundSystemChatPacket sc -> {
                 (sc.overlay() ? this.actionBar : this.chat).add(sc.content().getString());
+                if (!sc.overlay()) {
+                    this.chatComponents.add(sc.content());
+                }
                 SeenDialog embedded = sc.overlay() ? null : embeddedDialog(sc.content());
                 if (embedded != null) {
                     this.chatDialogs.add(new ChatDialog(sc.content().getString(), embedded));

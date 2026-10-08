@@ -8,4 +8,9 @@
 #     yield-to: AxAuctions   # leaves the command to that plugin while it runs; SiftCore's takes over without it
 #
 # Alias, enabled and yield-to changes apply after a restart. Cooldown changes apply with /sift reload.
-commands: {}
+commands:
+  # AxAuctions is the auction house (/ah, /auction, /auctionhouse). SiftCore registers its commands after other
+  # plugins, so its own /ah would shadow AxAuctions' command. yield-to hands /ah to AxAuctions while it runs; if
+  # AxAuctions is missing or fails to start, SiftCore's own auction house keeps /ah (docs/features/auction.md).
+  ah:
+    yield-to: AxAuctions
