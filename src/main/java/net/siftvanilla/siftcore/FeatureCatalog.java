@@ -6,10 +6,12 @@ import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
+import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
 import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
+import net.siftvanilla.siftcore.feature.stats.StatsFeature;
 
 /**
  * Constructs every feature in dependency order with exactly what it needs. A feature that depends on another takes
@@ -34,8 +36,10 @@ final class FeatureCatalog {
         AdminFeature admin = new AdminFeature(this.services, this.control);
         EconomyFeature economy = new EconomyFeature(this.services, this.problems);
         HubFeature hub = new HubFeature(this.services, this.problems);
+        StatsFeature stats = new StatsFeature(this.services, this.problems, AfkStatus.NONE, economy.economy(), admin);
         features.add(economy);
         features.add(hub);
+        features.add(stats);
         features.add(new ExtrasFeature(this.services, this.problems));
         features.add(admin);
         return features;

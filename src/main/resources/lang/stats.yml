@@ -1,0 +1,110 @@
+# Text of stats and leaderboards. Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>,
+# plus each message's own placeholders (shown in angle brackets). Numbers, times and money are coloured automatically.
+
+stats:
+  view:
+    title-self: "Your stats"
+    title-other: "<name>'s stats"
+    # The stats dialog, one line per stat.
+    body:
+      - "<primary><icon:kill> <secondary>Kills <primary><kills>"
+      - "<primary><icon:death> <secondary>Deaths <primary><deaths>"
+      - "<primary><icon:kdr> <secondary>KDR <primary><kdr>"
+      - "<primary><icon:streak> <secondary>Streak <primary><streak><secondary>, best <primary><best>"
+      - "<primary><icon:playtime> <secondary>Playtime <primary><playtime>"
+      - "<primary><icon:mobs> <secondary>Mobs killed <primary><mobs>"
+      - "<primary><icon:blocks> <secondary>Blocks mined <primary><blocks>"
+      - "<primary><icon:money> <secondary>Money earned <earned>"
+      - "<primary><icon:money> <secondary>Balance <balance>"
+    # Shown above the leaderboard buttons.
+    boards: "<secondary>Leaderboards"
+    # /stats <player> from the console.
+    console:
+      - "<primary>Stats of <name>"
+      - "<secondary>Kills <primary><kills><secondary>, deaths <primary><deaths><secondary>, KDR <primary><kdr>"
+      - "<secondary>Streak <primary><streak><secondary>, best <primary><best>"
+      - "<secondary>Playtime <primary><playtime>"
+      - "<secondary>Mobs killed <primary><mobs><secondary>, blocks mined <primary><blocks>"
+      - "<secondary>Money earned <earned><secondary>, balance <balance>"
+    load-failed: "<primary>Those stats can't be loaded right now. Try again soon."
+
+  # Each leaderboard: the button label and the dialog title.
+  boards:
+    kills:
+      button: "Kills"
+      title: "Most kills"
+    deaths:
+      button: "Deaths"
+      title: "Most deaths"
+    kdr:
+      button: "KDR"
+      title: "Best KDR"
+    streak:
+      button: "Best streak"
+      title: "Best streaks"
+    playtime:
+      button: "Playtime"
+      title: "Most playtime"
+    mobs:
+      button: "Mobs killed"
+      title: "Most mobs killed"
+    blocks:
+      button: "Blocks mined"
+      title: "Most blocks mined"
+    earned:
+      button: "Money earned"
+      title: "Top earners"
+    money:
+      button: "Balance"
+      title: "Richest players"
+
+  top:
+    page: "<secondary>Page <page> of <pages>"
+    line: "<secondary><rank>. <primary><name> <value>"
+    you: "<secondary>You are number <rank> with <value>."
+    not-listed: "<secondary>You are not on this leaderboard yet."
+    empty: "<secondary>Nobody is on this leaderboard yet."
+    kdr-rule: "<secondary>Players need <kills> kills to be listed."
+    updated: "<secondary>Updated <time> ago."
+    not-ready: "<secondary>The leaderboards are still being built. Check again in a minute."
+    next: "Next page"
+    previous: "Previous page"
+    unknown: "<primary><secondary><input></secondary> is not a leaderboard. Try <boards>."
+    # /top from the console without a leaderboard.
+    list: "<primary>Leaderboards: <secondary><boards>"
+    console-header: "<primary><title> <secondary>page <page> of <pages>"
+    console-line: "<secondary><rank>. <primary><name> <value>"
+    console-empty: "<secondary>Nobody is on this leaderboard yet."
+
+  # /top without a leaderboard.
+  picker:
+    title: "Leaderboards"
+    body: "<secondary>Pick a leaderboard."
+
+  playtime:
+    self: "<primary>You have played for <time>."
+    other: "<primary><name> has played for <time>."
+
+  # Stat names in staff messages.
+  names:
+    kills: "kills"
+    deaths: "deaths"
+    mobs: "mobs killed"
+    blocks: "blocks mined"
+    earned: "money earned"
+    playtime: "playtime"
+
+  admin:
+    set: "<primary>Set <name>'s <stat> to <value>."
+    added: "<primary>Added <value> to <name>'s <stat>."
+    reset: "<primary>Reset every stat of <name>."
+    save-failed: "<primary>The change to <name>'s stats is kept in memory but could not be saved yet. It is retried with the next save."
+    unknown-stat: "<primary><secondary><input></secondary> is not a stat. Use <stats>."
+    invalid-value: "<primary><secondary><input></secondary> is not a valid amount of <stat>."
+    refreshed: "<primary>Leaderboards rebuilt in <time>."
+    refresh-busy: "<secondary>The leaderboards are already being rebuilt."
+    refresh-failed: "<primary>The leaderboards could not be rebuilt. The previous ones stay; the console has the details."
+
+  hub:
+    label: "Stats"
+    description: "Your stats and the leaderboards"
