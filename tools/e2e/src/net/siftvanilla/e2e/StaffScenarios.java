@@ -498,10 +498,11 @@ final class StaffScenarios {
             e2e.console("op " + MOD);
             Bot watcher = e2e.bot(WATCHER);
             UUID modId = e2e.uuid(MOD);
+            StaffFeature staff = staff();
 
             e2e.step("a vanished moderator leaves without a message");
             mod.command("vanish");
-            e2e.eventually(() -> staff().vanish().vanished(modId), "the moderator is vanished");
+            e2e.eventually(() -> staff.vanish().vanished(modId), "the moderator is vanished");
             watcher.clearLogs();
             mod.quit();
             e2e.eventually(() -> Bukkit.getPlayerExact(MOD) == null, "the moderator left");
@@ -515,7 +516,7 @@ final class StaffScenarios {
 
             e2e.step("once visible again, leaving is announced as usual");
             back.command("vanish");
-            e2e.eventually(() -> !staff().vanish().vanished(modId), "the moderator is visible");
+            e2e.eventually(() -> !staff.vanish().vanished(modId), "the moderator is visible");
             back.quit();
             e2e.eventually(() -> watcher.chatContains(MOD + " left"), "the leave message: " + watcher.chat());
         } finally {

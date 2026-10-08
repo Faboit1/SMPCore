@@ -279,8 +279,16 @@ public final class E2E {
 
     /** Waits for a dialog whose title contains the text, returning it. */
     public Bot.SeenDialog dialog(Bot bot, String titleContains) {
-        eventually(() -> bot.dialog() != null && bot.dialog().title().toLowerCase().contains(titleContains.toLowerCase()),
-            bot.name + " sees a dialog titled '" + titleContains + "' (last: " + (bot.dialog() == null ? "none" : bot.dialog().title()) + ")");
+        return dialog(bot, titleContains, 10_000);
+    }
+
+    /** Waits up to {@code millis} for a dialog whose title contains the text (longer for dialogs after a warmup). */
+    public Bot.SeenDialog dialog(Bot bot, String titleContains, long millis) {
+        String wanted = titleContains.toLowerCase();
+        if (!Bot.await(() -> bot.dialog() != null && bot.dialog().title().toLowerCase().contains(wanted), millis)) {
+            throw new Failure("expected " + bot.name + " sees a dialog titled '" + titleContains + "' (last: "
+                + (bot.dialog() == null ? "none" : bot.dialog().title()) + "; action bar: " + bot.actionBar() + ")");
+        }
         return bot.dialog();
     }
 

@@ -594,7 +594,7 @@ final class TeleportScenarios {
         Location away = location(e2e, name);
         bot.clearLogs();
         bot.command("home");
-        Bot.SeenDialog unsafe = e2e.dialog(bot, "Unsafe home");
+        Bot.SeenDialog unsafe = e2e.dialog(bot, "Unsafe home", 15_000);
         e2e.expect(unsafe.bodyText().contains("Home home doesn't look safe: a block fills the space."), "why: " + unsafe.body());
         e2e.click(bot, "Cancel");
         e2e.sleep(500);
@@ -609,7 +609,7 @@ final class TeleportScenarios {
         e2e.sleep(5_200);
         bot.clearLogs();
         bot.command("home");
-        Bot.SeenDialog lava = e2e.dialog(bot, "Unsafe home");
+        Bot.SeenDialog lava = e2e.dialog(bot, "Unsafe home", 15_000);
         e2e.expect(lava.bodyText().contains("there is lava"), "lava: " + lava.body());
         e2e.onPlayer(name, () -> {
             e2e.player(name).getWorld().getBlockAt(head[0], head[1] - 1, head[2]).setType(Material.AIR, false);

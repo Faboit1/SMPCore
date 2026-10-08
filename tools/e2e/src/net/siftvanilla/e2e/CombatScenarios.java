@@ -202,7 +202,7 @@ final class CombatScenarios {
             Bot.await(() -> victim.deaths() > before, 700);
         }
         e2e.expect(victim.deaths() > before, victim.name + " died from " + killer.name + "'s hit");
-        afterDeath(e2e, victim.name);
+        afterDeath(e2e, victim);
     }
 
     /** Kills a player without any attacker (the game's generic death), then waits out the respawn protection. */
@@ -214,14 +214,20 @@ final class CombatScenarios {
             return null;
         });
         e2e.eventually(() -> victim.deaths() > before, victim.name + " died");
-        afterDeath(e2e, victim.name);
+        afterDeath(e2e, victim);
     }
 
-    private static void afterDeath(E2E e2e, String name) {
+    /**
+     * Waits for the respawn, moves the player out of the protected spawn area they respawn in (nobody can fight
+     * there), then waits out the respawn protection.
+     */
+    private static void afterDeath(E2E e2e, Bot victim) {
+        String name = victim.name;
         e2e.eventually(() -> {
             Player player = Bukkit.getPlayerExact(name);
             return player != null && !player.isDead() && player.getHealth() > 0;
         }, name + " respawned");
+        e2e.leaveSpawn(victim);
         e2e.sleep(JOIN_PROTECTION_MILLIS);
     }
 
