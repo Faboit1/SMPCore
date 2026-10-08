@@ -380,7 +380,7 @@ final class SellShopScenarios {
         e2e.eventually(() -> bot.actionBarContains("There's no shop category called nowhere."), "unknown category: " + bot.actionBar());
         bot.rawClick("siftcore:hub/shop", null);
         e2e.eventually(() -> bot.screen() != null && bot.screen().title().equals("Shop"), "the shop from the hub route");
-        e2e.expect(bot.screenItems().get(23) == null, "the spawner category is hidden without spawner items");
+        e2e.expect(bot.screenItems().get(23) != null, "the spawner category is shown now that the spawners feature makes spawner items");
         bot.closeScreen();
     }
 

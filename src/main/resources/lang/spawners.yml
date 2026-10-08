@@ -1,0 +1,190 @@
+# Text of spawners: the spawner items, placing, stacking, the storage menu, /spawners and the staff commands.
+# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, plus each message's own placeholders.
+# Money amounts are coloured automatically. Bold, gradients and other colours are rejected on load.
+# <name> is a mob's name as configured ("Cave spider"); <mob> is the same in lower case for inside sentences.
+
+spawners:
+  item:
+    # The spawner item's name and lore.
+    name: "<primary><name> spawner"
+    lore:
+      - "<secondary>Collects loot while you're nearby"
+      - "<secondary>Right click a placed one to stack it"
+
+  place:
+    placed: "<primary>Placed your <mob> spawner."
+    disabled: "<primary>You can't place <mob> spawners right now."
+    world: "<primary>You can't place spawners in this world."
+    chunk-full: "<primary>This chunk already has <max> spawners. Stack them instead."
+    cancelled: "<secondary>The spawner wasn't placed."
+
+  stack:
+    stacked: "<primary>Added <amount> to the <mob> stack, now <stack> of <cap>."
+    # Stacking a teammate's spawner: the added spawners belong to its owner from now on.
+    stacked-other: "<primary>Added <amount> to <owner>'s <mob> stack, now <stack> of <cap>."
+    full: "<primary>This stack is full at <cap> spawners."
+    wrong-mob: "<primary>Only <mob> spawners stack here."
+    disabled: "<primary>You can't stack <mob> spawners right now."
+    cancelled: "<secondary>Nothing was stacked."
+
+  spawn-egg: "<primary>Spawn eggs don't change this spawner."
+  not-yours: "<primary>This spawner belongs to <owner>."
+  gone: "<primary>That spawner isn't there any more."
+  changed: "<primary>The spawner just changed. Try again."
+  in-combat: "<primary>You can't open spawners in combat. <time> left."
+  claim-box: "<primary><count> items didn't fit in your inventory. <secondary>They're waiting in your claim box."
+
+  # A spawner whose block was removed by something other than a pickup (an admin tool, a world edit) is given back.
+  refund:
+    notice: "<primary>Your <mob> spawner stack of <amount> at <location> in <world> is gone. <secondary>Its spawners and <count> stored items are waiting in your claim box."
+    xp: "<primary>You got its <xp> stored XP."
+
+  break:
+    silk-touch: "<primary>Use a silk touch pickaxe to pick up spawners."
+    too-much: "<primary>Empty the storage first. It holds <stacks> stacks, more than the <max> a claim box takes."
+    cancelled: "<secondary>The spawner stays where it is."
+    picked-up-one: "<primary>Picked up your <mob> spawner."
+    picked-up-many: "<primary>Picked up <amount> <mob> spawners."
+    storage-claim-box: "<primary>Its <count> stored items are waiting in your claim box."
+    storage-owner-claim-box: "<primary>Its <count> stored items went to <owner>'s claim box."
+    storage-sold: "<primary>Its <count> stored items sold for <total>."
+    storage-sold-owner: "<primary>Its <count> stored items sold for <total>, paid to <owner>."
+    owner-notice: "<primary><name> picked up your <mob> spawner stack of <amount>."
+    # The same when a vanished staff member picked it up (their name stays hidden).
+    owner-notice-staff: "<primary>Staff picked up your <mob> spawner stack of <amount>."
+    natural: "<primary>Picked up a <mob> spawner."
+
+  menu:
+    # The storage menu's title (plain text).
+    title: "<name> spawner"
+    item:
+      name: "<primary><item>"
+      lore:
+        - "<secondary>Stored <primary><amount>"
+        - "<secondary>Sells for <price> each, <value> in all"
+        - ""
+        - "<secondary>Left click to take a stack"
+        - "<secondary>Right click to take all that fits"
+      lore-unsellable:
+        - "<secondary>Stored <primary><amount>"
+        - "<secondary>Can't be sold"
+        - ""
+        - "<secondary>Left click to take a stack"
+        - "<secondary>Right click to take all that fits"
+    sort:
+      amount: "Most stored"
+      value: "Most valuable"
+      name: "Name"
+    sell:
+      name: "<primary>Sell all"
+      lore:
+        - "<secondary>Sell <count> items for <total>"
+        - "<secondary>Items that can't be sold stay here"
+      lore-bonus:
+        - "<secondary>Sell <count> items for <total>"
+        - "<secondary>Includes your <primary><multiplier>x <secondary>bonus"
+        - "<secondary>Items that can't be sold stay here"
+      empty: "<secondary>Nothing here sells yet"
+    xp:
+      name: "<primary>Collect XP"
+      lore:
+        - "<secondary>Stored <primary><xp> <secondary>of <cap> XP"
+        - "<secondary>Click to collect it"
+      empty: "<secondary>No XP yet, it holds up to <cap>"
+    info:
+      name: "<primary><name> spawner"
+      lore:
+        - "<secondary>Stack <primary><stack> <secondary>of <cap>"
+        - "<secondary>Owner <primary><owner>"
+        - "<secondary>Storage <primary><used> <secondary>of <capacity> items"
+        - "<secondary>XP <primary><xp> <secondary>of <xp-cap>"
+        - "<secondary>At <primary><location> <secondary>in <world>"
+        - ""
+        - "<secondary>Makes loot every <interval> while a"
+        - "<secondary>player is within <radius> blocks"
+      full: "<secondary>The storage is full, new loot is lost"
+
+  took: "<primary>Took <amount> <item>."
+  none-left: "<primary>There's none of that left."
+
+  sell:
+    # The receipt in chat. Hovering the count lists what was sold.
+    sold: "<primary>You sold <count> items from the <mob> spawner for <total>."
+    sold-bonus: "<primary>You sold <count> items from the <mob> spawner for <total> <secondary>with your <multiplier>x bonus."
+    receipt-line: "<secondary><amount> <item> <primary><value>"
+    nothing: "<primary>Nothing in this spawner sells."
+    cancelled: "<secondary>Sale cancelled."
+    balance-full: "<primary>You can't hold that much money."
+    too-much: "<primary>That's too much to sell at once."
+
+  xp:
+    collected: "<primary>Collected <xp> XP."
+    none: "<primary>There's no XP to collect."
+
+  list:
+    title: "Your spawners"
+    summary:
+      - "<icon:spawner> <secondary>Spawners placed <primary><count><secondary>, stacked <primary><stacked>"
+      - "<secondary>Items stored <primary><stored><secondary>, XP stored <primary><xp>"
+    page: "<secondary>Page <page> of <pages>"
+    empty:
+      - "<primary>You don't have any spawners yet."
+      - "<secondary>Buy one in the shop and place it near your base."
+    # One row per spawner, next to its item.
+    entry: "<primary><name> x<stack><newline><secondary>At <location> in <world><newline><secondary><used> of <capacity> items stored"
+    # A spawner's button (plain label) and its hover text.
+    button: "<name> x<stack>"
+    tooltip: "<secondary>At <location> in <world><newline><secondary><used> of <capacity> items stored"
+    previous: "Previous page"
+    next: "Next page"
+    # Switches between your spawners and your teammates' (shown while you're in a team).
+    show-team: "Team spawners"
+    show-own: "Your spawners"
+
+  # Your teammates' spawners, which you may use too.
+  team-list:
+    title: "Team spawners"
+    summary:
+      - "<icon:spawner> <secondary>Teammates' spawners <primary><count><secondary>, stacked <primary><stacked>"
+      - "<secondary>Items stored <primary><stored><secondary>, XP stored <primary><xp>"
+    empty:
+      - "<primary>Your teammates don't have any spawners yet."
+      - "<secondary>Spawners your teammates place show up here, and you can use them too."
+    entry: "<primary><name> x<stack> <secondary>of <primary><owner><newline><secondary>At <location> in <world><newline><secondary><used> of <capacity> items stored"
+
+  details:
+    title: "<name> spawner"
+    body:
+      - "<icon:spawner> <primary><name> spawner<secondary>, <primary><stack> <secondary>of <cap> stacked"
+      - "<secondary>Owner <primary><owner>"
+      - "<secondary>At <primary><location> <secondary>in <world>"
+      - "<secondary>Storage <primary><used> <secondary>of <capacity> items"
+      - "<icon:experience> <secondary>XP <primary><xp> <secondary>of <xp-cap>"
+      - "<icon:money> <secondary>The storage sells for <value>"
+      - "<secondary>Makes about <primary><rate> <secondary>items an hour while you're near"
+    status:
+      active: "<primary>Making loot right now."
+      full: "<primary>The storage is full, so new loot is lost. <secondary>Sell or take some."
+      idle: "<secondary>Waiting for a player within <radius> blocks."
+      disabled: "<secondary>This spawner type is turned off and makes no loot."
+    open: "Open storage"
+    too-far: "<primary>Stand within <range> blocks of the spawner to open it."
+
+  hub:
+    label: "Spawners"
+    description: "Your spawners and their loot"
+
+  admin:
+    given: "<primary>Gave <amount> <mob> spawners to <name>."
+    given-claim-box: "<primary>Gave <amount> <mob> spawners to <name>. <secondary>They're in their claim box."
+    received: "<primary>You received <amount> <mob> spawners."
+    unknown-mob: "<primary>There's no spawner for <mob>. <secondary>Spawner types: <mobs>"
+    give-failed: "<primary>The spawners couldn't be stored. Check the console."
+    list-header: "<primary><name> has <count> spawners, <stacked> stacked."
+    list-line: "<secondary>#<id> <primary><name> x<stack> <secondary>at <location> in <world>, <used> of <capacity> items, <xp> XP"
+    list-empty: "<primary><name> has no spawners."
+    cycle: "<primary>Ran a loot cycle in <chunks> loaded chunks with spawners."
+    info:
+      - "<primary>Spawners <spawners><secondary>, stacked <primary><stacked><secondary>, owners <primary><owners>"
+      - "<secondary>Chunks with spawners <primary><chunks><secondary>, loaded <primary><loaded>"
+      - "<secondary>Stored <primary><items> <secondary>items and <primary><xp> <secondary>XP, <primary><dirty> <secondary>spawners waiting to be written"

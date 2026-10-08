@@ -23,6 +23,7 @@ final class FeatureScenarios {
         list.addAll(VaultScenarios.all());
         list.addAll(UiScenarios.all());
         list.addAll(AxAuctionsScenarios.all());
+        list.addAll(SpawnerScenarios.all());
         return list;
     }
 }

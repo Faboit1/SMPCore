@@ -83,6 +83,7 @@ import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
 import net.minecraft.network.protocol.game.ServerboundRenameItemPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
@@ -434,6 +435,11 @@ public final class Bot {
         this.z += dz;
         this.yRot += turn;
         send(new ServerboundMovePlayerPacket.PosRot(this.x, this.y, this.z, this.yRot, this.xRot, false, false));
+    }
+
+    /** Holds or releases the sneak key, like the vanilla client's input packet. */
+    public void sneak(boolean sneaking) {
+        send(new ServerboundPlayerInputPacket(new net.minecraft.world.entity.player.Input(false, false, false, false, false, sneaking, false)));
     }
 
     public void respawn() {

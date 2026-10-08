@@ -9,7 +9,6 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
-import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
 import net.siftvanilla.siftcore.feature.bounties.BountiesFeature;
@@ -24,6 +23,7 @@ import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
 import net.siftvanilla.siftcore.feature.sell.SellFeature;
 import net.siftvanilla.siftcore.feature.shop.ShopFeature;
 import net.siftvanilla.siftcore.feature.spawn.SpawnFeature;
+import net.siftvanilla.siftcore.feature.spawners.SpawnersFeature;
 import net.siftvanilla.siftcore.feature.staff.StaffFeature;
 import net.siftvanilla.siftcore.feature.stats.StatsFeature;
 import net.siftvanilla.siftcore.feature.teams.TeamsFeature;
@@ -57,7 +57,9 @@ final class FeatureCatalog {
         StatsFeature stats = new StatsFeature(this.services, this.problems, AfkStatus.NONE, economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
         SellFeature sell = new SellFeature(this.services, this.problems);
-        CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), SpawnerItems.NONE, staff.vanish(),
+        SpawnersFeature spawners = new SpawnersFeature(this.services, this.problems, sell.worth(), teams.lookup(), staff.vanish(), AfkStatus.NONE,
+            this.combatTags);
+        CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
             this.combatTags, AfkStatus.NONE);
         SpawnFeature spawn = new SpawnFeature(this.services, this.problems);
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
@@ -69,8 +71,9 @@ final class FeatureCatalog {
         features.add(staff);
         features.add(stats);
         features.add(sell);
+        features.add(spawners);
         features.add(crates);
-        features.add(new ShopFeature(this.services, this.problems, sell.worth(), SpawnerItems.NONE));
+        features.add(new ShopFeature(this.services, this.problems, sell.worth(), spawners.items()));
         features.add(spawn);
         features.add(new HomesFeature(this.services, this.problems, spawn.area()));
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
