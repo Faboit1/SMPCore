@@ -524,7 +524,11 @@ public final class Bot {
                 return this.conn != null && this.conn.isConnected();
             case "onDisconnect":
                 this.disconnected = true;
-                this.disconnectReason = ((DisconnectionDetails) args[0]).reason().getString();
+                // The kick message arrives in a disconnect packet first; the generic reason the connection reports
+                // when it then closes must not replace it.
+                if (this.disconnectReason.isEmpty()) {
+                    this.disconnectReason = ((DisconnectionDetails) args[0]).reason().getString();
+                }
                 return null;
             case "onPacketError":
                 LOG.warning("[" + this.name + "] packet error " + args[0] + ": " + args[1]);

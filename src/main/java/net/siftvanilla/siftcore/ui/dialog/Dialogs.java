@@ -252,7 +252,7 @@ public final class Dialogs implements Listener {
                 return;
             }
             if (button.handler() == null) {
-                player.closeDialog();
+                closeAfterClick(player);
                 return;
             }
             if (validation.invalidLabel() != null) {
@@ -270,13 +270,32 @@ public final class Dialogs implements Listener {
                 submission.close();
             }
             if (!submission.responded && shownCount(player) == shownBefore) {
-                player.closeDialog();
+                closeAfterClick(player);
             }
         };
         if (this.scheduler.owns(player)) {
             run.run();
         } else {
             this.scheduler.entity(player, run, null);
+        }
+    }
+
+    /**
+     * Closes the screen a click left the client on. After a click the client shows its "waiting for response" screen,
+     * which ignores the clear-dialog packet (it only closes a dialog screen), so a container close is sent as well:
+     * the client handles that by closing whatever screen is open. Runs on the player's thread.
+     */
+    private void closeAfterClick(Player player) {
+        Runnable close = () -> {
+            if (player.isOnline()) {
+                player.closeDialog();
+                player.closeInventory();
+            }
+        };
+        if (this.scheduler.owns(player)) {
+            close.run();
+        } else {
+            this.scheduler.entity(player, close, null);
         }
     }
 
@@ -496,7 +515,7 @@ public final class Dialogs implements Listener {
         @Override
         public void close() {
             this.responded = true;
-            this.player.closeDialog();
+            closeAfterClick(this.player);
         }
     }
 
