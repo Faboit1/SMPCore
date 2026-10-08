@@ -97,6 +97,8 @@ public final class EconomyFeature implements Feature, Listener {
             p -> money.get().format(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
         placeholders.register("balance_exact", "Your money with every digit ($2,500,000)",
             p -> money.get().formatExact(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
+        placeholders.register("balance_number", "Your money without the currency sign (1,500 or 2.5m)",
+            p -> money.get().formatNumber(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
         placeholders.register("balance_raw", "Your money as a plain number (2500000)",
             p -> Long.toString(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
         placeholders.register("shards", "Your shards with separators (1,250)",
