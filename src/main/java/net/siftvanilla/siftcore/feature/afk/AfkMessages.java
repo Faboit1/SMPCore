@@ -41,6 +41,7 @@ public final class AfkMessages {
     public static final MessageKey ADMIN_ARRIVAL_AUTO = MessageKey.chat("afk.admin.arrival-auto");
     public static final MessageKey ADMIN_PLAYERS = MessageKey.chat("afk.admin.players", "count", "earning");
     public static final MessageKey ADMIN_REWARDS = MessageKey.chat("afk.admin.rewards", "shards", "time");
+    public static final MessageKey ADMIN_RANK_REWARDS = MessageKey.chat("afk.admin.rank-rewards", "ranks");
     public static final MessageKey ADMIN_CAP = MessageKey.chat("afk.admin.cap", "cap");
     public static final MessageKey ADMIN_NO_CAP = MessageKey.chat("afk.admin.no-cap");
     public static final MessageKey ADMIN_PROTECTED = MessageKey.chat("afk.admin.protected");

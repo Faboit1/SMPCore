@@ -179,6 +179,10 @@ final class AfkCommands {
         messenger().chat(sender, AfkMessages.ADMIN_PLAYERS, Arg.number("count", this.service.visibleInside()),
             Arg.number("earning", this.service.visibleEarning()));
         messenger().chat(sender, AfkMessages.ADMIN_REWARDS, Arg.number("shards", s.shards()), Arg.time("time", s.interval()));
+        if (!s.rankShards().isEmpty()) {
+            messenger().chat(sender, AfkMessages.ADMIN_RANK_REWARDS, Arg.text("ranks", s.rankShards().entrySet().stream()
+                .map(e -> e.getKey() + " " + e.getValue()).collect(java.util.stream.Collectors.joining(", "))));
+        }
         if (s.dailyCap() > 0) {
             messenger().chat(sender, AfkMessages.ADMIN_CAP, Arg.number("cap", s.dailyCap()));
         } else {
