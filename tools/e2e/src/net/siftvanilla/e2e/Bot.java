@@ -32,6 +32,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.HashedStack;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.LastSeenMessages;
 import net.minecraft.network.protocol.Packet;
@@ -136,6 +137,10 @@ public final class Bot {
     public record Screen(int containerId, String title, long at) {
     }
 
+    /** A chat message that opens a dialog when clicked (a show_dialog click event), and that dialog. */
+    public record ChatDialog(String text, SeenDialog dialog) {
+    }
+
     private static final Logger LOG = Logger.getLogger("SiftE2E");
 
     public final String name;
@@ -157,6 +162,7 @@ public final class Bot {
     private final List<String> actionBar = new CopyOnWriteArrayList<>();
     private final List<String> titles = new CopyOnWriteArrayList<>();
     private final List<SeenDialog> dialogs = new CopyOnWriteArrayList<>();
+    private final List<ChatDialog> chatDialogs = new CopyOnWriteArrayList<>();
     private final AtomicInteger deaths = new AtomicInteger();
     private final AtomicInteger dialogsCleared = new AtomicInteger();
     private final AtomicInteger sequence = new AtomicInteger();
@@ -235,6 +241,7 @@ public final class Bot {
         this.actionBar.clear();
         this.titles.clear();
         this.dialogs.clear();
+        this.chatDialogs.clear();
         this.dialog = null;
     }
 
@@ -250,6 +257,28 @@ public final class Bot {
 
     public boolean anyFeedbackContains(String text) {
         return chatContains(text) || actionBarContains(text);
+    }
+
+    /** Chat messages received so far that open a dialog when clicked. */
+    public List<ChatDialog> chatDialogs() {
+        return List.copyOf(this.chatDialogs);
+    }
+
+    /**
+     * Clicks the newest chat message containing the text that opens a dialog. Like the vanilla client, this shows
+     * the embedded dialog locally (nothing is sent); its buttons then work through {@link #clickButton}.
+     */
+    public boolean openChatDialog(String textContains) {
+        String needle = textContains.toLowerCase();
+        for (int i = this.chatDialogs.size() - 1; i >= 0; i--) {
+            ChatDialog entry = this.chatDialogs.get(i);
+            if (entry.text().toLowerCase().contains(needle)) {
+                this.dialog = entry.dialog();
+                this.dialogs.add(entry.dialog());
+                return true;
+            }
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ connection
@@ -539,7 +568,13 @@ public final class Bot {
                     }
                 }
             }
-            case ClientboundSystemChatPacket sc -> (sc.overlay() ? this.actionBar : this.chat).add(sc.content().getString());
+            case ClientboundSystemChatPacket sc -> {
+                (sc.overlay() ? this.actionBar : this.chat).add(sc.content().getString());
+                SeenDialog embedded = sc.overlay() ? null : embeddedDialog(sc.content());
+                if (embedded != null) {
+                    this.chatDialogs.add(new ChatDialog(sc.content().getString(), embedded));
+                }
+            }
             case net.minecraft.network.protocol.game.ClientboundPlayerChatPacket pc ->
                 this.chat.add(pc.unsignedContent() != null ? pc.unsignedContent().getString() : pc.body().content());
             case ClientboundSetActionBarTextPacket ab -> this.actionBar.add(ab.text().getString());
@@ -601,6 +636,20 @@ public final class Bot {
             });
         }
         return new SeenDialog(type, common.title().getString(), body, buttons, inputs, System.currentTimeMillis());
+    }
+
+    /** The dialog a chat component opens when clicked (its own or a child's show_dialog click event), or null. */
+    private static SeenDialog embeddedDialog(Component component) {
+        if (component.getStyle().getClickEvent() instanceof ClickEvent.ShowDialog show) {
+            return parse(show.dialog().value());
+        }
+        for (Component sibling : component.getSiblings()) {
+            SeenDialog found = embeddedDialog(sibling);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     private static Button button(ActionButton action) {

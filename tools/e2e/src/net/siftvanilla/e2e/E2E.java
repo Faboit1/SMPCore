@@ -136,6 +136,31 @@ public final class E2E {
         sleep(200);
     }
 
+    /**
+     * Runs a command on the global thread as a console-like sender (it has every permission) and returns what the
+     * command told that sender, one plain-text entry per message.
+     */
+    public List<String> consoleOutput(String command) {
+        List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        Bukkit.getGlobalRegionScheduler().execute(this.plugin, () -> {
+            try {
+                Bukkit.dispatchCommand(Bukkit.createCommandSender(message -> lines.add(
+                    net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(message))), command);
+                done.complete(null);
+            } catch (Throwable t) {
+                done.completeExceptionally(t);
+            }
+        });
+        try {
+            done.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new Failure("command '" + command + "' failed: " + e.getCause());
+        }
+        sleep(200);
+        return List.copyOf(lines);
+    }
+
     /** Runs code on a player's thread and returns its result. */
     public <T> T onPlayer(String name, Supplier<T> action) {
         Player player = player(name);
