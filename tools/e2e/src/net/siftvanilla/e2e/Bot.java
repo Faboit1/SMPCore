@@ -14,8 +14,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
@@ -139,7 +140,7 @@ public final class Bot {
 
     public final String name;
     public final UUID uuid;
-    private final ExecutorService exec;
+    private final ScheduledExecutorService exec;
     private final RegistryAccess registryAccess = MinecraftServer.getServer().registryAccess();
     private volatile Connection conn;
     private volatile double x, y, z;
@@ -163,7 +164,19 @@ public final class Bot {
     public Bot(String name) {
         this.name = name;
         this.uuid = UUIDUtil.createOfflinePlayerUUID(name);
-        this.exec = Executors.newSingleThreadExecutor(r -> new Thread(r, "SiftE2E-Bot-" + name));
+        this.exec = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "SiftE2E-Bot-" + name));
+        // A vanilla client ticks its connection 20 times a second; the tick flushes packets queued before the
+        // channel became active. Without it a login can stall forever when connectToServer returns early.
+        this.exec.scheduleAtFixedRate(() -> {
+            Connection c = this.conn;
+            if (c != null) {
+                try {
+                    c.tick();
+                } catch (RuntimeException e) {
+                    LOG.fine("[" + name + "] connection tick failed: " + e);
+                }
+            }
+        }, 50, 50, TimeUnit.MILLISECONDS);
     }
 
     // ------------------------------------------------------------------ state
@@ -244,7 +257,14 @@ public final class Bot {
     public void connect(int port) {
         this.exec.execute(() -> {
             try {
-                this.conn = Connection.connectToServer(new InetSocketAddress("127.0.0.1", port), EventLoopGroupHolder.remote(false), null);
+                Connection connection = Connection.connectToServer(new InetSocketAddress("127.0.0.1", port), EventLoopGroupHolder.remote(false), null);
+                // channelActive runs on the event loop and may not have happened yet; packets sent before it
+                // are only queued, so wait for it (the scheduled tick also flushes anything still queued).
+                long until = System.currentTimeMillis() + 5_000;
+                while (!connection.isConnected() && System.currentTimeMillis() < until) {
+                    Thread.sleep(5);
+                }
+                this.conn = connection;
                 this.conn.initiateServerboundPlayConnection("127.0.0.1", port, proxy(ClientLoginPacketListener.class));
                 this.conn.send(new ServerboundHelloPacket(this.name, this.uuid));
             } catch (Throwable e) {
