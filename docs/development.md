@@ -24,7 +24,7 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 ## Wiring (constructor injection, no static state)
 
 - The feature constructor takes `Services services, List<ConfigProblem> problems` plus any other feature's
-  service it depends on (for example `WorthLookup`, `StatsRecorder`, `TeamLookup`, `CrateKeys`, `AfkStatus`, `MuteStatus`, `VanishStatus`,
+  service it depends on (for example `WorthLookup`, `StatsRecorder`, `TeamLookup`, `CrateKeys`, `AfkStatus`, `MuteStatus`, `VanishStatus`, `FriendLookup`, `IgnoreLookup`,
   `CombatTags`). Interfaces for cross-feature contracts live in `core.link`; use them, never another feature's
   internals.
 - In the constructor:
@@ -137,7 +137,7 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
   comment; use `{autoinc} {blob} {bigint} {text} {uuid} {engine}` tokens; one statement per `;` line ending):
   economy 10-14, shop/sell 15-19, orders 20-24, auction 25-29, spawners 30-34, teams 35-39, teleport 40-44,
   combat/bounties 45-49, stats 50-54, crates 55-59, chat 60-64, afk/shards 65-69, kits 70-74, admin/store 75-79,
-  scoreboard 80-84, integrations 85-89, staff 90-94, displays 95-99.
+  scoreboard 80-84, integrations 85-89, staff 90-94, displays 95-99, friends 100-104.
 - Reads: `services.database().read(conn -> ...)` (off-thread). Writes outside trades: `database().write(...)`.
   Never `join()` a database future on a world thread.
 - Write-behind for high-frequency counters (stats): keep in memory, flush on a timer, on quit and in `disable()`.
