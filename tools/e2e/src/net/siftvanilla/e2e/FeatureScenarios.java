@@ -29,6 +29,7 @@ final class FeatureScenarios {
         list.addAll(SellPlusScenarios.all());
         list.addAll(OrdersScenarios.all());
         list.addAll(ChatScenarios.all());
+        list.addAll(KitsScenarios.all());
         return list;
     }
 }

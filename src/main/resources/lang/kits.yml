@@ -1,0 +1,127 @@
+# Text of /kits, /kit and the perk commands (/ec, /craft, /anvil, /stonecutter, /grindstone, /smithing, /loom,
+# /cartography, /trash, /hat).
+# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, click and hover, plus each message's own
+# placeholders. Kit names and descriptions come from features/kits.yml and are inserted as plain text.
+
+kits:
+  hub:
+    label: "Kits"
+    description: "Starter, daily and rank kits, and your perks"
+
+  list:
+    title: "Kits"
+    # One line per kit in the kits dialog: "Daily: in 3h 20m".
+    line: "<primary><name><secondary>: <status>"
+    empty: "<secondary>There are no kits for you yet."
+    # Shown when kit items that didn't fit are still waiting.
+    waiting: "<secondary><icon:info> Some kit items are waiting for room in your inventory."
+    # The claim button when one kit is ready, and when several are.
+    claim-one: "Claim <name>"
+    claim-ready: "Claim <count> ready kits"
+    collect: "Collect waiting items"
+    perks: "Perks"
+
+  # A kit's status, used in the kits dialog, /kits check and the kit_<id> placeholder.
+  status:
+    ready: "<primary>ready"
+    waiting: "<secondary>in <primary><time>"
+    claimed: "<secondary>claimed"
+    locked: "<secondary>locked"
+
+  kit:
+    title: "<name> kit"
+    description: "<secondary><description>"
+    once: "<secondary>One claim per player"
+    every: "<secondary>Claim it every <primary><time>"
+    ready: "<primary>Ready to claim"
+    waiting: "<secondary><icon:playtime> Ready again in <primary><time>"
+    claimed: "<secondary>You already claimed this kit."
+    locked: "<secondary>You haven't unlocked this kit."
+    # Next to each item of the kit.
+    item: "<primary><name>"
+    item-many: "<primary><name> <secondary>x<amount>"
+    keys: "<secondary><icon:key> Also gives <primary><keys>"
+    claim: "Claim"
+
+  # Crate keys a kit gives: "1 Basic key", "2 Rare keys".
+  keys:
+    one: "1 <crate> key"
+    many: "<count> <crate> keys"
+  # Between names in a list: "Daily, Supporter".
+  separator: "<secondary>, "
+
+  claim:
+    claimed: "<primary>You claimed the <name> kit."
+    claimed-many: "<primary>You claimed <count> kits."
+    claim-box: "<primary>Some of the <name> kit didn't fit. <click:run_command:'/kits'><secondary>It's waiting in /kits, click to collect it.</click>"
+    claim-box-many: "<primary>Some of your kits didn't fit. <click:run_command:'/kits'><secondary>They're waiting in /kits, click to collect them.</click>"
+    keys: "<primary>The <name> kit gave you <keys>. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
+    keys-failed: "<primary>The <name> kit couldn't give you <keys>. <secondary>Ask staff to give them to you."
+    not-ready: "<primary>The <name> kit is ready again in <time>."
+    already-claimed: "<primary>You already claimed the <name> kit."
+    unknown: "<primary>There is no kit called <input>."
+    locked: "<primary>You haven't unlocked the <name> kit."
+    in-combat: "<primary>You can't claim kits in combat. <time> left."
+    cancelled: "<secondary>The <name> kit wasn't claimed."
+    failed: "<primary>The kit couldn't be claimed. Nothing changed, try again in a moment."
+    none-ready: "<primary>No kit is ready to claim."
+
+  collect:
+    done: "<primary>You collected your kit items."
+    partly: "<primary>You collected some of your kit items. <secondary>Make room for the rest."
+    no-room: "<primary>Make room in your inventory first."
+    none: "<primary>No kit items are waiting."
+
+  reminder:
+    join: "<primary>Kits ready to claim: <kits>. <click:run_command:'/kits'><secondary>Click to claim them.</click>"
+    ready: "<primary>Your <name> kit is ready. <click:run_command:'/kits'><secondary>Click to claim it.</click>"
+    waiting: "<primary>Kit items are waiting for room in your inventory. <click:run_command:'/kits'><secondary>Click to collect them.</click>"
+
+  settings:
+    reminders: "Kit reminders"
+    reminders-description: "Tell me when a kit is ready to claim"
+
+  admin:
+    given: "<primary>Gave <player> the <name> kit."
+    given-offline: "<primary><player> is offline. <secondary>The <name> kit is waiting in their claim box."
+    received: "<primary>Staff gave you the <name> kit."
+    give-failed: "<primary>The <name> kit couldn't be given to <player>. Nothing changed."
+    give-cancelled: "<primary>Another plugin stopped the <name> kit for <player>."
+    reset-one: "<primary>Reset <player>'s <name> kit. <secondary>They can claim it again."
+    reset-all: "<primary>Reset every kit of <player>. <secondary>They can claim them again."
+    reset-none: "<primary><player> has no kit to reset."
+    check-header: "<primary>Kits of <player>"
+    check-line: "<secondary><name> (<id>): <status>"
+    list-header: "<primary>Kits <secondary>(<count>)"
+    # One line per kit for /kits from the console: "Daily (daily): every 1d, 3 items, everyone".
+    list-line: "<primary><name> <secondary>(<id>): <cooldown>, <items> items, <access>"
+    everyone: "everyone"
+    node: "<node>"
+
+  perks:
+    title: "Perks"
+    body: "<secondary>Your perks work anywhere, and each has its own command."
+    # Below each perk's button.
+    command: "<secondary>/<command>"
+    names:
+      ec: "Ender chest"
+      craft: "Crafting table"
+      anvil: "Anvil"
+      stonecutter: "Stonecutter"
+      grindstone: "Grindstone"
+      smithing: "Smithing table"
+      loom: "Loom"
+      cartography: "Cartography table"
+      trash: "Trash"
+      hat: "Hat"
+    in-combat: "<primary>You can't use that in combat. <time> left."
+    closed: "<primary>Closed because you're in combat."
+    ec-others-title: "<name>'s ender chest"
+    trash-title: "Trash: deleted when you close it"
+    trash-deleted-one: "<primary>Deleted 1 item."
+    trash-deleted: "<primary>Deleted <count> items."
+    hat-empty: "<primary>Hold the item you want to wear."
+    hat-blocked: "<primary>You can't wear that."
+    hat-cursed: "<primary>Your helmet can't be taken off."
+    hat-no-room: "<primary>Make room for your helmet first."
+    hat-done: "<primary>You're wearing <item>."

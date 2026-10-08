@@ -22,6 +22,7 @@ import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
 import net.siftvanilla.siftcore.feature.friends.FriendsFeature;
 import net.siftvanilla.siftcore.feature.homes.HomesFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
+import net.siftvanilla.siftcore.feature.kits.KitsFeature;
 import net.siftvanilla.siftcore.feature.orders.OrdersFeature;
 import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
 import net.siftvanilla.siftcore.feature.sell.SellFeature;
@@ -93,6 +94,7 @@ final class FeatureCatalog {
         features.add(sell);
         features.add(spawners);
         features.add(crates);
+        features.add(new KitsFeature(this.services, this.problems, this.combatTags, crates.keys()));
         features.add(orders);
         ShopFeature shop = new ShopFeature(this.services, this.problems, sell.worth(), sell.link(), spawners.items(), this.combatTags);
         sell.shop(shop.offers());

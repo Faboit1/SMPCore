@@ -198,7 +198,7 @@ public final class SellFeature implements Feature, Listener {
 
     private void placeholders() {
         Placeholders placeholders = this.services.placeholders();
-        placeholders.register("sell_multiplier", "Your rank sell multiplier, like 1.5 (1 without a rank bonus; mastery not included)",
+        placeholders.register("sell_multiplier", "Your sell multiplier from sell.yml multipliers (1 when none apply; mastery not included)",
             player -> Multipliers.format(this.worth.cachedMultiplier(player.getUniqueId())));
         placeholders.registerPrefix("sell_multiplier_", "sell_multiplier_<category>",
             "Your multiplier for a sell category, rank plus mastery, like 1.6", (player, category) -> {

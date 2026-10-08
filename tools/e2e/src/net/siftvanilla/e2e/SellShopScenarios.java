@@ -191,26 +191,28 @@ final class SellShopScenarios {
         e2e.expect(count(e2e, name, Material.DIAMOND) == 64, "the off hand stays");
     }
 
+    /** Paid ranks never sell for more (store rules): old multiplier nodes pay the normal price. */
     static void sellBonus(E2E e2e) {
         String name = e2e.name("SellBonus");
         Bot bot = e2e.bot(name);
         e2e.console("eco set " + name + " 0");
-        e2e.step("grant the legend sell tier");
+        e2e.step("nodes of the removed sell tiers change nothing");
         e2e.onPlayer(name, () -> {
             Player player = e2e.player(name);
             player.addAttachment(e2e.services().plugin(), "siftcore.sell.multiplier.legend", true);
-            player.addAttachment(e2e.services().plugin(), "siftcore.sell.multiplier.supporter", true);
+            player.addAttachment(e2e.services().plugin(), "siftcore.sell.multiplier.tycoon", true);
             player.getInventory().setHeldItemSlot(0);
             player.getInventory().setItemInMainHand(ItemStack.of(Material.DIAMOND, 64));
             return null;
         });
         bot.clearLogs();
         bot.command("sell hand");
-        e2e.eventually(() -> e2e.money(name) == 38_400, "paid 25,600 x 1.5 = $38,400 (has " + e2e.money(name) + ")");
-        e2e.eventually(() -> bot.chatContains("You sold 64 diamond for $38,400 with your 1.5x bonus."), "a bonus receipt: " + bot.chat());
-        e2e.step("the placeholder shows the multiplier");
+        e2e.eventually(() -> e2e.money(name) == 25_600, "paid the normal $25,600 (has " + e2e.money(name) + ")");
+        e2e.eventually(() -> bot.chatContains("You sold 64 diamond for $25,600."), "a plain receipt: " + bot.chat());
+        e2e.expect(!bot.chatContains("bonus"), "no bonus mentioned: " + bot.chat());
+        e2e.step("the placeholder shows no multiplier");
         String value = e2e.onPlayer(name, () -> e2e.services().placeholders().resolve(e2e.player(name), "sell_multiplier"));
-        e2e.expect("1.5".equals(value), "sell_multiplier is 1.5, got " + value);
+        e2e.expect("1".equals(value), "sell_multiplier is 1, got " + value);
     }
 
     static void sellMenu(E2E e2e) {

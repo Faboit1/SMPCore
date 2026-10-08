@@ -56,6 +56,30 @@ hub:
     stats:
       label: "Stats"
       description: "Your stats and the leaderboards"
+    crates:
+      label: "Crates"
+      description: "Open crates with your keys"
+    kits:
+      label: "Kits"
+      description: "Starter, daily and rank kits"
+    tpa:
+      label: "Teleport to a player"
+      description: "Ask a player to teleport to them"
+    bounties:
+      label: "Bounties"
+      description: "Put a price on a player"
+    shards:
+      label: "Shards"
+      description: "Spend shards earned while AFK"
+    prices:
+      label: "Prices"
+      description: "What items sell for"
     settings:
       label: "Settings"
       description: "Your personal settings"
+    report:
+      label: "Report a player"
+      description: "Tell staff about someone breaking the rules"
+    rules:
+      label: "Rules"
+      description: "The server rules"

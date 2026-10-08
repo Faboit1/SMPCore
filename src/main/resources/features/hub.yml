@@ -17,6 +17,7 @@ pause-menu:
     - orders
     - spawners
     - crates
+    - kits
     - teams
     - friends
     - homes
