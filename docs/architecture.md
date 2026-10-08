@@ -33,7 +33,7 @@ net.siftvanilla.siftcore
 │   ├── teleport            Teleports (warmup, cancel on move/damage, combat refusal), CombatStatus
 │   ├── combat              CombatTags (who is tagged until when)
 │   ├── link                contracts between features: StatsRecorder, WorthLookup, TeamLookup, AfkStatus,
-│   │                       CrateKeys, SpawnerItems, SpawnArea
+│   │                       CrateKeys, SpawnerItems, SpawnArea, MuteStatus, VanishStatus
 │   ├── integration         Ranks (LuckPerms labels)
 │   ├── audit               AuditLog
 │   └── selftest            SelfTest
