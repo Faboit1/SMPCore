@@ -1,0 +1,283 @@
+# The server shop (/shop). Players pick a category, then an item, then how many to buy.
+#
+# Safety: every item's price must be more than what it sells back for (its worth in data/worth-generated.yml) times
+# the best sell multiplier in features/sell.yml times 1.1, and more than anything a recipe can turn it into sells
+# for. A price that breaks this is a config problem: /sift reload refuses the change, and at startup that item is
+# left out of the shop. So buying something and selling it back (or crafting it into something and selling that)
+# never makes money.
+# Items that can't be sold at all may have any price.
+
+# Purchases that cost at least this much ask for confirmation first. 0 never asks.
+confirm-above: 50k
+
+# The most of one item a single purchase can buy, unless a category or item says otherwise (1 to 6400).
+default-max: 640
+
+menu:
+  # Rows of the category screen (2 to 6). Your balance is shown in the middle of the bottom row.
+  rows: 4
+
+# Categories in the order they are listed. For each:
+#   name:        what the category is called (plain text, up to 32 characters)
+#   description: one short line under the name (optional, up to 64 characters)
+#   icon:        the item shown for it
+#   slot:        where it sits on the category screen (0 is the top left; not the balance slot)
+#   default-max: the most of one item per purchase in this category (optional)
+#   items:       what it sells. The key is an item id (stone) or any id you like with item: set (wool: {item: white_wool}).
+#                price is per item; max (optional) is the most per purchase.
+#                Spawners use spawner: <mob> instead of item:, and are only shown while spawner items are available.
+categories:
+  blocks:
+    name: "Blocks"
+    description: "Stone, wood, sand and other building blocks"
+    icon: grass_block
+    slot: 10
+    default-max: 2304
+    items:
+      stone: {price: 6}
+      cobblestone: {price: 4}
+      smooth_stone: {price: 8}
+      stone_bricks: {price: 8}
+      deepslate: {price: 6}
+      cobbled_deepslate: {price: 4}
+      granite: {price: 4}
+      diorite: {price: 4}
+      andesite: {price: 4}
+      tuff: {price: 4}
+      calcite: {price: 4}
+      dirt: {price: 3}
+      grass_block: {price: 5}
+      mud: {price: 4}
+      moss_block: {price: 5}
+      sand: {price: 6}
+      red_sand: {price: 6}
+      gravel: {price: 8}
+      sandstone: {price: 6}
+      red_sandstone: {price: 6}
+      glass: {price: 5}
+      clay: {price: 20}
+      bricks: {price: 10}
+      terracotta: {price: 10}
+      white_wool: {price: 10}
+      oak_log: {price: 18}
+      spruce_log: {price: 18}
+      birch_log: {price: 18}
+      jungle_log: {price: 18}
+      acacia_log: {price: 18}
+      dark_oak_log: {price: 18}
+      mangrove_log: {price: 18}
+      cherry_log: {price: 18}
+      pale_oak_log: {price: 18}
+      crimson_stem: {price: 18}
+      warped_stem: {price: 18}
+      oak_planks: {price: 4}
+      netherrack: {price: 3}
+      soul_sand: {price: 6}
+      basalt: {price: 4}
+      blackstone: {price: 4}
+      end_stone: {price: 4}
+      obsidian: {price: 40, max: 640}
+      quartz_block: {price: 100, max: 640}
+      glowstone: {price: 40, max: 640}
+
+  farming:
+    name: "Farming"
+    description: "Seeds, crops and saplings"
+    icon: wheat
+    slot: 12
+    items:
+      wheat_seeds: {price: 4}
+      beetroot_seeds: {price: 4}
+      pumpkin_seeds: {price: 8}
+      melon_seeds: {price: 5}
+      wheat: {price: 15}
+      carrot: {price: 10}
+      potato: {price: 10}
+      beetroot: {price: 10}
+      sugar_cane: {price: 15}
+      cactus: {price: 15}
+      bamboo: {price: 5}
+      kelp: {price: 5}
+      cocoa_beans: {price: 8}
+      sweet_berries: {price: 5}
+      glow_berries: {price: 5}
+      nether_wart: {price: 8}
+      pumpkin: {price: 30}
+      melon: {price: 40}
+      brown_mushroom: {price: 6}
+      red_mushroom: {price: 6}
+      oak_sapling: {price: 10}
+      spruce_sapling: {price: 10}
+      birch_sapling: {price: 10}
+      jungle_sapling: {price: 10}
+      acacia_sapling: {price: 10}
+      dark_oak_sapling: {price: 10}
+      cherry_sapling: {price: 10}
+      pale_oak_sapling: {price: 10}
+      mangrove_propagule: {price: 10}
+      bone_meal: {price: 5}
+      hay_block: {price: 120}
+      lily_pad: {price: 5}
+      sea_pickle: {price: 5}
+
+  mob_drops:
+    name: "Mob drops"
+    description: "What mobs leave behind"
+    icon: bone
+    slot: 14
+    items:
+      rotten_flesh: {price: 8}
+      bone: {price: 15}
+      arrow: {price: 5}
+      string: {price: 15}
+      spider_eye: {price: 20}
+      gunpowder: {price: 30}
+      slime_ball: {price: 40}
+      magma_cream: {price: 60}
+      ender_pearl: {price: 100, max: 256}
+      blaze_rod: {price: 150, max: 256}
+      ghast_tear: {price: 300, max: 64}
+      leather: {price: 25}
+      feather: {price: 15}
+      egg: {price: 5}
+      ink_sac: {price: 20}
+      phantom_membrane: {price: 50}
+      prismarine_shard: {price: 25}
+      prismarine_crystals: {price: 25}
+
+  ores:
+    name: "Ores"
+    description: "Coal, metals and gems"
+    icon: diamond
+    slot: 16
+    items:
+      coal: {price: 30}
+      copper_ingot: {price: 10}
+      iron_ingot: {price: 100}
+      gold_ingot: {price: 130}
+      lapis_lazuli: {price: 25}
+      quartz: {price: 35}
+      amethyst_shard: {price: 25}
+      glowstone_dust: {price: 10}
+      emerald: {price: 600, max: 256}
+      diamond: {price: 1000, max: 256}
+      netherite_scrap: {price: 5000, max: 64}
+
+  redstone:
+    name: "Redstone"
+    description: "Dust, pistons, hoppers and rails"
+    icon: redstone
+    slot: 19
+    items:
+      redstone: {price: 15}
+      redstone_block: {price: 100}
+      redstone_torch: {price: 15}
+      repeater: {price: 45}
+      comparator: {price: 70}
+      piston: {price: 80}
+      sticky_piston: {price: 100}
+      observer: {price: 60}
+      hopper: {price: 250, max: 256}
+      dispenser: {price: 60}
+      dropper: {price: 30}
+      lever: {price: 5}
+      stone_button: {price: 5}
+      stone_pressure_plate: {price: 8}
+      redstone_lamp: {price: 80}
+      target: {price: 150}
+      daylight_detector: {price: 80}
+      note_block: {price: 30}
+      tripwire_hook: {price: 25}
+      rail: {price: 20}
+      powered_rail: {price: 70}
+      detector_rail: {price: 60}
+      slime_block: {price: 250, max: 256}
+      honey_block: {price: 80, max: 256}
+      tnt: {price: 150, max: 256}
+
+  food:
+    name: "Food"
+    description: "Ready to eat"
+    icon: cooked_beef
+    slot: 21
+    default-max: 256
+    items:
+      bread: {price: 40}
+      cooked_beef: {price: 15}
+      cooked_porkchop: {price: 15}
+      cooked_chicken: {price: 12}
+      cooked_mutton: {price: 12}
+      cooked_cod: {price: 8}
+      cooked_salmon: {price: 8}
+      baked_potato: {price: 10}
+      apple: {price: 12}
+      pumpkin_pie: {price: 40}
+      cookie: {price: 5}
+      dried_kelp: {price: 5}
+      golden_carrot: {price: 60}
+      golden_apple: {price: 600, max: 64}
+      mushroom_stew: {price: 10, max: 16}
+      cake: {price: 50, max: 16}
+
+  spawners:
+    name: "Spawners"
+    description: "Mob spawners for your base"
+    icon: spawner
+    slot: 23
+    default-max: 64
+    items:
+      zombie: {spawner: zombie, price: 60k}
+      zombified_piglin: {spawner: zombified_piglin, price: 80k}
+      chicken: {spawner: chicken, price: 120k}
+      skeleton: {spawner: skeleton, price: 150k}
+      spider: {spawner: spider, price: 160k}
+      cave_spider: {spawner: cave_spider, price: 160k}
+      pig: {spawner: pig, price: 200k}
+      creeper: {spawner: creeper, price: 220k}
+      slime: {spawner: slime, price: 300k}
+      magma_cube: {spawner: magma_cube, price: 300k}
+      cow: {spawner: cow, price: 350k}
+      enderman: {spawner: enderman, price: 400k}
+      witch: {spawner: witch, price: 450k}
+      blaze: {spawner: blaze, price: 600k}
+      iron_golem: {spawner: iron_golem, price: 2.5m}
+
+  misc:
+    name: "Miscellaneous"
+    description: "Tools, storage and handy things"
+    icon: chest
+    slot: 25
+    default-max: 64
+    items:
+      torch: {price: 5, max: 640}
+      ladder: {price: 5, max: 640}
+      scaffolding: {price: 8, max: 640}
+      chest: {price: 20}
+      barrel: {price: 20}
+      crafting_table: {price: 10}
+      furnace: {price: 20}
+      bookshelf: {price: 150}
+      book: {price: 60}
+      paper: {price: 20, max: 640}
+      item_frame: {price: 25}
+      painting: {price: 10}
+      armor_stand: {price: 20}
+      lantern: {price: 40}
+      bucket: {price: 150}
+      shears: {price: 100}
+      flint_and_steel: {price: 60}
+      fishing_rod: {price: 25}
+      bow: {price: 40}
+      shield: {price: 60}
+      compass: {price: 200}
+      clock: {price: 300}
+      spyglass: {price: 40}
+      lead: {price: 50}
+      saddle: {price: 150}
+      name_tag: {price: 1000}
+      oak_boat: {price: 15}
+      minecart: {price: 250}
+      anvil: {price: 1300}
+      enchanting_table: {price: 1500}
+      ender_chest: {price: 400}
+      firework_rocket: {price: 15, max: 640}

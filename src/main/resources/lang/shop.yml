@@ -1,0 +1,53 @@
+# Text of /shop. Category names and descriptions live in features/shop.yml.
+# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, plus each message's own placeholders.
+# Money amounts are coloured automatically. Bold, gradients and other colours are rejected on load.
+
+shop:
+  menu:
+    title: "Shop"
+    category-count: "<secondary><count> items"
+    category-hint: "<secondary>Click to browse"
+    balance: "<primary>Balance <balance>"
+    balance-lore: "<secondary>Earn more with /sell"
+  entry:
+    price: "<secondary>Price <price> each"
+    max: "<secondary>Up to <primary><max> <secondary>per purchase"
+    hint: "<secondary>Click to buy"
+    # How spawner entries are named in text ("zombie spawner").
+    spawner: "<mob> spawner"
+  sort:
+    shop: "Shop order"
+    cheapest: "Cheapest first"
+    priciest: "Most expensive first"
+    name: "Name"
+  buy:
+    title: "Buy <item>"
+    body:
+      - "<primary><price> <secondary>each"
+      - "<secondary>You have <balance>"
+      - "<secondary>Up to <primary><max> <secondary>per purchase"
+    amount: "Amount"
+    exact: "Or type an amount"
+    # The buy button always says what it buys.
+    button: "Buy <amount> for <total>"
+    changed: "<secondary>The amount changed. Check the total, then buy."
+    invalid: "<primary>Type a whole number from 1 to <max>."
+    price-changed: "<primary>The price is now <price> each. Check the total, then buy."
+    not-enough: "<primary>That costs <total> and you have <balance>."
+    too-expensive: "<primary>That's more than one purchase can cost. Buy fewer."
+  confirm:
+    title: "Confirm purchase"
+    body:
+      - "<primary>Buy <amount> <item> for <total>?"
+      - "<secondary>You'll have <left> left."
+    button: "Buy"
+  bought: "<primary>You bought <amount> <item> for <total>."
+  bought-claim-box: "<primary>You bought <amount> <item> for <total>. <secondary><count> didn't fit and are waiting in your claim box."
+  no-longer-sold: "<primary>That isn't sold anymore."
+  unavailable: "<primary>That isn't available right now."
+  cancelled: "<secondary>Purchase cancelled."
+  failed: "<primary>The purchase didn't go through. You weren't charged."
+  unknown-category: "<primary>There's no shop category called <name>."
+  hub:
+    label: "Shop"
+    description: "Buy blocks, farming supplies and spawners"

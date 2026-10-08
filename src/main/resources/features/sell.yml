@@ -1,0 +1,195 @@
+# Selling to the server (/sell, /sell hand, /sell all, /worth) and the worth table every feature uses.
+#
+# The worth table is generated when the server starts and on /sift reload:
+#   1. base-prices give raw and natural materials a price (logs, ores, crops, mob drops, natural blocks).
+#   2. Everything the server's recipes make from priced items gets a price too: the cheapest recipe's ingredients,
+#      divided by how many it makes, times craft-loss, rounded down to whole dollars. Items in a recipe loop
+#      (ingot -> block -> ingot, re-dyeing a shulker box) are priced from the loop member that already has a price,
+#      so going round a loop never changes what anything is worth.
+#   3. overrides set the final price of single items (0 makes an item unsellable).
+# The result is written to data/worth-generated.yml (with where each price came from) for reading.
+#
+# Only plain items sell: renamed, enchanted (enchanted books too), damaged, dyed, filled or otherwise changed items
+# can't be sold, because their value depends on what was done to them.
+
+# Every recipe step keeps this share of the ingredients' value (0.5 to 1). Below 1, crafting never turns items
+# into more money than selling the ingredients.
+craft-loss: 0.9
+
+# Which recipe families prices are derived from: crafting, smelting, blasting, smoking, campfire, stonecutting,
+# smithing. Crafting ingredients that leave something behind (a milk bucket leaves its bucket) are never counted.
+recipe-types: [crafting, smelting, blasting, smoking, campfire, stonecutting, smithing]
+
+# Rank sell bonuses. A player with siftcore.sell.multiplier.<tier> gets that multiplier; with several, the highest
+# wins; with none, 1. Only permissions given explicitly (for example to a LuckPerms group) count, so operators
+# don't get a bonus by default. The shop checks its prices against the highest multiplier listed here.
+multipliers:
+  supporter: 1.1
+  patron: 1.2
+  elite: 1.35
+  legend: 1.5
+
+sell-all:
+  # /sell all leaves items that don't stack (tools, weapons, armor, shulker boxes) where they are.
+  # /sell hand and the /sell menu still sell them.
+  skip-unstackable: true
+  # /sell all leaves the hotbar alone.
+  skip-hotbar: false
+
+# Price of one plain item, in whole dollars (1500, 1.5k and 2m all work). Keys are item ids (diamond or
+# minecraft:diamond) or item tags (#minecraft:logs prices every log and wood). An item listed by id wins over a tag.
+# Base prices are never replaced by recipes: if a natural block can also be crafted from something expensive
+# (magma blocks from magma cream), give it a base price here so mining it doesn't pay like crafting it.
+base-prices:
+  # Wood and plants
+  "#minecraft:logs": 6
+  bamboo: 2
+  cactus: 6
+  sugar_cane: 6
+  kelp: 2
+  sea_pickle: 1
+  lily_pad: 1
+  brown_mushroom: 2
+  red_mushroom: 2
+
+  # Crops and food from farms
+  wheat: 6
+  carrot: 4
+  potato: 4
+  beetroot: 4
+  melon_slice: 2
+  pumpkin: 12
+  apple: 4
+  cocoa_beans: 3
+  sweet_berries: 2
+  glow_berries: 2
+  nether_wart: 3
+  chorus_fruit: 2
+  honeycomb: 6
+  honey_bottle: 10
+  # Made from four honey bottles, which leave their glass behind, so no recipe can price it.
+  honey_block: 36
+
+  # Ores and minerals. Smelting raw metal into ingots adds value on purpose.
+  coal: 8
+  raw_copper: 2
+  copper_ingot: 3
+  raw_iron: 20
+  iron_ingot: 25
+  raw_gold: 30
+  gold_ingot: 35
+  redstone: 6
+  lapis_lazuli: 10
+  quartz: 12
+  amethyst_shard: 10
+  glowstone_dust: 4
+  diamond: 400
+  # Villagers buy common items for emeralds, so a high emerald price makes trading halls pay well.
+  emerald: 250
+  ancient_debris: 1800
+  netherite_scrap: 2000
+
+  # Natural blocks
+  dirt: 1
+  coarse_dirt: 1
+  rooted_dirt: 1
+  podzol: 1
+  grass_block: 1
+  mycelium: 1
+  mud: 1
+  moss_block: 1
+  cobblestone: 1
+  stone: 2
+  deepslate: 2
+  cobbled_deepslate: 1
+  granite: 1
+  diorite: 1
+  andesite: 1
+  tuff: 1
+  calcite: 1
+  smooth_basalt: 1
+  dripstone_block: 1
+  pointed_dripstone: 1
+  sand: 2
+  red_sand: 2
+  gravel: 2
+  # Arrows are 4 for flint, a stick and a feather: priced flint keeps crafting arrows from paying more than the
+  # ingredients.
+  flint: 4
+  sandstone: 2
+  red_sandstone: 2
+  clay_ball: 2
+  snowball: 1
+  ice: 2
+  packed_ice: 3
+  blue_ice: 6
+  obsidian: 10
+  crying_obsidian: 10
+  netherrack: 1
+  soul_sand: 2
+  soul_soil: 1
+  basalt: 1
+  blackstone: 1
+  end_stone: 1
+  "#minecraft:terracotta": 3
+  "#minecraft:wool": 3
+  # Natural blocks that are also crafted from expensive items: priced as blocks, not as their recipe.
+  magma_block: 4
+  amethyst_block: 4
+  nether_wart_block: 1
+  warped_wart_block: 1
+  prismarine: 4
+  prismarine_bricks: 5
+  dark_prismarine: 6
+  sea_lantern: 20
+  sponge: 30
+
+  # Mob drops
+  rotten_flesh: 3
+  bone: 6
+  arrow: 2
+  string: 6
+  spider_eye: 8
+  gunpowder: 12
+  ender_pearl: 40
+  blaze_rod: 60
+  breeze_rod: 80
+  ghast_tear: 120
+  slime_ball: 15
+  magma_cream: 25
+  leather: 10
+  rabbit_hide: 6
+  rabbit_foot: 20
+  feather: 4
+  egg: 2
+  blue_egg: 2
+  brown_egg: 2
+  beef: 6
+  porkchop: 6
+  chicken: 5
+  mutton: 5
+  rabbit: 5
+  cod: 3
+  salmon: 4
+  tropical_fish: 5
+  pufferfish: 6
+  ink_sac: 8
+  glow_ink_sac: 12
+  prismarine_shard: 10
+  prismarine_crystals: 10
+  phantom_membrane: 20
+  turtle_scute: 25
+  armadillo_scute: 15
+  nautilus_shell: 40
+  heart_of_the_sea: 1500
+  echo_shard: 100
+  totem_of_undying: 300
+  shulker_shell: 600
+  wither_skeleton_skull: 5000
+  nether_star: 150000
+
+# Final prices for single items, applied after recipes; they don't change any other item. 0 makes an item
+# unsellable. Examples:
+#   iron_block: 0         # can't be sold
+#   nether_star: 120k     # sells for $120,000
+overrides: {}

@@ -13,6 +13,7 @@ final class FeatureScenarios {
         List<Scenario> list = new ArrayList<>();
         list.addAll(StatsScenarios.all());
         list.addAll(TeamsScenarios.all());
+        list.addAll(SellShopScenarios.all());
         return list;
     }
 }

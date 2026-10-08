@@ -1,0 +1,52 @@
+# Text of /sell, /sell hand, /sell all and /worth.
+# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, plus each message's own placeholders.
+# Money amounts are coloured automatically. Bold, gradients and other colours are rejected on load.
+
+sell:
+  # The receipt in chat. <items> is "64 diamond" for one kind, "150 items" for several; hovering it lists them.
+  sold: "<primary>You sold <items> for <total>."
+  sold-bonus: "<primary>You sold <items> for <total> <secondary>with your <multiplier>x bonus."
+  items:
+    one: "<amount> <item>"
+    many: "<amount> items"
+  # Lines of the receipt's hover card.
+  receipt:
+    line: "<secondary><amount> <item> <primary><value>"
+    more: "<secondary>and <count> more kinds"
+    bonus: "<secondary>Rank bonus <primary><multiplier>x"
+  empty-hand: "<primary>Hold the item you want to sell."
+  not-sellable: "<primary>You can't sell <item>."
+  modified: "<primary>Renamed, enchanted or damaged items can't be sold."
+  nothing-to-sell: "<primary>You have nothing that can be sold."
+  nothing-in-menu: "<primary>Nothing in the menu can be sold."
+  cancelled: "<secondary>Sale cancelled."
+  failed: "<primary>The sale didn't go through. Your items are back."
+  balance-full: "<primary>You can't hold that much money. Your items are back."
+  too-much: "<primary>That's too much to sell at once. Sell less at a time."
+  claim-box: "<primary><count> items didn't fit in your inventory. <secondary>They're waiting in your claim box."
+  menu:
+    title: "Sell items"
+    total: "<primary>Total <total>"
+    total-count: "<secondary><count> items can be sold"
+    total-bonus: "<secondary>Includes your <primary><multiplier>x <secondary>bonus"
+    total-unsellable: "<secondary><count> can't be sold and go back to you"
+    total-empty: "<secondary>Put items above to see what they sell for"
+    total-hint: "<secondary>Closing the menu gives everything back"
+    sell: "<primary>Sell"
+    sell-lore: "<secondary>Sell everything above for <total>"
+    sell-empty: "<secondary>Nothing here can be sold yet"
+  worth:
+    each: "<primary>One <item> sells for <price>."
+    stack: "<primary>One <item> sells for <price>, your <amount> for <total>."
+    bonus: "<secondary>With your <primary><multiplier>x <secondary>bonus you get <total>."
+    none: "<primary>You can't sell <item>."
+    below-one: "<primary>You can't sell <item>, it's worth too little."
+    modified: "<primary>Renamed, enchanted or damaged items can't be sold. <secondary>A plain one sells for <price>."
+    hold: "<primary>Hold an item or name one, like /worth diamond."
+    # Shown to staff with siftcore.worth.details.
+    source-base: "<secondary>Base price from features/sell.yml."
+    source-derived: "<secondary>Worked out from the recipe <recipe>."
+    source-override: "<secondary>Set by an override in features/sell.yml."
+  hub:
+    label: "Sell"
+    description: "Sell items for money"
