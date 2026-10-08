@@ -2,6 +2,7 @@ package net.siftvanilla.siftcore;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
@@ -20,6 +21,7 @@ import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
 import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
 import net.siftvanilla.siftcore.feature.homes.HomesFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
+import net.siftvanilla.siftcore.feature.orders.OrdersFeature;
 import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
 import net.siftvanilla.siftcore.feature.sell.SellFeature;
 import net.siftvanilla.siftcore.feature.shards.ShardsFeature;
@@ -60,11 +62,17 @@ final class FeatureCatalog {
         AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
         StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
-        SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, () -> OrderMarket.NONE);
+        // Selling routes items into buy orders, but orders are built after sell (they price with sell.worth()):
+        // a late-bound market breaks the cycle.
+        AtomicReference<OrderMarket> orderMarket = new AtomicReference<>(OrderMarket.NONE);
+        SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, orderMarket::get);
         SpawnersFeature spawners = new SpawnersFeature(this.services, this.problems, sell.worth(), teams.lookup(), staff.vanish(), afk.status(),
             this.combatTags);
         CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
             this.combatTags, afk.status());
+        OrdersFeature orders = new OrdersFeature(this.services, this.problems, this.combatTags, sell.worth(),
+            () -> sell.worth().current().highestMultiplier(), spawners.items(), IgnoreLookup.NONE, staff.vanish());
+        orderMarket.set(orders.market());
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
             FriendLookup.NONE, staff.vanish(), spawn.area());
         features.add(economy);
@@ -76,6 +84,7 @@ final class FeatureCatalog {
         features.add(sell);
         features.add(spawners);
         features.add(crates);
+        features.add(orders);
         ShopFeature shop = new ShopFeature(this.services, this.problems, sell.worth(), sell.link(), spawners.items(), this.combatTags);
         sell.shop(shop.offers());
         features.add(shop);

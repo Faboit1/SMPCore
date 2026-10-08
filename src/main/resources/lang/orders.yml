@@ -1,0 +1,369 @@
+# Text of buy orders (/orders). Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each
+# message's own placeholders. Money and numbers are coloured automatically.
+
+orders:
+  item:
+    book: "<enchantment> book"
+    book-level: "<enchantment> <level> book"
+    potion-long: "<item>, long"
+    potion-strong: "<item> II"
+
+  menu:
+    title: "Orders"
+    sort-price: "Highest price each"
+    sort-total: "Highest total"
+    sort-wanted: "Most wanted"
+    sort-newest: "Newest"
+    sort-ending: "Ending soon"
+    filter-all: "All"
+    entry-price: "<secondary>Price each <price>"
+    entry-net: "<secondary>You get <net> each after <tax>% tax"
+    entry-delivered: "<secondary>Delivered <filled> of <quantity>"
+    entry-owner: "<secondary>Ordered by <primary><owner>"
+    entry-ends: "<secondary>Ends in <time>"
+    entry-worth: "<secondary>Server pays <worth> each"
+    entry-carry: "<secondary>You carry <count>"
+    entry-waiting: "<secondary>Waiting for you <waiting>"
+    entry-held: "<secondary>Money held <held>"
+    entry-state: "<secondary><state>"
+    entry-unavailable: "<secondary>This order can't take deliveries right now."
+    hint-deliver: "<secondary>Click to deliver items"
+    hint-quick: "<secondary>Right click to deliver from your inventory"
+    hint-own: "<secondary>Your order. Click to manage it."
+    hint-manage: "<secondary>Click to manage your order"
+    hint-staff: "<secondary>Shift right click for staff actions"
+    new: "New order"
+    new-lore:
+      - "<secondary>Ask players for items"
+      - "<secondary>You have <count> of <limit> active orders"
+    new-lore-unlimited:
+      - "<secondary>Ask players for items"
+      - "<secondary>You have <count> active orders"
+    new-lore-none:
+      - "<secondary>Your rank can't place orders"
+    yours: "Your orders"
+    yours-lore:
+      - "<secondary><waiting> items waiting"
+      - "<secondary><count> active orders"
+    history: "History"
+    history-lore: "<secondary>Your past orders and deliveries"
+
+  category:
+    blocks: "Blocks"
+    tools: "Tools"
+    combat: "Combat"
+    food: "Food"
+    potions: "Potions"
+    books: "Books"
+    spawners: "Spawners"
+    misc: "Other"
+
+  own-list:
+    title: "Your orders"
+    title-other: "<name>'s orders"
+    collect-all: "Collect all"
+    collect-all-lore:
+      - "<secondary>Collect <waiting> items from <count> orders"
+      - "<secondary>Only what fits in your inventory"
+    collect-all-empty: "<secondary>Nothing waiting"
+    past: "Past orders"
+    past-lore: "<secondary>Orders that ended"
+
+  past:
+    title: "Past orders"
+    title-other: "<name>'s past orders"
+    entry:
+      - "<secondary><state>"
+      - "<secondary>Delivered <filled> of <quantity>"
+      - "<secondary>Price each <price>"
+      - "<secondary>Paid out <paid>"
+      - "<secondary>Ended <ago> ago"
+    refunded: "<secondary>Came back to you <refunded>"
+    again: "<secondary>Click to order again"
+    deliveries: "Your deliveries"
+    deliveries-lore: "<secondary>Items you delivered to orders"
+
+  deliveries:
+    title: "Your deliveries"
+    title-other: "<name>'s deliveries"
+    entry:
+      - "<secondary>Delivered <amount>"
+      - "<secondary>Earned <earned> after tax"
+      - "<secondary>To <primary><buyer>"
+      - "<secondary><ago> ago"
+    header: "Deliveries"
+    header-lore: "<secondary>You earned <total> from <count> deliveries"
+
+  history:
+    loading: "<secondary>Loading..."
+
+  state:
+    active: "Open"
+    filled: "Complete"
+    cancelled: "Cancelled"
+    expired: "Ended"
+
+  deliver:
+    title: "Deliver <item>"
+    rule:
+      - "<secondary>Only exact <item> count:"
+      - "<secondary>no names, enchantments or damage."
+      - "<secondary>Shulker boxes are opened for them."
+      - "<secondary>Anything else is given back."
+    rule-book:
+      - "<secondary>Only <item> with nothing else count:"
+      - "<secondary>no other enchantments, never used in an anvil."
+      - "<secondary>Shulker boxes are opened for them."
+      - "<secondary>Anything else is given back."
+    button: "Deliver"
+    button-lore:
+      - "<secondary>Accepted <amount> of <remaining> still wanted (<inner> from shulker boxes)"
+      - "<secondary>You get <payout> after <tax> tax"
+      - ""
+      - "<secondary>Click to deliver"
+    button-empty:
+      - "<secondary>Put <item> in the slots above"
+      - "<secondary>Still wanted <remaining>"
+    not-accepted: "<secondary>Not accepted <count>, given back when you close"
+    fill: "Fill from inventory"
+    fill-lore:
+      - "<secondary>Moves <item> from your inventory"
+      - "<secondary>Shulker boxes with them move whole"
+    fill-nothing: "<primary>You carry no <item> for this order."
+    done: "<primary>You delivered <amount> <item> and got <payout> after <tax> tax."
+    nothing: "<primary>Put <item> in the empty slots first."
+    gone: "<primary>That order is no longer open."
+    own: "<primary>You can't deliver to your own order."
+    less-left: "<primary>Someone delivered first. Fewer items are wanted now."
+    changed: "<primary>That order changed. Open it again."
+    unavailable: "<primary>That order can't take deliveries right now."
+    related: "<primary>You can't deliver to orders of players who share your connection."
+    cancelled: "<secondary>Delivery cancelled."
+    too-rich: "<primary>You can't hold that much money."
+    failed: "<primary>The delivery could not be saved. Your items were given back."
+  items-in-claim-box: "<primary><amount> items didn't fit in your inventory and wait in your claim box."
+
+  quick:
+    title: "Deliver <item>"
+    carry: "<secondary>You carry <count> plain <item> (<inner> in shulker boxes)"
+    wanted: "<secondary>Still wanted <remaining>"
+    payout: "<primary>You get <payout> after <tax> tax"
+    server-more: "<secondary>The server pays more: <price> each with /sell."
+    nothing: "<secondary>You carry no plain <item>."
+    button: "Deliver <units> for <payout>"
+    menu: "Open delivery menu"
+    changed: "<primary>That order or your inventory changed. Check, then deliver."
+
+  notify:
+    delivered: "<primary><name> delivered <amount> <item> to your order. Collect them in /orders."
+    sold: "<primary><name> sold <amount> <item> to your order."
+    sold-many: "<primary><name> sold <amount> items to your orders."
+    complete: "<primary>Your order for <quantity> <item> is complete. Collect it in /orders."
+    expired: "<primary>Your order for <quantity> <item> ended and <refund> came back to you."
+    staff-cancelled: "<primary>Staff cancelled your order for <quantity> <item> and <refund> came back to you. <secondary>Reason: <reason>"
+    ending: "<primary>Your order for <quantity> <item> ends in <time>."
+    ending-hover: "<secondary>Click to open the order"
+
+  away:
+    header: "<primary>While you were away:"
+    delivered: "<secondary><count> items were delivered to your orders"
+    complete: "<secondary><count> completed"
+    refunded: "<secondary><refund> came back from ended orders"
+    separator: "<secondary>, "
+    end: "<secondary>."
+    line-delivered: "<secondary><amount> <item> from <name>"
+    line-complete: "<secondary>Your order for <quantity> <item> is complete"
+    line-expired: "<secondary>Your order for <quantity> <item> ended, <refund> came back"
+    line-cancelled: "<secondary>Staff cancelled your order for <quantity> <item>, <refund> came back. Reason: <reason>"
+    line-ending: "<secondary>Your order for <quantity> <item> ends soon"
+    more: "<secondary>and <count> more"
+    waiting: "<secondary><amount> delivered items wait for you in /orders."
+    open: "<secondary>Open /orders"
+    open-hover: "<secondary>Click to open your orders"
+    unknown-item: "an item that no longer exists"
+
+  announce: "<secondary>New buy order: <primary><name> <secondary>wants <primary><quantity> <item> <secondary>at <price> each."
+  announce-hover: "<secondary>Click to see the order"
+
+  create:
+    title: "New order"
+    body:
+      - "<secondary>Ask for items at a price each. The money is held until the order fills, ends or you cancel it."
+      - "<secondary>You have <count> of <limit> active orders."
+    body-unlimited:
+      - "<secondary>Ask for items at a price each. The money is held until the order fills, ends or you cancel it."
+      - "<secondary>You have <count> active orders."
+    chosen: "<primary><item>"
+    item: "Item, like diamond or oak log"
+    quantity: "How many, like 64, 3 stacks or 1 shulker (up to <max>)"
+    price: "Price each, like 50 or 1.5k"
+    next: "Next"
+    choose: "Choose item"
+    confirm-title: "Place order"
+    confirm-body:
+      - "<primary><icon:order> <quantity> <item> at <price> each"
+      - "<secondary><total> is held now and paid out as items arrive."
+      - "<secondary>The order ends in <time>. What is left then comes back to you."
+    confirm-worth: "<secondary>The server pays <worth> each for <item>."
+    confirm-sell-more: "<secondary>Players get more from /sell, so few will deliver and /sell won't send items here."
+    confirm-button: "Place order"
+    done: "<primary>Your order for <quantity> <item> is up. <total> is held for it."
+    unknown-item: "<primary>There is no item called <secondary><input></secondary>."
+    no-item: "<primary>Type the item you want, like diamond, or choose one."
+    choose-variant: "<primary>Choose which <item> with Choose item."
+    blocked: "<primary><item> can't be ordered."
+    quantity-range: "<primary>The amount must be a whole number from 1 to <max>, like 64, 3 stacks or 1 shulker."
+    price-low: "<primary>The lowest price each is <min>."
+    price-high: "<primary>The highest price each for this item is <max>."
+    total-high: "<primary>One order can hold at most <max>."
+    limit: "<primary>You already have <limit> active orders, your most."
+    no-orders: "<primary>Your rank can't place orders."
+    cancelled: "<secondary>Order not placed."
+    failed: "<primary>The order could not be saved. Your money was given back."
+
+  picker:
+    title: "Choose an item"
+    sort-name: "Name"
+    sort-popular: "Most ordered"
+    worth: "<secondary>Server pays <price> each"
+    open: "<secondary><count> open orders, best <price> each"
+    family: "<secondary>Choose which one next"
+    hint: "<secondary>Click to choose"
+    enchant-title: "Choose an enchantment"
+    enchant-body: "<secondary>Book orders take books with exactly this one enchantment and nothing else."
+    level-title: "Choose a level"
+    level-body: "<secondary>Which level of <item>?"
+    potion-title: "Choose a potion"
+    potion-body: "<secondary>Potion orders take potions of exactly this kind."
+    spawner-title: "Choose a spawner"
+    spawner-body: "<secondary>Spawner orders take spawners of exactly this mob."
+
+  own:
+    title: "Your order"
+    body:
+      - "<primary><icon:order> <quantity> <item> at <price> each"
+      - "<secondary>Delivered <filled> of <quantity>"
+      - "<secondary>Waiting for you <waiting>"
+      - "<secondary>Money held <held>"
+      - "<secondary>Ends in <time>"
+    body-ended:
+      - "<primary><icon:order> <quantity> <item> at <price> each"
+      - "<secondary>Delivered <filled> of <quantity>"
+      - "<secondary>Waiting for you <waiting>"
+      - "<primary><state>"
+    unavailable: "<secondary>This item can't be handled right now. You can still cancel the order."
+    collect: "Collect items"
+    collect-stack: "Collect one stack"
+    to-claim-box: "Send the rest to my claim box"
+    raise: "Raise price"
+    add: "Add more"
+    extend: "Extend"
+    cancel: "Cancel order"
+    again: "Order again"
+    details: "Details"
+
+  cancel:
+    title: "Cancel order"
+    body:
+      - "<primary>Cancel your order for <quantity> <item>?"
+      - "<secondary><refund> comes back to you."
+      - "<secondary>Delivered items stay here to collect."
+    "yes": "Cancel order"
+    "no": "Keep it"
+    done: "<primary>You cancelled your order for <quantity> <item> and <refund> came back to you."
+    gone: "<primary>That order is no longer open."
+    kept: "<secondary>Your order stays open."
+
+  collect:
+    done: "<primary>Collected <amount> <item>."
+    done-more: "<primary>Collected <amount> <item>. <waiting> more wait here."
+    to-claim-box: "<primary><amount> <item> went to your claim box."
+    all-done: "<primary>Collected <amount> items from <count> orders."
+    nothing: "<primary>Nothing to collect yet."
+    failed: "<primary>Collecting failed. The items are still in your order."
+    unavailable: "<primary>That item can't be handed out right now."
+
+  details:
+    title: "Order details"
+    body:
+      - "<secondary>Order <primary>#<id>"
+      - "<secondary>Placed <ago> ago"
+      - "<secondary>Paid out so far <paid>"
+      - "<secondary>Collected <collected>"
+    header: "<secondary>Latest deliveries"
+    line: "<primary><name> <secondary><amount> for <paid>, <ago> ago"
+    none: "<secondary>Nothing delivered yet."
+
+  edit:
+    title: "Change order"
+    body:
+      - "<secondary>Now <quantity> <item> at <price> each, <filled> delivered."
+      - "<secondary>Prices can only go up."
+    price: "New price each"
+    add: "Items to add, up to <max>"
+    confirm-body:
+      - "<primary>Hold <extra> more for this order?"
+      - "<secondary><quantity> <item> at <price> each from now on."
+    confirm-button: "Hold it"
+    lower: "<primary>Prices can only go up. Cancel and place a new order instead."
+    nothing: "<primary>Raise the price or add items."
+    add-range: "<primary>You can add up to <max> items."
+    changed: "<primary>That order changed. Check it again."
+    cancelled: "<secondary>Order not changed."
+    done: "<primary>Your order is now <quantity> <item> at <price> each. <extra> more is held for it."
+
+  extend:
+    done: "<primary>Your order now ends in <time>."
+    max: "<primary>That order can't run any longer."
+
+  staff:
+    title: "Order #<id>"
+    body:
+      - "<secondary>Owner <primary><owner>"
+      - "<secondary><item>, delivered <filled> of <quantity>"
+      - "<secondary>Money held <held>"
+      - "<secondary>Placed <ago> ago, ends in <time>"
+      - "<secondary><state>"
+    cancel: "Cancel and refund"
+    open: "Open <name>'s orders"
+    reason-title: "Cancel order #<id>"
+    reason: "Reason, shown to the owner"
+    reason-missing: "<primary>Give a reason."
+    confirm-body:
+      - "<primary>Cancel order #<id> of <owner> and refund <refund>?"
+      - "<secondary>Reason: <reason>"
+      - "<secondary>Delivered items stay collectable."
+
+  admin:
+    list-header: "<primary>Orders <secondary><count> shown"
+    list-line: "<secondary>#<id> <primary><owner> <secondary><filled>/<quantity> <item> at <price>, <state>"
+    list-empty: "<secondary>No orders."
+    list-more: "<secondary>And <count> more."
+    info:
+      - "<primary>Order #<id> <secondary>by <primary><owner>"
+      - "<secondary><item>, delivered <filled> of <quantity>, collected <collected>"
+      - "<secondary>Price each <price>, money held <held>"
+      - "<secondary><state>, ends in <time>"
+    not-found: "<primary>There is no open order #<id>."
+    cancelled: "<primary>Cancelled order #<id> of <owner>. <refund> went back to them."
+    failed: "<primary>Order #<id> was not changed: <reason>."
+    check: "<primary>Orders are consistent: <orders> open, <held> held, escrow account <account>."
+    check-failed: "<primary>Orders are not consistent: <problem>"
+    check-unavailable: "<primary>Order #<id> wants <item>, which can't be built now. It takes no deliveries."
+    history-header: "<primary>Past orders of <name> <secondary><count> shown"
+    history-line: "<secondary>#<id> <state>, <filled>/<quantity> <item> at <price>, came back <refunded>, <ago> ago"
+    history-empty: "<secondary><name> has no past orders."
+    expired: "<primary>Ended <count> orders that ran out of time."
+  not-yours: "<primary>That is not your order."
+
+  in-combat: "<primary>You can't use orders in combat. <time> left."
+
+  hub:
+    label: "Orders"
+    description: "Ask players for items or fill their orders"
+
+  settings:
+    notifications: "Order messages"
+    notifications-description: "Tell me when items arrive for my orders"
+    announce: "Big order announcements"
+    announce-description: "Tell me when someone places a big buy order"

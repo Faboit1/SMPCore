@@ -131,10 +131,19 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class Bot {
 
-    /** A dialog as the client received it. */
-    /** @param after what the client does after a click: close, none (stay until the next dialog) or wait_for_response */
+    /**
+     * A dialog as the client received it. {@code after} is what the client does after a click: close, none (stay until
+     * the next dialog) or wait_for_response. {@code initial} holds the text inputs' pre-filled values (what the player
+     * would see typed in the fields).
+     */
     public record SeenDialog(String type, String title, List<String> body, List<Button> buttons, Map<String, String> inputs, long at,
-                             String after) {
+                             String after, Map<String, String> initial) {
+
+        /** The pre-filled text of a text input, or null when the dialog has no such input. */
+        public String initial(String key) {
+            return this.initial.get(key);
+        }
+
         public Button button(String labelContains) {
             for (Button button : this.buttons) {
                 if (button.label().toLowerCase().contains(labelContains.toLowerCase())) {
@@ -348,6 +357,13 @@ public final class Bot {
         this.dialogs.clear();
         this.chatDialogs.clear();
         this.dialog = null;
+    }
+
+    /** Forgets the chat, action bar and titles received so far, keeping the open dialog (to click it next). */
+    public void clearMessages() {
+        this.chat.clear();
+        this.actionBar.clear();
+        this.titles.clear();
     }
 
     public boolean chatContains(String text) {
@@ -892,7 +908,8 @@ public final class Bot {
                 multi.exitAction().ifPresent(exit -> buttons.add(button(exit)));
             }
             default -> {
-                return new SeenDialog(dialog.getClass().getSimpleName(), "", List.of(), List.of(), Map.of(), System.currentTimeMillis(), "");
+                return new SeenDialog(dialog.getClass().getSimpleName(), "", List.of(), List.of(), Map.of(), System.currentTimeMillis(), "",
+                    Map.of());
             }
         }
         List<String> body = new ArrayList<>();
@@ -904,7 +921,11 @@ public final class Bot {
             }
         }
         Map<String, String> inputs = new java.util.LinkedHashMap<>();
+        Map<String, String> initial = new java.util.LinkedHashMap<>();
         for (Input input : common.inputs()) {
+            if (input.control() instanceof TextInput text) {
+                initial.put(input.key(), text.initial());
+            }
             inputs.put(input.key(), switch (input.control()) {
                 case TextInput t -> "text";
                 case BooleanInput b -> "toggle";
@@ -914,7 +935,7 @@ public final class Bot {
             });
         }
         return new SeenDialog(type, common.title().getString(), body, buttons, inputs, System.currentTimeMillis(),
-            common.afterAction().getSerializedName());
+            common.afterAction().getSerializedName(), initial);
     }
 
     /** The dialog a chat component opens when clicked (its own or a child's show_dialog click event), or null. */
