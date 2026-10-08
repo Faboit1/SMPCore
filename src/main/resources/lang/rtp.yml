@@ -1,0 +1,31 @@
+# Text of random teleport (/rtp).
+# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+
+rtp:
+  searching: "<secondary>Looking for a safe spot..."
+  already-searching: "<primary>Still looking for a spot. Hold on."
+  no-spot: "<primary>No safe spot found this time. Nothing was charged. Try again."
+  landed: "<primary>Welcome to <region> at <x>, <z>."
+  landed-paid: "<primary>Welcome to <region> at <x>, <z>. <secondary>Paid <amount>."
+  refunded: "<primary>The teleport didn't happen. You got your <amount> back."
+  cancelled: "<primary>The random teleport was cancelled."
+  unknown: "<primary>There is no random teleport called <name>."
+  disabled: "<primary>Random teleport to <region> is turned off."
+  no-permission: "<primary>You can't random teleport to <region>."
+  unavailable: "<primary>Random teleport to <region> isn't available right now."
+  cooldown: "<primary>You can random teleport to <region> again in <time>."
+  none: "<primary>There is nowhere to random teleport to right now."
+  sent: "<primary>Sent <name> to <region> at <x>, <z>."
+  sent-failed: "<primary>Couldn't send <name> to <region>. No safe spot was found."
+  menu:
+    title: "Random teleport"
+    intro: "<secondary>Pick where to go. You land on a random safe spot."
+    line-free: "<primary><region> <secondary><min> to <max> blocks out, free."
+    line-cost: "<primary><region> <secondary><min> to <max> blocks out, <amount>."
+    ready: "<secondary>Ready."
+    wait: "<secondary>Ready in <primary><time><secondary>."
+    tooltip-free: "<secondary><min> to <max> blocks out. Free."
+    tooltip-cost: "<secondary><min> to <max> blocks out. Costs <amount>."
+  hub:
+    label: "Random teleport"
+    description: "Go somewhere new"

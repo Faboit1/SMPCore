@@ -111,29 +111,43 @@ public final class Teleports implements Listener {
             callback.accept(false);
             return;
         }
-        future.whenComplete((location, error) -> this.scheduler.entity(player, () -> {
-            if (error != null) {
-                this.messenger.send(player, TeleportMessages.FAILED);
+        // The callback always hears the outcome, also when the player leaves meanwhile (a retired entity task, or no
+        // task at all when the player is already gone): random teleport pays a cost back when the move didn't happen.
+        future.whenComplete((location, error) -> {
+            Task scheduled = this.scheduler.entity(player, () -> arrive(player, location, error, callback), () -> callback.accept(false));
+            if (scheduled == Task.NONE) {
                 callback.accept(false);
-                return;
             }
-            if (location == null) {
-                callback.accept(false);
-                return;
+        });
+    }
+
+    /** Teleports to the resolved destination. Runs on the player's thread. */
+    private void arrive(Player player, Location location, Throwable error, Consumer<Boolean> callback) {
+        UUID id = player.getUniqueId();
+        if (error != null) {
+            this.messenger.send(player, TeleportMessages.FAILED);
+            callback.accept(false);
+            return;
+        }
+        if (location == null) {
+            callback.accept(false);
+            return;
+        }
+        if (this.combat.tagged(id)) {
+            this.messenger.send(player, TeleportMessages.IN_COMBAT, Arg.time("time", this.combat.remaining(id)));
+            callback.accept(false);
+            return;
+        }
+        player.teleportAsync(location, PlayerTeleportEvent.TeleportCause.PLUGIN).whenComplete((ok, failure) -> {
+            boolean success = failure == null && Boolean.TRUE.equals(ok);
+            Task scheduled = this.scheduler.entity(player, () -> {
+                this.messenger.send(player, success ? TeleportMessages.DONE : TeleportMessages.FAILED);
+                callback.accept(success);
+            }, () -> callback.accept(success));
+            if (scheduled == Task.NONE) {
+                callback.accept(success);
             }
-            if (this.combat.tagged(id)) {
-                this.messenger.send(player, TeleportMessages.IN_COMBAT, Arg.time("time", this.combat.remaining(id)));
-                callback.accept(false);
-                return;
-            }
-            player.teleportAsync(location, PlayerTeleportEvent.TeleportCause.PLUGIN).whenComplete((ok, failure) -> {
-                boolean success = failure == null && Boolean.TRUE.equals(ok);
-                this.scheduler.entity(player, () -> {
-                    this.messenger.send(player, success ? TeleportMessages.DONE : TeleportMessages.FAILED);
-                    callback.accept(success);
-                }, null);
-            });
-        }, () -> callback.accept(false)));
+        });
     }
 
     /** Cancels a pending teleport, if any. Returns true if one was cancelled. */

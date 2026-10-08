@@ -1,0 +1,80 @@
+# Spawn: /spawn and /setspawn, the protected spawn area, where new and respawning players arrive, and the world
+# borders. Changes apply with /sift reload.
+#
+# The spawn point itself is set in game with /setspawn (or from the console with /setspawn <world> <x> <y> <z>)
+# and kept in data/spawn.yml. It also becomes the world's own spawn point.
+
+spawn:
+  # Until /setspawn is used, /spawn goes to this world's own spawn point.
+  default-world: world
+  # How long players stand still before /spawn teleports them (moving or taking damage cancels it). 0s = at once.
+  # Players with siftcore.teleport.bypass-warmup skip it. Nobody can teleport while in combat.
+  warmup: 3s
+  # Time between two /spawn teleports of the same player. 0s = none.
+  cooldown: 0s
+
+arrival:
+  # Players who join for the very first time start at spawn.
+  first-join-at-spawn: true
+  # Show first-time players a short welcome title and a chat line pointing them to the menu.
+  first-join-welcome: true
+  # Players who die without a bed or charged respawn anchor respawn at spawn (instead of near the world spawn).
+  respawn-at-spawn: true
+
+protection:
+  # Inside the protected area nobody can build, use blocks that are not allowed below, fight, or be hurt, mobs
+  # don't spawn naturally, and explosions, fire and liquids from outside can't change anything.
+  # Builders with siftcore.spawn.bypass can still build and use everything (they can't be hurt either).
+  enabled: true
+  # radius: everything within "radius" blocks of the spawn point, measured flat (from the bottom of the world to
+  #         the top). It moves with /setspawn.
+  # cuboid: the box between the two corners below, both included.
+  shape: radius
+  radius: 64
+  cuboid:
+    world: world
+    from: "-64 -64 -64"
+    to: "64 320 64"
+  # Blocks players may still right click (or step on) inside spawn: a block name like oak_door or a block tag like
+  # #minecraft:buttons. Everything else, chests and other containers included, can't be used.
+  # Add the blocks of your crates here (for example ender_chest) so players can open them.
+  allowed-interactions:
+    - "#minecraft:buttons"
+    - "#minecraft:doors"
+    - "#minecraft:trapdoors"
+    - "#minecraft:fence_gates"
+    - "#minecraft:pressure_plates"
+  # Mob spawns that are stopped inside spawn. Spawners, spawn eggs, breeding and commands are not listed, so they
+  # still work.
+  blocked-spawn-reasons:
+    - natural
+    - jockey
+    - patrol
+    - raid
+    - reinforcements
+    - village-invasion
+    - trap
+    - silverfish-block
+    - ender-pearl
+    - drowned
+    - nether-portal
+
+world-border:
+  # SiftCore sets these borders at startup and on /sift reload. false leaves every border alone (use /worldborder).
+  # The worlds are pre-generated exactly to these borders, and random teleport keeps its rings inside them: if a
+  # random teleport ring would reach past a border, /sift reload refuses the change and says by how much.
+  enabled: true
+  worlds:
+    # size is the full width of the square border (10000 reaches 5000 blocks from the centre each way).
+    world:
+      size: 10000
+      center-x: 0
+      center-z: 0
+    world_nether:
+      size: 5000
+      center-x: 0
+      center-z: 0
+    world_the_end:
+      size: 6000
+      center-x: 0
+      center-z: 0

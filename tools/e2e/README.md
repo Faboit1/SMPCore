@@ -25,6 +25,12 @@ The test server directory must contain `versions/` (the patched Canvas jar) and 
 
 Each scenario uses fresh bot names (a per-run suffix), so runs never depend on earlier data.
 
+New players arrive at the spawn point, inside SiftCore's protected spawn area where nobody can build, fight or be
+hurt. `E2E#bot` therefore moves every freshly joined bot onto the ground just past the edge of that area (within 64
+blocks of the spawn on both axes), where scenarios can mine, place and hit like on the live server.
+`E2E#botAtSpawn` leaves a bot where it joined (for arrival and spawn protection scenarios), and `E2E#ground` gives a
+safe standing spot on top of any column.
+
 ## Older clients (ViaBackwards)
 
 `legacy_client.py` is a minimal 1.21.5 client (protocol 770) for checking that pre-dialog clients can still use

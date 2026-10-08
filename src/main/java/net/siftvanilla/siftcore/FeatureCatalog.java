@@ -8,7 +8,7 @@ import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
-import net.siftvanilla.siftcore.core.link.SpawnArea;
+import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
@@ -17,12 +17,16 @@ import net.siftvanilla.siftcore.feature.combat.CombatFeature;
 import net.siftvanilla.siftcore.feature.displays.DisplaysFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
 import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
+import net.siftvanilla.siftcore.feature.homes.HomesFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
+import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
 import net.siftvanilla.siftcore.feature.sell.SellFeature;
 import net.siftvanilla.siftcore.feature.shop.ShopFeature;
+import net.siftvanilla.siftcore.feature.spawn.SpawnFeature;
 import net.siftvanilla.siftcore.feature.staff.StaffFeature;
 import net.siftvanilla.siftcore.feature.stats.StatsFeature;
 import net.siftvanilla.siftcore.feature.teams.TeamsFeature;
+import net.siftvanilla.siftcore.feature.tpa.TpaFeature;
 
 /**
  * Constructs every feature in dependency order with exactly what it needs. A feature that depends on another takes
@@ -52,8 +56,9 @@ final class FeatureCatalog {
         StatsFeature stats = new StatsFeature(this.services, this.problems, AfkStatus.NONE, economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
         SellFeature sell = new SellFeature(this.services, this.problems);
+        SpawnFeature spawn = new SpawnFeature(this.services, this.problems);
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
-            FriendLookup.NONE, staff.vanish(), SpawnArea.NONE);
+            FriendLookup.NONE, staff.vanish(), spawn.area());
         features.add(economy);
         features.add(auction);
         features.add(teams);
@@ -62,6 +67,10 @@ final class FeatureCatalog {
         features.add(stats);
         features.add(sell);
         features.add(new ShopFeature(this.services, this.problems, sell.worth(), SpawnerItems.NONE));
+        features.add(spawn);
+        features.add(new HomesFeature(this.services, this.problems, spawn.area()));
+        features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
+        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), AfkStatus.NONE, FriendLookup.NONE, IgnoreLookup.NONE));
         features.add(new ExtrasFeature(this.services, this.problems));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(combat);

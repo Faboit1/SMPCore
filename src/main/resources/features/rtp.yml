@@ -1,0 +1,65 @@
+# Random teleport: /rtp opens a picker with the regions below, /rtp <region> goes straight there.
+# Changes apply with /sift reload.
+#
+# The search never generates terrain. The worlds are pre-generated inside their borders, and a random spot in a
+# chunk that does not exist yet simply counts as a failed attempt. The search loads one existing chunk at a time
+# off the main threads and checks a few spots in it: solid, harmless ground with two free blocks above, not in
+# water or lava, not on fire, magma, cactus or powder snow, not inside the protected spawn area and inside the
+# world border. In the nether it looks for a cave floor below the bedrock roof.
+#
+# Money: the cost is only taken once a safe spot was found, right before the teleport. If the teleport then does
+# not happen, the cost is paid back. Ledger kinds: rtp_cost and rtp_refund.
+
+# How long players stand still before the search starts (moving or taking damage cancels it). 0s = at once.
+# Players with siftcore.teleport.bypass-warmup skip it. Nobody can teleport while in combat.
+warmup: 5s
+# Chunks tried per teleport before giving up ("no safe spot, try again").
+max-attempts: 12
+# Spots checked in each loaded chunk.
+spots-per-chunk: 8
+# Landing spots keep at least this many blocks from the world border.
+border-margin: 32
+
+# Each region is a ring around a centre in one world. Players land between min-radius and max-radius blocks from
+# the centre. Rings must fit inside the world border (features/spawn.yml) minus border-margin; /sift reload
+# refuses a ring that doesn't and says by how much.
+#   name:        shown in the picker
+#   enabled:     false hides the region
+#   permission:  extra permission needed to use it ("" = everyone who can use /rtp)
+#   cost:        money taken per teleport (0 = free), like 2500 or 2.5k
+#   cooldown:    time before the same player can use this region again (siftcore.bypass.cooldown skips it)
+regions:
+  overworld:
+    name: "Overworld"
+    enabled: true
+    world: world
+    permission: ""
+    cost: 0
+    cooldown: 60s
+    center-x: 0
+    center-z: 0
+    min-radius: 300
+    max-radius: 4800
+  nether:
+    name: "Nether"
+    enabled: true
+    world: world_nether
+    permission: ""
+    cost: 2500
+    cooldown: 60s
+    center-x: 0
+    center-z: 0
+    min-radius: 200
+    max-radius: 2300
+  end:
+    name: "End"
+    enabled: true
+    world: world_the_end
+    permission: ""
+    cost: 5000
+    cooldown: 60s
+    center-x: 0
+    center-z: 0
+    # The outer end islands start about 1000 blocks out; the main island and the void around it are skipped.
+    min-radius: 1000
+    max-radius: 2800

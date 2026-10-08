@@ -1,0 +1,21 @@
+# Text of /spawn, /setspawn, spawn protection and the first-join welcome.
+# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+
+spawn:
+  not-available: "<primary>Spawn isn't available right now."
+  set: "<primary>Spawn set to <world> <x>, <y>, <z>."
+  unknown-world: "<primary>There is no world called <name>."
+  outside-border: "<primary>That spot is outside the world border of <world>."
+  sent: "<primary>Sent <name> to spawn."
+  sent-by-staff: "<primary>A staff member sent you to spawn."
+  protection:
+    build: "<primary>You can't build at spawn."
+    use: "<primary>You can't use that at spawn."
+    pvp: "<primary>There is no fighting at spawn."
+  welcome:
+    title: "Welcome to SiftVanilla"
+    subtitle: "<secondary>Have fun, <name>"
+    chat: "<primary>Everything is in the menu. <secondary>Press Escape and pick SiftVanilla, or type /menu."
+  hub:
+    label: "Spawn"
+    description: "Back to spawn"

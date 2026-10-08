@@ -14,7 +14,11 @@ import net.siftvanilla.siftcore.SiftCore;
 import net.siftvanilla.siftcore.SiftCorePlugin;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.link.SpawnArea;
+import net.siftvanilla.siftcore.feature.spawn.SpawnFeature;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -85,8 +89,80 @@ public final class E2E {
         return this.step;
     }
 
-    /** Connects a bot and waits until it is in the world. */
+    /**
+     * Connects a bot, waits until it is in the world and moves it just outside SiftCore's protected spawn area, onto
+     * the ground a few blocks past its edge. New players arrive at the spawn point, where nobody can build, fight or
+     * be hurt; scenarios that mine, place or hit happen in the open world like they would on the live server.
+     */
     public Bot bot(String name) {
+        Bot bot = botAtSpawn(name);
+        leaveSpawn(bot);
+        return bot;
+    }
+
+    /** The protected spawn area, or null when SiftCore runs without the spawn feature. */
+    public SpawnArea spawnArea() {
+        try {
+            return feature(SpawnFeature.class).area();
+        } catch (Failure absent) {
+            return null;
+        }
+    }
+
+    /**
+     * Moves a bot that stands inside the protected spawn area to the ground just past its edge (diagonally, so the
+     * spot stays within 64 blocks of the spawn on both axes), and waits until the bot's client is there too.
+     */
+    public void leaveSpawn(Bot bot) {
+        SpawnArea area = spawnArea();
+        if (area == null) {
+            return;
+        }
+        Location here = onPlayer(bot.name, () -> player(bot.name).getLocation());
+        if (!area.contains(here)) {
+            return;
+        }
+        Location column = null;
+        for (int distance = 4; distance <= 4_096 && column == null; distance += 2) {
+            Location candidate = here.clone().add(distance / Math.sqrt(2), 0, distance / Math.sqrt(2));
+            if (!area.contains(candidate) && !area.contains(candidate.clone().add(2, 0, 2))) {
+                column = candidate;
+            }
+        }
+        if (column == null) {
+            throw new Failure("no open ground near the spawn of " + here.getWorld().getName());
+        }
+        Location target = ground(here.getWorld(), column.getBlockX(), column.getBlockZ(), here.getYaw());
+        player(bot.name).teleportAsync(target);
+        eventually(() -> Math.abs(bot.x() - target.getX()) < 0.5 && Math.abs(bot.z() - target.getZ()) < 0.5
+            && onPlayer(bot.name, () -> player(bot.name).getLocation().distanceSquared(target)) < 0.25,
+            bot.name + " stands outside the protected spawn at " + target.getBlockX() + " " + target.getBlockY() + " " + target.getBlockZ());
+        sleep(250);
+    }
+
+    /**
+     * Where a player stands on the top block of a column (loads, or generates, its chunk; read on the region thread
+     * that owns it). Used to move bots without leaving them inside terrain.
+     */
+    public Location ground(World world, int x, int z, float yaw) {
+        CompletableFuture<Location> ground = new CompletableFuture<>();
+        world.getChunkAtAsync(x >> 4, z >> 4).whenComplete((chunk, error) -> {
+            if (error != null) {
+                ground.completeExceptionally(error);
+                return;
+            }
+            Bukkit.getRegionScheduler().execute(this.plugin, world, x >> 4, z >> 4, () ->
+                ground.complete(new Location(world, x + 0.5, world.getHighestBlockYAt(x, z) + 1, z + 0.5, yaw, 0f)));
+        });
+        try {
+            return ground.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new Failure("could not find the ground at " + x + " " + z + ": " + e);
+        }
+    }
+
+    /** Connects a bot and waits until it is in the world, where it joined (new players arrive at the spawn point). */
+    public Bot botAtSpawn(String name) {
         for (int attempt = 1; attempt <= 2; attempt++) {
             Bot bot = new Bot(name);
             this.bots.add(bot);

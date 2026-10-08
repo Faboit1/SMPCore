@@ -1,0 +1,61 @@
+# Text of homes (/sethome, /home, /delhome, /homes).
+# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's placeholders.
+
+homes:
+  set: "<primary>Home <name> set. <secondary>You have <count> of <limit>."
+  moved: "<primary>Home <name> moved here."
+  limit: "<primary>You have <count> of <limit> homes. Delete one or move an existing one."
+  invalid-name: "<primary>Home names are 1 to 16 letters, numbers, _ or -."
+  world-disabled: "<primary>You can't set homes in this world."
+  home-world-disabled: "<primary>Home <name> is in a world where homes are turned off."
+  in-spawn: "<primary>You can't set a home at spawn."
+  loading: "<primary>Your homes are still loading. Try again in a moment."
+  not-found: "<primary>You have no home called <name>."
+  none: "<primary>You have no homes yet. Set one with /sethome."
+  gone: "<primary>Home <name> no longer exists."
+  world-missing: "<primary>The world of home <name> isn't available."
+  teleported: "<primary>Welcome to <name>."
+  deleted: "<primary>Home <name> deleted."
+  unlimited: "unlimited"
+  unsafe:
+    title: "Unsafe home"
+    body: "<primary>Home <name> doesn't look safe: <reason>."
+    question: "<secondary>Teleport there anyway?"
+    lava: "there is lava"
+    fire: "there is fire"
+    blocked: "a block fills the space"
+    go: "Teleport anyway"
+  list:
+    title: "Homes"
+    header: "<primary><icon:home> <count> of <limit> homes"
+    empty: "<secondary>No homes yet. Set one where you stand."
+    line: "<primary><name> <secondary><world> <x>, <y>, <z>"
+    page: "<secondary>Page <page> of <pages>"
+    delete: "Delete"
+    teleport-tooltip: "<secondary>Teleport to <name>"
+    delete-tooltip: "<secondary>Delete <name>"
+    set-here: "Set a home here"
+    next: "Next page"
+    previous: "Previous page"
+  delete:
+    title: "Delete home"
+    body:
+      - "<primary>Delete home <name>?"
+      - "<secondary><world> <x>, <y>, <z>"
+    button: "Delete"
+  form:
+    title: "Set a home"
+    body: "<secondary>The home is set where you stand. Names are 1 to 16 letters, numbers, _ or -."
+    name: "Name"
+    submit: "Set home"
+  other:
+    title: "Homes of <name>"
+    header: "<primary><icon:home> <name> has <count> homes"
+  admin:
+    header: "<primary>Homes of <name> <secondary>(<count>)"
+    line: "<primary><home> <secondary><world> <x>, <y>, <z>"
+    empty: "<secondary><name> has no homes."
+    deleted: "<primary>Deleted home <home> of <name>."
+  hub:
+    label: "Homes"
+    description: "Teleport to your homes"

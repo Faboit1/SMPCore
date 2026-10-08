@@ -18,6 +18,7 @@ final class FeatureScenarios {
         list.addAll(DisplaysScenarios.all());
         list.addAll(StaffScenarios.all());
         list.addAll(CombatScenarios.all());
+        list.addAll(TeleportScenarios.all());
         return list;
     }
 }
