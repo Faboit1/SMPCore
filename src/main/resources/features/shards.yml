@@ -1,0 +1,86 @@
+# Shards: the second currency. Players earn them in the AFK zone (features/afk.yml) and spend them in the shard
+# shop (/shardshop). Changes apply with /sift reload.
+#
+# Shards never turn into money, and nothing here sells for money. Shards are created out of thin air just for being
+# online; if they could be exchanged for money, every AFK hour would print money and push prices up for everyone who
+# plays. Keeping them in their own shop means AFK time buys perks, never a share of the money economy.
+
+shop:
+  # Ask once more before a purchase that costs at least this many shards (0 = always ask).
+  confirm-above: 500
+  # What the shop sells, in this order. Each offer:
+  #   type:        key (crate keys, given by the crates feature) or item
+  #   crate:       for keys: the crate id; keys: how many keys one purchase unit gives (1 to 64)
+  #   item:        for items: an item id like totem_of_undying; amount: how many one unit gives (1 to 64)
+  #   price:       shards for one unit
+  #   max:         most units per purchase (1 to 64)
+  #   name:        what it is called (plain text; for items empty means the item's own name, for keys "<crate> key")
+  #   description: one line shown under the name (plain text, optional)
+  #   permission:  only players with this permission see and buy it (optional), e.g. siftcore.shards.legend
+  # Key offers only show while the crates feature knows that crate. Items that don't fit in the inventory go to the
+  # claim box. An offer with a mistake is left out and reported when the config loads.
+  offers:
+    basic-key:
+      type: key
+      crate: basic
+      keys: 1
+      price: 50
+      max: 16
+      name: "Basic key"
+      description: "Opens a basic crate at spawn"
+    rare-key:
+      type: key
+      crate: rare
+      keys: 1
+      price: 200
+      max: 16
+      name: "Rare key"
+      description: "Opens a rare crate at spawn"
+    epic-key:
+      type: key
+      crate: epic
+      keys: 1
+      price: 600
+      max: 8
+      name: "Epic key"
+      description: "Opens an epic crate at spawn"
+    legendary-key:
+      type: key
+      crate: legendary
+      keys: 1
+      price: 1500
+      max: 4
+      name: "Legendary key"
+      description: "Opens a legendary crate at spawn"
+    experience:
+      type: item
+      item: experience_bottle
+      amount: 32
+      price: 40
+      max: 16
+      name: ""
+      description: "32 bottles o' enchanting"
+    golden-apples:
+      type: item
+      item: golden_apple
+      amount: 8
+      price: 120
+      max: 8
+      name: ""
+      description: "8 golden apples"
+    totem:
+      type: item
+      item: totem_of_undying
+      amount: 1
+      price: 250
+      max: 4
+      name: ""
+      description: "Cheats death once"
+    shulker-box:
+      type: item
+      item: shulker_box
+      amount: 1
+      price: 300
+      max: 4
+      name: ""
+      description: "An empty shulker box"

@@ -1,0 +1,87 @@
+# Text of /shards, the shard shop and the shards page of the menu. Offer names and descriptions live in
+# features/shards.yml.
+# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, click and hover, plus each message's own
+# placeholders.
+# Numbers are coloured automatically. Bold, gradients and other colours are rejected on load.
+
+shards:
+  balance:
+    self: "<primary>You have <shards> shards."
+    other: "<primary><name> has <shards> shards."
+    earn: "<secondary>Earn shards in the AFK zone (/afkzone) and spend them with /shardshop."
+  admin:
+    given: "<primary>Gave <name> <amount> shards. They now have <balance>."
+    taken: "<primary>Took <amount> shards from <name>. They now have <balance>."
+    set: "<primary>Set <name>'s shards to <amount>."
+    not-enough: "<primary><name> has only <balance> shards."
+    failed: "<primary>Nothing changed: <reason>."
+    pending-header: "<primary>Key purchases waiting <secondary>(<count>)"
+    pending-line: "<primary><name> <secondary><keys>x <crate> key for <primary><cost><secondary> shards, <ago> ago"
+    pending-retry: "<secondary>Trying them again now. Each one ends with its keys given or its shards refunded."
+  received: "<primary>You received <amount> shards. <secondary>You have <balance>."
+  shop:
+    title: "Shard shop"
+    body:
+      - "<primary><icon:shard> You have <shards> shards"
+      - "<secondary>Earn more in the AFK zone with /afkzone."
+    empty: "<secondary>Nothing is for sale right now."
+    # A shop button. <name> is the offer's name, <price> what one costs.
+    offer: "<name>, <price> shards"
+    # The same for an offer that gives more than one key or item at a time (<amount> of them).
+    offer-many: "<amount>x <name>, <price> shards"
+    offer-tooltip:
+      - "<secondary><description>"
+      - "<secondary>Up to <max> per purchase"
+    # How a key offer without a name in features/shards.yml is called.
+    key-name: "<crate> key"
+  buy:
+    title: "Buy <name>"
+    body:
+      - "<primary><price> shards <secondary>each"
+      - "<secondary>You have <shards> shards"
+    # Only shown when more than one may be bought at a time.
+    max: "<secondary>Up to <max> per purchase"
+    # Only shown when one purchase gives more than one key or item.
+    keys: "<secondary>One gives <primary><keys><secondary> keys."
+    items: "<secondary>One gives <primary><items><secondary> items."
+    # Key offers: how many keys of that crate the player already has.
+    owned: "<secondary>Keys you have for this crate <primary><keys>"
+    description: "<secondary><description>"
+    amount: "Amount"
+    # The buy button always says what it buys.
+    button: "Buy <amount> for <total> shards"
+    changed: "<secondary>The amount changed. Check the total, then buy."
+    price-changed: "<primary>The price is now <price> shards each. Check the total, then buy."
+    not-enough: "<primary>That costs <total> shards and you have <shards>."
+    too-expensive: "<primary>That's more than one purchase can cost. Buy fewer."
+  confirm:
+    title: "Confirm purchase"
+    body:
+      - "<primary>Buy <count>x <name> for <total> shards?"
+      - "<secondary>You'll have <left> shards left."
+    button: "Buy"
+  # <count> is how many keys or items the purchase gave.
+  bought: "<primary>You bought <count>x <name> for <total> shards."
+  bought-keys: "<primary>You bought <count>x <name> for <total> shards. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
+  bought-claim-box: "<primary>You bought <count>x <name> for <total> shards. <secondary><left> didn't fit and are waiting in your claim box."
+  refunded: "<primary>Your <count>x <name> couldn't be given, so your <total> shards were refunded."
+  giving: "<secondary>Giving your keys..."
+  no-longer-sold: "<primary>That isn't sold anymore."
+  unavailable: "<primary>That isn't available right now."
+  cancelled: "<secondary>Purchase cancelled."
+  failed: "<primary>The purchase didn't go through. You weren't charged."
+  hub:
+    label: "Shards"
+    description: "Your shards, the shard shop and the AFK zone"
+    title: "Shards"
+    balance: "<primary><icon:shard> <shards> shards"
+    zone-rate: "<secondary>Shards from the AFK zone: <primary><shards><secondary> every <time>"
+    zone-today: "<secondary>Earned there today <primary><today>"
+    zone-today-cap: "<secondary>Earned there today <primary><today><secondary> of <cap>"
+    zone-inside: "<secondary>You are in the AFK zone now."
+    zone-closed: "<secondary>The AFK zone is closed right now."
+    spend: "<secondary>Spend shards on crate keys and items in the shard shop."
+    shop: "Shard shop"
+    shop-tooltip: "Crate keys and items for shards"
+    zone: "Go to the AFK zone"
+    zone-tooltip: "Earn shards by staying there"

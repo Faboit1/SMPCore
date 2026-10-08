@@ -6,10 +6,10 @@ import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
-import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
+import net.siftvanilla.siftcore.feature.afk.AfkFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
 import net.siftvanilla.siftcore.feature.bounties.BountiesFeature;
 import net.siftvanilla.siftcore.feature.combat.CombatFeature;
@@ -21,6 +21,7 @@ import net.siftvanilla.siftcore.feature.homes.HomesFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
 import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
 import net.siftvanilla.siftcore.feature.sell.SellFeature;
+import net.siftvanilla.siftcore.feature.shards.ShardsFeature;
 import net.siftvanilla.siftcore.feature.shop.ShopFeature;
 import net.siftvanilla.siftcore.feature.spawn.SpawnFeature;
 import net.siftvanilla.siftcore.feature.spawners.SpawnersFeature;
@@ -54,14 +55,15 @@ final class FeatureCatalog {
         AuctionFeature auction = new AuctionFeature(this.services, this.problems, this.combatTags);
         HubFeature hub = new HubFeature(this.services, this.problems);
         StaffFeature staff = new StaffFeature(this.services, this.problems);
-        StatsFeature stats = new StatsFeature(this.services, this.problems, AfkStatus.NONE, economy.economy(), admin);
+        SpawnFeature spawn = new SpawnFeature(this.services, this.problems);
+        AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
+        StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
         SellFeature sell = new SellFeature(this.services, this.problems);
-        SpawnersFeature spawners = new SpawnersFeature(this.services, this.problems, sell.worth(), teams.lookup(), staff.vanish(), AfkStatus.NONE,
+        SpawnersFeature spawners = new SpawnersFeature(this.services, this.problems, sell.worth(), teams.lookup(), staff.vanish(), afk.status(),
             this.combatTags);
         CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
-            this.combatTags, AfkStatus.NONE);
-        SpawnFeature spawn = new SpawnFeature(this.services, this.problems);
+            this.combatTags, afk.status());
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
             FriendLookup.NONE, staff.vanish(), spawn.area());
         features.add(economy);
@@ -77,11 +79,13 @@ final class FeatureCatalog {
         features.add(spawn);
         features.add(new HomesFeature(this.services, this.problems, spawn.area()));
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
-        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), AfkStatus.NONE, FriendLookup.NONE, IgnoreLookup.NONE));
+        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), FriendLookup.NONE, IgnoreLookup.NONE));
         features.add(new ExtrasFeature(this.services, this.problems, staff.vanish()));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(combat);
         features.add(new BountiesFeature(this.services, this.problems));
+        features.add(afk);
+        features.add(new ShardsFeature(this.services, this.problems, afk.zone(), crates.keys()));
         features.add(admin);
         return features;
     }
