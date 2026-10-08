@@ -72,7 +72,7 @@ class AfkResourcesTest {
         assertTrue(settings.zoneSafe());
         assertEquals(Duration.ofSeconds(60), settings.interval());
         assertEquals(1, settings.shards());
-        assertEquals(Map.of("supporter", 2L, "patron", 2L, "elite", 3L, "legend", 4L), settings.rankShards());
+        assertEquals(Map.of(), settings.rankShards(), "ranks pay no extra shards (docs/monetization.md)");
         assertEquals(0, settings.dailyCap());
         assertEquals(Duration.ofSeconds(2), settings.statusEvery());
         AfkClock.Timing timing = settings.timing();
@@ -83,7 +83,9 @@ class AfkResourcesTest {
 
     @Test
     void rankTiersPayTheBestGrantedAmount() throws Exception {
-        AfkSettings settings = parse(yaml("features/afk.yml"), new java.util.ArrayList<>());
+        YamlConfiguration yaml = yaml("features/afk.yml");
+        yaml.createSection("rewards.ranks", Map.of("supporter", 2, "patron", 2, "elite", 3, "legend", 4));
+        AfkSettings settings = parse(yaml, new java.util.ArrayList<>());
         assertEquals(1, settings.shardsFor(tier -> false));
         assertEquals(2, settings.shardsFor(tier -> tier.equals("supporter")));
         assertEquals(4, settings.shardsFor(tier -> true));

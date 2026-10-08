@@ -59,11 +59,9 @@ rewards:
   # Rank tiers: a player with siftcore.afk.reward.<tier> gets that many shards per interval instead (the highest
   # granted tier wins; never less than "shards"). Give the nodes to your LuckPerms groups; operators don't get them
   # by default.
-  ranks:
-    supporter: 2
-    patron: 2
-    elite: 3
-    legend: 4
+  # Empty on SiftVanilla: shards buy crate keys, so more shards for paying players is not sold
+  # (docs/monetization.md). Example: { event: 2 }
+  ranks: {}
   # The most shards one account can earn in the zone per day, resetting at midnight server time. 0 = no limit.
   daily-cap: 0
   # How often the action bar shows "AFK zone: next shard in 42s" while in the zone (0s = never, else at least 1s).

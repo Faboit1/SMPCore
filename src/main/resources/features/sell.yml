@@ -29,11 +29,9 @@ recipe-types: [crafting, smelting, blasting, smoking, campfire, stonecutting, sm
 # wins; with none, 1. Only permissions given explicitly (for example to a LuckPerms group) count, so operators
 # don't get a bonus by default. The shop checks its prices against the highest multiplier listed here plus the
 # top mastery bonus.
-multipliers:
-  supporter: 1.1
-  patron: 1.2
-  elite: 1.35
-  legend: 1.5
+# SiftVanilla sells no sell bonuses with ranks: a paid multiplier turns money into more money, a competitive
+# advantage Mojang's usage guidelines don't allow (docs/monetization.md). Example: { event: 1.1 }
+multipliers: {}
 
 # Combat-tagged players can't sell (/sell, /sell hand, /sell all, the menu's Sell button). The menu stays open.
 block-in-combat: true

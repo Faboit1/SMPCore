@@ -154,10 +154,23 @@ final class VanishService implements VanishStatus, Listener {
                 viewer.hidePlayer(this.plugin, target);
             }
         }
+        mark(target, hidden);
         if (hidden) {
             startTimer(target);
         } else {
             stopTimer(target.getUniqueId());
+        }
+    }
+
+    /**
+     * Sets or clears the "vanished" metadata, the convention other plugins (TAB's online counts, EssentialsX,
+     * PremiumVanish users) read to leave a vanished player out. Target's thread.
+     */
+    private void mark(Player target, boolean hidden) {
+        if (hidden) {
+            target.setMetadata("vanished", new org.bukkit.metadata.FixedMetadataValue(this.plugin, true));
+        } else {
+            target.removeMetadata("vanished", this.plugin);
         }
     }
 
@@ -224,6 +237,7 @@ final class VanishService implements VanishStatus, Listener {
         UUID id = joined.getUniqueId();
         if (vanished(id)) {
             if (joined.hasPermission(StaffNodes.VANISH)) {
+                mark(joined, true);
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
                     if (!viewer.equals(joined) && !viewer.hasPermission(StaffNodes.VANISH_SEE) && viewer.canSee(joined)) {
                         viewer.hidePlayer(this.plugin, joined);
