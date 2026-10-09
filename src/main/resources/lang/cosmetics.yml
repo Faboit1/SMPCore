@@ -1,0 +1,256 @@
+# Text of the cosmetic rank perks: chat colours (/chatcolor), nicknames (/nick, /realname), chat tags (/tags), join
+# and leave lines (/joinmessage, /leavemessage), kill effects (/killeffect) and the cosmetics menu (/cosmetics).
+# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Player text (nicknames, join messages) is always inserted as typed and never read as tags. Colour previews,
+# nicknames and tags carry their own colours.
+
+cosmetics:
+  in-combat: "<primary>You can't change cosmetics in combat. <time> left."
+  disabled: "<primary>Cosmetics are turned off right now."
+  locked: "<primary>That comes with the <unlock>. <secondary>Ranks are at /store."
+  none: "none"
+  ranks:
+    prospector: "Prospector rank"
+    baron: "Baron rank"
+    tycoon: "Tycoon rank"
+    higher: "a higher rank"
+  # Hovering a nickname anywhere it is shown.
+  name-hover: "<secondary>Real name <primary><name>"
+  next-page: "Next page"
+  previous-page: "Previous page"
+  page: "<secondary>Page <page> of <pages>"
+
+  # The cosmetics menu (/cosmetics and the main menu).
+  menu:
+    label: "Cosmetics"
+    description: "Chat colour, nickname, tags and more"
+    title: "Cosmetics"
+    body:
+      - "<primary>Make chat yours."
+      - "<secondary>Cosmetics change how you look, never how the game plays."
+    # One line per perk in the menu body: what the player has now.
+    line: "<secondary><label> <primary><value>"
+    chat-color: "Chat colour"
+    nick: "Nickname"
+    tag: "Chat tag"
+    join: "Join message"
+    kill: "Kill effect"
+    open: "<secondary>Click to change it"
+    unlock: "<secondary>Comes with the <primary><unlock>"
+    join-default: "plain"
+    join-rank: "rank line"
+    join-custom: "your own"
+
+  color:
+    title: "Chat colour"
+    body:
+      - "<primary>Pick the colour of your chat messages."
+      - "<secondary>Red and green stay for errors, kills and money. Players can turn chat colours off in their settings."
+    current: "<secondary>Now <preview>"
+    # The text shown in the colour you look at.
+    sample: "This is how your messages look"
+    more: "More colours"
+    more-tooltip: "<secondary>Hex colours and gradients"
+    reset: "Default colour"
+    custom: "Mix your own"
+    premium-title: "More colours"
+    premium-body:
+      - "<primary>Hex colours and gradients."
+      - "<secondary>Pick a ready-made one or mix your own."
+    custom-title: "Mix a colour"
+    custom-body:
+      - "<primary>Type a hex colour like <secondary>#ffb07a<primary>."
+      - "<primary>Add a second one for a gradient, like <secondary>#55ffff<primary> to <secondary>#5555ff<primary>."
+      - "<secondary>Colours close to red or green, or too dark to read, are refused."
+    custom-from: "Colour"
+    custom-to: "Second colour for a gradient (optional)"
+    custom-submit: "Use it"
+    gradient-tooltip: "<secondary>A gradient"
+    selected-tooltip: "<primary>Your colour now"
+    set: "<primary>Your chat colour is now <preview>."
+    cleared: "<primary>Your chat is back to the default colour."
+    invalid: "<primary><input> is not a colour. <secondary>Use a hex colour like #ffb07a."
+    too-dark: "<primary>That colour is too dark to read in chat."
+    reserved-errors: "<primary>That is too close to the red used for errors and kills."
+    reserved-money: "<primary>That is too close to the green used for money."
+    reserved-server: "<primary>That is too close to a colour the server uses."
+    # How a colour that isn't a preset or vanilla colour is named.
+    custom-name: "Custom"
+    gradient-name: "Custom gradient"
+
+  # Names of the vanilla colours.
+  colors:
+    black: "Black"
+    dark-blue: "Dark blue"
+    dark-green: "Dark green"
+    dark-aqua: "Dark aqua"
+    dark-red: "Dark red"
+    dark-purple: "Dark purple"
+    gold: "Gold"
+    gray: "Gray"
+    dark-gray: "Dark gray"
+    blue: "Blue"
+    green: "Green"
+    aqua: "Aqua"
+    red: "Red"
+    light-purple: "Light purple"
+    yellow: "Yellow"
+    white: "White"
+
+  nick:
+    title: "Nickname"
+    body:
+      - "<primary>Pick a name to show in chat."
+      - "<secondary><min> to <max> letters, digits or underscores. Your real name shows when someone hovers it, and /msg works with both."
+    current: "<secondary>Now <nick>"
+    current-none: "<secondary>You show your own name."
+    input: "Nickname"
+    style-input: "Colour"
+    custom-input: "Your own colour, like #ffb07a or #55ffff #5555ff"
+    style-default: "Default"
+    style-custom: "My own (below)"
+    save: "Save"
+    remove: "Remove nickname"
+    set: "<primary>You now show as <nick>."
+    removed: "<primary>You show your own name again."
+    not-set: "<primary>You have no nickname."
+    length: "<primary>A nickname is <min> to <max> characters."
+    characters: "<primary>Use letters, digits and underscores only."
+    reserved: "<primary>Nicknames can't contain <word>."
+    player-name: "<primary>That is another player's name."
+    taken: "<primary>Someone else uses that nickname."
+    filtered: "<primary>That nickname has a word that isn't allowed here."
+    cooldown: "<primary>You can change your nickname again in <time>."
+    admin-set: "<primary><name> <secondary>now shows as <nick><secondary>."
+    admin-removed: "<primary><name><secondary>'s nickname is removed."
+    admin-none: "<primary><name> <secondary>has no nickname."
+    admin-refused: "<primary>That nickname can't be used. <secondary><reason>"
+    staff-set: "<primary>Staff changed your nickname to <nick>."
+    staff-removed: "<primary>Staff removed your nickname."
+    # Another player took a nickname whose hold had run out (nicknames.hold after the holder could last show it).
+    lost: "<primary>Another player took the nickname <nick> while you couldn't use it. <secondary>Pick a new one with /nick."
+    realname: "<primary><nick> <secondary>is <primary><name><secondary>."
+    realname-none: "<primary>Nobody uses the nickname <nick>."
+
+  tags:
+    title: "Chat tags"
+    body:
+      - "<primary>Your tag shows before your name in chat."
+      - "<secondary>You can use <count> of the <total> tags."
+    current: "<secondary>Now <tag>"
+    current-none: "<secondary>You show no tag."
+    empty: "<secondary>There are no tags yet."
+    remove: "No tag"
+    # Hovering a tag in chat or in /tags.
+    hover: "<secondary><description>"
+    tooltip-selected: "<primary>Your tag now"
+    tooltip-locked: "<secondary>Comes with the <primary><unlock>"
+    tooltip-monthly: "<primary>This month only. <secondary>Pick it once and it stays yours."
+    tooltip-owned: "<secondary>Yours for good"
+    set: "<primary>Your chat tag is now <tag>."
+    claimed: "<primary><tag> is yours for good. <secondary>You keep it after this month."
+    removed: "<primary>You show no tag now."
+    locked: "<primary>That tag comes with the <unlock>."
+    unknown: "<primary>There is no tag called <id>."
+    not-set: "<primary>You show no tag."
+
+  join:
+    # Rank lines (siftcore.join.message). <rank> is the rank in its colour, <name> the player's name or nickname.
+    rank-line: "<rank> <primary><name> <secondary>joined"
+    line: "<primary><name> <secondary>joined"
+    rank-leave: "<rank> <primary><name> <secondary>left"
+    leave: "<primary><name> <secondary>left"
+    # Custom lines (siftcore.join.message.custom): <message> is the player's text with their name in it.
+    custom-rank-line: "<rank> <secondary><message>"
+    custom-line: "<secondary><message>"
+    title: "Join and leave messages"
+    body:
+      - "<primary>Write what everyone sees when you join and leave."
+      - "<secondary>Put {name} where your name goes (or it goes first), at most <max> characters. Leave a box empty to use your rank line."
+    join-input: "Join message"
+    leave-input: "Leave message"
+    save: "Save"
+    preview: "Preview"
+    reset: "Use the rank lines"
+    rank-title: "Join and leave lines"
+    rank-body:
+      - "<primary>Everyone sees your rank when you join and leave."
+      - "<secondary>Writing your own messages comes with the Tycoon rank."
+    join-set: "<primary>Your join message is saved."
+    leave-set: "<primary>Your leave message is saved."
+    saved: "<primary>Your join and leave messages are saved."
+    join-reset: "<primary>You use the rank join line again."
+    leave-reset: "<primary>You use the rank leave line again."
+    reset-done: "<primary>You use the rank join and leave lines again."
+    preview-header: "<secondary>How everyone sees you join and leave:"
+    empty: "<primary>Write a few words."
+    too-long: "<primary>That message is too long. <secondary>The limit is <max> characters."
+    characters: "<primary>Messages can't use braces or angle brackets, apart from {name}."
+    tokens: "<primary>Use {name} only once."
+    link: "<primary>Links and server addresses aren't allowed."
+    filtered: "<primary>That message has a word that isn't allowed here."
+    "off": "<primary>Join and leave lines are turned off right now."
+
+  kill:
+    title: "Kill effects"
+    body:
+      - "<primary>Pick what happens where your victim falls."
+      - "<secondary>Only looks: nothing is hurt, lit or dropped. Picking one shows it to you."
+    current: "<secondary>Now <primary><effect>"
+    current-none: "<secondary>Your kills show no effect."
+    none: "No effect"
+    set: "<primary>Your kill effect is now <effect>."
+    cleared: "<primary>Your kills show no effect now."
+    unknown: "<primary>There is no kill effect called <id>."
+    "off": "<primary>Kill effects are turned off right now."
+    effects:
+      hearts: "Hearts"
+      flames: "Flames"
+      souls: "Soul burst"
+      totem: "Totem burst"
+      lightning: "Lightning"
+      notes: "Note burst"
+      ender: "Ender"
+    descriptions:
+      hearts: "<secondary>A shower of hearts and a chime"
+      flames: "<secondary>A column of flames"
+      souls: "<secondary>Souls escape with blue fire"
+      totem: "<secondary>The totem's colourful burst"
+      lightning: "<secondary>A harmless bolt from the sky"
+      notes: "<secondary>A ring of music notes"
+      ender: "<secondary>Swirling ender particles"
+
+  # The switches in /settings.
+  settings:
+    chat-colors: "Chat colours"
+    chat-colors-description: "Show the colours other players chose for their messages"
+    kill-effects: "Kill effects"
+    kill-effects-description: "Show particles and sounds when someone nearby gets a kill. Off also stops lightning bolts within your view distance"
+
+  # Staff tools (/cosmetics admin).
+  admin:
+    status:
+      - "<primary>Cosmetics <state>"
+      - "<secondary>Players with choices <primary><players>"
+      - "<secondary>Nicknames in use <primary><nicks>"
+      - "<secondary>Chat tags <primary><tags>"
+      - "<secondary>Kill effects played <primary><played><secondary>, held back by the limits <primary><limited>"
+    "on": "on"
+    "off": "off"
+    show:
+      - "<primary>Cosmetics of <name>"
+      - "<secondary>Chat colour <primary><color>"
+      - "<secondary>Nickname <primary><nick>"
+      - "<secondary>Chat tag <primary><tag>"
+      - "<secondary>Owned tags <primary><owned>"
+      - "<secondary>Join message <primary><join>"
+      - "<secondary>Leave message <primary><leave>"
+      - "<secondary>Kill effect <primary><effect>"
+    reset: "<primary><name><secondary>'s cosmetics are reset."
+    reset-kept: "<primary><name><secondary>'s cosmetics are reset. Their <primary><owned><secondary> owned tags are kept."
+    # Told to the player whose cosmetics staff reset.
+    staff-reset: "<primary>Staff reset your cosmetics. <secondary>Your owned tags are kept."
+    owned-given: "<primary><name> <secondary>owns the tag <primary><id> <secondary>for good now."
+    owned-taken: "<primary><name> <secondary>no longer owns the tag <primary><id><secondary>."
+    owned-already: "<primary><name> <secondary>already owns the tag <primary><id><secondary>."
+    owned-not: "<primary><name> <secondary>doesn't own the tag <primary><id><secondary>."

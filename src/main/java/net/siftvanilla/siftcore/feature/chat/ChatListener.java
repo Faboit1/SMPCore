@@ -4,6 +4,7 @@ import io.papermc.paper.chat.ChatRenderer;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -13,6 +14,7 @@ import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.player.Toggle;
@@ -32,8 +34,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
  *       players are left to the staff tools, which refuse the message with the mute's reason.</li>
  *   <li>{@link EventPriority#NORMAL}: what is left is public chat (team and staff chat modes cancel earlier, at
  *       low priority). Chat lock and slow mode apply, players who ignore the sender stop being viewers,
- *       {@code [item]} becomes the held item, and the line gets its format: rank, the name with its hover card, and
- *       the message.</li>
+ *       {@code [item]} becomes the held item, and the line gets its format: rank, chat tag, the name (or nickname)
+ *       with its hover card, and the message in the sender's chat colour (shown plain to viewers who turned chat
+ *       colours off).</li>
  *   <li>{@link EventPriority#MONITOR}: once nothing can cancel it any more, mentioned viewers are pinged.</li>
  * </ol>
  * Player text is only ever inserted as plain text components, never parsed.
@@ -41,7 +44,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 final class ChatListener implements Listener {
 
     /** The links to other features that chat consults. */
-    record Links(MuteStatus mutes, AfkStatus afk, VanishStatus vanish) {
+    record Links(MuteStatus mutes, AfkStatus afk, VanishStatus vanish, Cosmetics cosmetics) {
     }
 
     private final Services services;
@@ -134,8 +137,42 @@ final class ChatListener implements Listener {
             }
         }
         Component rank = this.cards.rankComponent(id, player);
-        Component name = this.cards.chatName(id, player.getName(), settings.hoverCard());
-        event.renderer(ChatRenderer.viewerUnaware((source, displayName, text) -> line(rank, name, text)));
+        Component name = this.cards.taggedName(player, settings.hoverCard());
+        event.renderer(new Lines(rank, name, this.links.cosmetics()));
+    }
+
+    /**
+     * Renders the line once in the sender's chat colour and once plain, and hands each viewer the one they want
+     * (viewers who turned chat colours off get it plain; the sender and the console always see the colour). The
+     * message is painted at render time, so changes later listeners made to it are kept.
+     */
+    private final class Lines implements ChatRenderer {
+
+        private final Component rank;
+        private final Component name;
+        private final Cosmetics cosmetics;
+        private Component lastMessage;
+        private Component coloured;
+        private Component plain;
+
+        Lines(Component rank, Component name, Cosmetics cosmetics) {
+            this.rank = rank;
+            this.name = name;
+            this.cosmetics = cosmetics;
+        }
+
+        @Override
+        public synchronized Component render(Player source, Component sourceDisplayName, Component message, Audience viewer) {
+            if (message != this.lastMessage || this.coloured == null) {
+                this.lastMessage = message;
+                Component painted = this.cosmetics.paint(source, message);
+                this.coloured = line(this.rank, this.name, painted);
+                this.plain = painted == message ? this.coloured : line(this.rank, this.name, message);
+            }
+            boolean colours = !(viewer instanceof Player other) || other.getUniqueId().equals(source.getUniqueId())
+                || this.cosmetics.showsChatColours(other.getUniqueId());
+            return colours ? this.coloured : this.plain;
+        }
     }
 
     /** One formatted chat line. */
@@ -158,20 +195,31 @@ final class ChatListener implements Listener {
                 viewers.put(viewer.getName(), viewer);
             }
         }
+        // Players can be mentioned by the nickname they show, too.
+        for (Player viewer : List.copyOf(viewers.values())) {
+            String nick = this.links.cosmetics().nick(viewer);
+            if (nick != null) {
+                viewers.putIfAbsent(nick, viewer);
+            }
+        }
         if (viewers.isEmpty()) {
             return;
         }
         Set<String> mentioned = Mentions.find(ItemTag.typedText(event.message()), viewers.keySet(), settings.plainNameMentions(),
             settings.minPlainLength());
+        Set<UUID> pinged = new java.util.HashSet<>();
         for (String name : mentioned) {
             Player target = viewers.get(name);
+            if (!pinged.add(target.getUniqueId())) {
+                continue;
+            }
             UUID targetId = target.getUniqueId();
             if (this.services.settings().enabled(targetId, this.mentionsToggle)
                 && this.services.cooldowns().tryUse(sender.getUniqueId(), "chat-mention:" + targetId, settings.mentionCooldown()).isZero()) {
-                this.services.messenger().send(target, ChatMessages.MENTIONED, Arg.text("name", sender.getName()));
+                this.services.messenger().send(target, ChatMessages.MENTIONED, Arg.component("name", this.links.cosmetics().name(sender)));
             }
             if (this.links.afk().afk(targetId) && visible(sender, target)) {
-                this.services.messenger().send(sender, ChatMessages.MENTION_AFK, Arg.text("name", target.getName()));
+                this.services.messenger().send(sender, ChatMessages.MENTION_AFK, Arg.component("name", this.links.cosmetics().name(target)));
             }
         }
     }

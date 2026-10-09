@@ -8,10 +8,15 @@ chat:
   format: "<secondary><rank> <primary><name><secondary>: <primary><message>"
   # The same for players without a rank label.
   format-unranked: "<primary><name><secondary>: <primary><message>"
+  # The name of a player who picked a chat tag (/tags): the tag (in its own colours), then the name.
+  tagged-name: "<tag> <primary><name>"
 
   # The card shown when a name in chat is hovered.
   card:
     name: "<primary><name>"
+    # The first line for a player who shows a nickname (in its own colours), and their real name below it.
+    nickname: "<primary><name>"
+    real-name: "<secondary>Real name <primary><name>"
     rank: "<secondary><icon:rank> Rank <primary><rank>"
     team: "<secondary><icon:team> Team <primary><team>"
     no-team: "<secondary><icon:team> No team"
@@ -129,7 +134,7 @@ chat:
   # The chat group of the settings dialog and its switches.
   settings:
     category: "Chat"
-    category-description: "Mentions and private messages"
+    category-description: "Mentions, private messages and chat colours"
     mentions: "Mention alerts"
     mentions-description: "Play a sound when someone mentions me in chat"
     private-messages: "Private messages"

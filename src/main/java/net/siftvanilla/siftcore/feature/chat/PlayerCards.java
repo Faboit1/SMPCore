@@ -11,6 +11,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.core.integration.Ranks;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -18,9 +19,10 @@ import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.economy.Ledger;
 
 /**
- * Player names as they appear in chat and private messages: the name, a card shown on hover (rank, team, balance,
- * kills, playtime) and a click that starts a private message. Everything is read from thread-safe in-memory
- * sources (rank labels, the team registry, the ledger, the stats store), so it is safe on the async chat thread.
+ * Player names as they appear in chat and private messages: the name (or the nickname the player shows, in its
+ * colour), a card shown on hover (real name for nicknames, rank, team, balance, kills, playtime) and a click that
+ * starts a private message to the real name. Everything is read from thread-safe in-memory sources (rank labels,
+ * cosmetics, the team registry, the ledger, the stats store), so it is safe on the async chat thread.
  */
 final class PlayerCards {
 
@@ -29,13 +31,15 @@ final class PlayerCards {
     private final TeamLookup teams;
     private final Ledger ledger;
     private final StatsRecorder stats;
+    private final Cosmetics cosmetics;
 
-    PlayerCards(Lang lang, Ranks ranks, TeamLookup teams, Ledger ledger, StatsRecorder stats) {
+    PlayerCards(Lang lang, Ranks ranks, TeamLookup teams, Ledger ledger, StatsRecorder stats, Cosmetics cosmetics) {
         this.lang = lang;
         this.ranks = ranks;
         this.teams = teams;
         this.ledger = ledger;
         this.stats = stats;
+        this.cosmetics = cosmetics;
     }
 
     /** The player's rank label, empty when they have none. */
@@ -57,11 +61,18 @@ final class PlayerCards {
         return styled == null || ChatText.plain(styled).isBlank() ? Component.text(label) : styled;
     }
 
-    /** The hover card of a player. */
+    /** The hover card of a player: the name they show, their real name when that is a nickname, then their stats. */
     Component card(UUID player, String name) {
         List<Component> lines = new ArrayList<>();
-        lines.add(this.lang.get(ChatMessages.CARD_NAME, Arg.text("name", name)));
-        Component rank = rankComponent(player, org.bukkit.Bukkit.getPlayer(player));
+        org.bukkit.entity.Player online = org.bukkit.Bukkit.getPlayer(player);
+        String nick = online == null ? null : this.cosmetics.nick(online);
+        if (nick == null) {
+            lines.add(this.lang.get(ChatMessages.CARD_NAME, Arg.text("name", name)));
+        } else {
+            lines.add(this.lang.get(ChatMessages.CARD_NAME_STYLED, Arg.component("name", shown(online))));
+            lines.add(this.lang.get(ChatMessages.CARD_REAL_NAME, Arg.text("name", name)));
+        }
+        Component rank = rankComponent(player, online);
         if (rank != null) {
             lines.add(this.lang.get(ChatMessages.CARD_RANK, Arg.component("rank", rank)));
         }
@@ -77,16 +88,39 @@ final class PlayerCards {
         return Component.join(JoinConfiguration.newlines(), lines);
     }
 
-    /** A name in public chat: the card on hover (when enabled) and a click that suggests {@code /msg <name> }. */
-    Component chatName(UUID player, String name, boolean withCard) {
-        Component text = Component.text(name).clickEvent(ClickEvent.suggestCommand("/msg " + name + " "));
-        return withCard ? text.hoverEvent(HoverEvent.showText(card(player, name))) : text;
+    /** The name a player shows (their nickname in its colour, or their name), without hover or click. */
+    private Component shown(org.bukkit.entity.Player player) {
+        return this.cosmetics.name(player).hoverEvent(null);
     }
 
-    /** A name in a private message: clicking it starts another message to that player (or a reply to the console). */
-    Component messageName(String name, boolean console) {
-        return Component.text(name)
-            .clickEvent(ClickEvent.suggestCommand(console ? "/r " : "/msg " + name + " "))
-            .hoverEvent(HoverEvent.showText(this.lang.get(ChatMessages.PM_NAME_HOVER, Arg.text("name", name))));
+    /**
+     * A name in public chat: the name the player shows, the card on hover (when enabled, otherwise just the real name
+     * of a nickname) and a click that suggests {@code /msg <real name> }.
+     */
+    Component chatName(org.bukkit.entity.Player player, boolean withCard) {
+        String name = player.getName();
+        Component text = (withCard ? shown(player) : this.cosmetics.name(player)).clickEvent(ClickEvent.suggestCommand("/msg " + name + " "));
+        return withCard ? text.hoverEvent(HoverEvent.showText(card(player.getUniqueId(), name))) : text;
+    }
+
+    /** A name in public chat, with or without a chat tag before it. */
+    Component taggedName(org.bukkit.entity.Player player, boolean withCard) {
+        Component name = chatName(player, withCard);
+        Component tag = this.cosmetics.tag(player);
+        return tag == null ? name : this.lang.get(ChatMessages.TAGGED_NAME, Arg.component("tag", tag), Arg.component("name", name));
+    }
+
+    /**
+     * A name in a private message: the name the player shows; clicking it starts another message to that player (or
+     * a reply to the console), hovering it says so and gives the real name of a nickname.
+     */
+    Component messageName(String name, org.bukkit.entity.Player player, boolean console) {
+        String nick = player == null ? null : this.cosmetics.nick(player);
+        Component hover = this.lang.get(ChatMessages.PM_NAME_HOVER, Arg.text("name", nick == null ? name : nick));
+        if (nick != null) {
+            hover = Component.join(JoinConfiguration.newlines(), hover, this.lang.get(ChatMessages.CARD_REAL_NAME, Arg.text("name", name)));
+        }
+        Component text = player == null ? Component.text(name) : shown(player);
+        return text.clickEvent(ClickEvent.suggestCommand(console ? "/r " : "/msg " + name + " ")).hoverEvent(HoverEvent.showText(hover));
     }
 }

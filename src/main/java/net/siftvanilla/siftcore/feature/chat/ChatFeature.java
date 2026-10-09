@@ -11,10 +11,12 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
+import net.siftvanilla.siftcore.core.link.TextChecks;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
 import net.siftvanilla.siftcore.core.player.Toggle;
@@ -27,8 +29,9 @@ import org.bukkit.Bukkit;
  * private messages ({@code /msg}, {@code /r}, social spy) and ignore lists ({@code /ignore}).
  * <p>
  * Other features consult it through {@link #ignores()}: teleport requests and friend requests from a player you
- * ignore never reach you. It consults rank labels, teams, balances and stats for the hover card, mutes and vanish
- * from the staff tools, and AFK status.
+ * ignore never reach you; and through {@link #textChecks()}: nicknames and join messages pass the word filter and the
+ * link check. It consults rank labels, teams, balances and stats for the hover card, mutes and vanish from the staff
+ * tools, AFK status, and cosmetics (nicknames, chat tags and chat colours in chat and private messages).
  */
 public final class ChatFeature implements Feature {
 
@@ -66,10 +69,11 @@ public final class ChatFeature implements Feature {
      * @param stats  kills and playtime on the hover card (stats)
      * @param mutes  muted players can't send private messages (staff tools)
      * @param vanish vanished staff can't be messaged by players who can't see them (staff tools)
-     * @param afk    senders are told when the player they write to or mention is AFK (AFK)
+     * @param afk       senders are told when the player they write to or mention is AFK (AFK)
+     * @param cosmetics nicknames, chat tags and chat colours (cosmetics; built later, so late-bound)
      */
     public ChatFeature(Services services, List<ConfigProblem> problems, Ranks ranks, TeamLookup teams, StatsRecorder stats,
-                       MuteStatus mutes, VanishStatus vanish, AfkStatus afk) {
+                       MuteStatus mutes, VanishStatus vanish, AfkStatus afk, Cosmetics cosmetics) {
         this.services = services;
         this.settings = services.configs().register("features/chat.yml", ChatSettings::parse, problems);
         services.lang().register(ChatMessages.class);
@@ -82,9 +86,9 @@ public final class ChatFeature implements Feature {
         this.conversations = new Conversations(System::currentTimeMillis, () -> this.settings.get().replyExpiry());
         this.publicScreen = new MessageScreen(new SpamGuard(), this.settings, logger, false);
         this.privateScreen = new MessageScreen(new SpamGuard(), this.settings, logger, true);
-        PlayerCards cards = new PlayerCards(services.lang(), ranks, teams, services.ledger(), stats);
+        PlayerCards cards = new PlayerCards(services.lang(), ranks, teams, services.ledger(), stats, cosmetics);
         HeldItems items = new HeldItems(services.scheduler(), services.lang(), this.settings);
-        ChatListener.Links links = new ChatListener.Links(mutes, afk, vanish);
+        ChatListener.Links links = new ChatListener.Links(mutes, afk, vanish, cosmetics);
         this.listener = new ChatListener(services, this.settings, this.publicScreen, this.privateScreen, this.moderation,
             this.ignores, cards, items, links, MENTIONS);
         this.messages = new PrivateMessages(services, this.settings, this.ignores, this.conversations, this.privateScreen,
@@ -101,6 +105,33 @@ public final class ChatFeature implements Feature {
     /** Ignore lists, for features that must respect them (teleport requests, friend requests). */
     public IgnoreLookup ignores() {
         return this.ignores;
+    }
+
+    /**
+     * The word filter and the link check for text players choose for others to read (nicknames, join messages):
+     * any filtered word counts, whatever the filter's action in chat; any address counts, the allowed ones too, and
+     * also while chat's own link check is off.
+     */
+    public TextChecks textChecks() {
+        return new TextChecks() {
+            @Override
+            public boolean filtered(String text) {
+                return !ChatFeature.this.settings.get().filter().apply(text, ChatFilter.Action.BLOCK, "").clean();
+            }
+
+            @Override
+            public boolean link(String text) {
+                return !ChatFeature.this.strictLinks().apply(text, ChatFilter.Action.BLOCK, "").clean();
+            }
+        };
+    }
+
+    /** A link check that allows no address, with chat's top-level domains (or the defaults when the check is off). */
+    private LinkGuard strictLinks() {
+        LinkGuard configured = this.settings.get().links();
+        java.util.Set<String> domains = configured.topLevelDomains().isEmpty()
+            ? java.util.Set.copyOf(ChatSettings.DEFAULT_TOP_LEVEL_DOMAINS) : configured.topLevelDomains();
+        return new LinkGuard(domains, List.of());
     }
 
     @Override

@@ -1,6 +1,6 @@
 # Placeholders
 
-Every placeholder SiftCore 1.0.0 provides (102), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
+Every placeholder SiftCore 1.0.0 provides (118), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
 
 | Placeholder | Shows |
 |---|---|
@@ -23,17 +23,30 @@ Every placeholder SiftCore 1.0.0 provides (102), generated with `/sift docs`. Wi
 | `%siftcore_bounty_top_value_<n>%` | The n-th biggest bounty, formatted |
 | `%siftcore_bounty_total%` | The bounty on you, formatted ($50,000) |
 | `%siftcore_bounty_total_raw%` | The bounty on you as a plain number |
+| `%siftcore_chat_color%` | Your chat colour: a colour name, #RRGGBB or #RRGGBB:#RRGGBB for a gradient; empty without one |
 | `%siftcore_chat_ignoring%` | How many players you ignore |
 | `%siftcore_chat_reply%` | Who /r answers, - when nobody |
 | `%siftcore_chat_slowmode%` | The chat slow mode gap in seconds, 0 when off |
 | `%siftcore_combat_tagged%` | Whether you are in combat (true or false) |
 | `%siftcore_combat_time%` | Whole seconds of combat left (0 when not in combat) |
+| `%siftcore_display_name%` | Your nickname, or your name without one |
+| `%siftcore_display_name_mm%` | Your nickname (or name) in its colours as MiniMessage, for the tab list |
+| `%siftcore_friends_count%` | Your number of friends (0 while not loaded) |
+| `%siftcore_friends_limit%` | Your friend limit (rank, default and hard cap) |
+| `%siftcore_friends_online%` | Your friends online now, vanished ones not counted |
+| `%siftcore_friends_requests%` | Friend requests waiting for you |
 | `%siftcore_homes_count%` | How many homes you have set |
 | `%siftcore_homes_limit%` | How many homes you may set (unlimited for no limit) |
+| `%siftcore_join_message%` | Your custom join message as it shows now (with {name}), empty without one |
 | `%siftcore_keyall_countdown%` | Time until the next keyall (1h 5m), - when it is off |
 | `%siftcore_keyall_reward%` | What the next keyall gives (1 Basic key), - when it is off |
 | `%siftcore_keys_<crate>%` | Your keys of a crate (keys_basic) |
 | `%siftcore_keys_total%` | Your keys of every crate together |
+| `%siftcore_kill_effect%` | Your kill effect (hearts, flames...), empty without one |
+| `%siftcore_kit_<kit>%` | A kit's status for you: ready, in 3h 20m, claimed, locked (- for no such kit) |
+| `%siftcore_kits_ready%` | How many of your kits you can claim now |
+| `%siftcore_leave_message%` | Your custom leave message as it shows now (with {name}), empty without one |
+| `%siftcore_nick%` | Your nickname as plain text, empty without one |
 | `%siftcore_orders_active%` | Your active buy orders |
 | `%siftcore_orders_best_<item>%` | The best price each of open orders for an item, like orders_best_diamond (empty when none) |
 | `%siftcore_orders_held%` | Money your active orders hold |
@@ -49,7 +62,7 @@ Every placeholder SiftCore 1.0.0 provides (102), generated with `/sift docs`. Wi
 | `%siftcore_rank_color%` | Your rank's colour as #RRGGBB (the first colour of a gradient), empty without one |
 | `%siftcore_rank_group%` | Your primary LuckPerms group in lowercase (default without LuckPerms) |
 | `%siftcore_sell_mastery_<category>%` | Your sell mastery level in a category (0-5) |
-| `%siftcore_sell_multiplier%` | Your rank sell multiplier, like 1.5 (1 without a rank bonus; mastery not included) |
+| `%siftcore_sell_multiplier%` | Your sell multiplier from sell.yml multipliers (1 when none apply; mastery not included) |
 | `%siftcore_sell_multiplier_<category>%` | Your multiplier for a sell category, rank plus mastery, like 1.6 |
 | `%siftcore_sell_sold%` | Everything you sold to the server, at base value (what mastery counts) |
 | `%siftcore_sell_top_name_<n>%` | Name of the n-th best seller (1-10) |
@@ -73,6 +86,9 @@ Every placeholder SiftCore 1.0.0 provides (102), generated with `/sift docs`. Wi
 | `%siftcore_stats_playtime%` | Your active playtime (3d 4h) (online players) |
 | `%siftcore_stats_playtime_hours%` | Your active playtime in whole hours (online players) |
 | `%siftcore_stats_streak%` | Your current kill streak (online players) |
+| `%siftcore_tag%` | Your chat tag as MiniMessage (colours and gradients), empty without one |
+| `%siftcore_tag_id%` | The id of your chat tag, empty without one |
+| `%siftcore_tag_plain%` | Your chat tag as plain text, empty without one |
 | `%siftcore_team_members%` | Members in your team (0 without a team) |
 | `%siftcore_team_name%` | Your team's name (empty without a team) |
 | `%siftcore_team_online%` | Members of your team online now (0 without a team) |

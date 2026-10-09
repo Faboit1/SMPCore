@@ -92,8 +92,9 @@ LuckPerms groups, each inheriting the one below:
 The track `ranks` orders them, so `lp user <name> promote ranks` moves a player up one rank. The label shows
 in chat, tab and nametags. Each rank's perks are permission nodes (homes, auction slots, order slots, friends,
 spawner stack room, kits, perk commands and cosmetics; never sell multipliers, team size or keys). The exact LuckPerms
-commands, prices and the reasoning are in [monetization.md](monetization.md); every node is in
-[permissions.md](permissions.md).
+commands, prices and the reasoning are in [monetization.md](monetization.md); the cosmetic perks (chat colours,
+nicknames, chat tags, join lines, kill effects) are described in [features/cosmetics.md](features/cosmetics.md);
+every node is in [permissions.md](permissions.md).
 
 Store purchases should use SiftCore's idempotent store commands (`/sift store ...`) from the store's
 command delivery, so a retried delivery never grants twice.

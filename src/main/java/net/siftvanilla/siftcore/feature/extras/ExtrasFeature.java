@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.CommandSupport;
@@ -17,6 +18,7 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -32,7 +34,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
  * Small things every SMP has: /rules, /help, /ping, /seen, /links, and quiet join/leave messages with a welcome
- * for first-time players. Vanished staff join and leave without a message.
+ * for first-time players. Vanished staff join and leave without a message. Players with a rank join line (Baron) or
+ * their own join message (Tycoon) are announced with it, even when the plain messages are off ({@link Cosmetics});
+ * a brand-new player always gets the welcome instead.
  */
 public final class ExtrasFeature implements Feature, Listener {
 
@@ -41,10 +45,16 @@ public final class ExtrasFeature implements Feature, Listener {
     private final Services services;
     private final Setting<ExtrasSettings> settings;
     private final VanishStatus vanish;
+    private final Cosmetics cosmetics;
 
-    public ExtrasFeature(Services services, List<ConfigProblem> problems, VanishStatus vanish) {
+    /**
+     * @param vanish    vanished staff join and leave without a message (staff tools)
+     * @param cosmetics rank and custom join and leave lines, nicknames (cosmetics)
+     */
+    public ExtrasFeature(Services services, List<ConfigProblem> problems, VanishStatus vanish, Cosmetics cosmetics) {
         this.services = services;
         this.vanish = vanish;
+        this.cosmetics = cosmetics;
         this.settings = services.configs().register("features/extras.yml", ExtrasSettings::parse, problems);
         services.lang().register(ExtrasMessages.class);
         var perms = services.permissions();
@@ -173,11 +183,18 @@ public final class ExtrasFeature implements Feature, Listener {
         ExtrasSettings s = this.settings.get();
         if (this.vanish.vanished(player.getUniqueId())) {
             event.joinMessage(null);
-        } else if (!player.hasPlayedBefore() && s.firstJoinWelcome()) {
+            return;
+        }
+        if (!player.hasPlayedBefore() && s.firstJoinWelcome()) {
             event.joinMessage(this.services.lang().get(ExtrasMessages.FIRST_JOIN, Arg.text("name", player.getName()),
                 Arg.number("number", this.services.directory().size())));
+            return;
+        }
+        Component line = this.cosmetics.joinLine(player);
+        if (line != null) {
+            event.joinMessage(line);
         } else if (s.joinMessages()) {
-            event.joinMessage(this.services.lang().get(ExtrasMessages.JOIN, Arg.text("name", player.getName())));
+            event.joinMessage(this.services.lang().get(ExtrasMessages.JOIN, Arg.component("name", this.cosmetics.name(player))));
         } else {
             event.joinMessage(null);
         }
@@ -185,8 +202,16 @@ public final class ExtrasFeature implements Feature, Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onQuit(PlayerQuitEvent event) {
-        if (this.settings.get().quitMessages() && !this.vanish.vanished(event.getPlayer().getUniqueId())) {
-            event.quitMessage(this.services.lang().get(ExtrasMessages.QUIT, Arg.text("name", event.getPlayer().getName())));
+        Player player = event.getPlayer();
+        if (this.vanish.vanished(player.getUniqueId())) {
+            event.quitMessage(null);
+            return;
+        }
+        Component line = this.cosmetics.quitLine(player);
+        if (line != null) {
+            event.quitMessage(line);
+        } else if (this.settings.get().quitMessages()) {
+            event.quitMessage(this.services.lang().get(ExtrasMessages.QUIT, Arg.component("name", this.cosmetics.name(player))));
         } else {
             event.quitMessage(null);
         }

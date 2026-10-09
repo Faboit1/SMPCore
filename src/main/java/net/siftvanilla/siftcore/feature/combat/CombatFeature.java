@@ -9,6 +9,7 @@ import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
@@ -26,7 +27,8 @@ import org.bukkit.permissions.PermissionDefault;
  * refused while it runs), combat logging, kill credit with anti-farm rules (teams, friends, alt accounts, repeated
  * pairs), clean death messages and kill streak announcements. Kills and deaths go to the stats; bounties hook into
  * counted kills through {@link net.siftvanilla.siftcore.api.event.PlayerKillCreditEvent}. Vanished staff take no
- * part in combat and are never named to players who can't see them.
+ * part in combat and are never named to players who can't see them. Players are named as they show themselves
+ * (nicknames), and a killer's kill effect plays where the victim fell ({@link Cosmetics}).
  */
 public final class CombatFeature implements Feature {
 
@@ -45,7 +47,7 @@ public final class CombatFeature implements Feature {
     private Task timerTask = Task.NONE;
 
     public CombatFeature(Services services, List<ConfigProblem> problems, CombatTags tags, StatsRecorder stats, TeamLookup teams,
-                         FriendLookup friends, VanishStatus vanish, SpawnArea spawn) {
+                         FriendLookup friends, VanishStatus vanish, SpawnArea spawn, Cosmetics cosmetics) {
         this.services = services;
         this.tags = tags;
         this.spawn = spawn;
@@ -64,10 +66,10 @@ public final class CombatFeature implements Feature {
         CombatTagger tagger = new CombatTagger(this.settings, tags, hits, ticker, services.scheduler(), services.messenger());
         KillTracker kills = new KillTracker(this.settings, hits, this.pairs, this.killLog, stats, teams, friends, services.directory(),
             participants, services.scheduler(), services.plugin().getLogger());
-        DeathMessages deathMessages = new DeathMessages(services.lang(), services.settings(), DEATH_MESSAGES, participants);
+        DeathMessages deathMessages = new DeathMessages(services.lang(), services.settings(), DEATH_MESSAGES, participants, cosmetics);
         CombatLogs logs = new CombatLogs(this.settings, tags, tagger, deathMessages, services.audit(), services.directory(), participants);
         this.listener = new CombatListener(this.settings, tags, tagger, kills, deathMessages, logs, spawn, services.directory(),
-            participants, services.messenger());
+            participants, services.messenger(), cosmetics);
         this.timer = new CombatTimer(this.settings, tags, ticker, hits, this.pairs, services.messenger());
         this.commands = new CombatCommands(services, tags, tagger, this.killLog);
     }

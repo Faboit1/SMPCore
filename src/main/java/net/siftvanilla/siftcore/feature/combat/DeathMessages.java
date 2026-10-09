@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.TranslationArgument;
 import net.kyori.adventure.text.format.Style;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -18,8 +19,9 @@ import org.bukkit.inventory.ItemStack;
 /**
  * Builds and sends death messages and kill streak lines. Player kills get a clean line ("Alex was killed by Sam
  * using Diamond Sword", the weapon shows the item on hover); every other death keeps the game's own message, shown
- * in the secondary colour. Players who turned death messages off still hear about their own deaths and kills, and a
- * vanished player's name only reaches players who can see them.
+ * in the secondary colour. Players are named as they show themselves (a nickname in its colour, the real name on
+ * hover). Players who turned death messages off still hear about their own deaths and kills, and a vanished
+ * player's name only reaches players who can see them.
  */
 final class DeathMessages {
 
@@ -27,39 +29,46 @@ final class DeathMessages {
     private final PlayerSettings settings;
     private final Toggle toggle;
     private final Participants participants;
+    private final Cosmetics cosmetics;
 
-    DeathMessages(Lang lang, PlayerSettings settings, Toggle toggle, Participants participants) {
+    DeathMessages(Lang lang, PlayerSettings settings, Toggle toggle, Participants participants, Cosmetics cosmetics) {
         this.lang = lang;
         this.settings = settings;
         this.toggle = toggle;
         this.participants = participants;
+        this.cosmetics = cosmetics;
+    }
+
+    /** A player's name as they show it (their nickname, or their last known name when offline). */
+    Component name(UUID player, String name) {
+        return this.cosmetics.name(player, name);
     }
 
     /** The line for a player kill; the weapon is left out when null. */
-    Component kill(String victim, String killer, ItemStack weapon) {
+    Component kill(Component victim, Component killer, ItemStack weapon) {
         if (weapon == null) {
-            return this.lang.get(CombatMessages.DEATH_KILLED, Arg.text("victim", victim), Arg.text("killer", killer));
+            return this.lang.get(CombatMessages.DEATH_KILLED, Arg.component("victim", victim), Arg.component("killer", killer));
         }
-        return this.lang.get(CombatMessages.DEATH_KILLED_USING, Arg.text("victim", victim), Arg.text("killer", killer),
+        return this.lang.get(CombatMessages.DEATH_KILLED_USING, Arg.component("victim", victim), Arg.component("killer", killer),
             Arg.component("item", itemName(weapon)));
     }
 
     /** The line for a player who left in combat, with the player who gets the kill when there is one. */
-    Component logout(String name, String killer) {
+    Component logout(Component name, Component killer) {
         if (killer == null) {
-            return this.lang.get(CombatMessages.LOGOUT_ANNOUNCE, Arg.text("name", name));
+            return this.lang.get(CombatMessages.LOGOUT_ANNOUNCE, Arg.component("name", name));
         }
-        return this.lang.get(CombatMessages.LOGOUT_ANNOUNCE_KILLED, Arg.text("name", name), Arg.text("killer", killer));
+        return this.lang.get(CombatMessages.LOGOUT_ANNOUNCE_KILLED, Arg.component("name", name), Arg.component("killer", killer));
     }
 
     /** "Alex is on a kill streak of 10." */
-    Component streak(String name, int streak) {
-        return this.lang.get(CombatMessages.STREAK_REACHED, Arg.text("name", name), Arg.number("count", streak));
+    Component streak(Component name, int streak) {
+        return this.lang.get(CombatMessages.STREAK_REACHED, Arg.component("name", name), Arg.number("count", streak));
     }
 
     /** "Sam ended Alex's kill streak of 12." */
-    Component streakEnded(String killer, String victim, int streak) {
-        return this.lang.get(CombatMessages.STREAK_ENDED, Arg.text("killer", killer), Arg.text("victim", victim),
+    Component streakEnded(Component killer, Component victim, int streak) {
+        return this.lang.get(CombatMessages.STREAK_ENDED, Arg.component("killer", killer), Arg.component("victim", victim),
             Arg.number("count", streak));
     }
 

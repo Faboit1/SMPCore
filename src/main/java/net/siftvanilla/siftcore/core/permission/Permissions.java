@@ -1,5 +1,6 @@
 package net.siftvanilla.siftcore.core.permission;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import org.bukkit.Bukkit;
@@ -17,6 +18,7 @@ public final class Permissions {
     }
 
     private final Map<String, Node> nodes = new TreeMap<>();
+    private final Map<String, Map<String, Boolean>> children = new TreeMap<>();
 
     /** Declares a node; call from a feature constructor. Players get it by default when {@code everyone}. */
     public synchronized String declare(String name, String description, boolean everyone) {
@@ -31,12 +33,34 @@ public final class Permissions {
         return name;
     }
 
+    /**
+     * Makes a declared node grant other nodes too (Bukkit child permissions), for nodes that include lower tiers
+     * ({@code siftcore.tags.tycoon} includes {@code siftcore.tags.baron}) and wildcards such as
+     * {@code siftcore.killeffect.*}. LuckPerms follows registered children as well, so the nodes work the same with
+     * or without it. Call from a feature constructor, after declaring {@code parent}.
+     */
+    public synchronized void children(String parent, Map<String, Boolean> granted) {
+        if (!this.nodes.containsKey(parent)) {
+            throw new IllegalStateException("Permission " + parent + " must be declared before its children");
+        }
+        this.children.computeIfAbsent(parent, k -> new LinkedHashMap<>()).putAll(granted);
+    }
+
+    /** The nodes a declared node grants as well (empty for most). */
+    public synchronized Map<String, Boolean> childrenOf(String parent) {
+        Map<String, Boolean> granted = this.children.get(parent);
+        return granted == null ? Map.of() : Map.copyOf(granted);
+    }
+
     /** Registers every declared node with the server (skips nodes another source already registered). */
     public synchronized void install() {
         var manager = Bukkit.getPluginManager();
         for (Node node : this.nodes.values()) {
             if (manager.getPermission(node.name()) == null) {
-                manager.addPermission(new Permission(node.name(), node.description(), node.defaultValue()));
+                Map<String, Boolean> granted = this.children.get(node.name());
+                manager.addPermission(granted == null
+                    ? new Permission(node.name(), node.description(), node.defaultValue())
+                    : new Permission(node.name(), node.description(), node.defaultValue(), new LinkedHashMap<>(granted)));
             }
         }
     }

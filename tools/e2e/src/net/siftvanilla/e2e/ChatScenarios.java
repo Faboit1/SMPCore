@@ -727,7 +727,7 @@ final class ChatScenarios {
             bot.command("settings");
             Bot.SeenDialog list = settingsList(e2e, bot);
             e2e.expect(list.button("Chat") != null && list.button("General") != null, "both groups: " + list.buttons());
-            e2e.expect(list.bodyText().contains("Chat: Mentions and private messages"), "group descriptions: " + list.body());
+            e2e.expect(list.bodyText().contains("Chat: Mentions, private messages and chat colours"), "group descriptions: " + list.body());
             e2e.expect(list.bodyText().indexOf("Chat:") < list.bodyText().indexOf("General:"), "Chat comes first: " + list.body());
             e2e.expect(list.button("Close") != null, "a command opens it with Close: " + list.buttons());
             e2e.click(bot, "Chat");

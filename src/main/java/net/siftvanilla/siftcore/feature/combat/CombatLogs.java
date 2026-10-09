@@ -74,7 +74,7 @@ final class CombatLogs {
                 killed = player.isDead();
             }
             if (!killed && s.announceLogout()) {
-                this.messages.send(this.messages.logout(player.getName(), null), id, null, true);
+                this.messages.send(this.messages.logout(this.messages.name(id, player.getName()), null), id, null, true);
             }
             this.audit.record(id.toString(), "combat.log", id.toString(), "punishment=" + log.punishment().name().toLowerCase(java.util.Locale.ROOT)
                 + ", killed=" + killed + ", reason=" + event.getReason().name().toLowerCase(java.util.Locale.ROOT)

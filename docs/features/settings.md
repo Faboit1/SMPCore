@@ -16,8 +16,9 @@ A form with one switch per toggle the player may see (`PlayerSettings#view`: tog
 permission the player has), in registration order. The body lists each switch's label and description from the
 owning feature's lang file. Currently: payment messages (economy), auction sale messages (auction), team chat spy
 (teams, staff), crate win announcements (crates), mention alerts, private messages, social spy (chat, staff), death
-messages (combat) and teleport requests (tpa; its friends-only switch joins once a friends system exists). A feature
-that registers a new toggle appears automatically.
+messages (combat), teleport requests (tpa; its friends-only switch joins once a friends system exists), and other
+players' chat colours (Chat group) and kill effects (Display group) from cosmetics. A feature that registers a new
+toggle appears automatically.
 
 Dialog input keys can only hold letters, digits and `_`, so `tpa-requests` becomes `tpa_requests` (made unique if
 two ids would collide; the self-test checks this).

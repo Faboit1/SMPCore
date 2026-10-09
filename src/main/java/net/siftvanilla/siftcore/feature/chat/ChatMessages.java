@@ -8,8 +8,11 @@ public final class ChatMessages {
 
     public static final MessageKey FORMAT = MessageKey.ui("chat.format", "rank", "name", "message");
     public static final MessageKey FORMAT_UNRANKED = MessageKey.ui("chat.format-unranked", "name", "message");
+    public static final MessageKey TAGGED_NAME = MessageKey.ui("chat.tagged-name", "tag", "name");
 
     public static final MessageKey CARD_NAME = MessageKey.ui("chat.card.name", "name");
+    public static final MessageKey CARD_NAME_STYLED = MessageKey.ui("chat.card.nickname", "name");
+    public static final MessageKey CARD_REAL_NAME = MessageKey.ui("chat.card.real-name", "name");
     public static final MessageKey CARD_RANK = MessageKey.ui("chat.card.rank", "rank");
     public static final MessageKey CARD_TEAM = MessageKey.ui("chat.card.team", "team");
     public static final MessageKey CARD_NO_TEAM = MessageKey.ui("chat.card.no-team");

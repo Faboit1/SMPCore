@@ -34,7 +34,8 @@ net.siftvanilla.siftcore
 │   ├── combat              CombatTags (who is tagged until when)
 │   ├── link                contracts between features: StatsRecorder, WorthLookup, TeamLookup, AfkStatus,
 │   │                       CrateKeys, SpawnerItems, SpawnArea, MuteStatus, VanishStatus,
-│   │                       FreezeStatus (teleports and dialogs refuse frozen players), FriendLookup, IgnoreLookup
+│   │                       FreezeStatus (teleports and dialogs refuse frozen players), FriendLookup, IgnoreLookup,
+│   │                       Cosmetics, TextChecks
 │   ├── integration         Ranks (LuckPerms labels)
 │   ├── audit               AuditLog
 │   └── selftest            SelfTest
@@ -53,7 +54,7 @@ net.siftvanilla.siftcore
 │
 ├── feature                 one package per gameplay feature (see docs/features/)
 │   ├── economy  hub  admin  sell  shop  auction  orders  spawners  crates  kits  stats  teams  friends
-│   └── combat  bounties  homes  tpa  rtp  spawn  chat  settings  afk  shards  scoreboard
+│   └── combat  bounties  homes  tpa  rtp  spawn  chat  settings  afk  shards  scoreboard  cosmetics  extras
 │
 └── integration             vault, placeholderapi, luckperms, floodgate (loaded only when present)
 ```
@@ -134,6 +135,7 @@ Migrations are `db/migrations/V###.sql`, auto-discovered, applied once each in a
 | `stats`, `kills`, `bounties` | lifetime counters, kill log for anti-farm, bounty contributions |
 | `crate_keys`, `crate_log`, `kit_claims` | virtual keys, reward log, kit cooldowns |
 | `ignores` | ignore lists |
+| `player_cosmetics` | chat colours, nicknames, chat tags (and owned monthly tags), join and leave messages, kill effects |
 | `friends`, `friend_requests`, `friend_profiles`, `friend_log` | friendships (two directed rows each), requests (pending, hidden, closed), stored rank limits, friends history |
 
 Feature-specific additions live in each feature's migration range (see `docs/development.md`).

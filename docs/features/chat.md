@@ -4,12 +4,14 @@ Public chat, `/msg` and `/r`, social spy, ignore lists and the chat staff tools.
 `features/chat.yml`, text `lang/chat.yml`, table `ignores` (V009). The per-player switches it registers show up in the
 settings dialog (see `settings.md`).
 
-It provides one contract and consumes six:
+It provides two contracts and consumes seven:
 
 | Contract | Wired | Used for |
 |---|---|---|
 | `IgnoreLookup` (provided, `ChatFeature#ignores()`) | teleport requests, friends, team invites, payment notices | A player you ignore can't send you teleport, friend or team requests, and their payments arrive without the "paid you" notice |
-| `Ranks` | `NONE` (integrations) | The rank label in front of the name and on the hover card |
+| `TextChecks` (provided, `ChatFeature#textChecks()`) | cosmetics | Nicknames and custom join messages pass the word filter (any match, whatever `filter.action` is) and contain no address (any address, allowed ones too, even with `links.enabled: false`) |
+| `Cosmetics` | cosmetics (late-bound: chat is built first) | Nicknames, chat tags and chat colours in public chat and private messages; `/msg` and mentions by nickname |
+| `Ranks` | integrations (LuckPerms) | The rank label, in its colour, in front of the name and on the hover card |
 | `TeamLookup` | teams feature | The team on the hover card |
 | `StatsRecorder` | stats feature | Kills and playtime on the hover card |
 | `MuteStatus` | staff feature | Muted players can't send private messages (any alias); public chat is refused by the staff tools, and by chat itself if anything let it through |
@@ -19,8 +21,16 @@ It provides one contract and consumes six:
 ## Public chat
 
 A line is `<rank> <name>: <message>` (`chat.format`; `chat.format-unranked` when the player has no rank label). The
-rank is the plain label in gray, the name and message in white. Everything a player typed is inserted as plain text
-and never parsed, so `<red>` or click tags stay literal.
+rank is the label in its LuckPerms colour (gray without one), the name and message in white. Everything a player
+typed is inserted as plain text and never parsed, so `<red>` or click tags stay literal.
+
+Cosmetics (`docs/features/cosmetics.md`) add to the line:
+
+- a chat tag before the name (`chat.tagged-name`: `<tag> <name>`), in its own colours, its description on hover;
+- the nickname the player shows instead of their name, in its colour or gradient; the hover card then starts with
+  the nickname and a `Real name` line, and clicking still suggests `/msg <real name> `;
+- the message in the sender's chat colour or gradient (not the `[item]` part, which keeps the chat colour). Viewers
+  who turned `show-chat-colors` off get the line with the message plain; the sender always sees their colour.
 
 - **Hover card.** Hovering the name shows the player's rank, team, balance, kills and playtime, each with its icon;
   clicking it suggests `/msg <name> `. The card is built once per message from in-memory sources (rank labels, the team
@@ -34,7 +44,7 @@ and never parsed, so `<red>` or click tags stay literal.
   and the word filter in replace mode (`[*** blade]`), so renaming an item never gets an address or a filtered word
   into chat; players with the matching bypass permission are shown as they are.
 - **Mentions.** `@name`, or a player's name written as a whole word (names of 3 letters or more, configurable),
-  pings that player: a notify sound and `<name> mentioned you` on the action bar. There is no highlight in the line
+  pings that player (the nickname a player shows works too): a notify sound and `<name> mentioned you` on the action bar. There is no highlight in the line
   (design system). Players who ignore the sender aren't pinged (they don't get the line at all); each player turns
   alerts off in the settings (`mentions`). One sender pings the same player at most every 3 seconds. Only what the
   player typed counts: an `[item]` whose name is `@Alex` doesn't ping Alex.
@@ -49,7 +59,8 @@ Chat runs in three listener steps on the async chat thread:
    staff chat mode, and a filtered word is replaced before anyone (team chat, other plugins) reads the text. Muted
    players are left to the staff tools, which refuse the message at `LOW` with the mute reason.
 2. `NORMAL`: what is left is public chat (team chat and staff chat modes cancel at `LOW`). Chat lock and slow mode
-   apply, ignoring viewers are removed, `[item]` is replaced and the renderer is set (one render for every viewer).
+   apply, ignoring viewers are removed, `[item]` is replaced and the renderer is set (at most two renders: in the
+   sender's chat colour, and plain for viewers who turned chat colours off).
 3. `MONITOR`: when nothing can cancel the message any more, mentioned viewers are pinged.
 
 ### Anti-spam
@@ -105,6 +116,10 @@ notify sound; both names can be clicked to write again. Staff with social spy on
 `Spy <from> to <to>: <message>`, and the console logs every message (`private-messages.log-to-console`).
 
 `/r` answers the last person you talked to (either direction) for 10 minutes after the last message.
+
+`/msg <nickname>` reaches an online player by the nickname they show. Both names in a message show as the players
+show themselves (hover: the real name), and the text is in the sender's chat colour for the sender and for receivers
+who see chat colours. Social spy and the console log keep real names and plain text.
 
 A message from a player is checked in this order: empty, muted (`MuteStatus`, so `/pm` and `/dm` are covered too),
 yourself, offline or hidden (vanished staff the sender can't see), you ignore them, they ignore you (unless you are
@@ -170,6 +185,7 @@ mode changes are written to the audit log.
 | `mentions` | on | Play a sound and show a notice when mentioned |
 | `private-messages` | on | Let players send me private messages (`/msgtoggle`) |
 | `social-spy` | off | Staff only (`siftcore.chat.socialspy`): see private messages between players (`/socialspy`) |
+| `show-chat-colors` | on | Registered by cosmetics in this group: see the colours other players chose for their messages |
 
 ## Placeholders
 
@@ -189,8 +205,8 @@ repeats, capitals), `filter` (words, replace or block, leetspeak, spaced letters
 
 ## Design decisions
 
-- The renderer is viewer-unaware: a line is rendered once, whoever reads it. Nothing in it depends on the viewer
-  (mentions are a sound and an action bar, never a highlight).
+- A line is rendered at most twice: once in the sender's chat colour and once plain, for viewers who turned chat
+  colours off. Nothing else depends on the viewer (mentions are a sound and an action bar, never a highlight).
 - Player text only ever becomes `Component.text(...)`; the filter and the capitals rule work on plain text before
   the message is rendered, `[item]` replaces inside the component tree.
 - Signed chat: replacing words or rendering a format changes what clients show (the unsigned content); the signed

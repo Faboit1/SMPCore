@@ -252,6 +252,10 @@ public final class Bot {
     private volatile Component tabFooter;
     private final Map<UUID, Component> listNames = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> listOrders = new ConcurrentHashMap<>();
+    /** Particles received, by particle type id (minecraft:heart), counting packets. */
+    private final Map<String, AtomicInteger> particles = new ConcurrentHashMap<>();
+    /** Every entity type the server ever added for this client (kept after the entity is removed). */
+    private final Set<String> everEntityTypes = ConcurrentHashMap.newKeySet();
 
     public Bot(String name) {
         this.name = name;
@@ -468,6 +472,27 @@ public final class Bot {
     /** The tab list order the server set for a profile (0 when never set). */
     public int listOrder(UUID profile) {
         return this.listOrders.getOrDefault(profile, 0);
+    }
+
+    /** How many particle packets of a type (like {@code minecraft:heart}) arrived since the last {@link #clearParticles}. */
+    public int particles(String type) {
+        AtomicInteger count = this.particles.get(type);
+        return count == null ? 0 : count.get();
+    }
+
+    /** The particle types received so far. */
+    public Set<String> particleTypes() {
+        return Set.copyOf(this.particles.keySet());
+    }
+
+    public void clearParticles() {
+        this.particles.clear();
+        this.everEntityTypes.clear();
+    }
+
+    /** Whether the server ever added an entity of this type (like {@code minecraft:lightning_bolt}) since the last clear. */
+    public boolean sawEntityType(String type) {
+        return this.everEntityTypes.contains(type);
     }
 
     /** Forgets everything received so far (start of a step). */
@@ -985,8 +1010,16 @@ public final class Bot {
                 this.deaths.incrementAndGet();
                 deathScreen();
             }
-            case ClientboundAddEntityPacket add -> this.entities.put(add.getId(), new SeenEntity(add.getId(), add.getUUID(),
-                BuiltInRegistries.ENTITY_TYPE.getKey(add.getType()).toString(), add.getX(), add.getY(), add.getZ(), new ConcurrentHashMap<>()));
+            case ClientboundAddEntityPacket add -> {
+                String type = BuiltInRegistries.ENTITY_TYPE.getKey(add.getType()).toString();
+                this.everEntityTypes.add(type);
+                this.entities.put(add.getId(), new SeenEntity(add.getId(), add.getUUID(), type, add.getX(), add.getY(), add.getZ(),
+                    new ConcurrentHashMap<>()));
+            }
+            case net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket particle -> {
+                var key = BuiltInRegistries.PARTICLE_TYPE.getKey(particle.getParticle().getType());
+                this.particles.computeIfAbsent(key == null ? "unknown" : key.toString(), k -> new AtomicInteger()).incrementAndGet();
+            }
             case ClientboundSetEntityDataPacket data -> {
                 SeenEntity entity = this.entities.get(data.id());
                 if (entity != null) {

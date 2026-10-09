@@ -63,9 +63,12 @@ final class PrivateMessages {
         return this.conversations;
     }
 
-    /** {@code /msg <name> <message>} from a player or the console. */
+    /** {@code /msg <name> <message>} from a player or the console; {@code name} may be a nickname a player shows. */
     void message(CommandSender sender, String targetName, String raw) {
         Player target = Bukkit.getPlayerExact(targetName);
+        if (target == null) {
+            target = this.links.cosmetics().byNick(targetName).orElse(null);
+        }
         if (sender instanceof Player player) {
             if (target != null && target.equals(player)) {
                 this.messenger.send(player, ChatMessages.PM_SELF);
@@ -179,15 +182,23 @@ final class PrivateMessages {
             target.getUniqueId(), Component.text(text));
     }
 
+    /**
+     * Sends the message both ways (names as the players show them, the sender's chat colour for the sender and for a
+     * receiver who sees chat colours), to social spy and to the console log (both plain).
+     */
     private void deliver(CommandSender sender, String senderName, UUID from, Player target, String targetName, UUID to,
                          Component message) {
         boolean senderIsConsole = from.equals(Conversations.CONSOLE);
         boolean targetIsConsole = target == null;
+        Player senderPlayer = sender instanceof Player player ? player : null;
+        Component painted = senderPlayer == null ? message : this.links.cosmetics().paint(senderPlayer, message);
         this.messenger.send(sender, ChatMessages.PM_TO,
-            Arg.component("name", this.cards.messageName(targetName, targetIsConsole)), Arg.component("message", message));
+            Arg.component("name", this.cards.messageName(targetName, target, targetIsConsole)), Arg.component("message", painted));
         CommandSender receiver = targetIsConsole ? Bukkit.getConsoleSender() : target;
+        boolean colours = target == null || this.links.cosmetics().showsChatColours(target.getUniqueId());
         this.messenger.send(receiver, ChatMessages.PM_FROM,
-            Arg.component("name", this.cards.messageName(senderName, senderIsConsole)), Arg.component("message", message));
+            Arg.component("name", this.cards.messageName(senderName, senderPlayer, senderIsConsole)),
+            Arg.component("message", colours ? painted : message));
         Component spy = this.lang.get(ChatMessages.PM_SPY, Arg.text("from", senderName), Arg.text("to", targetName),
             Arg.component("message", message));
         for (Player online : Bukkit.getOnlinePlayers()) {

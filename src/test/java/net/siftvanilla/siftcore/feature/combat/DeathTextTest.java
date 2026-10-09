@@ -15,6 +15,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -41,7 +42,7 @@ class DeathTextTest {
         lang.register(CombatMessages.class);
         YamlConfiguration yaml = CombatResourcesTest.yaml("lang/combat.yml");
         assertEquals(List.of(), lang.load(yaml, yaml, "lang/combat.yml"));
-        messages = new DeathMessages(lang, null, CombatFeature.DEATH_MESSAGES, new Participants(VanishStatus.NONE));
+        messages = new DeathMessages(lang, null, CombatFeature.DEATH_MESSAGES, new Participants(VanishStatus.NONE), Cosmetics.NONE);
     }
 
     /** A death message shaped like the game's: a translation with a styled player name and a styled item. */
@@ -119,8 +120,8 @@ class DeathTextTest {
         assertEquals("Alex is on a kill streak of 10.", lang.plain(CombatMessages.STREAK_REACHED, Arg.text("name", "Alex"),
             Arg.number("count", 10)));
         assertEquals("Sam ended Alex's kill streak of 1,200.",
-            PlainTextComponentSerializer.plainText().serialize(messages.streakEnded("Sam", "Alex", 1_200)));
-        assertEquals("Sam is on a kill streak of 5.", PlainTextComponentSerializer.plainText().serialize(messages.streak("Sam", 5)));
+            PlainTextComponentSerializer.plainText().serialize(messages.streakEnded(Component.text("Sam"), Component.text("Alex"), 1_200)));
+        assertEquals("Sam is on a kill streak of 5.", PlainTextComponentSerializer.plainText().serialize(messages.streak(Component.text("Sam"), 5)));
     }
 
     @Test

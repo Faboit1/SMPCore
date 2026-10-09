@@ -12,6 +12,7 @@ adds the index the startup read uses).
 | `FriendLookup` | friends | Kills between friends, or players who were friends within `anti-farm.friends-window`, never count |
 | `VanishStatus` | staff (`StaffFeature#vanish()`) | Vanished staff take no part in combat and are never named to players who can't see them |
 | `SpawnArea` | spawn (`NONE` until the spawn feature is merged) | Tagged players can't walk, pearl or chorus into the protected spawn area |
+| `Cosmetics` | cosmetics (`CosmeticsFeature#cosmetics()`) | Players are named as they show themselves (nicknames) in death messages, kill streaks and combat-log lines; the killer's kill effect plays where the victim fell |
 
 Bounties hook into counted kills through `PlayerKillCreditEvent` (see `bounties.md`).
 
@@ -79,6 +80,15 @@ added as it happens.
   The victim and the killer always see theirs, and so does the console.
 - Lines about a vanished player only reach the players involved and staff who can see vanished players.
 - `death-messages.enabled: false` leaves death messages to the game.
+- Players are named as they show themselves: a nickname in its colour, the real name on hover (`Cosmetics`). The
+  kill log, `/combat kills` and the audit log keep real names.
+
+## Kill effects
+
+When a death is final (`MONITOR`, not cancelled) and a player gets the kill credit, combat hands the killer, the
+victim and the spot to `Cosmetics#kill` on the victim's region thread. The cosmetics feature plays the killer's kill
+effect there (Tycoon), rate limited and never in the protected spawn. Players who turned kill effects off see none, and
+the lightning effect's bolt holds off while one of them is within sight; see `cosmetics.md`.
 
 ## Kill streaks
 

@@ -7,6 +7,7 @@ import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
@@ -15,6 +16,7 @@ import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
 import net.siftvanilla.siftcore.feature.bounties.BountiesFeature;
 import net.siftvanilla.siftcore.feature.chat.ChatFeature;
 import net.siftvanilla.siftcore.feature.combat.CombatFeature;
+import net.siftvanilla.siftcore.feature.cosmetics.CosmeticsFeature;
 import net.siftvanilla.siftcore.feature.crates.CratesFeature;
 import net.siftvanilla.siftcore.feature.displays.DisplaysFeature;
 import net.siftvanilla.siftcore.feature.economy.EconomyFeature;
@@ -75,11 +77,17 @@ final class FeatureCatalog {
         AtomicReference<CrateKeys> crateKeys = new AtomicReference<>(CrateKeys.NONE);
         IntegrationsFeature integrations = new IntegrationsFeature(this.services, this.problems, admin, this.combatTags,
             CrateKeys.late(crateKeys::get), economy.economy());
+        // Chat shows nicknames, tags and chat colours, while cosmetics checks nicknames with chat's word filter:
+        // late-bound cosmetics break the cycle.
+        AtomicReference<Cosmetics> cosmeticsLink = new AtomicReference<>(Cosmetics.NONE);
         ChatFeature chat = new ChatFeature(this.services, this.problems, integrations.ranks(), teams.lookup(), stats.recorder(),
-            staff.mutes(), staff.vanish(), afk.status());
+            staff.mutes(), staff.vanish(), afk.status(), Cosmetics.late(cosmeticsLink::get));
         // Payment notices and team invites respect ignore lists, but economy and teams are built before chat.
         economy.ignores(chat.ignores());
         teams.ignores(chat.ignores());
+        CosmeticsFeature cosmetics = new CosmeticsFeature(this.services, this.problems, integrations.ranks(), chat.textChecks(),
+            spawn.area(), this.combatTags, ChatFeature.SETTINGS, ScoreboardFeature.DISPLAY);
+        cosmeticsLink.set(cosmetics.cosmetics());
         FriendsFeature friends = new FriendsFeature(this.services, this.problems, admin, this.combatTags, chat.ignores(),
             staff.vanish(), afk.status(), teams.lookup(), integrations.ranks(), staff.mutes());
         // Selling routes items into buy orders, but orders are built after sell (they price with sell.worth()):
@@ -95,7 +103,7 @@ final class FeatureCatalog {
             () -> sell.worth().current().highestMultiplier(), spawners.items(), chat.ignores(), staff.vanish());
         orderMarket.set(orders.market());
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
-            friends.lookup(), staff.vanish(), spawn.area());
+            friends.lookup(), staff.vanish(), spawn.area(), cosmetics.cosmetics());
         features.add(economy);
         features.add(auction);
         features.add(teams);
@@ -103,6 +111,7 @@ final class FeatureCatalog {
         features.add(hub);
         features.add(staff);
         features.add(chat);
+        features.add(cosmetics);
         features.add(new SettingsFeature(this.services, this.problems));
         features.add(stats);
         features.add(sell);
@@ -121,7 +130,7 @@ final class FeatureCatalog {
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
         features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), friends.lookup(), chat.ignores(),
             this.combatTags));
-        features.add(new ExtrasFeature(this.services, this.problems, staff.vanish()));
+        features.add(new ExtrasFeature(this.services, this.problems, staff.vanish(), cosmetics.cosmetics()));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(new ScoreboardFeature(this.services, this.problems, stats.recorder(), teams.lookup(), afk.status(), integrations.ranks(),
             this.combatTags, staff.vanish()));

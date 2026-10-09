@@ -85,6 +85,11 @@ final class LinkGuard {
         return this.enabled;
     }
 
+    /** The top-level domains that make a word an address (empty when the check is off). */
+    Set<String> topLevelDomains() {
+        return this.topLevelDomains;
+    }
+
     /** How many allow list entries are in use. */
     int allowedCount() {
         return this.allowed.size();

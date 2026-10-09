@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -51,11 +52,12 @@ final class CombatListener implements Listener {
     private final PlayerDirectory directory;
     private final Participants participants;
     private final Messenger messenger;
+    private final Cosmetics cosmetics;
     private final Map<UUID, PendingDeath> pending = new ConcurrentHashMap<>();
 
     CombatListener(Setting<CombatSettings> settings, CombatTags tags, CombatTagger tagger, KillTracker kills,
                    DeathMessages deathMessages, CombatLogs logs, SpawnArea spawn, PlayerDirectory directory,
-                   Participants participants, Messenger messenger) {
+                   Participants participants, Messenger messenger, Cosmetics cosmetics) {
         this.settings = settings;
         this.tags = tags;
         this.tagger = tagger;
@@ -66,6 +68,7 @@ final class CombatListener implements Listener {
         this.directory = directory;
         this.participants = participants;
         this.messenger = messenger;
+        this.cosmetics = cosmetics;
     }
 
     // ------------------------------------------------------------------ tagging
@@ -196,13 +199,15 @@ final class CombatListener implements Listener {
         Component original = event.deathMessage();
         Component message = null;
         boolean everyone = false;
+        Component victimName = this.deathMessages.name(victim.getUniqueId(), victim.getName());
+        Component killerName = credit.pvp() ? this.deathMessages.name(credit.killer(), this.directory.name(credit.killer())) : null;
         if (combatLog && s.announceLogout()) {
-            message = this.deathMessages.logout(victim.getName(), credit.pvp() ? this.directory.name(credit.killer()) : null);
+            message = this.deathMessages.logout(victimName, killerName);
             everyone = true;
             event.deathMessage(null);
         } else if (s.deathMessages() && original != null && event.getShowDeathMessages()) {
             message = credit.pvp()
-                ? this.deathMessages.kill(victim.getName(), this.directory.name(credit.killer()), s.showWeapon() ? credit.weapon() : null)
+                ? this.deathMessages.kill(victimName, killerName, s.showWeapon() ? credit.weapon() : null)
                 : this.deathMessages.restyle(original);
             event.deathMessage(null);
             if (event.deathScreenMessageOverride() == null) {
@@ -233,10 +238,16 @@ final class CombatListener implements Listener {
         if (killer == null) {
             return;
         }
+        Player killerPlayer = Bukkit.getPlayer(killer);
+        if (killerPlayer != null) {
+            // The killer's kill effect where the victim fell (this is the victim's region thread, which owns the spot).
+            this.cosmetics.kill(killerPlayer, victim, victim.getLocation());
+        }
         CombatSettings.Streaks streaks = this.settings.get().streaks();
-        String killerName = this.directory.name(killer);
+        Component killerName = this.deathMessages.name(killer, this.directory.name(killer));
         if (streaks.ended(outcome.endedStreak())) {
-            this.deathMessages.send(this.deathMessages.streakEnded(killerName, victim.getName(), outcome.endedStreak()), victimId, killer, false);
+            this.deathMessages.send(this.deathMessages.streakEnded(killerName, this.deathMessages.name(victimId, victim.getName()),
+                outcome.endedStreak()), victimId, killer, false);
         }
         if (outcome.counted() && streaks.reached(outcome.killerStreak())) {
             this.deathMessages.send(this.deathMessages.streak(killerName, outcome.killerStreak()), victimId, killer, false);
