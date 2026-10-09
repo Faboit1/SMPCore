@@ -13,14 +13,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.api.event.SettingChangeEvent;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
@@ -31,8 +36,6 @@ import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
-import net.siftvanilla.siftcore.core.player.SettingCategories;
-import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
@@ -68,6 +71,8 @@ public final class SellFeature implements Feature, Listener {
     private static final long MULTIPLIER_REFRESH_TICKS = 20L * 60;
     /** How often the top sellers timer checks whether a refresh is due. */
     private static final Duration TOP_CHECK = Duration.ofSeconds(30);
+    /** How long after a change of hide-from-leaderboards the top sellers may be read again (the value is stored by then). */
+    private static final Duration TOP_SETTLE = Duration.ofSeconds(1);
     /** How long a login may wait for the player's mastery totals before it goes on and they load in the background. */
     private static final long LOGIN_LOAD_SECONDS = 5;
 
@@ -81,6 +86,16 @@ public final class SellFeature implements Feature, Listener {
     private final SellMenus menus;
     private final SellDialogs dialogs;
     private final TopSellers top;
+    private final HiddenSellers hidden;
+    /** Who the top sellers left out at the last read that could tell (kept when a read fails). */
+    private volatile Predicate<UUID> lastHidden = HiddenSellers.NONE;
+    /**
+     * When someone turned hide-from-leaderboards on or off, plus {@link #TOP_SETTLE}: the next check after it reads the
+     * top sellers (0: nothing pending). The change event comes just before the value is stored, so the read waits a
+     * moment for it to land.
+     */
+    private final AtomicLong topDueAt = new AtomicLong();
+    private final AtomicBoolean topReading = new AtomicBoolean();
     private final SellHistory history;
     private final TradeGuard trades;
     private final SellCommands commands;
@@ -125,19 +140,17 @@ public final class SellFeature implements Feature, Listener {
             perms.declare(Multipliers.node(tier.getKey()), "Sell for " + Multipliers.format(tier.getValue())
                 + " times the worth (the highest granted tier wins)", PermissionDefault.FALSE);
         }
-        services.settings().register(SellService.CONFIRM);
-        // Sale receipts are a shared setting (spawner storage sales follow it too); selling acts on it.
-        services.settings().reads(SharedSettings.SELL_RECEIPTS);
         ItemHandout handout = new ItemHandout(services.deliveries(), this.logger);
         this.bids = new OrderBids(orders);
-        // "Sell to buy orders first" is offered only while there are buy orders (the orders feature may be off, and it
-        // starts after this one): registered now, so the server's overrides can always name it.
-        services.settings().register(SettingCategories.GENERAL, SellService.ORDERS, SettingOptions.<Boolean>builder()
-            .availableWhen(() -> this.bids.market().available()).build());
+        // Every selling setting is registered now (so the server's overrides can always name them), each offered only
+        // while the config gives it a meaning; "Sell to buy orders first" while there are buy orders (the orders
+        // feature may be off, and it starts after this one). Sale receipts are shared (spawner storage follows them).
+        SellPrefs.register(services.settings(), this.settings::get, () -> this.bids.market().available());
         SaleBuilder builder = new SaleBuilder(this.worth, this.bids);
         this.sales = new SellService(services, this.worth, this.settings, handout, builder, this.bids, this.mastery, combat);
         this.menus = new SellMenus(services, this.worth, this.settings, this.sales, handout);
         this.top = new TopSellers(services.database(), services.directory()::name);
+        this.hidden = new HiddenSellers(services.database(), services.settings());
         this.history = new SellHistory(services);
         this.dialogs = new SellDialogs(services, this.worth, this.settings, this.sales, this.bids, this.mastery, this.top,
             this.shop::get);
@@ -198,17 +211,51 @@ public final class SellFeature implements Feature, Listener {
         this.services.scheduler().asyncTimer(this::refreshTop, Duration.ZERO, TOP_CHECK);
     }
 
-    /** Reads the top sellers again once the configured interval has passed since the last read. */
+    /**
+     * Reads the top sellers again once the configured interval has passed since the last read, or at the next check
+     * after someone turned hide-from-leaderboards on or off. Reads who is hidden first; when that read fails the last
+     * known answer is kept, so a database hiccup never shows hidden players.
+     */
     private void refreshTop() {
-        long age = System.currentTimeMillis() - this.top.snapshot().at();
-        if (age < this.settings.get().topRefresh().toMillis() && this.top.snapshot().at() > 0) {
+        long now = System.currentTimeMillis();
+        long at = this.top.snapshot().at();
+        long dueAt = this.topDueAt.get();
+        boolean changed = dueAt > 0 && now >= dueAt;
+        boolean due = changed || at <= 0 || now - at >= this.settings.get().topRefresh().toMillis();
+        if (!due || !this.topReading.compareAndSet(false, true)) {
             return;
         }
-        this.top.refresh().whenComplete((snapshot, error) -> {
+        if (changed) {
+            // Only this change is handled: one made meanwhile stays pending for the next check.
+            this.topDueAt.compareAndSet(dueAt, 0);
+        }
+        CompletableFuture<Predicate<UUID>> who;
+        try {
+            who = this.hidden.load();
+        } catch (RuntimeException e) {
+            who = CompletableFuture.failedFuture(e);
+        }
+        who.handle((hidden, error) -> {
+            if (error != null) {
+                this.logger.log(Level.WARNING, "Could not read who hides from the top sellers; keeping the last list", error);
+                return this.lastHidden;
+            }
+            this.lastHidden = hidden;
+            return hidden;
+        }).thenCompose(this.top::refresh).whenComplete((snapshot, error) -> {
+            this.topReading.set(false);
             if (error != null) {
                 this.logger.log(Level.WARNING, "Could not read the top sellers", error);
             }
         });
+    }
+
+    /** Someone turned hide-from-leaderboards on or off: the top sellers follow at the next check, not the next interval. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onSettingChange(SettingChangeEvent event) {
+        if (!(event.isCancelled() && event.cancellable()) && SharedSettings.HIDE_FROM_LEADERBOARDS.id().equals(event.setting())) {
+            this.topDueAt.set(System.currentTimeMillis() + TOP_SETTLE.toMillis());
+        }
     }
 
     private void placeholders() {
@@ -376,6 +423,21 @@ public final class SellFeature implements Feature, Listener {
         test.check(id(), "a sell booster raises sales by exactly its percent", this::checkBooster);
         test.check(id(), "shulker rebuild keeps other contents", this::checkShulkerRebuild);
         test.check(id(), "villager trades are marked", this::checkTradeMarker);
+        test.check(id(), "selling settings are in Money & selling", () -> {
+            for (var setting : List.of(SellPrefs.CONFIRM, SellPrefs.HOTBAR, SellPrefs.ORDERS, SellPrefs.SHULKERS, SellPrefs.MENU_CLOSE,
+                SellPrefs.LEVEL_UP)) {
+                if (!net.siftvanilla.siftcore.core.player.SettingCategories.ECONOMY.equals(this.services.settings().category(setting))) {
+                    return setting.id() + " is not in the Money & selling group";
+                }
+            }
+            SellSettings.SellAll rules = this.settings.get().sellAll();
+            SellSettings.SellAll kept = rules.personal(SellPrefs.Hotbar.KEEP, false);
+            if (kept.opens(ContainerItems.Kind.BUNDLE) != rules.opens(ContainerItems.Kind.BUNDLE)) {
+                return "a player's shulker box switch changes how bundles are sold";
+            }
+            return kept.skipHotbar() && !kept.opens(ContainerItems.Kind.SHULKER_BOX) ? null
+                : "a player's hotbar and shulker box choices are not applied";
+        });
     }
 
     /** Every base price is in the table unchanged and every price is a whole amount within the money limit. */

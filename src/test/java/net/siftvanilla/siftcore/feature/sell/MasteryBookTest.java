@@ -168,7 +168,7 @@ class MasteryBookTest {
         sell(BOB, 1, Map.of("farming", 900L)).committed().get();
         sell(CAROL, 1, Map.of("wood", 500L)).committed().get();
         TopSellers top = new TopSellers(this.database, uuid -> uuid.equals(BOB) ? "Bob" : null);
-        TopSellers.Snapshot snapshot = top.refresh().get();
+        TopSellers.Snapshot snapshot = top.refresh(HiddenSellers.NONE).get();
         assertEquals(List.of(BOB, ALICE, CAROL), snapshot.top().stream().map(TopSellers.Entry::uuid).toList());
         assertEquals("Bob", snapshot.place(1).orElseThrow().name());
         assertEquals(900, snapshot.place(1).orElseThrow().sold());
@@ -180,5 +180,12 @@ class MasteryBookTest {
         assertEquals(4, snapshot.rankOf(1));
         assertTrue(snapshot.place(4).isEmpty());
         assertTrue(top.snapshot() == snapshot);
+
+        // Bob hides from leaderboards: no place, no rank, the others move up; his own total stays known.
+        TopSellers.Snapshot hidden = top.refresh(BOB::equals).get();
+        assertEquals(List.of(ALICE, CAROL), hidden.top().stream().map(TopSellers.Entry::uuid).toList());
+        assertEquals(1, hidden.rankOf(550));
+        assertEquals(900, hidden.byUuid().get(BOB));
+        assertTrue(top.snapshot() == hidden);
     }
 }

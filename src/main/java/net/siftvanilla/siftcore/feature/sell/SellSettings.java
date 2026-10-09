@@ -12,7 +12,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
+import net.siftvanilla.siftcore.core.item.ContainerItems;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 
 /**
  * Parsed {@code features/sell.yml}, including the worth table generated from it. Generating the table while
@@ -58,7 +60,10 @@ public record SellSettings(
     public enum Confirm {
         /** Always asks, whatever the player's setting. */
         ALWAYS,
-        /** Asks when the total is at least {@code confirm-above} and the player didn't turn asking off. */
+        /**
+         * Asks from the amount the player's {@code sell_all_confirm} names; "server default" asks from
+         * {@code confirm-above}.
+         */
         ABOVE,
         /** Never asks. */
         NEVER
@@ -71,21 +76,85 @@ public record SellSettings(
      * @param skipHotbar      leave the hotbar alone
      * @param confirm         when to ask before selling
      * @param confirmAbove    the total from which {@link Confirm#ABOVE} asks
-     * @param shulkerContents also sell what is inside shulker boxes (never the box itself)
+     * @param shulkerContents the server's {@code sell-all.shulker-contents}: also sell what is inside shulker boxes
+     *                        (and bundles, behind {@code bundle-contents}), never the box itself
+     * @param playerShulkers  the player's {@code sell-all-shulkers} switch: off keeps shulker boxes (only those, not
+     *                        bundles) shut; true in the server's own rules
      */
     public record SellAll(boolean skipUnstackable, boolean skipHotbar, Confirm confirm, long confirmAbove,
-                          boolean shulkerContents) {
+                          boolean shulkerContents, boolean playerShulkers) {
 
         public static final SellAll DEFAULT = new SellAll(true, false, Confirm.ABOVE, 10_000, true);
 
-        /** Whether a sale of {@code total} asks first, for a player who has asking {@code on} or off. */
-        public boolean asks(long total, boolean on) {
+        /** The server's rules, before any player's choices. */
+        public SellAll(boolean skipUnstackable, boolean skipHotbar, Confirm confirm, long confirmAbove, boolean shulkerContents) {
+            this(skipUnstackable, skipHotbar, confirm, confirmAbove, shulkerContents, true);
+        }
+
+        /**
+         * Whether a sale of {@code total} asks first for a player with this {@code sell_all_confirm} choice. The
+         * server's {@code always} and {@code never} win; with {@code above} the player's choice decides, and "server
+         * default" asks from {@code confirm-above}.
+         */
+        public boolean asks(long total, ConfirmAbove choice) {
             return switch (this.confirm) {
                 case ALWAYS -> true;
                 case NEVER -> false;
-                case ABOVE -> on && total >= this.confirmAbove;
+                case ABOVE -> choice.asks(total, total >= this.confirmAbove);
             };
         }
+
+        /**
+         * Whether selling everything (or a category) opens containers of this kind: the server's
+         * {@code sell-all.shulker-contents} for both, and for shulker boxes also the player's switch. Whether the kind
+         * is opened at all ({@code shulker-contents}, {@code bundle-contents}) is checked separately.
+         */
+        public boolean opens(ContainerItems.Kind kind) {
+            return this.shulkerContents && (kind != ContainerItems.Kind.SHULKER_BOX || this.playerShulkers);
+        }
+
+        /**
+         * These rules as one player sells: their {@code sell-all-hotbar} choice ({@code keep}/{@code sell} replace
+         * {@code skip-hotbar}) and their {@code sell-all-shulkers} switch (it can only keep shulker boxes shut, never
+         * bundles, and only counts while the server opens boxes on {@code /sell all}, which is when it is offered).
+         */
+        public SellAll personal(SellPrefs.Hotbar hotbar, boolean shulkers) {
+            boolean skip = switch (hotbar) {
+                case SERVER -> this.skipHotbar;
+                case KEEP -> true;
+                case SELL -> false;
+            };
+            boolean open = shulkers;
+            return skip == this.skipHotbar && open == this.playerShulkers ? this
+                : new SellAll(this.skipUnstackable, skip, this.confirm, this.confirmAbove, this.shulkerContents, open);
+        }
+    }
+
+    /**
+     * Whether a player's {@code sell-all-shulkers} switch means anything: the server opens shulker boxes, also on
+     * {@code /sell all}. It is offered only then.
+     */
+    public boolean shulkerSwitchOffered() {
+        return this.shulkerContents && this.sellAll.shulkerContents();
+    }
+
+    /**
+     * These settings as one player sells: their {@code sell-all-hotbar} choice and their {@code sell-all-shulkers}
+     * switch applied to selling everything ({@link SellAll#personal}). The switch counts only while it is offered: a
+     * choice stored earlier changes nothing while it is not.
+     */
+    public SellSettings personal(SellPrefs.Hotbar hotbar, boolean shulkers) {
+        return withSellAll(this.sellAll.personal(hotbar, shulkers || !shulkerSwitchOffered()));
+    }
+
+    /** A copy with other {@code sell-all} rules (a player's own, see {@link SellAll#personal}). */
+    public SellSettings withSellAll(SellAll rules) {
+        if (rules.equals(this.sellAll)) {
+            return this;
+        }
+        return new SellSettings(this.craftLoss, this.recipeKinds, this.multipliers, rules, this.shulkerContents, this.bundleContents,
+            this.blockInCombat, this.markTrades, this.actionBarTotal, this.categories, this.mastery, this.topRefresh, this.table,
+            this.recipes, this.tableProblems);
     }
 
     public SellSettings {

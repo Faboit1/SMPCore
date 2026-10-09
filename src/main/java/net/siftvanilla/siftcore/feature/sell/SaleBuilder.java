@@ -334,7 +334,7 @@ final class SaleBuilder {
             return null;
         }
         if ((request.scope() == SaleRequest.Scope.ALL || request.scope() == SaleRequest.Scope.CATEGORY)
-            && !settings.sellAll().shulkerContents()) {
+            && !settings.sellAll().opens(kind)) {
             return null;
         }
         return kind;

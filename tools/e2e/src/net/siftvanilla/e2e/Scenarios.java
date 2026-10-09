@@ -133,7 +133,7 @@ final class Scenarios {
         e2e.expect(e2e.money(PAYERBOT) == afterLimit, "nothing moved by refused payments");
     }
 
-    /** A payment from an ignored player arrives without the "paid you" notice. */
+    /** An ignored player can't pay (the "Who can pay me" rule: ignored players never can); once unignored they can. */
     static void payIgnored(E2E e2e) {
         String payerName = e2e.name("IgnPayer");
         String payeeName = e2e.name("IgnPayee");
@@ -145,16 +145,17 @@ final class Scenarios {
         payee.command("ignore " + payerName);
         e2e.eventually(() -> ignores.ignores(e2e.uuid(payeeName), e2e.uuid(payerName)), "the payee ignores the payer");
 
-        e2e.step("the money arrives, the notice doesn't");
+        e2e.step("the payment is refused, nothing moves and the payee hears nothing");
         long before = e2e.money(payeeName);
         payee.clearLogs();
+        payer.clearLogs();
         payer.command("pay " + payeeName + " 100");
-        e2e.eventually(() -> e2e.money(payeeName) == before + 100, "the payee received $100");
-        e2e.eventually(() -> payer.chatContains("You paid " + payeeName + " $100."), "the payer's receipt: " + payer.chat());
+        e2e.eventually(() -> payer.anyFeedbackContains(payeeName + " doesn't accept payments from you."), "refused: " + payer.actionBar());
         e2e.sleep(1_000);
+        e2e.expect(e2e.money(payeeName) == before && e2e.money(payerName) == 10_000, "nothing moved");
         e2e.expect(!payee.chatContains("paid you"), "no notice from an ignored player: " + payee.chat());
 
-        e2e.step("once unignored, notices come back");
+        e2e.step("once unignored, payments and notices come back");
         payee.command("unignore " + payerName);
         e2e.eventually(() -> !ignores.ignores(e2e.uuid(payeeName), e2e.uuid(payerName)), "not ignored");
         e2e.sleep(2_100);

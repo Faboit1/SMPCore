@@ -96,6 +96,7 @@ final class BoostersScenarios {
         list.add(of("spawn-fly", BoostersScenarios::spawnFly));
         list.add(of("join-full", BoostersScenarios::joinFull));
         list.add(of("purchases", BoostersScenarios::purchases));
+        list.add(of("boosters-settings", BoostersScenarios::settings));
         return list;
     }
 
@@ -805,6 +806,59 @@ final class BoostersScenarios {
         bot.command("fly");
         if (!Bot.await(() -> bot.anyFeedbackContains(answer), 10_000)) {
             throw new E2E.Failure("expected /fly answers '" + answer + "': " + bot.chat() + " " + bot.actionBar());
+        }
+    }
+
+    /**
+     * The booster settings: the announcement filter turned off through the settings dialog and set to only new boosters
+     * with {@code /settings booster-announcements starts}, next to a player on the default (all); the bar switch through
+     * {@code /settings booster-bar} hides and shows the bar at once.
+     */
+    static void settings(E2E e2e) {
+        clearBoosters(e2e);
+        String allName = e2e.name("NewsAll");
+        String startsName = e2e.name("NewsStart");
+        String offName = e2e.name("NewsOff");
+        Bot all = e2e.bot(allName);
+        Bot starts = e2e.bot(startsName);
+        Bot off = e2e.bot(offName);
+        try {
+            e2e.step("one player turns booster announcements off in the dialog, another keeps only new boosters");
+            MoneyScenarios.editSettings(e2e, off, "announcements", "Server announcements settings", Map.of("booster_announcements", "off"));
+            e2e.eventually(() -> off.anyFeedbackContains("Sell booster announcements set to Off"), "saved: " + off.chat() + off.actionBar());
+            var prefs = e2e.services().settings();
+            starts.command("settings booster-announcements starts");
+            e2e.eventually(() -> "starts".equals(prefs.encoded(e2e.uuid(startsName), "booster-announcements")),
+                "only new boosters through /settings: " + starts.chat() + " " + starts.actionBar());
+
+            e2e.step("a booster starts: all and only-new are told, off is not");
+            all.clearLogs();
+            starts.clearLogs();
+            off.clearLogs();
+            reply(e2e, "sift booster start 10 30m", "Started the +10% sell booster");
+            e2e.eventually(() -> all.chatContains("A +10% sell booster started for 30 minutes."), "all: " + all.chat());
+            e2e.eventually(() -> starts.chatContains("A +10% sell booster started for 30 minutes."), "only new: " + starts.chat());
+            e2e.eventually(() -> off.bossBar("+10% sell booster") != null, "the bar still shows with announcements off: " + off.bossBars());
+            e2e.expect(!off.chatContains("sell booster started"), "off hears nothing: " + off.chat());
+
+            e2e.step("the bar switch through /settings hides the bar at once and shows it again");
+            all.command("settings booster-bar off");
+            e2e.eventually(() -> "false".equals(prefs.encoded(e2e.uuid(allName), "booster-bar")), "bar off: " + all.chat());
+            e2e.eventually(() -> all.bossBar("sell booster") == null, "hidden: " + all.bossBars());
+            e2e.sleep(2_500);
+            e2e.expect(all.bossBar("sell booster") == null, "it stays hidden while the bar refreshes");
+            all.command("settings booster-bar on");
+            e2e.eventually(() -> "true".equals(prefs.encoded(e2e.uuid(allName), "booster-bar")), "bar on: " + all.chat());
+            e2e.eventually(() -> all.bossBar("+10% sell booster") != null, "shown again: " + all.bossBars());
+
+            e2e.step("it ends: only the player who wants every announcement is told");
+            reply(e2e, "sift booster stop", "Stopped the +10% sell booster");
+            e2e.eventually(() -> all.chatContains("The +10% sell booster was ended early."), "all: " + all.chat());
+            e2e.sleep(1_000);
+            e2e.expect(!starts.chatContains("ended early") && !off.chatContains("ended early"),
+                "the others are not told: " + starts.chat() + " / " + off.chat());
+        } finally {
+            clearBoosters(e2e);
         }
     }
 

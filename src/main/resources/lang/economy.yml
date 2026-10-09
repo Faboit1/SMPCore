@@ -2,6 +2,8 @@ economy:
   balance:
     self: "<primary>You have <amount> and <shards> shards."
     other: "<primary><name> has <amount> and <shards> shards."
+    # /balance <name> of a player who keeps their balance from you (their "Who can see my balance" setting).
+    private: "<primary><name> keeps their balance private."
   pay:
     sent: "<primary>You paid <name> <amount>."
     received: "<primary><name> paid you <amount>."
@@ -9,6 +11,8 @@ economy:
     limit: "<primary>You can send <left> more today. Your daily limit is <limit> and grows the more you play."
     offline: "<primary><name> has to be online to receive money."
     target-full: "<primary><name> can't hold that much money."
+    # The receiver's "Who can pay me" setting leaves the payer out, or they ignore the payer.
+    not-accepted: "<primary><name> doesn't accept payments from you."
     cancelled: "<secondary>Payment cancelled."
     confirm-title: "Confirm payment"
     confirm-body:
@@ -62,6 +66,22 @@ economy:
     limit-failed: "<primary>Your daily pay limit couldn't be loaded. Open this page again to see it."
     pay: "Pay a player"
     top: "Richest players"
+  # Shown a moment after joining (the "Offline payments summary" setting): who paid you while you were offline.
+  away:
+    header: "<primary>While you were away you received <total>:"
+    line: "<secondary><name> paid you <primary><amount>"
+    line-many: "<secondary><name> paid you <primary><amount> <secondary>in <count> payments"
+    more: "<secondary>and <count> more players"
+  # The settings in /settings (Money & selling).
   settings:
-    notifications: "Payment messages"
-    notifications-description: "Tell me when someone pays me"
+    notifications: "Payment alerts"
+    notifications-description: "How you are told someone paid you."
+    confirm-above: "Confirm payments from"
+    confirm-above-description: "Ask you to confirm /pay at or above this amount. Never looser than the server's limit."
+    accept-from: "Who can pay me"
+    accept-from-description: "Accept /pay from everyone, friends and teammates, friends only, or nobody. Ignored players can never pay you."
+    join-summary: "Offline payments summary"
+    join-summary-description: "When you join, list who paid you while you were away."
+    alert-minimum: "Only alert payments from"
+    alert-minimum-description: "Skip payment alerts below this amount. The money still arrives."
+    alert-minimum-any: "Any amount"

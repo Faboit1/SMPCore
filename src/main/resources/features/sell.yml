@@ -58,14 +58,17 @@ sell-all:
   # /sell all (and /sell hand all, and selling a mastery category) leaves items that don't stack (tools, weapons,
   # armor, shulker boxes) where they are. /sell hand and the /sell menu still sell them.
   skip-unstackable: true
-  # /sell all leaves the hotbar alone (also what the menu's Add button takes).
+  # /sell all leaves the hotbar alone (also what the menu's Add button takes). Players can keep or sell their hotbar
+  # whatever this says with "Hotbar on /sell all" in /settings; "Server default" follows this.
   skip-hotbar: false
-  # Show the total and ask before selling everything: always, above (from confirm-above, for players who keep
-  # "Ask before /sell all" on in /settings) or never. Confirming sells exactly what was shown; if the inventory
-  # changed in between, the new total is shown first. /sell hand all and category selling ask the same way.
+  # Show the total and ask before selling everything: always, above or never. With above, players pick from which
+  # total they are asked ("Confirm /sell all from" in /settings: the server's confirm-above, always, $10k, $100k, $1m
+  # or never); always and never are for everyone. Confirming sells exactly what was shown; if the inventory changed
+  # in between, the new total is shown first. /sell hand all and category selling ask the same way.
   confirm: above
   confirm-above: 10k
-  # /sell all also sells what is inside shulker boxes (never the box itself).
+  # /sell all also sells what is inside shulker boxes (never the box itself). Players can turn it off for themselves
+  # with "/sell all opens shulker boxes" in /settings.
   shulker-contents: true
 
 feedback:

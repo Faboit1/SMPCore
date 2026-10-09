@@ -30,6 +30,11 @@ sell:
     boxes: "<secondary><count> of them came out of shulker boxes"
     booster: "<secondary>Sell booster <primary>+<percent>%"
   level-up: "<primary><category> mastery is now level <level>. <secondary><category> items sell for <multiplier>x."
+  # The same as a title, for players who picked Title for their sell mastery level-ups.
+  level-up-title: "<primary><category> mastery <level>"
+  # One sale levelled up several categories: one line above the hotbar (or a title), and each level-up in chat.
+  level-up-many: "<primary><count> sell masteries levelled up. <secondary>See chat."
+  level-up-many-title: "<primary><count> masteries up"
   empty-hand: "<primary>Hold the item you want to sell."
   not-sellable: "<primary>You can't sell <item>."
   modified: "<primary>Renamed, enchanted or damaged items can't be sold."
@@ -110,6 +115,7 @@ sell:
     empty: "<secondary>Nobody has sold anything yet."
     you: "<secondary>You: #<rank> <sold>"
     you-none: "<secondary>You haven't sold anything yet."
+    you-hidden: "<secondary>You are hidden from leaderboards, so you have no place here."
   # /sell history
   history:
     title: "Your sales"
@@ -181,12 +187,24 @@ sell:
     unknown-category: "<primary>There's no sell category called <name>."
     level-range: "<primary>Pick a level from 0 to <max>."
     loading: "<primary>That player's mastery is still loading. Try again in a moment."
-  # Settings (/settings)
-  toggle:
-    confirm: "Ask before /sell all"
-    confirm-description: "Show the total before selling everything"
+  # Settings (/settings, the Money & selling group). Option names like "Server default" are shared (lang/settings.yml).
+  settings:
+    confirm: "Confirm /sell all from"
+    confirm-description: "Ask before selling everything when the total is at least this much. The server's own always/never rule still wins."
+    hotbar: "Hotbar on /sell all"
+    hotbar-description: "Keep your hotbar items when selling everything, or sell them too. Server follows the server's setting."
+    hotbar-keep: "Keep it"
+    hotbar-sell: "Sell it too"
     orders: "Sell to buy orders first"
-    orders-description: "Send items to buy orders that pay more than the server"
+    orders-description: "Send items to buy orders that pay more than the server."
+    shulkers: "/sell all opens shulker boxes"
+    shulkers-description: "Also sell what is inside shulker boxes you carry."
+    menu-close: "Closing the sell menu"
+    menu-close-description: "Give your items back, or sell them when you close /sell. Quitting always gives them back."
+    menu-close-return: "Give them back"
+    menu-close-sell: "Sell them"
+    level-up: "Sell mastery level-ups"
+    level-up-description: "How your sell mastery level-ups are announced to you."
   hub:
     label: "Sell"
     description: "Sell items for money"

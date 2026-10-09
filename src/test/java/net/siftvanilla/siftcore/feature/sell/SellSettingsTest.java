@@ -10,7 +10,9 @@ import java.util.Map;
 import java.util.Set;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
+import net.siftvanilla.siftcore.core.item.ContainerItems;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
@@ -153,14 +155,75 @@ class SellSettingsTest {
 
     @Test
     void sellAllAsksAccordingToTheSettingAndThePlayer() {
+        ConfirmAbove server = ConfirmAbove.SERVER;
+        ConfirmAbove from100k = SellPrefs.CONFIRM.decodeOrNull("100k");
         SellSettings.SellAll above = new SellSettings.SellAll(true, false, SellSettings.Confirm.ABOVE, 10_000, true);
-        assertTrue(above.asks(10_000, true));
-        assertFalse(above.asks(9_999, true));
-        assertFalse(above.asks(1_000_000, false), "players who turned asking off sell right away");
+        assertTrue(above.asks(10_000, server), "server default asks from confirm-above");
+        assertFalse(above.asks(9_999, server));
+        assertFalse(above.asks(1_000_000, ConfirmAbove.NEVER), "players who chose never sell right away");
+        assertTrue(above.asks(1, ConfirmAbove.ALWAYS), "players who chose always are always asked");
+        assertFalse(above.asks(99_999, from100k), "a preset above the server's amount asks later");
+        assertTrue(above.asks(100_000, from100k));
         SellSettings.SellAll always = new SellSettings.SellAll(true, false, SellSettings.Confirm.ALWAYS, 10_000, true);
-        assertTrue(always.asks(1, false));
+        assertTrue(always.asks(1, ConfirmAbove.NEVER), "the server's always wins");
         SellSettings.SellAll never = new SellSettings.SellAll(true, false, SellSettings.Confirm.NEVER, 10_000, true);
-        assertFalse(never.asks(Long.MAX_VALUE, true));
+        assertFalse(never.asks(Long.MAX_VALUE, ConfirmAbove.ALWAYS), "the server's never wins");
+    }
+
+    @Test
+    void aPlayersSellAllRulesFollowTheirHotbarAndShulkerChoices() {
+        SellSettings.SellAll server = new SellSettings.SellAll(true, false, SellSettings.Confirm.ABOVE, 10_000, true);
+        assertTrue(server.personal(SellPrefs.Hotbar.SERVER, true) == server, "nothing changed: the server's rules themselves");
+        assertTrue(server.personal(SellPrefs.Hotbar.KEEP, true).skipHotbar());
+        assertFalse(server.personal(SellPrefs.Hotbar.SELL, true).skipHotbar());
+        assertFalse(server.personal(SellPrefs.Hotbar.SERVER, false).opens(ContainerItems.Kind.SHULKER_BOX),
+            "a player can stop opening boxes");
+        assertTrue(server.personal(SellPrefs.Hotbar.SERVER, false).opens(ContainerItems.Kind.BUNDLE),
+            "but their shulker box switch leaves bundles alone");
+        assertTrue(server.personal(SellPrefs.Hotbar.SERVER, false).shulkerContents(), "the server's own rule is kept apart");
+        SellSettings.SellAll skipping = new SellSettings.SellAll(true, true, SellSettings.Confirm.ABOVE, 10_000, false);
+        assertTrue(skipping.personal(SellPrefs.Hotbar.SERVER, true).skipHotbar(), "server default follows skip-hotbar");
+        assertFalse(skipping.personal(SellPrefs.Hotbar.SELL, true).skipHotbar(), "sell it too, whatever the server skips");
+        assertFalse(skipping.personal(SellPrefs.Hotbar.SERVER, true).opens(ContainerItems.Kind.SHULKER_BOX),
+            "but never opens boxes the server keeps shut");
+        assertFalse(skipping.opens(ContainerItems.Kind.BUNDLE), "the server's sell-all.shulker-contents covers bundles too");
+        SellSettings.SellAll personal = server.personal(SellPrefs.Hotbar.KEEP, false);
+        assertEquals(server.skipUnstackable(), personal.skipUnstackable());
+        assertEquals(server.confirm(), personal.confirm());
+        assertEquals(server.confirmAbove(), personal.confirmAbove());
+
+        List<ConfigProblem> problems = new ArrayList<>();
+        SellSettings settings = parse(VALID, problems);
+        assertEquals(List.of(), problems);
+        assertTrue(settings.withSellAll(settings.sellAll()) == settings);
+        SellSettings mine = settings.withSellAll(personal);
+        assertEquals(personal, mine.sellAll());
+        assertEquals(settings.table(), mine.table());
+        assertEquals(settings.multipliers(), mine.multipliers());
+        assertEquals(settings.mastery(), mine.mastery());
+    }
+
+    @Test
+    void theShulkerSwitchOnlyKeepsBoxesShutWhileItIsOffered() {
+        List<ConfigProblem> problems = new ArrayList<>();
+        // Boxes are never opened, bundles are: the switch is not offered, so a stored "off" must not touch bundles.
+        SellSettings bundlesOnly = parse(VALID + "shulker-contents: false\nbundle-contents: true\n", problems);
+        assertEquals(List.of(), problems);
+        assertFalse(bundlesOnly.shulkerContents());
+        assertTrue(bundlesOnly.bundleContents());
+        assertTrue(bundlesOnly.sellAll().shulkerContents());
+        assertFalse(bundlesOnly.shulkerSwitchOffered());
+        SellSettings mine = bundlesOnly.personal(SellPrefs.Hotbar.SERVER, false);
+        assertTrue(mine.sellAll().opens(ContainerItems.Kind.BUNDLE), "bundles open on /sell all like everyone else's");
+        assertTrue(mine == bundlesOnly, "a switch that is not offered changes nothing");
+
+        SellSettings both = parse(VALID + "bundle-contents: true\n", problems);
+        assertEquals(List.of(), problems);
+        assertTrue(both.shulkerSwitchOffered());
+        SellSettings shut = both.personal(SellPrefs.Hotbar.SERVER, false);
+        assertFalse(shut.sellAll().opens(ContainerItems.Kind.SHULKER_BOX), "offered: off keeps boxes shut");
+        assertTrue(shut.sellAll().opens(ContainerItems.Kind.BUNDLE), "and bundles still open");
+        assertTrue(both.personal(SellPrefs.Hotbar.SERVER, true) == both);
     }
 
     @Test

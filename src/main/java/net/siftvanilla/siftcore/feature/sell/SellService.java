@@ -24,7 +24,6 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
-import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -55,11 +54,6 @@ final class SellService {
 
     /** Receipt hover cards list at most this many item kinds. */
     private static final int RECEIPT_LINES = 12;
-
-    static final Toggle CONFIRM = new Toggle("sell_all_confirm", true, SellMessages.TOGGLE_CONFIRM,
-        SellMessages.TOGGLE_CONFIRM_DESCRIPTION, null);
-    static final Toggle ORDERS = new Toggle("sell_orders", true, SellMessages.TOGGLE_ORDERS,
-        SellMessages.TOGGLE_ORDERS_DESCRIPTION, null);
 
     /** How a sale attempt ended. */
     enum Outcome {
@@ -126,17 +120,33 @@ final class SellService {
         if (!market.available()) {
             return false;
         }
-        return this.services.settings().enabled(player.getUniqueId(), ORDERS) && market.usable(player) == null;
+        return this.services.settings().enabled(player.getUniqueId(), SellPrefs.ORDERS) && market.usable(player) == null;
+    }
+
+    /**
+     * The sell settings as this player sells: the server's, with their {@code sell-all-hotbar} choice and their
+     * {@code sell-all-shulkers} switch applied to selling everything. The switch counts only while it is offered (the
+     * server opens shulker boxes, also on {@code /sell all}): a choice stored earlier changes nothing while it is not.
+     */
+    SellSettings personal(Player player) {
+        var prefs = this.services.settings();
+        return this.settings.get().personal(prefs.get(player.getUniqueId(), SellPrefs.HOTBAR),
+            prefs.get(player.getUniqueId(), SellPrefs.SHULKERS));
+    }
+
+    /** Whether selling {@code total} everything asks first: the server's rule and the player's {@code sell_all_confirm}. */
+    private boolean asks(Player player, SellSettings rules, long total) {
+        return rules.sellAll().asks(total, this.services.settings().get(player.getUniqueId(), SellPrefs.CONFIRM));
     }
 
     /** A draft from the preview cache (menus, dialogs). Never moves anything. */
     SaleBuilder.Result preview(Player player, Inventory inventory, SaleRequest request) {
-        return this.builder.build(player, inventory, request, this.settings.get(), routing(player), true, Set.of());
+        return this.builder.build(player, inventory, request, personal(player), routing(player), true, Set.of());
     }
 
     private SaleBuilder.Result fresh(Player player, Inventory inventory, SaleRequest request, boolean routing,
                                      Set<Long> excluded) {
-        return this.builder.build(player, inventory, request, this.settings.get(), routing, false, excluded);
+        return this.builder.build(player, inventory, request, personal(player), routing, false, excluded);
     }
 
     // ------------------------------------------------------------------ requests
@@ -227,8 +237,7 @@ final class SellService {
             this.services.messenger().feedback(player, Feedback.ERROR);
             return Outcome.ASKED;
         }
-        boolean asking = this.services.settings().enabled(player.getUniqueId(), CONFIRM);
-        if (this.settings.get().sellAll().asks(draft.total(), asking)) {
+        if (asks(player, this.settings.get(), draft.total())) {
             this.services.dialogs().show(player, confirmView(player, request, draft, null, back, true));
             return Outcome.ASKED;
         }
@@ -266,8 +275,7 @@ final class SellService {
             return Outcome.NOTHING;
         }
         SaleDraft draft = result.draft();
-        boolean asking = this.services.settings().enabled(player.getUniqueId(), CONFIRM);
-        if (alwaysAsk || this.settings.get().sellAll().asks(draft.total(), asking)) {
+        if (alwaysAsk || asks(player, this.settings.get(), draft.total())) {
             this.services.dialogs().show(player, confirmView(player, request, draft, null, back));
             return Outcome.ASKED;
         }
@@ -318,13 +326,15 @@ final class SellService {
             default -> lang.get(SellMessages.CONFIRM_TITLE);
         };
         boolean returns = stay && back != null;
+        // Sell stays on screen until the server answers: when the total changed in between the confirmation comes back
+        // with the new total. Choose items finishes here (the sell menu opens).
         Button sell = Button.of(lang.get(SellMessages.CONFIRM_SELL,
             Arg.text("total", this.services.money().get().format(draft.total()))),
             s -> onConfirm(s.player(), request, draft, s, back, returns)).width(150);
         Button choose = Button.of(lang.get(SellMessages.CONFIRM_CHOOSE), s -> {
             s.close();
             this.chooseItems.accept(s.player(), request);
-        }).width(150);
+        }).width(150).closes();
         // What back shows (the item's details, the shop, the mastery details) replaces this dialog; a chest menu marks
         // itself shown, so nothing closes the sell menu under the dialog.
         Button cancel = Button.of(lang.get(CoreMessages.UI_CANCEL), back == null ? null : s -> back.run())
@@ -601,18 +611,39 @@ final class SellService {
         return levels;
     }
 
+    /**
+     * Tells the player about the mastery levels a sale reached, in their {@code mastery-levelup} style (chat, the
+     * action bar, a title or not at all), and fires the level event either way. One sale sends at most one pop-up
+     * and never covers its own receipt ({@link SellPrefs#levelUpNotice}).
+     */
     private void levelUps(Player player, Map<String, Integer> before, Map<String, Integer> after) {
         WorthService.Rates rates = this.worth.rates(player);
         SellCategories categories = this.worth.categories();
+        List<Arg[]> lines = new ArrayList<>();
         after.forEach((category, level) -> {
             int previous = before.getOrDefault(category, 0);
             if (level > previous) {
                 BigDecimal multiplier = rates.own(category);
-                this.services.messenger().send(player, SellMessages.LEVEL_UP, Arg.text("category", categories.name(category)),
-                    Arg.number("level", level), Arg.text("multiplier", Multipliers.format(multiplier.doubleValue())));
+                lines.add(new Arg[] {Arg.text("category", categories.name(category)), Arg.number("level", level),
+                    Arg.text("multiplier", Multipliers.format(multiplier.doubleValue()))});
                 new SellMasteryLevelEvent(player, category, previous, level, multiplier.doubleValue()).callEvent();
             }
         });
+        UUID uuid = player.getUniqueId();
+        SellPrefs.LevelUpNotice notice = SellPrefs.levelUpNotice(this.services.settings().get(uuid, SellPrefs.LEVEL_UP),
+            this.services.settings().get(uuid, SharedSettings.SELL_RECEIPTS), this.services.messenger().quietNow(uuid), lines.size());
+        if (notice == null) {
+            return;
+        }
+        if (notice.popup() != null) {
+            this.services.messenger().alert(player, notice.style(), notice.popup(),
+                lines.size() == 1 ? lines.getFirst() : new Arg[] {Arg.number("count", lines.size())});
+        }
+        if (notice.linesInChat()) {
+            for (Arg[] line : lines) {
+                this.services.messenger().alert(player, AlertStyle.CHAT, SellMessages.LEVEL_UP, line);
+            }
+        }
     }
 
     private String note(SaleDraft draft) {

@@ -111,6 +111,7 @@ public final class SellMessages {
     public static final MessageKey TOP_EMPTY = MessageKey.ui("sell.top.empty");
     public static final MessageKey TOP_YOU = MessageKey.ui("sell.top.you", "rank", "sold");
     public static final MessageKey TOP_YOU_NONE = MessageKey.ui("sell.top.you-none");
+    public static final MessageKey TOP_YOU_HIDDEN = MessageKey.ui("sell.top.you-hidden");
 
     public static final MessageKey HISTORY_TITLE = MessageKey.ui("sell.history.title");
     public static final MessageKey HISTORY_ENTRY = MessageKey.ui("sell.history.entry", "total");
@@ -177,10 +178,31 @@ public final class SellMessages {
     public static final MessageKey ADMIN_LEVEL_RANGE = MessageKey.error("sell.admin.level-range", "max");
     public static final MessageKey ADMIN_LOADING = MessageKey.error("sell.admin.loading");
 
-    public static final MessageKey TOGGLE_CONFIRM = MessageKey.ui("sell.toggle.confirm");
-    public static final MessageKey TOGGLE_CONFIRM_DESCRIPTION = MessageKey.ui("sell.toggle.confirm-description");
-    public static final MessageKey TOGGLE_ORDERS = MessageKey.ui("sell.toggle.orders");
-    public static final MessageKey TOGGLE_ORDERS_DESCRIPTION = MessageKey.ui("sell.toggle.orders-description");
+    // ------------------------------------------------------------------ settings (/settings, Money & selling)
+    public static final MessageKey SETTING_CONFIRM = MessageKey.ui("sell.settings.confirm");
+    public static final MessageKey SETTING_CONFIRM_DESCRIPTION = MessageKey.ui("sell.settings.confirm-description");
+    public static final MessageKey SETTING_HOTBAR = MessageKey.ui("sell.settings.hotbar");
+    public static final MessageKey SETTING_HOTBAR_DESCRIPTION = MessageKey.ui("sell.settings.hotbar-description");
+    public static final MessageKey SETTING_HOTBAR_KEEP = MessageKey.ui("sell.settings.hotbar-keep");
+    public static final MessageKey SETTING_HOTBAR_SELL = MessageKey.ui("sell.settings.hotbar-sell");
+    public static final MessageKey SETTING_ORDERS = MessageKey.ui("sell.settings.orders");
+    public static final MessageKey SETTING_ORDERS_DESCRIPTION = MessageKey.ui("sell.settings.orders-description");
+    public static final MessageKey SETTING_SHULKERS = MessageKey.ui("sell.settings.shulkers");
+    public static final MessageKey SETTING_SHULKERS_DESCRIPTION = MessageKey.ui("sell.settings.shulkers-description");
+    public static final MessageKey SETTING_MENU_CLOSE = MessageKey.ui("sell.settings.menu-close");
+    public static final MessageKey SETTING_MENU_CLOSE_DESCRIPTION = MessageKey.ui("sell.settings.menu-close-description");
+    public static final MessageKey SETTING_MENU_CLOSE_RETURN = MessageKey.ui("sell.settings.menu-close-return");
+    public static final MessageKey SETTING_MENU_CLOSE_SELL = MessageKey.ui("sell.settings.menu-close-sell");
+    public static final MessageKey SETTING_LEVEL_UP = MessageKey.ui("sell.settings.level-up");
+    public static final MessageKey SETTING_LEVEL_UP_DESCRIPTION = MessageKey.ui("sell.settings.level-up-description");
+    /** A mastery level-up as a title, for players whose {@code mastery-levelup} style is a title. */
+    public static final MessageKey LEVEL_UP_TITLE = MessageKey.chat("sell.level-up-title", "category", "level", "multiplier")
+        .withFeedback(Feedback.SUCCESS);
+    /** One sale levelled up several categories: one pop-up above the hotbar (each level-up's line goes to chat). */
+    public static final MessageKey LEVEL_UP_MANY = MessageKey.chat("sell.level-up-many", "count").withFeedback(Feedback.SUCCESS);
+    /** The same as a title. */
+    public static final MessageKey LEVEL_UP_MANY_TITLE = MessageKey.chat("sell.level-up-many-title", "count")
+        .withFeedback(Feedback.SUCCESS);
 
     public static final MessageKey HUB_LABEL = MessageKey.ui("sell.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("sell.hub.description");

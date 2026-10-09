@@ -17,10 +17,13 @@ else online gets, and the announcement thanks them by name. Paid ranks never get
   Everything you sell pays more." (console or a goal), with the staff reason on the next line in quotes. A store
   booster that has to wait: "Alex bought a +10% sell booster for 30 minutes. It starts after the boosters before it
   (number 2 in line). Thank you!". At the end: "The +10% sell booster has ended." or "... was ended early." Each
-  can be turned off in `announce.*`.
+  can be turned off in `announce.*`. Each player picks which they see with "Sell booster announcements" in
+  `/settings` (Server announcements): all, only new boosters (starts and their reason line) or none; announcements
+  about their own booster always show, and the console always gets every one.
 - **Boss bar** while a booster runs, for everyone online: "+10% sell booster from Alex - 29m 41s left" (or without
   "from" for the server), counting down every second, green progress by default (`bar.*`). Players hide it with the
-  "Booster bar" switch in `/settings` (display category, id `booster-bar`, on by default) or the button in `/booster`.
+  "Booster bar" switch in `/settings` (Display, id `booster-bar`, on by default; flipping it shows or hides the bar at
+  once) or the button in `/booster` (not shown while the server locks or hides the setting).
   The bar is the booster's line on the shared per-player status bar (`services.statusBars()`, owner `boosters`, the
   lowest priority `StatusBars.PRIORITY_SERVER`): the combat timer and the AFK zone countdown take the bar while they
   last and the booster comes back after, so a player never sees two bars. The status bar shows, changes and hides each
@@ -119,12 +122,25 @@ early)".
 | `sell.max-duration` | `3d` | Longest staff booster (raised to `min-duration` if shorter) |
 | `queue.staff-limit` | 20 | Most waiting boosters before staff can't add more (store boosters always go in) |
 | `queue.shown` | 5 | Waiting boosters `/booster` lists |
-| `announce.started` / `queued` / `ended` | true | The chat announcements |
-| `bar.enabled` | true | The boss bar (and the switch in `/booster`) |
+| `announce.started` / `queued` / `ended` | true | The chat announcements (with all off, the announcement filter is not offered) |
+| `bar.enabled` | true | The boss bar (and its switch in `/booster` and `/settings`) |
 | `bar.color` | `green` | pink, blue, red, green, yellow, purple or white |
 | `bar.style` | `progress` | progress, notched_6, notched_10, notched_12 or notched_20 |
 
 Wrong values are config problems and fall back to the default (a reload with a problem is refused as a whole).
+
+## Player settings (`/settings`)
+
+Registered by `BoosterNews.register` (text: `lang/boosters.yml` `toggle` and `settings`; "All" and "Off" are the
+shared announcement words of `lang/settings.yml`).
+
+| Group, order | Id | Kind, default | Offered while | Read in | Effect |
+|---|---|---|---|---|---|
+| Display, 6 | `booster-bar` "Booster bar" | switch, on | `bar.enabled` | `BoosterBar.sync` (every second, and at once through the setting's change hook and the `/booster` button) | Show the boss bar while a booster runs. |
+| Server announcements, 8 | `booster-announcements` "Sell booster announcements" | choice all/starts/off, all | any `announce.*` is on; "Only new boosters" only while starts and something else are announced (otherwise it reads as all) | `BoosterAnnouncer.announce` (`BoosterNews.shows`) | Which announcements the player sees in chat; their own booster's always show. |
+
+The `/booster` button flips `booster-bar` through `PlayerSettings.set(player, ...)` and says "The booster bar is set by
+the server." when the server locked or hid it meanwhile; the button is not shown while it is locked or hidden.
 
 ## Storage
 
@@ -156,6 +172,8 @@ remaining time. Ids come from the shared id sequence (`IdSequence`).
 - `every booster change is stored`: no change waits for its database commit.
 - `boosters are loaded`: the table was read at startup.
 - `the booster bar switch is in /settings`.
+- `booster announcements follow each player's filter`: the setting is registered and the filter lets through what
+  it should (only new boosters hides the end, off hides everything but the player's own booster).
 - From the sell feature: `a sell booster raises sales by exactly its percent` and `shop safe with mastery and
   boosters`.
 
@@ -183,6 +201,9 @@ exactly worth x 1.1), `boosters-orders` (order part unboosted, server part boost
 buyer's notice, the bar, the placeholder and the payout all say +10%, and raising the limit lets it pay +15%; in game a
 player with `siftcore.admin.store` can look purchases up but can't deliver money or boosters or revoke),
 `boosters-persist-setup` / `boosters-persist-check` (run with a restart in between: the booster lost only the time
-the server ran).
+the server ran), `boosters-settings` (announcements off through the settings dialog and only new boosters with
+`/settings booster-announcements starts` next to a player on all: who is told about the start and the end;
+`/settings booster-bar off` and `on` hide and show the bar at once). Unit: `BoosterNewsTest` (the filter, groups and order, offered only while the config
+announces or shows a bar, the shared option words).
 
 What needs a real client: how the boss bar and the `/booster` dialog look.

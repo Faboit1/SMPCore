@@ -12,6 +12,7 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.dialog.Body;
@@ -246,7 +247,10 @@ final class SellDialogs {
 
     // ------------------------------------------------------------------ top sellers
 
-    /** {@code /sell top}: the ten players who sold the most, and the viewer's own place. */
+    /**
+     * {@code /sell top}: the ten players who sold the most, and the viewer's own place. A viewer who hides from
+     * leaderboards gets no place (their switch is read now, the list follows at the next read).
+     */
     void top(Player player) {
         Lang lang = this.services.lang();
         TopSellers.Snapshot snapshot = this.top.snapshot();
@@ -262,7 +266,9 @@ final class SellDialogs {
         long own = Math.max(this.mastery.total(player.getUniqueId()),
             snapshot.byUuid().getOrDefault(player.getUniqueId(), 0L));
         lines.add(Component.empty());
-        if (own > 0) {
+        if (this.services.settings().get(player, SharedSettings.HIDE_FROM_LEADERBOARDS)) {
+            lines.addAll(lang.lines(SellMessages.TOP_YOU_HIDDEN));
+        } else if (own > 0) {
             lines.addAll(lang.lines(SellMessages.TOP_YOU, Arg.number("rank", snapshot.rankOf(own)), Arg.money("sold", own)));
         } else {
             lines.addAll(lang.lines(SellMessages.TOP_YOU_NONE));

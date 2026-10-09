@@ -29,14 +29,14 @@ import org.bukkit.entity.Player;
  * Server-wide sell boosters: a booster raises what the server pays for items by a percent, for everyone online, for a
  * while. Boosters come from the store ({@code /sift store booster}, through {@link #boosters()}) and from staff
  * ({@code /sift booster start}); they run one after another and never stack. The running booster is announced in
- * chat, shown on a boss bar (players can hide it with the {@code booster-bar} switch), listed by {@code /booster} and
- * offered as placeholders. Selling reads it through {@link ServerBoosters} and adds it to every sale price; the shop
+ * chat (players filter the announcements with {@code booster-announcements}), shown on a boss bar (players can hide it
+ * with the {@code booster-bar} switch), listed by {@code /booster} and offered as placeholders. Selling reads it through {@link ServerBoosters} and adds it to every sale price; the shop
  * prices itself against the largest booster allowed.
  */
 public final class BoostersFeature implements Feature {
 
     /** The boss bar switch in /settings. */
-    static final Toggle BAR = new Toggle("booster-bar", true, BoostersMessages.TOGGLE_LABEL, BoostersMessages.TOGGLE_DESCRIPTION, null);
+    static final Toggle BAR = BoosterNews.BAR;
     /** The remaining time of the running booster is stored every this many seconds (and at shutdown). */
     private static final int STORE_EVERY = 60;
 
@@ -67,11 +67,12 @@ public final class BoostersFeature implements Feature {
         services.lang().register(BoostersMessages.class);
         services.permissions().declare(BoosterCommands.COMMAND, "See the server sell booster and what comes next with /booster", true);
         services.permissions().declare(BoosterCommands.ADMIN, "Start, stop and list sell boosters with /sift booster", false);
-        services.settings().register(display, BAR);
         this.service = new BoosterService(services.ledger(), services.database(), this.settings::get, latest, this.logger,
             System::currentTimeMillis, System::nanoTime);
         this.bar = new BoosterBar(services.statusBars(), services.settings(), BAR);
-        this.announcer = new BoosterAnnouncer(services.messenger(), services.directory(), this.settings::get, this.service);
+        BoosterNews.register(services.settings(), display, this.settings::get, (player, before, now) -> this.bar.update(player));
+        this.announcer = new BoosterAnnouncer(services.messenger(), services.directory(), services.settings(), this.settings::get,
+            this.service);
         this.commands = new BoosterCommands(services, this.settings, this.service, this.announcer, BAR, this.bar::update);
         admin.addPart(this.commands.part());
     }
@@ -203,6 +204,16 @@ public final class BoostersFeature implements Feature {
             : "a booster change is still waiting for its database commit (announcements wait for it)");
         test.check(id(), "the booster bar switch is in /settings", () -> this.services.settings().toggle(BAR.id()) != null ? null
             : "the booster-bar switch is not registered");
+        test.check(id(), "booster announcements follow each player's filter", () -> {
+            if (this.services.settings().category(BoosterNews.ANNOUNCEMENTS) == null) {
+                return "the booster-announcements setting is not registered";
+            }
+            boolean right = BoosterNews.shows(BoosterNews.Filter.STARTS, BoosterNews.Kind.STARTED, false)
+                && !BoosterNews.shows(BoosterNews.Filter.STARTS, BoosterNews.Kind.ENDED, false)
+                && !BoosterNews.shows(BoosterNews.Filter.OFF, BoosterNews.Kind.STARTED, false)
+                && BoosterNews.shows(BoosterNews.Filter.OFF, BoosterNews.Kind.QUEUED, true);
+            return right ? null : "the announcement filter decides wrongly";
+        });
     }
 
     /** Two boosters run one after the other with no time lost or gained, and never add up. */

@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.sell;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,12 +11,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import net.siftvanilla.siftcore.storage.Database;
 
 /**
  * The players who sold the most to the server (base value over every category), read from storage in the
  * background every few minutes. Every lookup is served from the last snapshot, so placeholders, displays and
- * {@code /sell top} never touch the database.
+ * {@code /sell top} never touch the database. Players who hide from leaderboards ({@code hide-from-leaderboards})
+ * get no place: they are left out of the list and of the ranks.
  */
 final class TopSellers {
 
@@ -29,9 +32,9 @@ final class TopSellers {
     /**
      * One read of the totals.
      *
-     * @param top    the first {@link #PLACES} places
-     * @param sorted every total, highest first (for ranks)
-     * @param byUuid every player's total
+     * @param top    the first {@link #PLACES} places, without hidden players
+     * @param sorted every total of a player who is not hidden, highest first (for ranks)
+     * @param byUuid every player's total, hidden players included (what they sold is theirs to see; it is not a place)
      * @param at     when it was read
      */
     record Snapshot(List<Entry> top, long[] sorted, Map<UUID, Long> byUuid, long at) {
@@ -72,8 +75,8 @@ final class TopSellers {
         return this.snapshot;
     }
 
-    /** Reads every total and replaces the snapshot. Off the world threads. */
-    CompletableFuture<Snapshot> refresh() {
+    /** Reads every total and replaces the snapshot, leaving out the {@code hidden} players. Off the world threads. */
+    CompletableFuture<Snapshot> refresh(Predicate<UUID> hidden) {
         return this.database.read(c -> {
             List<UUID> uuids = new ArrayList<>();
             List<Long> totals = new ArrayList<>();
@@ -93,25 +96,37 @@ final class TopSellers {
                     }
                 }
             }
-            return build(uuids, totals);
+            return build(uuids, totals, hidden, this.names, System.currentTimeMillis());
         }).thenApply(built -> {
             this.snapshot = built;
             return built;
         });
     }
 
-    private Snapshot build(List<UUID> uuids, List<Long> totals) {
+    /**
+     * The snapshot of totals read highest first: hidden players keep their own total but take no place, so the ones
+     * below them move up.
+     *
+     * @param names the name to show for a player (null when unknown: the start of the uuid is shown)
+     */
+    static Snapshot build(List<UUID> uuids, List<Long> totals, Predicate<UUID> hidden, Function<UUID, String> names, long at) {
         List<Entry> top = new ArrayList<>(PLACES);
-        long[] sorted = new long[totals.size()];
+        long[] ranked = new long[totals.size()];
+        int count = 0;
         Map<UUID, Long> byUuid = new HashMap<>(uuids.size() * 2);
         for (int i = 0; i < totals.size(); i++) {
-            sorted[i] = totals.get(i);
-            byUuid.put(uuids.get(i), totals.get(i));
+            UUID uuid = uuids.get(i);
+            long total = totals.get(i);
+            byUuid.put(uuid, total);
+            if (hidden.test(uuid)) {
+                continue;
+            }
+            ranked[count++] = total;
             if (top.size() < PLACES) {
-                String name = this.names.apply(uuids.get(i));
-                top.add(new Entry(uuids.get(i), name == null ? uuids.get(i).toString().substring(0, 8) : name, totals.get(i)));
+                String name = names.apply(uuid);
+                top.add(new Entry(uuid, name == null ? uuid.toString().substring(0, 8) : name, total));
             }
         }
-        return new Snapshot(List.copyOf(top), sorted, Map.copyOf(byUuid), System.currentTimeMillis());
+        return new Snapshot(List.copyOf(top), Arrays.copyOf(ranked, count), Map.copyOf(byUuid), at);
     }
 }

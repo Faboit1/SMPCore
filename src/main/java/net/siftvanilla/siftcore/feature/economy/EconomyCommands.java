@@ -21,6 +21,7 @@ import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.economy.LedgerTx;
@@ -33,6 +34,9 @@ import org.bukkit.entity.Player;
 
 /** /balance, /pay, /baltop and /eco. */
 final class EconomyCommands {
+
+    /** Staff money tools; also sees every balance whatever its owner's privacy. */
+    static final String ECO_ADMIN = "siftcore.admin.eco";
 
     private final Services services;
     private final CommandSupport support;
@@ -71,12 +75,40 @@ final class EconomyCommands {
                     .requires(CommandSupport.permission("siftcore.command.balance.others"))
                     .executes(ctx -> {
                         Optional<UUID> target = this.support.known(ctx, "player");
-                        target.ifPresent(uuid -> this.services.messenger().chat(this.support.sender(ctx), EconomyMessages.BALANCE_OTHER,
-                            Arg.text("name", this.services.directory().name(uuid)),
-                            Arg.money("amount", this.economy.balance(uuid, Currency.MONEY)),
-                            Arg.number("shards", this.economy.balance(uuid, Currency.SHARDS))));
+                        target.ifPresent(uuid -> balanceOf(this.support.sender(ctx), uuid));
                         return CommandSupport.OK;
                     })));
+    }
+
+    /**
+     * {@code /balance <name>}: shown when the target's {@code balance-privacy} lets the viewer see it (read from the
+     * database when they are offline). The console, staff with {@code siftcore.admin.eco} and the target themselves
+     * always see it.
+     */
+    private void balanceOf(CommandSender sender, UUID target) {
+        if (!(sender instanceof Player viewer) || viewer.getUniqueId().equals(target) || viewer.hasPermission(ECO_ADMIN)) {
+            showBalance(sender, target);
+            return;
+        }
+        UUID viewerId = viewer.getUniqueId();
+        this.services.settings().lookup(target, SharedSettings.BALANCE_PRIVACY).whenComplete((audience, error) ->
+            this.services.scheduler().entity(viewer, () -> {
+                if (error != null) {
+                    this.services.messenger().send(viewer, CoreMessages.ACTION_FAILED);
+                } else if (this.services.relations().allows(audience, target, viewerId)) {
+                    showBalance(viewer, target);
+                } else {
+                    this.services.messenger().send(viewer, EconomyMessages.BALANCE_PRIVATE,
+                        Arg.text("name", this.services.directory().name(target)));
+                }
+            }, null));
+    }
+
+    private void showBalance(CommandSender sender, UUID target) {
+        this.services.messenger().chat(sender, EconomyMessages.BALANCE_OTHER,
+            Arg.text("name", this.services.directory().name(target)),
+            Arg.money("amount", this.economy.balance(target, Currency.MONEY)),
+            Arg.number("shards", this.economy.balance(target, Currency.SHARDS)));
     }
 
     // ------------------------------------------------------------------ /pay
@@ -215,7 +247,7 @@ final class EconomyCommands {
                 Arg.money("amount", entry.value())));
         }
         long own = this.economy.balance(player.getUniqueId(), Currency.MONEY);
-        int rank = this.economy.leaderboard().rankOf(Currency.MONEY, own);
+        int rank = this.economy.leaderboard().rankOf(Currency.MONEY, player.getUniqueId(), own);
         if (rank > 0) {
             lines.add(Component.empty());
             lines.add(lang.get(EconomyMessages.TOP_YOU, Arg.number("rank", rank), Arg.money("amount", own)));
@@ -234,7 +266,7 @@ final class EconomyCommands {
     // ------------------------------------------------------------------ /eco
 
     private SiftCommand eco() {
-        String perm = "siftcore.admin.eco";
+        String perm = ECO_ADMIN;
         return new SimpleCommand("eco", List.of("economy"), "Economy administration", perm,
             label -> Commands.literal(label)
                 .requires(CommandSupport.permission(perm))

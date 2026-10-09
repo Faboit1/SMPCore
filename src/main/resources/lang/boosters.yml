@@ -58,15 +58,22 @@ boosters:
     show-bar: "Show the booster bar"
     bar-hidden: "<primary>The booster bar is hidden. <secondary>Show it again here or in /settings."
     bar-shown: "<primary>The booster bar is shown while a booster runs."
+    # The server locked or hid the Booster bar setting (features/settings.yml) while the dialog was open.
+    bar-fixed: "<primary>The booster bar is set by the server."
 
   hub:
     label: "Sell booster"
     description: "The server-wide sell booster and what comes next"
 
-  # The switch in /settings.
+  # The switch in /settings (Display).
   toggle:
     label: "Booster bar"
-    description: "The bar at the top of the screen while a sell booster runs"
+    description: "Show the bar at the top of the screen while a sell booster runs."
+  # The announcement filter in /settings (Server announcements). "All" and "Off" are shared (lang/settings.yml).
+  settings:
+    announcements: "Sell booster announcements"
+    announcements-description: "Sell booster news in chat: every start, wait and end, only new boosters, or none. Your own boosters always show."
+    announcements-starts: "Only new boosters"
 
   # /sift booster (staff and console)
   admin:

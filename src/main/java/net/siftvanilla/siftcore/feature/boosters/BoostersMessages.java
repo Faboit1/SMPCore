@@ -55,6 +55,12 @@ public final class BoostersMessages {
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("boosters.hub.description");
     public static final MessageKey TOGGLE_LABEL = MessageKey.ui("boosters.toggle.label");
     public static final MessageKey TOGGLE_DESCRIPTION = MessageKey.ui("boosters.toggle.description");
+    public static final MessageKey SETTING_NEWS = MessageKey.ui("boosters.settings.announcements");
+    public static final MessageKey SETTING_NEWS_DESCRIPTION = MessageKey.ui("boosters.settings.announcements-description");
+    /** The "only new boosters" option of the announcement filter. */
+    public static final MessageKey SETTING_NEWS_STARTS = MessageKey.ui("boosters.settings.announcements-starts");
+    /** The bar button in /booster when the server fixed the booster bar setting meanwhile. */
+    public static final MessageKey BAR_FIXED = MessageKey.error("boosters.dialog.bar-fixed");
 
     // ------------------------------------------------------------------ /sift booster (staff and console)
     public static final MessageKey ADMIN_STARTED = MessageKey.chat("boosters.admin.started", "id", "percent", "time");

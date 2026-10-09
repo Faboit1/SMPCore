@@ -19,6 +19,8 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.SetResult;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -115,13 +117,19 @@ final class BoosterCommands {
     void open(Player player, Button.Handler back) {
         Lang lang = this.services.lang();
         List<Component> lines = lines(player.getUniqueId());
-        boolean shown = this.services.settings().enabled(player.getUniqueId(), this.bar);
+        var prefs = this.services.settings();
+        boolean shown = prefs.get(player, this.bar);
         List<Button> buttons = new ArrayList<>(1);
-        if (this.settings.get().bar().enabled()) {
+        // The switch, unless the server fixed the setting for everyone (features/settings.yml locked or hidden).
+        if (this.settings.get().bar().enabled() && !prefs.locked(this.bar) && !prefs.hidden(this.bar)) {
             buttons.add(Button.of(lang.get(shown ? BoostersMessages.HIDE_BAR : BoostersMessages.SHOW_BAR), s -> {
-                boolean now = !this.services.settings().enabled(s.player().getUniqueId(), this.bar);
-                this.services.settings().set(s.player().getUniqueId(), this.bar, now);
-                this.services.messenger().send(s.player(), now ? BoostersMessages.BAR_SHOWN : BoostersMessages.BAR_HIDDEN);
+                boolean now = !prefs.get(s.player(), this.bar);
+                SetResult result = prefs.set(s.player(), this.bar, now, Change.feature());
+                switch (result) {
+                    case CHANGED, UNCHANGED -> this.services.messenger().send(s.player(),
+                        now ? BoostersMessages.BAR_SHOWN : BoostersMessages.BAR_HIDDEN);
+                    default -> this.services.messenger().send(s.player(), BoostersMessages.BAR_FIXED);
+                }
                 this.refresh.accept(s.player());
                 open(s.player(), back);
             }).width(Templates.WIDE));

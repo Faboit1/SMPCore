@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.EconomyApi;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
@@ -16,6 +17,8 @@ import net.siftvanilla.siftcore.economy.SystemAccounts;
 /**
  * Leaderboards of balances, rebuilt off-thread on a timer from the in-memory ledger (never a database query on a
  * world thread). Holds the top N entries plus the sorted list of all balances so a player's rank is a binary search.
+ * Accounts that chose {@code hide-from-leaderboards} are left out of both: they are not listed, take no place from
+ * anyone and have no place themselves (from the next rebuild after they change it).
  */
 public final class BalanceTop {
 
@@ -26,21 +29,28 @@ public final class BalanceTop {
     private final Ledger ledger;
     private final PlayerDirectory directory;
     private volatile Map<Currency, Snapshot> snapshots = Map.of();
+    /** Who was left out at the last rebuild. */
+    private volatile Predicate<UUID> hidden = account -> false;
 
     public BalanceTop(Ledger ledger, PlayerDirectory directory) {
         this.ledger = ledger;
         this.directory = directory;
     }
 
-    /** Rebuilds every leaderboard; runs on an async thread. */
+    /** Rebuilds every leaderboard with nobody hidden; runs on an async thread. */
     public void refresh(int size) {
+        refresh(size, account -> false);
+    }
+
+    /** Rebuilds every leaderboard, leaving out the {@code hidden} accounts; runs on an async thread. */
+    public void refresh(int size, Predicate<UUID> hidden) {
         Map<Currency, Snapshot> next = new EnumMap<>(Currency.class);
         for (Currency currency : Currency.values()) {
             PriorityQueue<Map.Entry<UUID, Long>> heap = new PriorityQueue<>(size + 1, Map.Entry.comparingByValue());
             long[][] all = {new long[Math.max(16, this.ledger.accountCount())]};
             int[] count = {0};
             this.ledger.forEach(currency, (account, balance) -> {
-                if (SystemAccounts.isSystem(account) || balance <= 0) {
+                if (SystemAccounts.isSystem(account) || balance <= 0 || hidden.test(account)) {
                     return;
                 }
                 if (count[0] == all[0].length) {
@@ -69,6 +79,17 @@ public final class BalanceTop {
             next.put(currency, new Snapshot(List.copyOf(top), sorted));
         }
         this.snapshots = Map.copyOf(next);
+        this.hidden = hidden;
+    }
+
+    /** Whether an account was left out of the leaderboards at the last rebuild ({@code hide-from-leaderboards}). */
+    public boolean hidden(UUID account) {
+        return this.hidden.test(account);
+    }
+
+    /** The 1-based place of an account with this balance, or 0 when it has no money or is left out. */
+    public int rankOf(Currency currency, UUID account, long balance) {
+        return hidden(account) ? 0 : rankOf(currency, balance);
     }
 
     public List<EconomyApi.TopEntry> top(Currency currency, int limit) {

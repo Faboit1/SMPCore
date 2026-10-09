@@ -27,6 +27,8 @@ queue:
   shown: 5
 
 announce:
+  # Players choose which of these they see with "Sell booster announcements" in /settings (all, only new boosters
+  # or none; their own boosters always show). The console sees every one.
   # Tell everyone in chat when a booster starts ("Alex started a +10% sell booster for 30 minutes. Thank you!").
   started: true
   # Tell everyone when a store booster has to wait for the boosters before it.

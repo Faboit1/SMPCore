@@ -7,12 +7,12 @@ levels, the price list, top sellers, and the guard that keeps items from village
 
 | Command | Permission (default) | What it does |
 |---|---|---|
-| `/sell` | `siftcore.command.sell` (everyone) | Opens the sell menu: a 5-row grid to drop items into, a live total and a Sell button, plus Add, Give back and Mastery. Closing the menu sells nothing and gives everything back. |
+| `/sell` | `siftcore.command.sell` (everyone) | Opens the sell menu: a 5-row grid to drop items into, a live total and a Sell button, plus Add, Give back and Mastery. Closing the menu gives everything back (players who chose "Closing the sell menu: Sell them" sell the grid when they close it themselves). |
 | `/sell hand` | `siftcore.command.sell.hand` (everyone) | Sells the stack in the main hand. A shulker box in the hand sells what is inside it (an empty plain box sells as an item). |
 | `/sell hand all` | `siftcore.command.sell.hand` | Sells every plain stack of the held item's type from the hotbar, the storage slots and shulker boxes there (never armor or the off hand). Asks first like `/sell all`. |
-| `/sell all` | `siftcore.command.sell.all` (everyone) | Sells every sellable item in the hotbar and the 27 storage slots (never armor or the off hand), including what is inside shulker boxes but never the box itself. Asks first above `sell-all.confirm-above`. |
+| `/sell all` | `siftcore.command.sell.all` (everyone) | Sells every sellable item in the hotbar and the 27 storage slots (never armor or the off hand), including what is inside shulker boxes but never the box itself. Asks first above `sell-all.confirm-above` (or from the player's own "Confirm /sell all from" amount). Players can keep the hotbar or leave shulker boxes shut (`/settings`). |
 | `/sell mastery` | `siftcore.command.sell` | The sell mastery dialog: every category's level, multiplier and progress; each opens its ladder, "Sell your <category> items" and its prices. Opened with the sell menu's Mastery button, that Sell first gives the menu's grid back, so it sells those items too. |
-| `/sell top` | `siftcore.command.sell` | The ten players who sold the most (base value), and the viewer's own place. |
+| `/sell top` | `siftcore.command.sell` | The ten players who sold the most (base value), and the viewer's own place. Players who hide from leaderboards are left out (a hidden viewer is told they have no place). |
 | `/sell history` | `siftcore.command.sell` | The player's last 200 sales (to the server and to buy orders), newest first, with what was sold in the tooltip. |
 | `/sell admin mastery <player> [category]` | `siftcore.admin.sell` (operators) | Shows a player's mastery (every category, or one). Works from the console and for offline players. |
 | `/sell admin mastery <player> <category> set <level>` / `reset` | `siftcore.admin.sell` | Sets a category to the start of a level, or back to 0. Audited (`sell.mastery`). |
@@ -92,8 +92,9 @@ Every sale goes through `SellService` and `SaleBuilder`, on the player's thread:
 1. **Work out a draft** from the live inventory: which slots (whole or partial stacks) and which contents of which
    shulker boxes the request covers, what goes to buy orders, what the server pays per category, the mastery credit.
 2. **Confirm when needed** (`/sell all`, `/sell hand all`, category selling, "Sell your ..." buttons):
-   `sell-all.confirm` is `always`, `above` (default, from `confirm-above` $10k, for players with "Ask before /sell
-   all" on) or `never`. The dialog "Sell everything" shows `Sell 128 items for $51,200?`, the bonus, the buy-order
+   `sell-all.confirm` is `always`, `above` (default) or `never`. With `above` each player's "Confirm /sell all
+   from" (`sell_all_confirm`) decides: "Server default" asks from `confirm-above` ($10k), "Always", from $10k, $100k
+   or $1m, or "Never"; the server's `always` and `never` win over it. The dialog "Sell everything" shows `Sell 128 items for $51,200?`, the bonus, the buy-order
    part, how many come out of shulker boxes and what is kept, with "Sell for $51,200", "Choose items" (opens the
    sell menu filled with exactly what the request covers) and "Cancel". Confirming works the sale out again from the
    live inventory; if any slot, stack, box content, order take or the total differs it shows the dialog again with
@@ -123,15 +124,25 @@ Every sale goes through `SellService` and `SaleBuilder`, on the player's thread:
 **Receipt.** `You sold 64 diamond for $25,600.` (or `... with your 1.5x bonus.`, `... with your bonuses.`,
 `You sold 150 items for $9,000, $2,400 of it from buy orders.`) in chat with the success sound and a hover card:
 one line per item (up to 12), the bonus per category, each order fill (`32 diamond to Steve's order $13,440`, net
-after tax), the order tax, the rest to the server and how many came from shulker boxes. With the "Sale receipts in
-chat" toggle off only `+$25,600` on the action bar and the sound remain; `feedback.action-bar: true` adds the
-action bar line to chat receipts.
+after tax), the order tax, the rest to the server and how many came from shulker boxes. With "Sale receipts" on
+"Above the hotbar" only `+$25,600` on the action bar and the sound remain (a chat line in combat with quiet in combat
+on), with "Off" nothing; `feedback.action-bar: true` adds the action bar line to chat receipts.
+
+**Level-ups** (`mastery-levelup`, offered while mastery is on): `Mining mastery is now level 1. Mining items sell for
+1.05x.` in chat (default), above the hotbar, as a title (`Mining mastery 1`; a chat line with the full text while in
+combat with quiet in combat on) or not at all. `SellMasteryLevelEvent` fires either way. The action bar and a title
+show one line at a time, so one sale sends at most one pop-up (`SellPrefs.levelUpNotice`): when it levelled up several
+categories the pop-up is a count (`2 sell masteries levelled up. See chat.`, as a title `2 masteries up`) and every
+full line goes to chat; when the sale receipt itself is above the hotbar ("Sale receipts" on "Above the hotbar") and
+the level-up would go there too, the level-up goes to chat so the sale total stays readable.
 
 **Shulker boxes** (`shulker-contents: true`). A single, unstacked shulker box is opened; a stacked box (amount > 1)
 is never touched, and boxes inside boxes are not opened. `/sell hand` on a filled box sells its sellable contents
 and keeps the box in the hand with everything else at its place; a box with nothing sellable says "Nothing in that
 shulker box can be sold." A box in the sell menu has its contents sold and the rebuilt box stays in the grid
-(returned on close). `/sell all` opens boxes when `sell-all.shulker-contents` is on, but never sells the box itself;
+(returned on close). `/sell all` opens boxes (and bundles, when `bundle-contents` is on) when
+`sell-all.shulker-contents` is on, but never sells the box itself; a player's "/sell all opens shulker boxes" switch
+keeps only shulker boxes shut, never bundles;
 items that don't stack stay in boxes too when `skip-unstackable` is on. `/worth` on a box: "What's inside sells
 for $4,075 (13 items)." and, for a plain box, "An empty box sells for $X." Bundles work the same way behind
 `bundle-contents` (off by default).
@@ -139,7 +150,10 @@ for $4,075 (13 items)." and, for a plain box, "An empty box sells for $X." Bundl
 **Sell menu.** Items in the grid belong to the player until Sell is pressed. Closing the menu, quitting, a kick or a
 server stop hands the grid back (inventory first, the rest to the claim box). Dying with the menu open drops the
 grid with the rest of the inventory (or keeps it with `keepInventory`), exactly as if the items had been in the
-inventory. Close-to-sell is deliberately not supported (it turns death loot into money).
+inventory. A player can choose to sell on close (`sell-menu-close`): only a close by the player themselves (close
+reason `PLAYER`, noted by `SellMenus.onClose` before the menu framework hands the close on) sells, through the same
+`SellService.sellMenu` as the Sell button (combat and loading still refuse, so the grid comes back); a death, a quit,
+a kick, a teleport or another screen never sell, so death loot can't be turned into money.
 
 While items sit in the grid, a copy of them is kept in the player's own data (persistent data key `siftcore:sell_grid`,
 `ui.gui.GridBackup`). Every player save (autosave, a trade's save, quit) writes the inventory and the copy together, so
@@ -183,8 +197,9 @@ Selling routes units to buy orders when they pay the seller more than the server
 `FeatureCatalog` passes `() -> OrderMarket.NONE` until orders exists, so today nothing is routed and no order text
 is shown.
 
-- Conditions: the market is available, the player's "Sell to buy orders first" toggle is on (registered only once
-  orders exist, also when the orders feature starts after this one), and `OrderMarket#usable(player)` allows it.
+- Conditions: the market is available, the player's "Sell to buy orders first" switch (`sell_orders`) is on
+  (registered at startup in Money & selling, offered only while the market is available, also when the orders
+  feature starts after this one), and `OrderMarket#usable(player)` allows it.
 - `OrderRouting.plan` (pure): per item key, units go to bids, best price first and then oldest, while the order's
   net per item (`priceEach x (10000 - tax) / 10000`, exact) is strictly more than the seller's own server price
   (worth x rank x mastery); ties go to the server. A bid's remaining amount is shared by every stack of its key, so
@@ -286,15 +301,32 @@ the shop for $1,000" (the shop's purchase dialog), "Order it" (the orders form, 
 | `%siftcore_sell_top_name_<n>%`, `%siftcore_sell_top_value_<n>%` | The n-th best seller (1-10) and what they sold. |
 
 Top sellers are read from storage in the background (`SUM(sold) GROUP BY uuid` over `sell_mastery`) every
-`top.refresh` (5m); `/sell top` and the placeholders only read that snapshot.
+`top.refresh` (5m); `/sell top` and the placeholders only read that snapshot. Players who hide from leaderboards
+(`hide-from-leaderboards`, staff and test accounts with `siftcore.stats.hide`) get no place: each read first reads who
+hides (`HiddenSellers`: online players' loaded values, else the stored rows, else the server's default; a lock or a
+hidden setting ignores stored rows; a failed read keeps the last answer), and `TopSellers.build` leaves them out of the
+list and the ranks, so the places below move up and `sell_top_name_<n>` never names them. Their own total
+(`sell_sold`) is still theirs. When anyone turns the switch on or off (`SettingChangeEvent`), the list is read again
+at the first 30-second check at least a second later (the event comes just before the value is stored) instead of
+after `top.refresh`; a hidden viewer's own place in `/sell top` follows their switch at once.
 
-## Settings (`/settings`)
+## Settings (`/settings`, Money & selling)
 
-| Toggle | Default | Effect |
-|---|---|---|
-| `sell_all_confirm` "Ask before /sell all" | on | Show the total before selling everything (with `confirm: above`). |
-| `sell_receipts` "Sale receipts" (a shared setting in Money & selling) | chat | `chat`: the detailed receipt; `actionbar`: only `+$total` on the action bar and the sound; `off`: nothing. Old rows read on as chat and off as actionbar. |
-| `sell_orders` "Sell to buy orders first" | on | Only shown once buy orders exist. |
+Registered at startup by `SellPrefs.register` in `SettingCategories.ECONOMY`, at their catalog places between the
+payment settings (`docs/features/economy.md`); each is offered only while the config gives it a meaning. Text:
+`lang/sell.yml` `sell.settings`. The shared option names ("Server default", "Always", "From $10,000", "Never",
+"Chat", "Above the hotbar", "Title", "Off") come from `lang/settings.yml`.
+
+| Order | Id | Kind, default | Offered while | Read in | Effect |
+|---|---|---|---|---|---|
+| 1 | `sell_receipts` "Sale receipts" (shared, `SharedSettings`) | choice chat/actionbar/off, chat | selling declares it reads it | `SellService.receipt` (and spawner storage sales) | `chat`: the detailed receipt; `actionbar`: only `+$total` above the hotbar and the sound; `off`: nothing. Old rows read on as chat and off as actionbar. |
+| - | `hide-from-leaderboards` (shared, `SharedSettings`, Privacy) | switch, off | `siftcore.stats.hide` | `HiddenSellers.load` before each top sellers read, `SellDialogs.top` | Leaves the player out of `/sell top` and the `sell_top_*` placeholders. |
+| 3 | `sell_all_confirm` "Confirm /sell all from" | choice server/always/10k/100k/1m/never, server | `sell-all.confirm: above` | `SellService.asks` (`SellAll.asks(total, choice)`) | From which total `/sell all`, `/sell hand all`, category selling and "Sell your ..." ask first. Was a switch: old rows on read as server, off as never. |
+| 4 | `sell-all-hotbar` "Hotbar on /sell all" | choice server/keep/sell, server | always | `SellService.personal` (`SellAll.personal`, the `SaleBuilder` slots) and the menu's Add (`SellMenus.addSellable`) | Keep the hotbar or sell it too, whatever `skip-hotbar` says; server default follows it. `/sell hand` and the menu grid are not affected. |
+| 5 | `sell_orders` "Sell to buy orders first" | switch, on | the order market is available | `SellService.routing` | Send items to buy orders that pay more than the server. |
+| 10 | `sell-all-shulkers` "/sell all opens shulker boxes" | switch, on | `shulker-contents` and `sell-all.shulker-contents` are on (`SellSettings.shulkerSwitchOffered`) | `SellService.personal` (`SellSettings.personal`, `SellAll.opens`, `SaleBuilder.openable`) | Off leaves shulker boxes shut on `/sell all` and category selling (players can only turn it off). Bundles are not affected, and a choice stored while the switch is not offered changes nothing. |
+| 11 | `sell-menu-close` "Closing the sell menu" | choice return/sell, return | always | `SellMenus.closed` (`SellPrefs.sellsOnClose`) | `sell`: closing the menu yourself (Esc, close reason `PLAYER`) sells what in the grid sells first (exactly like the Sell button, receipt included), then gives the rest back. Quitting, dying (the grid drops), a teleport, another screen or a plugin closing it always give back or drop as before. |
+| 12 | `mastery-levelup` "Sell mastery level-ups" | choice chat/actionbar/title/off, chat | `mastery.enabled` | `SellService.levelUps` (`SellPrefs.levelUpNotice`, `Messenger.alert`) | How level-ups are announced to the player: one pop-up per sale at most, never over an action bar receipt (see Level-ups). |
 
 ## Integration
 
@@ -326,7 +358,7 @@ price unsafe, see `shop.md`). Keys added after the first release are optional an
   build; left off until the owner approves the dependency.
 - A top-sellers display template and a "sold" stats board belong to the displays and stats features; the
   `sell_top_*` placeholders are ready for them.
-- Rejected from SellPlugin: close-to-sell, enchantment and potion pricing, multipliers up to 3x (an endless loop
+- Rejected from SellPlugin: close-to-sell for everyone (it is a player's own choice here, never on death or quit), enchantment and potion pricing, multipliers up to 3x (an endless loop
   against the shop), per-player YAML data, "~" estimates (previews here are exact and re-checked at sale).
 
 ## Self-tests (`/sift selftest`)
@@ -364,3 +396,19 @@ still open, and Prices has a Back) and `SellPlusScenarios` (`sell-all-confirm`, 
 `sell-shulker-menu`, `sell-shulker-all`, `sell-shulker-failure`, `sell-combat-blocked`, `worth-browser-open`,
 `worth-details-sell`, `mastery-credit-and-level`, `sell-menu-add-and-giveback`, `sell-top-and-history`,
 `sell-traded-refused`, `sell-traded-block`, `sell-traded-bucket`, `sell-choose-items`).
+
+Settings: `SellPrefsTest` (group and catalog order, the shared settings it reads, offered only while the config gives
+each a meaning, old switch rows of `sell_all_confirm`, level-up notices: one pop-up per sale, a count with the lines in
+chat for several, chat when the receipt is above the hotbar, only a player's own close sells, the text loads),
+`SellSettingsTest` (`SellAll.asks` with the player's choice and the server's always/never winning, `SellAll.personal`
+and `opens` (bundles are not the shulker switch's), the switch ignored while not offered, `withSellAll`),
+`TopSellersTest` (places, ranks, hidden players take no place, `HiddenSellers.decide`) and `MasteryBookTest` (the top
+sellers read on SQLite, with a hidden player).
+End to end in `MoneyScenarios` (changes with `/settings <id> <value>` unless the dialog is named):
+`money-settings-dialog` (the group's choices and option names), `sell-all-settings`
+(from $1m sells at once, always asks for one diamond, keep the hotbar, server default sells it, boxes left shut and
+then opened), `sell-menu-close-setting` (closing sells and the copy is cleared, give back, quitting gives back) and
+`sell-mastery-levelup-setting` (a title instead of chat, off says nothing, one sale levelling up two categories
+sends one count above the hotbar and both lines to chat, with the receipt above the hotbar the level-up goes to chat)
+and `sell-top-hidden` (a hidden top seller has no place in `/sell top` or `sell_top_name_1`, and their own `/sell top`
+says so).

@@ -3,11 +3,13 @@
 pay:
   # The smallest amount one /pay can send.
   minimum: 1
-  # Payments of at least this much ask for confirmation first. 0 never asks.
+  # Payments of at least this much ask for confirmation first. 0 never asks. Players can be asked from a lower amount
+  # (or always) with "Confirm payments from" in /settings, never from a higher one.
   confirm-above: 100k
   # Time between two payments by the same player.
   cooldown: 2s
-  # Whether money can be sent to players who are offline.
+  # Whether money can be sent to players who are offline. With false, the "Offline payments summary" setting (who
+  # paid you while you were away) is not offered.
   allow-offline-targets: true
   # How much a player may send per day (server time zone). It grows with time played so new accounts can't be
   # used to move a lot of money around. Players with siftcore.pay.unlimited have no limit.

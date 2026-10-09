@@ -2,6 +2,7 @@ package net.siftvanilla.siftcore.feature.economy;
 
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
@@ -9,8 +10,10 @@ import net.siftvanilla.siftcore.api.event.PlayerPayEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
-import net.siftvanilla.siftcore.core.link.IgnoreLookup;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.link.Relations;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.economy.LedgerTx;
@@ -21,43 +24,36 @@ import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
 
 /**
- * /pay: validates, asks for confirmation above the configured amount, enforces the daily limit (which grows with
- * time played) atomically with the transfer, and tells both players (the receiver only when they want pay
- * notifications and don't ignore the payer; the money arrives either way).
+ * /pay: validates, asks for confirmation above the configured amount (or the payer's lower {@code pay-confirm-above}),
+ * checks that the receiver accepts payments from the payer ({@code pay-accept-from}; never from someone they ignore),
+ * enforces the daily limit (which grows with time played) atomically with the transfer, and tells both players (the
+ * receiver in their {@code pay-notifications} style, from their {@code pay-alert-minimum}; the money arrives either
+ * way).
  */
 public final class PayService {
 
     /** The cooldown key of payments (commands and the form share it). */
     static final String COOLDOWN_KEY = "pay";
 
-    private final Services services;
-    private final Setting<EconomySettings> settings;
-    private final PayLimits limits;
-    private final Toggle notifications;
-    private volatile IgnoreLookup ignores = IgnoreLookup.NONE;
-
     /** The chat feature's node for players who can't be ignored (staff). */
     static final String UNIGNORABLE = "siftcore.chat.unignorable";
 
-    public PayService(Services services, Setting<EconomySettings> settings, PayLimits limits, Toggle notifications) {
+    private final Services services;
+    private final Setting<EconomySettings> settings;
+    private final PayLimits limits;
+
+    public PayService(Services services, Setting<EconomySettings> settings, PayLimits limits) {
         this.services = services;
         this.settings = settings;
         this.limits = limits;
-        this.notifications = notifications;
-    }
-
-    /** Installs the ignore lists (the chat feature is built after the economy). */
-    void ignores(IgnoreLookup ignores) {
-        this.ignores = ignores;
-    }
-
-    /** Whether the receiver is told about a payment: their pay notifications are on and they don't ignore the payer. */
-    static boolean notifies(boolean notificationsOn, boolean ignoresPayer, boolean payerUnignorable) {
-        return notificationsOn && (!ignoresPayer || payerUnignorable);
     }
 
     public PayLimits limits() {
         return this.limits;
+    }
+
+    private PlayerSettings prefs() {
+        return this.services.settings();
     }
 
     /** Today's limit for a player. Reads statistics, so call on the player's thread. */
@@ -75,8 +71,8 @@ public final class PayService {
     }
 
     /**
-     * Why this payment can't go ahead, from what is known without a storage read (the daily limit is checked
-     * later), or null when it can. Runs on the payer's thread.
+     * Why this payment can't go ahead, from what is known without a storage read (the daily limit and who the receiver
+     * accepts payments from are checked later), or null when it can. Runs on the payer's thread.
      */
     public Refusal refusal(Player payer, UUID target, long amount) {
         EconomySettings s = this.settings.get();
@@ -127,19 +123,26 @@ public final class PayService {
 
     /**
      * Goes on with a payment from the pay form, after {@link #refusal} and {@link #tryCooldown} passed there. The
-     * form stays on screen while the day's total loads: the confirmation replaces it, a daily limit refusal comes
-     * back in it with what was typed, and a payment without confirmation (or a failed load) closes it.
+     * form stays on screen while the day's total and the receiver's choice load: the confirmation replaces it, a
+     * refusal (the daily limit, the receiver not accepting) comes back in it with what was typed, and a payment without
+     * confirmation (or a failed load) closes it.
      */
     public void payFromForm(Submission form, UUID target, long amount) {
         this.services.dialogs().markShown(form.player());
         proceed(form.player(), target, amount, form);
     }
 
-    /** Checks the daily limit (which needs the day's total), then confirms or pays. {@code form} may be null. */
+    /**
+     * Loads the day's total and whom the receiver accepts payments from (one settings read when they are offline),
+     * then checks both and confirms or pays. {@code form} may be null.
+     */
     private void proceed(Player payer, UUID target, long amount, Submission form) {
         EconomySettings s = this.settings.get();
         long limit = limitFor(payer);
-        this.limits.load(payer.getUniqueId()).whenComplete((sent, error) -> this.services.scheduler().entity(payer, () -> {
+        boolean unignorable = payer.hasPermission(UNIGNORABLE);
+        CompletableFuture<Long> sent = this.limits.load(payer.getUniqueId());
+        CompletableFuture<Audience> accepts = prefs().lookup(target, EconomyFeature.PAY_ACCEPT_FROM);
+        CompletableFuture.allOf(sent, accepts).whenComplete((ignored, error) -> this.services.scheduler().entity(payer, () -> {
             if (error != null) {
                 if (form != null) {
                     form.close();
@@ -147,7 +150,12 @@ public final class PayService {
                 this.services.messenger().send(payer, CoreMessages.ACTION_FAILED);
                 return;
             }
-            long left = limit == Long.MAX_VALUE ? Long.MAX_VALUE : Math.max(0, limit - sent);
+            Audience choice = accepts.join();
+            if (!accepts(payer.getUniqueId(), unignorable, target, choice)) {
+                refuseNotAccepted(payer, target, form);
+                return;
+            }
+            long left = limit == Long.MAX_VALUE ? Long.MAX_VALUE : Math.max(0, limit - sent.join());
             if (amount > left) {
                 Arg[] args = {Arg.money("left", left), Arg.money("limit", limit)};
                 if (form != null) {
@@ -157,18 +165,39 @@ public final class PayService {
                 }
                 return;
             }
-            if (amount >= s.payConfirmAbove() && s.payConfirmAbove() > 0) {
-                confirm(payer, target, amount, limit, left);
+            if (PayRules.asks(prefs().get(payer.getUniqueId(), EconomyFeature.PAY_CONFIRM_ABOVE), amount, s.payConfirmAbove())) {
+                confirm(payer, target, amount, limit, left, choice);
             } else {
                 if (form != null) {
                     form.close();
                 }
-                execute(payer, target, amount, limit);
+                execute(payer, target, amount, limit, choice);
             }
         }, null));
     }
 
-    private void confirm(Player payer, UUID target, long amount, long limit, long left) {
+    /**
+     * Whether the receiver accepts a payment from the payer now: their {@code pay-accept-from} choice (the value in
+     * memory while they are online or logging in, otherwise {@code offlineChoice}, read before) and how the two are
+     * related right now (friends, teammates, ignored). Thread-safe.
+     */
+    private boolean accepts(UUID payer, boolean unignorable, UUID target, Audience offlineChoice) {
+        Audience choice = prefs().loaded(target) ? prefs().get(target, EconomyFeature.PAY_ACCEPT_FROM) : offlineChoice;
+        Relations relations = this.services.relations();
+        return PayRules.accepts(choice, relations.areFriends(target, payer), relations.sameTeam(target, payer),
+            relations.ignores(target, payer), unignorable);
+    }
+
+    private void refuseNotAccepted(Player payer, UUID target, Submission form) {
+        Arg name = Arg.text("name", name(target));
+        if (form != null) {
+            form.error(this.services.lang().get(EconomyMessages.PAY_NOT_ACCEPTED, name));
+        } else {
+            this.services.messenger().send(payer, EconomyMessages.PAY_NOT_ACCEPTED, name);
+        }
+    }
+
+    private void confirm(Player payer, UUID target, long amount, long limit, long left, Audience choice) {
         var lang = this.services.lang();
         // The exact amount, in the money colour like every amount of money.
         Arg amountArg = Arg.component("amount", Component.text(this.services.money().get().formatExact(amount),
@@ -183,25 +212,34 @@ public final class PayService {
             lang.get(CoreMessages.UI_CANCEL),
             submission -> {
                 submission.close();
-                execute(submission.player(), target, amount, limit);
+                execute(submission.player(), target, amount, limit, choice);
             },
             submission -> {
                 submission.close();
                 this.services.messenger().send(submission.player(), EconomyMessages.PAY_CANCELLED);
             });
-        this.services.dialogs().show(payer, view);
+        // Both buttons finish here (the result is a chat or action bar line), so the dialog goes at once on a click.
+        this.services.dialogs().show(payer, view.closing());
     }
 
-    /** Fires the event and runs the transfer with the limit check inside the transaction. */
-    private void execute(Player payer, UUID target, long amount, long limit) {
+    /**
+     * Checks again that the receiver accepts the payment (they may have changed their mind, or the two their relation,
+     * while the confirmation was open), fires the event and runs the transfer with the limit check inside the
+     * transaction. Payer's thread.
+     */
+    private void execute(Player payer, UUID target, long amount, long limit, Audience choice) {
         UUID from = payer.getUniqueId();
+        if (!accepts(from, payer.hasPermission(UNIGNORABLE), target, choice)) {
+            refuseNotAccepted(payer, target, null);
+            return;
+        }
         if (!new PlayerPayEvent(from, target, amount).callEvent()) {
             this.services.messenger().send(payer, EconomyMessages.PAY_CANCELLED);
             return;
         }
         LedgerTx tx = LedgerTx.builder()
             .actor(from)
-            .transfer(from, target, Currency.MONEY, amount, "pay", null)
+            .transfer(from, target, Currency.MONEY, amount, PaymentsAway.KIND, null)
             .check(() -> limit != Long.MAX_VALUE && this.limits.sent(from) + amount > limit ? "limit" : null)
             .apply(() -> this.limits.add(from, amount), () -> this.limits.add(from, -amount))
             .build();
@@ -211,10 +249,12 @@ public final class PayService {
                 String targetName = name(target);
                 this.services.messenger().send(payer, EconomyMessages.PAY_SENT, Arg.text("name", targetName), Arg.money("amount", amount));
                 Player online = Bukkit.getPlayer(target);
-                if (online != null && notifies(this.services.settings().enabled(target, this.notifications),
-                    this.ignores.ignores(target, from), payer.hasPermission(UNIGNORABLE))) {
-                    this.services.messenger().send(online, EconomyMessages.PAY_RECEIVED, Arg.text("name", payer.getName()),
-                        Arg.money("amount", amount));
+                if (online != null) {
+                    AlertStyle style = prefs().get(target, EconomyFeature.PAY_NOTIFICATIONS);
+                    if (PayRules.alerts(style, amount, prefs().get(target, EconomyFeature.PAY_ALERT_MINIMUM))) {
+                        this.services.messenger().alert(online, style, EconomyMessages.PAY_RECEIVED, Arg.text("name", payer.getName()),
+                            Arg.money("amount", amount));
+                    }
                 }
             }
             case INSUFFICIENT_FUNDS -> this.services.messenger().send(payer, CoreMessages.NOT_ENOUGH_MONEY, Arg.money("amount", amount));

@@ -7,6 +7,7 @@ import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.ui.gui.Menu;
 import net.siftvanilla.siftcore.ui.gui.MenuContext;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -14,8 +15,9 @@ import org.bukkit.inventory.ItemStack;
  * The {@code /sell} menu: a five-row grid the player fills with items, a live total and a Sell button, plus Add
  * (moves everything sellable from the inventory into the grid), Give back (empties the grid into the inventory) and
  * Mastery. Selling keeps the menu open (anything that can't be sold stays in the grid, and a shulker box stays with
- * whatever could not be sold out of it); closing it sells nothing and gives every item back. Dying with the menu
- * open drops the items like the rest of the inventory, so the menu can't be used to keep items safe from a death.
+ * whatever could not be sold out of it); closing it gives every item back (or, for a player who chose to sell on
+ * close, sells what sells first). Dying with the menu open drops the items like the rest of the inventory, so the
+ * menu can't be used to keep items safe from a death.
  */
 final class SellMenu extends Menu {
 
@@ -30,6 +32,7 @@ final class SellMenu extends Menu {
     private final SellMenus menus;
     private boolean dropOnClose;
     private boolean reopening;
+    private InventoryCloseEvent.Reason closeReason;
     private long shownTotal;
 
     SellMenu(MenuContext ctx, Player viewer, SellMenus menus) {
@@ -118,6 +121,7 @@ final class SellMenu extends Menu {
     protected void closed() {
         if (this.reopening) {
             // Opening this menu again (from a dialog's Back) makes the server close it first: not a real close.
+            this.closeReason = null;
             return;
         }
         this.menus.closed(this);
@@ -167,6 +171,18 @@ final class SellMenu extends Menu {
             }
         }
         return -1;
+    }
+
+    /** Notes why the server is closing this menu (from the close event, before {@link #closed()} runs). */
+    void closeReason(InventoryCloseEvent.Reason reason) {
+        this.closeReason = reason;
+    }
+
+    /** Why the menu is closing, or null when no close event said so (it was handed back another way); clears it. */
+    InventoryCloseEvent.Reason takeCloseReason() {
+        InventoryCloseEvent.Reason reason = this.closeReason;
+        this.closeReason = null;
+        return reason;
     }
 
     /** Marks that the viewer died without keeping their inventory: the grid drops on close. */

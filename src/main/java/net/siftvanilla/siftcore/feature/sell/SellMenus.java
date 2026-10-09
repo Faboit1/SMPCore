@@ -26,6 +26,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
@@ -315,7 +316,8 @@ final class SellMenus implements Listener {
     /** {@link #addSellable(SellMenu)} limited to what {@code request} covers (one item or one category; null: all). */
     void addSellable(SellMenu menu, SaleRequest request) {
         Player player = menu.viewer();
-        SellSettings s = this.settings.get();
+        // The player's own sell-all rules: their hotbar choice decides whether it is added too.
+        SellSettings s = this.sales.personal(player);
         PlayerInventory inventory = player.getInventory();
         Inventory grid = menu.getInventory();
         int held = inventory.getHeldItemSlot();
@@ -389,9 +391,19 @@ final class SellMenus implements Listener {
         }
     }
 
-    /** A menu closed (on the viewer's thread): its items go back to the viewer, or drop if they just died. */
+    /**
+     * A menu closed (on the viewer's thread): its items go back to the viewer, or drop if they just died. A player who
+     * chose to sell on close ({@code sell-menu-close}) and closed it themselves sells what sells first; the rest (and
+     * everything, after any other kind of close: quitting, a teleport, another screen) goes back.
+     */
     void closed(SellMenu menu) {
         Player player = menu.viewer();
+        InventoryCloseEvent.Reason reason = menu.takeCloseReason();
+        if (SellPrefs.sellsOnClose(this.services.settings().get(player.getUniqueId(), SellPrefs.MENU_CLOSE), reason, menu.dropOnClose())
+            && menusOf(player).contains(menu) && summarize(player, menu.getInventory()).draft() != null) {
+            // Sold while the menu still counts as live, so the copy in the player's data follows the grid.
+            this.sales.sellMenu(player, menu.getInventory(), 0);
+        }
         unregister(player, menu);
         List<ItemStack> items = menu.drain();
         // Before the items go anywhere the copy drops them: it keeps only what other menus of the player still hold (a
@@ -426,6 +438,17 @@ final class SellMenus implements Listener {
     private void save(Player player) {
         if (this.services.core().get().savePlayerAfterTrade()) {
             player.saveData();
+        }
+    }
+
+    /**
+     * Notes why a sell menu closes, before the menu framework hands the close on (at MONITOR): only a menu the player
+     * closed themselves may sell on close.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onClose(InventoryCloseEvent event) {
+        if (event.getView().getTopInventory().getHolder(false) instanceof SellMenu menu && event.getPlayer().equals(menu.viewer())) {
+            menu.closeReason(event.getReason());
         }
     }
 

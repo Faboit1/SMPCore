@@ -56,8 +56,29 @@ public final class EconomyMessages {
     public static final MessageKey PAY_FORM_PLAYER = MessageKey.ui("economy.pay.form-player");
     public static final MessageKey PAY_FORM_AMOUNT = MessageKey.ui("economy.pay.form-amount");
 
+    /** A payment the receiver doesn't accept from this payer ({@code pay-accept-from}, or they ignore the payer). */
+    public static final MessageKey PAY_NOT_ACCEPTED = MessageKey.error("economy.pay.not-accepted", "name");
+    /** {@code /balance <name>} of a player whose {@code balance-privacy} leaves the viewer out. */
+    public static final MessageKey BALANCE_PRIVATE = MessageKey.error("economy.balance.private", "name");
+
+    /** The summary of payments received while offline ({@code pay-join-summary}). */
+    public static final MessageKey AWAY_HEADER = MessageKey.ui("economy.away.header", "total");
+    public static final MessageKey AWAY_LINE = MessageKey.ui("economy.away.line", "name", "amount");
+    public static final MessageKey AWAY_LINE_MANY = MessageKey.ui("economy.away.line-many", "name", "amount", "count");
+    public static final MessageKey AWAY_MORE = MessageKey.ui("economy.away.more", "count");
+
     public static final MessageKey SETTING_NOTIFICATIONS = MessageKey.ui("economy.settings.notifications");
     public static final MessageKey SETTING_NOTIFICATIONS_DESCRIPTION = MessageKey.ui("economy.settings.notifications-description");
+    public static final MessageKey SETTING_CONFIRM_ABOVE = MessageKey.ui("economy.settings.confirm-above");
+    public static final MessageKey SETTING_CONFIRM_ABOVE_DESCRIPTION = MessageKey.ui("economy.settings.confirm-above-description");
+    public static final MessageKey SETTING_ACCEPT_FROM = MessageKey.ui("economy.settings.accept-from");
+    public static final MessageKey SETTING_ACCEPT_FROM_DESCRIPTION = MessageKey.ui("economy.settings.accept-from-description");
+    public static final MessageKey SETTING_JOIN_SUMMARY = MessageKey.ui("economy.settings.join-summary");
+    public static final MessageKey SETTING_JOIN_SUMMARY_DESCRIPTION = MessageKey.ui("economy.settings.join-summary-description");
+    public static final MessageKey SETTING_ALERT_MINIMUM = MessageKey.ui("economy.settings.alert-minimum");
+    public static final MessageKey SETTING_ALERT_MINIMUM_DESCRIPTION = MessageKey.ui("economy.settings.alert-minimum-description");
+    /** The {@code any} option of {@code pay-alert-minimum}. */
+    public static final MessageKey SETTING_ALERT_MINIMUM_ANY = MessageKey.ui("economy.settings.alert-minimum-any");
 
     private EconomyMessages() {
     }
