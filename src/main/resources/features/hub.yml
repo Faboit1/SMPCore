@@ -32,10 +32,10 @@ pause-menu:
 server-links:
   rules:
     label: "Rules"
-    url: "https://siftvanilla.net/rules"
+    url: "https://siftvanilla.com/rules"
   discord:
     label: "Discord"
     url: "https://discord.gg/siftvanilla"
   store:
     label: "Store"
-    url: "https://store.siftvanilla.net"
+    url: "https://store.siftvanilla.com"

@@ -337,8 +337,8 @@ public final class ChatFeature implements Feature {
             return result.text().equals("*** you ***, skys is fine") ? null : "got '" + result.text() + "'";
         });
         test.check(id(), "link check finds server addresses", () -> {
-            LinkGuard guard = new LinkGuard(java.util.Set.copyOf(ChatSettings.DEFAULT_TOP_LEVEL_DOMAINS), List.of("siftvanilla.net"));
-            List<String> found = guard.apply("join play.other.net or 1.2.3.4:25565, rules at siftvanilla.net/rules on 1.21.5",
+            LinkGuard guard = new LinkGuard(java.util.Set.copyOf(ChatSettings.DEFAULT_TOP_LEVEL_DOMAINS), List.of("siftvanilla.com"));
+            List<String> found = guard.apply("join play.other.net or 1.2.3.4:25565, rules at siftvanilla.com/rules on 1.21.5",
                 ChatFilter.Action.BLOCK, "***").matched();
             return found.equals(List.of("play.other.net", "1.2.3.4:25565")) ? null : "found " + found;
         });

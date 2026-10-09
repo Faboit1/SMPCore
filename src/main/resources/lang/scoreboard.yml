@@ -31,7 +31,7 @@ scoreboard:
       combat: "<primary><icon:warning> <secondary>Combat <primary>{combat}"
       online: "<primary><icon:online> <secondary>Online <primary>{online}"
       ping: "<primary><icon:ping> <secondary>Ping <primary>{ping}ms"
-      website: "<secondary>siftvanilla.net"
+      website: "<secondary>siftvanilla.com"
 
   tab:
     # Above and below the player list, one entry per line.
@@ -43,7 +43,7 @@ scoreboard:
     footer:
       - ""
       - "<secondary>/menu opens everything on the server"
-      - "<secondary>siftvanilla.net"
+      - "<secondary>siftvanilla.com"
       - ""
     # A name in the player list. <afk> is the marker below while the player is away, otherwise nothing.
     name: "<primary><name><afk>"

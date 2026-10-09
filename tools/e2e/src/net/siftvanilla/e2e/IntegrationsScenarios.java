@@ -61,6 +61,7 @@ final class IntegrationsScenarios {
         list.add(new Named("admin-tools", IntegrationsScenarios::adminTools));
         list.add(new Named("bedrock-forms", IntegrationsScenarios::bedrockForms));
         list.add(new Named("show-my-rank", IntegrationsScenarios::showMyRank));
+        list.add(new Named("tab-config", IntegrationsScenarios::tabConfig));
         return list;
     }
 
@@ -287,6 +288,11 @@ final class IntegrationsScenarios {
         return SiftCoreApi.get().placeholders().resolve(e2e.player(player), name).orElse("?");
     }
 
+    /** The first of {@code lines} that contains {@code text}, or "". */
+    private static String line(List<String> lines, String text) {
+        return lines.stream().filter(l -> l.contains(text)).findFirst().orElse("");
+    }
+
     /** The newest chat line the bot got that contains {@code text}, as plain text. */
     private static String chatLine(E2E e2e, Bot bot, String text) {
         e2e.eventually(() -> bot.chatContains(text), bot.name + " gets a line with '" + text + "': " + bot.chat());
@@ -297,6 +303,52 @@ final class IntegrationsScenarios {
             }
         }
         return "";
+    }
+
+    /**
+     * TAB with the live config (plugins/TAB copied from the server): a joining player gets TAB's sidebar with every line
+     * filled from SiftCore (a player without a team reads None, the keyall line never a bare "-") and the server address
+     * last, the address in the tab list footer, and TAB logs no error while building them. One bad
+     * placeholder-output-replacement key (TAB reads a key with "-" as a number range) stopped the whole sidebar, address
+     * included, from showing on join. Nothing to check where TAB is not installed.
+     */
+    static void tabConfig(E2E e2e) throws Exception {
+        Plugin tab = Bukkit.getPluginManager().getPlugin("TAB");
+        if (tab == null || !tab.isEnabled()) {
+            e2e.step("TAB is not installed here, nothing to check");
+            return;
+        }
+        Path errors = tab.getDataFolder().toPath().resolve("errors.log");
+        long before = Files.exists(errors) ? Files.size(errors) : 0;
+        Bot bot = e2e.bot(e2e.name("TabView"));
+
+        e2e.step("TAB's sidebar shows every line, the address last");
+        e2e.eventually(() -> bot.sidebarLines().stream().anyMatch(l -> l.contains("siftvanilla.com")), 15_000,
+            "TAB's sidebar with the address");
+        e2e.eventually(() -> line(bot.sidebarLines(), "Keyall:").length() > 0, "the keyall line");
+        List<String> lines = bot.sidebarLines();
+        e2e.log("sidebar: " + lines);
+        e2e.expect(lines.get(lines.size() - 1).contains("siftvanilla.com"), "the address is the last line: " + lines);
+        String title = bot.displayed("sidebar").displayName().getString();
+        e2e.expect(title.contains("SIFTVANILLA"), "the title: " + title);
+        for (String label : List.of("Money:", "Shards:", "Kills:", "Deaths:", "Team:", "Keyall:", "Online:")) {
+            String value = line(lines, label);
+            value = value.substring(value.indexOf(label) + label.length()).trim();
+            e2e.expect(!value.isEmpty() && !value.contains("%"), label + " is filled: '" + value + "' in " + lines);
+        }
+        e2e.expect(line(lines, "Team:").endsWith("Team: None"), "no team reads None: " + line(lines, "Team:"));
+        String keyall = line(lines, "Keyall:");
+        e2e.expect(keyall.endsWith("Keyall: Off") || keyall.matches(".*Keyall: (\\d+[dhms] ?)+"), "the keyall countdown or Off: " + keyall);
+
+        e2e.step("the tab list footer names the address too");
+        e2e.eventually(() -> bot.tabFooter() != null && bot.tabFooter().contains("siftvanilla.com"), "the footer: " + bot.tabFooter());
+        e2e.expect(bot.tabHeader() != null && bot.tabHeader().contains("players online"), "the header: " + bot.tabHeader());
+
+        e2e.step("TAB logged no error");
+        e2e.sleep(1_000);
+        String added = Files.exists(errors) && Files.size(errors) > before
+            ? Files.readString(errors).substring((int) before) : "";
+        e2e.expect(added.isEmpty(), "TAB's errors.log grew:\n" + added.lines().limit(4).reduce("", (x, y) -> x + y + "\n"));
     }
 
     /**

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class LinkGuardTest {
 
     private static final LinkGuard GUARD = new LinkGuard(new HashSet<>(ChatSettings.DEFAULT_TOP_LEVEL_DOMAINS),
-        List.of("siftvanilla.net", "discord.gg/siftvanilla"));
+        List.of("siftvanilla.com", "discord.gg/siftvanilla"));
 
     private static List<String> found(String text) {
         return GUARD.apply(text, ChatFilter.Action.BLOCK, "***").matched();
@@ -43,13 +43,13 @@ class LinkGuardTest {
 
     @Test
     void theAllowListPassesTheServersOwnAddresses() {
-        assertTrue(found("rules at https://siftvanilla.net/rules").isEmpty());
-        assertTrue(found("buy at store.siftvanilla.net").isEmpty(), "subdomains of an allowed domain");
+        assertTrue(found("rules at https://siftvanilla.com/rules").isEmpty());
+        assertTrue(found("buy at store.siftvanilla.com").isEmpty(), "subdomains of an allowed domain");
         assertTrue(found("join discord.gg/siftvanilla").isEmpty(), "the allowed invite");
-        assertTrue(found("www.siftvanilla.net").isEmpty());
+        assertTrue(found("www.siftvanilla.com").isEmpty());
         assertEquals(List.of("discord.gg"), found("discord.gg"), "an entry with a page allows only that page");
-        assertEquals(List.of("siftvanilla.net.evil.com"), found("siftvanilla.net.evil.com"), "not a suffix trick");
-        assertEquals(List.of("fakesiftvanilla.net"), found("fakesiftvanilla.net"), "not a lookalike");
+        assertEquals(List.of("siftvanilla.com.evil.com"), found("siftvanilla.com.evil.com"), "not a suffix trick");
+        assertEquals(List.of("fakesiftvanilla.com"), found("fakesiftvanilla.com"), "not a lookalike");
     }
 
     @Test

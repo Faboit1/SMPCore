@@ -158,13 +158,19 @@ TAB 6.2.0 runs with the owner's archive config adjusted for SiftVanilla (`plugin
 for money, shards, kills, deaths, team, keyall and the visible online count; sorting
 `GROUPS:owner,admin,mod,helper,tycoon,baron,prospector,default`; the paid tiers' prefixes and fixed nametag prefixes
 (nametag name colours can only be the 16 legacy colours, so each tier's prefix ends with the closest one; Tycoon's tab
-name is a gradient through `customtabname`); proxy support off.
+name is a gradient through `customtabname`); proxy support off. The sidebar ends with the address `siftvanilla.com`,
+which the tab list footer shows too.
 
 - **SiftCore steps aside.** `features/scoreboard.yml` lists `TAB` in the `yield-to` of the sidebar, the tab list and the
   nametags, so while TAB runs SiftCore draws none of them (`/sidebar status` says which plugin shows each part).
   The `scoreboard` and `sidebar-layout` settings are then not offered, and `/sidebar` says which plugin shows the
   sidebar. Removing TAB (delete the jar and `plugins/TAB/`, restart) brings SiftCore's own three parts back by
   themselves.
+- **No `-` in output replacement keys.** TAB reads a `placeholder-output-replacements` key containing `-` as a number
+  range (`0-10`); a key without numbers around it (such as `"-"`) makes TAB fail while setting up the sidebar for every
+  joining player, so the sidebar, address included, never shows (`plugins/TAB/errors.log` names
+  `PlaceholderReplacementPattern`). `%siftcore_keyall_countdown%` returns `-` while the keyall is off, so the live config
+  turns that into Off with a condition instead (`%condition:keyall%`, row 41).
 - **Money in TAB** follows the money format of the player PlaceholderAPI asks for: in the header and footer that is
   the viewer, in tab list names and nametags the player the line is about. Use `%siftcore_balance_server%` there for
   one format for everyone (see [placeholders.md](placeholders.md)).

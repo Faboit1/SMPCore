@@ -70,7 +70,7 @@ class ChatResourcesTest {
         assertTrue(settings.linksPrivate());
         assertEquals(2, settings.links().allowedCount());
         assertTrue(settings.links().apply("join play.other.net", settings.linkAction(), "***").blocked());
-        assertTrue(settings.links().apply("see discord.gg/siftvanilla and store.siftvanilla.net", settings.linkAction(), "***").clean());
+        assertTrue(settings.links().apply("see discord.gg/siftvanilla and store.siftvanilla.com", settings.linkAction(), "***").clean());
         assertTrue(settings.mentions());
         assertTrue(settings.plainNameMentions());
         assertEquals(3, settings.minPlainLength());
@@ -117,7 +117,7 @@ class ChatResourcesTest {
         broken.set("anti-spam.repeats.similarity", 0.1);
         broken.set("filter.words", List.of("kys", "???", "f*ck"));
         broken.set("private-messages.reply-expiry", "10s");
-        broken.set("links.allowed", List.of("siftvanilla.net", "not an address"));
+        broken.set("links.allowed", List.of("siftvanilla.com", "not an address"));
         broken.set("links.top-level-domains", List.of("net", ".gg", "c0m"));
         ConfigReader reader = new ConfigReader("features/chat.yml", broken);
         ChatSettings settings = ChatSettings.parse(reader);

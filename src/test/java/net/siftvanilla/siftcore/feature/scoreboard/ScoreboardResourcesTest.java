@@ -167,7 +167,7 @@ class ScoreboardResourcesTest {
         assertTrue(rendered.get(6).endsWith(" Playtime 2h 5m"), rendered.get(6));
         assertTrue(rendered.get(7).endsWith(" Team Alpha"), rendered.get(7));
         assertEquals("", rendered.get(8));
-        assertEquals("siftvanilla.net", rendered.get(9));
+        assertEquals("siftvanilla.com", rendered.get(9));
         for (String name : ScoreboardMessages.LINES.keySet()) {
             assertNotNull(texts.line(name), name);
             assertTrue(TextStyle.plain(texts.line(name).source()).length() > 3, name);

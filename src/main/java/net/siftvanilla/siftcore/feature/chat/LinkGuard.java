@@ -55,7 +55,7 @@ final class LinkGuard {
 
     /**
      * @param topLevelDomains lowercase top-level domains that make a word an address ({@code net}, {@code gg})
-     * @param allowed         addresses that are fine, as written in the config ({@code siftvanilla.net},
+     * @param allowed         addresses that are fine, as written in the config ({@code siftvanilla.com},
      *                        {@code discord.gg/siftvanilla})
      */
     LinkGuard(Set<String> topLevelDomains, List<String> allowed) {

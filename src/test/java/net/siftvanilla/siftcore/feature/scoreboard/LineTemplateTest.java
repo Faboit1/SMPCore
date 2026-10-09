@@ -68,7 +68,7 @@ class LineTemplateTest {
 
     @Test
     void textWithoutPlaceholdersIsReturnedAsIs() {
-        LineTemplate line = template("<secondary>siftvanilla.net");
+        LineTemplate line = template("<secondary>siftvanilla.com");
         assertTrue(line.tokens().isEmpty());
         assertSame(line.source(), line.render(List.of()));
         assertFalse(LineTemplate.hidden(List.of()), "a line without placeholders always shows");

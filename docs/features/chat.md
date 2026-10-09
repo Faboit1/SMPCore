@@ -130,8 +130,8 @@ Messages with a web or server address are refused (`links.action: block`, the de
 
 Version numbers (`1.21.5`), money (`1.5k`), e-mail addresses, abbreviations (`e.g.`) and words ending in an unlisted
 ending (`config.yml`) are not addresses. The allow list (`links.allowed`) passes the server's own addresses: a domain
-allows its subdomains and pages (`siftvanilla.net` allows `store.siftvanilla.net/rank`), an entry with a page allows
-only that page (`discord.gg/siftvanilla`); lookalikes such as `siftvanilla.net.evil.com` are still caught. Spelled-out
+allows its subdomains and pages (`siftvanilla.com` allows `store.siftvanilla.com/rank`), an entry with a page allows
+only that page (`discord.gg/siftvanilla`); lookalikes such as `siftvanilla.com.evil.com` are still caught. Spelled-out
 dots (`play dot example dot net`) are not detected. Private messages are checked too (`links.private-messages`).
 Refused and changed messages are logged with the filter's log. Staff with `siftcore.chat.links` can post any address.
 
@@ -263,7 +263,7 @@ default, bell, pling, chime, off) and `balance-privacy` (Privacy: who sees the b
 | `filter.leetspeak` / `join-spaced-letters` / `private-messages` / `log` | true each | Filter options |
 | `filter.words` / `strict-words` | a shipped list / 23 milder words | What the filter and the strict filter catch |
 | `links.enabled` / `action` / `private-messages` | true / block / true | The link check, `block` or `replace` |
-| `links.allowed` / `top-level-domains` | `siftvanilla.net`, `discord.gg/siftvanilla` / 42 endings | Addresses that pass; which endings count as a domain |
+| `links.allowed` / `top-level-domains` | `siftvanilla.com`, `discord.gg/siftvanilla` / 42 endings | Addresses that pass; which endings count as a domain |
 | `mentions.enabled` / `plain-names` / `min-plain-length` / `cooldown` | true / true / 3 / 3s | Mentions, bare-name mentions, their minimum length, one alert per sender and player per cooldown |
 | `private-messages.reply-expiry` / `log-to-console` | 10m / true | How long `/r` remembers a conversation; console log |
 | `ignore.max` / `page-size` | 100 / 10 | Ignore list size; names per dialog page |

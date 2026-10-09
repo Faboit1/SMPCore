@@ -97,10 +97,10 @@ links:
   action: block
   # Check private messages too.
   private-messages: true
-  # Addresses that are always fine. A domain allows its subdomains and pages too (siftvanilla.net allows
-  # store.siftvanilla.net/rank); an entry with a page allows only that page (discord.gg/siftvanilla).
+  # Addresses that are always fine. A domain allows its subdomains and pages too (siftvanilla.com allows
+  # store.siftvanilla.com/rank); an entry with a page allows only that page (discord.gg/siftvanilla).
   allowed:
-    - siftvanilla.net
+    - siftvanilla.com
     - discord.gg/siftvanilla
   # A word with dots counts as an address when it ends in one of these (play.example.net). Add the endings
   # advertisers use on your server; leave out common words so normal chat isn't refused.

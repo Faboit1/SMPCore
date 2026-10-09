@@ -512,7 +512,11 @@ public final class Bot {
         return map == null ? Map.of() : Map.copyOf(map);
     }
 
-    /** The sidebar as the client draws it: text of each score, highest score first (ties by owner), or empty. */
+    /**
+     * The sidebar as the client draws it: text of each score, highest score first (ties by owner), or empty. A score
+     * without custom text shows its owner inside the owner's team prefix and suffix, as the client draws it (TAB builds
+     * its lines that way, around an owner of colour codes only, which draw nothing).
+     */
     public List<String> sidebarLines() {
         SeenObjective sidebar = displayed("sidebar");
         if (sidebar == null) {
@@ -522,7 +526,9 @@ public final class Bot {
         sorted.sort(java.util.Comparator.comparingInt(SeenScore::value).reversed().thenComparing(SeenScore::owner));
         List<String> lines = new ArrayList<>(sorted.size());
         for (SeenScore score : sorted) {
-            lines.add(score.text());
+            SeenTeam team = score.display() == null ? teamOf(score.owner()) : null;
+            lines.add(team == null ? score.text()
+                : team.prefix().getString() + score.owner().replaceAll("\u00a7.", "") + team.suffix().getString());
         }
         return lines;
     }

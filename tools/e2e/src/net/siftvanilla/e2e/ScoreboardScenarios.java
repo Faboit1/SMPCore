@@ -222,7 +222,7 @@ final class ScoreboardScenarios {
         e2e.expect(lines.get(3).endsWith("Kills 0"), "kills: " + lines.get(3));
         e2e.expect(lines.get(4).endsWith("Deaths 0"), "deaths: " + lines.get(4));
         e2e.expect(lines.get(5).contains("Playtime "), "playtime: " + lines.get(5));
-        e2e.expect("siftvanilla.net".equals(lines.get(7)), "the address: " + lines.get(7));
+        e2e.expect("siftvanilla.com".equals(lines.get(7)), "the address: " + lines.get(7));
         for (Bot.SeenScore score : alex.scores(OBJECTIVE).values()) {
             e2e.expect(score.display() != null, "score " + score.owner() + " has custom text");
             e2e.expect(score.owner().startsWith("§"), "score entries are fixed ids, never names: " + score.owner());
@@ -453,7 +453,7 @@ final class ScoreboardScenarios {
 
         e2e.step("the header and footer arrive");
         e2e.eventually(() -> viewer.tabHeader() != null && viewer.tabHeader().contains("SiftVanilla"), "the header: " + viewer.tabHeader());
-        e2e.expect(viewer.tabFooter() != null && viewer.tabFooter().contains("/menu") && viewer.tabFooter().contains("siftvanilla.net"),
+        e2e.expect(viewer.tabFooter() != null && viewer.tabFooter().contains("/menu") && viewer.tabFooter().contains("siftvanilla.com"),
             "the footer: " + viewer.tabFooter());
         int online = (int) Bukkit.getOnlinePlayers().stream().filter(p -> !"true".equals(
             e2e.services().placeholders().resolve(p, "staff_vanished"))).count();
@@ -515,7 +515,7 @@ final class ScoreboardScenarios {
 
         e2e.step("preview lists what the player sees");
         String preview = String.join("\n", output(e2e, "sidebar preview " + name));
-        e2e.expect(preview.contains("Sidebar of " + name) && preview.contains("Money $0") && preview.contains("siftvanilla.net"),
+        e2e.expect(preview.contains("Sidebar of " + name) && preview.contains("Money $0") && preview.contains("siftvanilla.com"),
             "the preview:\n" + preview);
         String nobody = String.join("\n", output(e2e, "sidebar preview NobodyHere"));
         e2e.expect(nobody.contains("NobodyHere"), "an unknown player is named: " + nobody);
@@ -650,13 +650,13 @@ final class ScoreboardScenarios {
 
         e2e.step("changed text in lang applies too");
         withFile(e2e, "lang/scoreboard.yml", Map.of("    title: \"SiftVanilla\"", "    title: \"SiftVanilla test\"",
-            "      website: \"<secondary>siftvanilla.net\"", "      website: \"<secondary>play.siftvanilla.net\""), x -> {
+            "      website: \"<secondary>siftvanilla.com\"", "      website: \"<secondary>play.siftvanilla.com\""), x -> {
             e2e.eventually(() -> bot.displayed("sidebar") != null && "SiftVanilla test".equals(bot.displayed("sidebar").displayName().getString()),
                 "the new title: " + bot.displayed("sidebar"));
-            e2e.eventually(() -> bot.sidebarLines().contains("play.siftvanilla.net"), "the new address: " + bot.sidebarLines());
+            e2e.eventually(() -> bot.sidebarLines().contains("play.siftvanilla.com"), "the new address: " + bot.sidebarLines());
         });
         e2e.eventually(() -> bot.displayed("sidebar") != null && "SiftVanilla".equals(bot.displayed("sidebar").displayName().getString())
-            && bot.sidebarLines().contains("siftvanilla.net"), "the shipped text is back: " + bot.sidebarLines());
+            && bot.sidebarLines().contains("siftvanilla.com"), "the shipped text is back: " + bot.sidebarLines());
     }
 
     // ------------------------------------------------------------------ the player's settings
@@ -708,7 +708,7 @@ final class ScoreboardScenarios {
         e2e.eventually(() -> line(bot, "Kills") == null && line(bot, "Money") != null && bot.sidebarLines().size() == 5,
             "only money, shards and the address: " + bot.sidebarLines());
         e2e.expect(bot.sidebarLines().get(1).endsWith("Money $0") && bot.sidebarLines().get(2).endsWith("Shards 0")
-            && "siftvanilla.net".equals(bot.sidebarLines().get(4)), "the money view: " + bot.sidebarLines());
+            && "siftvanilla.com".equals(bot.sidebarLines().get(4)), "the money view: " + bot.sidebarLines());
         e2e.eventually(() -> "compact".equals(stored(e2e, id, "sidebar-layout")), "the pick is stored: " + stored(e2e, id, "sidebar-layout"));
 
         e2e.step("/sidebar preview shows the lines of the layout the player picked");

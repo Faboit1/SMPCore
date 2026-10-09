@@ -712,8 +712,8 @@ final class ChatScenarios {
             e2e.expect(!reader.chatContains("51.12.3.4"), "no private message: " + reader.chat());
 
             e2e.step("the server's own addresses and version numbers pass");
-            say(e2e, advertiser, "rules at siftvanilla.net/rules and discord.gg/siftvanilla");
-            e2e.eventually(() -> reader.chatContains(advertiserName + ": rules at siftvanilla.net/rules and discord.gg/siftvanilla"),
+            say(e2e, advertiser, "rules at siftvanilla.com/rules and discord.gg/siftvanilla");
+            e2e.eventually(() -> reader.chatContains(advertiserName + ": rules at siftvanilla.com/rules and discord.gg/siftvanilla"),
                 "the allowed addresses: " + reader.chat());
             say(e2e, advertiser, "the farm still works on 1.21.5");
             e2e.eventually(() -> reader.chatContains("the farm still works on 1.21.5"), "a version number: " + reader.chat());

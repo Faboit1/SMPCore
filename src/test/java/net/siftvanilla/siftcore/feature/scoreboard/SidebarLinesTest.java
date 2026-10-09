@@ -28,9 +28,9 @@ class SidebarLinesTest {
     void theFirstUpdateSendsEveryShownLine() {
         SidebarLines sidebar = new SidebarLines(4);
         List<SidebarLines.Change> changes = sidebar.update(Arrays.asList(Component.empty(), Component.text("Money $0"), null,
-            Component.text("siftvanilla.net")));
+            Component.text("siftvanilla.com")));
         assertEquals(List.of(0, 1, 3), changes.stream().map(SidebarLines.Change::slot).toList(), "the hidden slot is not sent");
-        assertEquals(List.of(Component.empty(), Component.text("Money $0"), Component.text("siftvanilla.net")), sidebar.visible());
+        assertEquals(List.of(Component.empty(), Component.text("Money $0"), Component.text("siftvanilla.com")), sidebar.visible());
     }
 
     @Test
