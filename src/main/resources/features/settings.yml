@@ -1,6 +1,7 @@
 # The settings dialog (/settings, and Settings in the main menu and the pause screen).
-# Every feature adds its own settings into shared groups (Chat, Sounds, Privacy, General...); their text lives in
-# that feature's lang file. This file shapes the dialog and sets the server's defaults.
+# Every feature adds its own settings into shared groups (Chat, Sounds, Privacy...); their text lives in that
+# feature's lang file. This file shapes the dialog and sets the server's defaults. Players can also search their
+# settings, see what they changed and reset a group or everything; staff use /sift settings for other players.
 
 # How many settings one page of a group shows. Longer groups get Previous page and Next page buttons; changes
 # made on one page are kept while moving between pages and saved together.
@@ -8,6 +9,10 @@ page-size: 8
 
 # When a player can only see one group of settings, open that group directly instead of a list with one entry.
 skip-single-group: true
+
+# Show one line per setting above the inputs saying what it does ("Mention alerts: How you are told..."). With false,
+# pages are compact: only the inputs (their labels stay), which suits players who know their settings.
+show-descriptions: true
 
 # The server can override any setting (by its id, as in docs/features/settings.md) in three ways:
 #   hidden:   settings left out of the dialog, commands and placeholders. Everyone gets the server's value for them:
@@ -26,3 +31,13 @@ skip-single-group: true
 # Problems (an unknown id, a value a setting can't take) are logged at startup and reload, and /sift selftest
 # lists them.
 hidden: []
+
+# Groups can move in the group list or get another icon (an icons.yml name). Add a categories section when you
+# need it, for example to put Sounds first and give Privacy the star icon:
+#   categories:
+#     sound:
+#       order: 5
+#     privacy:
+#       icon: star
+# The built-in order: chat 10, social 20, announcements 30, sound 40, teleport 50, economy 60, market 70, combat 80,
+# display 90, privacy 100, afk 110, crates 120, spawners 130, staff 900.

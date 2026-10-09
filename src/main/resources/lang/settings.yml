@@ -6,22 +6,35 @@ settings:
   title: "Settings"
   # The list of groups (shown when a player can see settings in more than one group).
   groups-intro: "<secondary>Pick a group of settings."
-  # <sprite> is the group's icon from icons.yml (with a space after it), or nothing.
-  group-line: "<sprite><primary><label><secondary>: <description>"
+  # Below the intro: how many of the settings the player sees they changed from the server's defaults.
+  changed-count: "<secondary>You changed <primary><changed><secondary> of <primary><total><secondary> settings."
+  # <sprite> is the group's icon from icons.yml (with a space after it), or nothing; <count> is how many settings
+  # the player sees in it.
+  group-line: "<sprite><primary><label><secondary>: <description> (<count>)"
+  # Shown when hovering a group's button.
+  group-tooltip: "<primary><description><newline><secondary><count> settings, <changed> changed"
+  search-button: "Search settings"
+  changed-button: "Changed settings (<count>)"
   # The title of one group's page, like "Chat settings".
   group-title: "<label> settings"
   intro: "<secondary>Change what you like, then save."
-  # One line per setting above the inputs: its label and what it does.
+  # One line per setting above the inputs: its label and what it does (left out with show-descriptions: false).
   line: "<primary><label><secondary>: <description>"
+  # The same for a setting that takes effect after the player rejoins.
+  line-rejoin: "<primary><label><secondary>: <description> (after rejoin)"
+  # With show-descriptions: false, the only line a setting that takes effect after a rejoin gets.
+  rejoin-note: "<primary><label><secondary> takes effect after you rejoin."
   # A setting the server locked (features/settings.yml): shown as text instead of an input.
   locked-line: "<primary><label><secondary>: <primary><value> <secondary>(set by the server)"
   page: "<secondary>Page <page> of <pages>"
-  # Shown when settings were changed on another page of the group and are not saved yet.
+  # Shown when settings were changed on another page and are not saved yet.
   pending: "<secondary>Changes on other pages: <primary><count><secondary>, saved with this page."
   empty: "<secondary>There is nothing to set yet."
   save: "Save"
   next: "Next page"
   previous: "Previous page"
+  # On a group's page when the player changed something in it.
+  reset-button: "Reset this category"
   # After saving one switch, like "Mention alerts turned off."
   saved-one: "<primary><label> turned <state>."
   # After saving one choice or number, like "SiftCore volume set to 60%."
@@ -31,6 +44,96 @@ settings:
   refused: "<primary><label> couldn't be changed."
   unchanged: "<secondary>Nothing changed."
   unknown-group: "<primary>There is no settings group called <name>."
+  # Putting settings back to the server's defaults (a group's page, the changed settings, /settings reset).
+  reset:
+    title: "Reset <label> settings?"
+    all-title: "Reset every setting?"
+    intro: "<secondary>These go back to the server's defaults:"
+    line: "<primary><label><secondary>: <value> to <primary><default>"
+    more: "<secondary>and <primary><count><secondary> more."
+    confirm: "Reset"
+    done-one: "<primary><label> is back to its default."
+    done-many: "<primary>Reset <count> settings to their defaults."
+    nothing: "<secondary>You use the defaults for every <label> setting."
+    nothing-all: "<secondary>You use the defaults for every setting."
+  # Search settings: a form with one text field, then the matching settings on pages like a group's.
+  search:
+    title: "Search settings"
+    intro: "<secondary>Type a word from a setting's name, what it does or one of its choices."
+    input: "Search for"
+    submit: "Search"
+    empty: "Type a word to search for."
+    none: "<secondary>No setting matches <primary><query><secondary>."
+    results-title: "Search: <query>"
+    found: "<secondary>Settings matching <primary><query><secondary>: <primary><count>"
+    # A result: its group, label and what it does.
+    line: "<secondary><group> > <primary><label><secondary>: <description>"
+    # A result with show-descriptions: false.
+    line-short: "<secondary><group> > <primary><label>"
+    locked-line: "<secondary><group> > <primary><label><secondary>: <primary><value> <secondary>(set by the server)"
+  # The settings a player changed from the server's defaults.
+  changed:
+    title: "Changed settings"
+    intro: "<secondary>Settings you changed from the server's defaults:"
+    none: "<secondary>You use the server's defaults for everything."
+    line: "<secondary><group> > <primary><label><secondary>: <primary><value> <secondary>(default <default>)"
+    group-button: "<label> (<count>)"
+    reset-all: "Reset everything"
+  # /settings <group> <setting> [value] and /settings <setting> [value].
+  command:
+    unknown-setting: "<primary>There is no setting called <name>."
+    # /settings <word> <word> [value] when the first word is neither a group nor a setting the player sees.
+    unknown-word: "<primary>There is no setting or settings group called <name>."
+    unknown-in-group: "<primary>There is no setting called <name> in <group>."
+    # Clicking the line opens the page that holds the setting.
+    info: "<primary><label><secondary>: <primary><value> <secondary>(default <default>). Values: <values>"
+    info-locked: "<primary><label><secondary>: <primary><value> <secondary>(set by the server)"
+    info-hover: "<secondary>Click to open its page"
+    already: "<secondary><label> is already <primary><value><secondary>."
+    locked: "<primary><label> is set by the server."
+    not-offered: "<primary>You can't pick <value> for <label>."
+    invalid: "<primary>For <label>, use <values>."
+    values-toggle: "on, off or toggle"
+    values-range: "a whole number from <min> to <max>"
+    values-steps: "a whole number from <min> to <max> in steps of <step>"
+  # /sift settings (staff, console friendly).
+  admin:
+    help:
+      - "<primary>/sift settings [player] <secondary>lists what a player changed and other values stored for them."
+      - "<primary>/sift settings [player] [setting] <secondary>shows a value, its default and where it comes from."
+      - "<primary>/sift settings [player] [setting] [value] <secondary>changes it; <primary>reset<secondary> puts it back to the default."
+      - "<primary>/sift settings [player] reset [setting|group|all] <secondary>puts settings back to the defaults."
+      - "<primary>/sift settings catalog <secondary>writes every setting as a table for the docs."
+    header: "<secondary>Settings of <primary><name><secondary>: <primary><count><secondary> changed"
+    row: "<secondary>- <primary><id><secondary>: <primary><value> <secondary>(default <default>)"
+    row-ignored: "<secondary>- <id>: <value> (stored, but <reason>)"
+    none: "<primary><name> <secondary>uses the defaults for every setting."
+    other: "<secondary>Other stored values: <keys>"
+    detail: "<primary><id><secondary> of <primary><name><secondary>: <primary><value> <secondary>(default <default>, from <source>)"
+    detail-group: "<secondary>Group <primary><group><secondary>, a <kind>: <values>"
+    detail-permission: "<secondary>Needs <primary><permission><secondary>: <has>"
+    set: "<secondary>Set <primary><id><secondary> of <primary><name><secondary> to <primary><value><secondary> (was <old>)."
+    unchanged: "<primary><id><secondary> of <primary><name><secondary> already is <primary><value><secondary>."
+    refused: "<primary><id> can't be changed: <reason>."
+    no-permission: "<secondary><name> doesn't have <primary><permission><secondary>, so they read the default until they get it."
+    reset: "<secondary>Reset <primary><count><secondary> settings of <primary><name><secondary>."
+    # The same when some of the settings are locked by the server (features/settings.yml) and so stay as they are.
+    reset-locked: "<secondary>Reset <primary><count><secondary> settings of <primary><name><secondary>; <primary><locked><secondary> locked by the server stay as they are (<ids>)."
+    unknown: "<primary>There is no setting or settings group called <name>."
+    failed: "<primary>Couldn't read or change the settings: <reason>"
+    invalid: "<primary>For <id>, use <values>."
+    catalog: "<secondary>Wrote <primary><count><secondary> settings to <primary><file><secondary>."
+    source-stored: "their choice"
+    source-server: "the server's default"
+    source-built-in: "the built-in default"
+    source-locked: "the server's lock"
+    source-hidden: "the server, which hides it"
+    reason-locked: "the server locked it"
+    reason-hidden: "the server hides it"
+    reason-cancelled: "a plugin stopped the change"
+    has-yes: "yes"
+    has-no: "no"
+    has-offline: "unknown while they are offline"
   state-on: "on"
   state-off: "off"
   units:

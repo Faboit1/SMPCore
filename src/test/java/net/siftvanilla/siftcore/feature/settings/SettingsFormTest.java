@@ -128,7 +128,8 @@ class SettingsFormTest {
         ConfigReader reader = new ConfigReader("features/settings.yml", yaml("features/settings.yml"));
         SettingsConfig config = SettingsConfig.parse(reader);
         assertEquals(List.of(), reader.problems());
-        assertEquals(new SettingsConfig(8, true, Map.of(), Map.of(), Set.of()), config);
+        assertEquals(SettingsConfig.DEFAULTS, config);
+        assertTrue(config.showDescriptions(), "descriptions are shown by default");
         YamlConfiguration custom = yaml("features/settings.yml");
         custom.set("page-size", 0);
         custom.set("defaults.feedback-channel", "chat");

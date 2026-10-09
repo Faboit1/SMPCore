@@ -1,10 +1,12 @@
 # Settings (`settings` and `core/player`)
 
-One dialog for every per-player setting on the server. The model and storage live in core (`core/player`:
-`PlayerSettings`, `PlayerSetting`, `Toggle`, `Choice`, `NumberSetting`, `SettingCategories`, `SharedSettings`); the
-dialog, the `/settings` command and the server overrides live in `feature/settings`. Text: `lang/settings.yml`
-(dialog, groups, shared option names) and `lang/core.yml` (`shared-settings`). Config: `features/settings.yml`.
-Table: `settings` (V001, one row per player and setting; no schema change).
+One place for every per-player setting on the server: a dialog with groups, pages, search, a summary of what the
+player changed and resets; the `/settings` command words; the staff tools `/sift settings`; placeholders; and the
+public `SettingsView`. The model and storage live in core (`core/player`: `PlayerSettings`, `PlayerSetting`,
+`Toggle`, `Choice`, `NumberSetting`, `SettingCategories`, `SharedSettings`); everything players and staff use lives in
+`feature/settings`. Text: `lang/settings.yml` (dialog, commands, staff tools, groups, shared option names) and
+`lang/core.yml` (`shared-settings`). Config: `features/settings.yml`. Table: `settings` (V001, one row per player and
+setting; no schema change). Every setting is listed at the end ([Settings catalog](#settings-catalog)).
 
 ## Kinds of settings
 
@@ -91,53 +93,172 @@ features, remembered sort orders) are never touched. `lookup(uuid, setting)` rea
 |---|---|---|
 | `page-size` | 8 | settings per page (1-20) |
 | `skip-single-group` | true | open the only group directly |
-| `hidden` | `[]` | setting ids left out of the dialog, commands and placeholders; everyone reads their lock, else their server default, else the code default, and changes are refused (`NOT_ALLOWED`). Stored choices are kept and come back when the setting is shown again |
+| `show-descriptions` | true | one line per setting above the inputs saying what it does; false gives compact pages (only the inputs, whose labels stay; a setting that takes effect after a rejoin still says so) |
+| `hidden` | `[]` | setting ids left out of the dialog, commands, searches and placeholders; everyone reads their lock, else their server default, else the code default, and changes are refused (`NOT_ALLOWED`). Stored choices are kept and come back when the setting is shown again |
 | `defaults` | not set | a section of `setting-id: value` for players who never changed it |
-| `locked` | not set | a section of `setting-id: value` forced on everyone; shown as "set by the server", refused as `LOCKED` |
+| `locked` | not set | a section of `setting-id: value` forced on everyone; shown as "set by the server", refused as `LOCKED` (also by `/settings` and `/sift settings`) |
+| `categories` | not set | a section of `<group id>: { order: <number>, icon: <icon name> }`: moves a group in the group list or gives it another `icons.yml` icon (both keys optional; the built-in orders are chat 10, social 20, announcements 30, sound 40, teleport 50, economy 60, market 70, combat 80, display 90, privacy 100, afk 110, crates 120, spawners 130, staff 900) |
 
-`defaults` and `locked` are not in the shipped file (the comment above `hidden` shows them): synced config files only
-gain value keys, so an empty section would never reach an existing server. Add them when needed. Values are
-`true`/`false`, an option id (legacy values work) or a whole number in range and on a step. Unknown ids, bad values and
-a setting both defaulted and locked are logged at startup (a second after all features started) and on
-`/sift reload`, and reported by the self-test; bad entries are not applied. A hidden setting that is also locked or
-defaulted is fine: that is how a value is fixed out of sight. Settings are registered when their feature starts (also
-ones only offered under a condition, like `sell_orders` while there are buy orders), so overrides can always name
-them.
+`defaults`, `locked` and `categories` are not in the shipped file (comments show them): synced config files only gain
+value keys, so an empty section would never reach an existing server. Add them when needed. Values are
+`true`/`false`, an option id (legacy values work) or a whole number in range and on a step. Unknown ids, bad values,
+a setting both defaulted and locked, groups that don't exist and icons `icons.yml` lacks are logged at startup (a
+second after all features started) and on `/sift reload`, and reported by the self-test; bad entries are not applied.
+A hidden setting that is also locked or defaulted is fine: that is how a value is fixed out of sight. Settings are
+registered when their feature starts (also ones only offered under a condition, like `sell_orders` while there are
+buy orders), so overrides can always name them.
 
-## Opening the dialog
+## The dialog
 
-- `/settings [group]` (aliases `/options`, `/preferences`), permission `siftcore.command.settings` (everyone).
-- The main menu entry `settings` and the pause screen (`siftcore:hub/settings`), with Back to the menu.
-- Features open a group with `services.settings().screens().open(player, groupId, back)`.
+Opened with `/settings` (aliases `/options`, `/preferences`; permission `siftcore.command.settings`, everyone), from
+the main menu entry `settings` and the pause screen (`siftcore:hub/settings`, with Back to the menu), and by features
+with `services.settings().screens().open(player, groupId, back)`. Everything is built from the registry when it
+opens, so a setting a feature registers appears by itself.
 
-A group's page shows each setting's label and description, then its input. Settings the server locked show as text.
-Changes on one page are kept while paging and saved together; Back leaves without saving.
+**Buttons.** Every button shows the next screen in place: the dialog stays until the next one arrives (no waiting
+screen). Save closes the dialog when there is nothing to go back to (a group opened directly when the player sees only
+one), and Search shows the client's waiting screen while the results are built. Errors (a value the router refused,
+an empty search) show in red on the same dialog with what the player typed kept.
 
-## Saving
+**The group list** ("Settings"): one line per group the player sees, with its icon, description and how many settings
+it holds for them (`Chat: Mentions, private messages and what you see in public chat (3)`), and "You changed 2 of 38
+settings." Buttons: one per group (its tooltip repeats the description and the counts), **Search settings**, and
+**Changed settings (n)** once the player changed something. A group shows only when the player can see a setting in
+it (permission, the server's `hidden` list, and whether its feature offers it now). With `skip-single-group` the only
+group opens directly.
 
-Save stores only what the player changed in the dialog (a value changed elsewhere while it was open is never
-overwritten). Each change goes through the registry: still offered, the player still has the permissions, not locked,
-not cancelled by a `SettingChangeEvent` listener. Messages: `Mention alerts turned off.` (a switch), `SiftCore volume
-set to 60%.` (a choice or number), `Saved 2 settings.`, `Nothing changed.`, and `Success chimes couldn't be changed.`
-for a refused change.
+**A page** ("Chat settings", 8 settings per page by default): each setting's label and what it does, then one input
+per setting: a switch (toggle), a cycling button (choice: only the options the player may pick, by permission and by
+what the server offers) or a slider (number: its unit in the label, like "SiftCore volume (%)", because Bedrock
+forms show only the label). A setting the server locked shows its value as text, "(set by the server)". Previous page
+and Next page carry the changes made so far ("Changes on other pages: 2, saved with this page."); Back leaves without
+saving. **Reset this category** shows when the player changed something in the group.
+
+**Saving** stores only what the player changed in the dialog (a value changed elsewhere while it was open is never
+overwritten). Each change goes through the registry: still offered, the player still has the permissions, not
+locked, not cancelled by a `SettingChangeEvent` listener. Messages (above the hotbar, or wherever the player's
+feedback channel says): `Mention alerts turned off.` (a switch), `SiftCore volume set to 60%.` (a choice or number),
+`Saved 2 settings.`, `Nothing changed.`, and `Success chimes couldn't be changed.` (red) for a refused change. Save
+returns to the screen the page was opened from.
+
+**Resets.** Reset this category asks "Reset Sounds settings?" and lists each changed setting as
+`SiftCore volume: 30% to 100%`; Reset puts them back to their defaults (their rows are deleted, so the player follows
+the server's default from then on) and shows the group's first page with the defaults and nothing pending (changes
+not saved yet are dropped too); Cancel returns to the page with the unsaved changes kept. **Changed settings** lists every setting the player changed, `Sounds > SiftCore volume: 30% (default 100%)`,
+with a button per group and **Reset everything** (asks first, then resets every setting the player sees and changed;
+locked settings are never touched).
+
+**Search** ("Search settings"): one text field, up to 32 characters. A setting matches when every word typed occurs in
+its label, description, id or short name, its group's name, one of its option labels, its unit or its extra search
+words (`SettingOptions.keywords`); case and punctuation don't matter and part of a word is enough (`vol`). Results are
+ranked: label starting with the query, then label holding every word, then the rest, each in dialog order. They show
+as pages like a group's (lines name the group, `Sounds > SiftCore volume: ...`), with paging, pending changes and Save;
+Back returns to the form with the query kept. No match shows "No setting matches zzz." with Back to the form.
+
+## /settings
+
+| Command | Does |
+|---|---|
+| `/settings` | the group list |
+| `/settings <group>` | the group's first page (`There is no settings group called x.` otherwise) |
+| `/settings <group> <setting>` | `SiftCore volume: 30% (default 100%). Values: a whole number from 0 to 100 in steps of 10` in chat; clicking the line opens the page that holds the setting |
+| `/settings <group> <setting> <value>` | changes it: `on`/`off` (also true/false, yes/no, 1/0) or `toggle` for a switch, an option id or an option's label for a choice (`above the hotbar`), a number in range and on a step for a slider (`60` or `60%`) |
+| `/settings <setting> [value]` | the same without the group: the setting's id (`sound-volume`), its dialog input key (`sound_volume`) or a short name only one visible setting has (`volume`) |
+| `/settings search <words>` | the search results |
+| `/settings changed` | the changed settings |
+| `/settings reset [<group>\|all]` | the reset confirmation, or "You use the defaults for every Sounds setting." |
+
+**Resolution order** (`SettingsArgs`, unit tested): the words `search`, `changed`, `reset` and `all` are the command's
+own (no group may be called that); then a group the player sees; then a setting the player sees by id, input key or
+unique short name. After a group, the second word is a setting of that group by id, short name (the id without the
+group's prefix, `volume` for `sound-volume` in Sounds) or input key. Settings and groups the player can't see answer
+like unknown ones, so a staff setting's name never leaks. A single unknown word answers `There is no settings group
+called x.`; an unknown first word followed by more (`/settings x on`) answers `There is no setting or settings group
+called x.`. The command's own words typed in capitals (`/settings Search volume`) do what they do in lower case.
+
+**Results:** `SiftCore volume set to 30%.`, `Notification pings turned off.`, `SiftCore volume is already 30%.`, and in
+red `For SiftCore volume, use a whole number from 0 to 100 in steps of 10.`, `For Quick results and errors, use
+actionbar, chat, both.`, `You can't pick both for X.` (an option the player lacks), `Quiet during combat is set by the
+server.`, `X couldn't be changed.` (a listener cancelled it), `There is no setting called x in Sounds.`
+
+**Suggestions** (tab completion, from the registry snapshot and the player's values; thread-safe): the first word
+suggests the groups the player sees (plus `search`, `changed` and `reset`) and, once two characters are typed, the
+ids of the settings they may change; after a group, the short names; for a value: on, off and toggle, the option ids
+the player may pick, or a number's minimum, default and maximum and then the steps starting with what was typed (at
+most 15). Locked and hidden settings are never suggested.
+
+## Staff tools: /sift settings
+
+Permission `siftcore.admin.settings` (operators). Console friendly, works for offline players, every change audited.
+
+| Command | Does |
+|---|---|
+| `/sift settings <player>` | `Settings of Steve: 2 changed` and one line per changed setting (`- sound-volume: 30 (default 100)`); stored values that don't apply (locked, hidden) are marked; other stored values (remembered sort orders and similar UI state) are named |
+| `/sift settings <player> <setting>` | the value, default and where it comes from (their choice, the server's default, the built-in default, the server's lock, or the server because it hides it), its group, kind and values, and the permission it needs with whether the player has it |
+| `/sift settings <player> <setting> <value>` | changes it (`reset` puts it back to the default); no permission needed, but staff are warned when an online player lacks the setting's permission (they read the default until they get it) |
+| `/sift settings <player> reset [<setting>\|<group>\|all]` | deletes the player's rows of those settings (all: every setting; UI state stays). A locked setting named on its own is refused (`quiet-in-combat can't be changed: the server locked it.`); a group or `all` leaves locked ones alone and names them (`Reset 0 settings of Steve; 1 locked by the server stay as they are (quiet-in-combat).`) |
+| `/sift settings catalog` | writes every setting as a Markdown table to `plugins/SiftCore/docs/settings.md` (the [catalog](#settings-catalog) below) |
+
+Every setting is reachable here, also ones that need a permission or are not listed in the dialog. Reads go to the
+database after every queued write, so they are exact for offline players; a change for an offline player is written to
+the table and applies when they join (a login racing the write gets it too). Changes report `SettingChangeEvent` with
+the cause `ADMIN` (not cancellable) and are written to the audit log as `settings.set` (`sound-volume: 30 -> 70`) and
+`settings.reset` (the ids), with the staff member as the actor. Settings that apply at once (an instant hook) run it
+on the player's thread.
+
+A row stored under a setting's old id (`SettingOptions.legacy`, like `tpa-friends` for `friends-tpa` once TPA reads
+the choice) is that setting's value until the player logs in and core moves it: the list shows it under the new id,
+the detail names it as their choice, and a reset includes it. A change or reset by staff (or through the API)
+deletes the old row first, so the next login can't move it back over the change.
+
+## Placeholders
+
+| Placeholder | Shows |
+|---|---|
+| `%siftcore_setting_<id>%` | the player's value as stored: `true`/`false`, an option id, a number (`%siftcore_setting_sound-volume%` is `60`) |
+| `%siftcore_settingtext_<id>%` | the value as players read it: `on`, `Everyone`, `60%` |
+| `%siftcore_settings_changed%` | how many of the settings the player sees they changed |
+
+An unknown id is left to PlaceholderAPI (no value). Privacy settings and settings that need a permission keep their
+value private (`SettingOptions.placeholder(false)`, the default for permission settings): they show an empty text, and
+so do settings the server hides. Players who are not online read the defaults (resolvers never touch the database).
+
+## API and events
+
+`SiftCoreApi#settings()` gives the `SettingsView` (also in the `ServicesManager`): groups and settings as plain text in
+the dialog's order with its icons (the server's `categories` overrides applied), a player's values, `stored(uuid)`
+(offline too), `set` and `reset` with results. API changes and resets are written to the audit log like staff ones
+(`settings.set` / `settings.reset`, `sound-volume: 100 -> 20`, actor `api:<actor>` or `api`; the value before is read
+from the database for an offline player). `SettingChangeEvent` fires before
+every real change with the setting, group, old and new value, cause (`DIALOG`, `COMMAND`, `FEATURE`, `ADMIN`, `API`,
+`RESET`) and actor; listeners may cancel the player's own changes (`DIALOG`, `COMMAND`) and API changes. See
+`docs/api.md`.
 
 ## Permissions
 
 - `siftcore.command.settings` (everyone): `/settings`.
+- `siftcore.admin.settings` (operators): `/sift settings`.
 - `siftcore.stats.hide` (nobody by default; give it to staff and test accounts): offers Hide me from leaderboards.
 - `siftcore.settings.hide-rank` (nobody by default; give it to the rank groups): offers Show my rank (once the rank
   feature reads it).
-- `siftcore.admin.settings` (operators): reserved for the staff tools for other players' settings (`/sift settings`),
-  which are not in this version yet; nothing checks it so far.
 
 ## Self-test
 
+Core:
 - every setting, option, unit and group has text; every group icon resolves;
-- every shared setting is registered and dialog input keys are valid and unique;
+- every shared setting is registered;
 - groups hold at most 15 settings, and at least 4 once no setting is left in General;
-- every shared setting is read by a feature (once no setting is left in General);
-- the overrides in `features/settings.yml` name real settings and values;
-- the hub entry is registered.
+- every shared setting is read by a feature (once no setting is left in General).
+
+Settings feature:
+- dialog input keys are valid and unique;
+- the overrides in `features/settings.yml` name real settings, values, groups and icons;
+- every page of every group, the group list, the changed summary and the search form build (for someone with every
+  permission), and no page holds more inputs than `page-size`;
+- every setting is found by searching its label;
+- `/settings <group> <short name>` and `/settings <id>` name each setting exactly once;
+- the placeholders resolve, and private settings show nothing;
+- the settings API is registered, and so is the hub entry.
 
 ## For feature authors
 
@@ -154,4 +275,88 @@ services.messenger().alert(seller, services.settings().get(seller, SALE_ALERTS),
 
 Use the shared vocabularies (`Choices.alert`, `audience`, `ping`, `confirmAbove`, `announce`), `availableWhen` for
 settings that depend on config, `SettingOptions.instant(hook)` for settings that must apply at once (the hook runs on
-the player's thread), and `placeholder(false)` for privacy settings.
+the player's thread), and `placeholder(false)` for privacy settings. `keywords(key)` adds words the search finds the
+setting by (a lang text such as "ping sound noise"). Nothing else is needed: the dialog, `/settings`, the staff tools,
+the placeholders and the API pick a registered setting up by themselves. A command that flips a setting itself (like
+`/msgtoggle`) should use `set(player, setting, value, change)` and report its `SetResult` (locked, hidden), the way
+`/settings` does.
+
+## Settings catalog
+
+Every player setting SiftCore 1.0.0 registers (69), generated with `/sift settings catalog`. Values are what `/settings`, `/sift settings` and `features/settings.yml` take; the default is the built-in one (the server can change it).
+
+| Group | Id | Kind | Values | Default | Label | Permission | Notes |
+|---|---|---|---|---|---|---|---|
+| Chat (`chat`) | `mentions` | toggle | true, false | `true` | Mention alerts |  |  |
+| Chat (`chat`) | `private-messages` | toggle | true, false | `true` | Private messages |  |  |
+| Chat (`chat`) | `social-spy` | toggle | true, false | `false` | Social spy | `siftcore.chat.socialspy` |  |
+| Chat (`chat`) | `show-chat-colors` | toggle | true, false | `true` | Chat colours |  |  |
+| Server announcements (`announcements`) | `death-messages` | choice | all, pvp, friends-team, off | `all` | Death messages |  |  |
+| Server announcements (`announcements`) | `bounty-announcements` | choice | all, 100k, 1m, 10m, off | `all` | Bounty announcements |  |  |
+| Server announcements (`announcements`) | `kill-streak-announcements` | toggle | true, false | `true` | Kill streak announcements |  |  |
+| Server announcements (`announcements`) | `combat-log-announcements` | toggle | true, false | `true` | Combat log announcements |  |  |
+| Sounds (`sound`) | `sound-volume` | number | 0-100 step 10 (%) | `100` | SiftCore volume |  |  |
+| Sounds (`sound`) | `sound-notify` | toggle | true, false | `true` | Notification pings |  |  |
+| Sounds (`sound`) | `sound-mention` | choice | default, bell, pling, chime, off | `default` | Mention sound |  | not offered now (its feature is off or does not read it yet) |
+| Sounds (`sound`) | `sound-pm` | choice | default, bell, pling, chime, off | `default` | Private message sound |  | not offered now (its feature is off or does not read it yet) |
+| Sounds (`sound`) | `sound-clicks` | toggle | true, false | `true` | Menu click sounds |  |  |
+| Sounds (`sound`) | `sound-success` | toggle | true, false | `true` | Success chimes |  |  |
+| Sounds (`sound`) | `sound-errors` | toggle | true, false | `true` | Error sounds |  |  |
+| Sounds (`sound`) | `sound-team-chat` | choice | off, default, bell, pling, chime | `off` | Team chat sound |  | not offered now (its feature is off or does not read it yet) |
+| Teleports & homes (`teleport`) | `friends-tpa` | choice | nobody, favourites, all, friends-team | `nobody` | Auto-accept /tpa from |  | not offered now (its feature is off or does not read it yet) |
+| Money & selling (`economy`) | `sell_receipts` | choice | chat, actionbar, off | `chat` | Sale receipts |  |  |
+| Combat & stats (`combat`) | `combat-timer-display` | choice | actionbar, bossbar, both, off | `actionbar` | Combat timer |  |  |
+| Combat & stats (`combat`) | `combat-tag-alert` | choice | chat, actionbar, title, off | `chat` | Entering combat alert |  |  |
+| Combat & stats (`combat`) | `kill-feedback` | choice | actionbar, chat, title, off | `actionbar` | Kill confirmation |  |  |
+| Combat & stats (`combat`) | `death-coordinates` | toggle | true, false | `true` | Death location |  |  |
+| Combat & stats (`combat`) | `combat-end-notice` | choice | actionbar, chat, title, off | `actionbar` | Combat ended notice |  |  |
+| Combat & stats (`combat`) | `bounty-target-alert` | choice | chat, actionbar, title, off | `chat` | Bounty on you alert |  |  |
+| Combat & stats (`combat`) | `quiet-in-combat` | toggle | true, false | `false` | Quiet during combat |  |  |
+| Combat & stats (`combat`) | `death-recap` | toggle | true, false | `true` | Death recap |  |  |
+| Combat & stats (`combat`) | `leaderboard-rank-alerts` | choice | top-10, all, off | `top-10` | Leaderboard climb alerts |  |  |
+| Combat & stats (`combat`) | `bounty-confirm-above` | choice | server, always, 10k, 100k, 1m | `server` | Confirm bounties from |  |  |
+| Combat & stats (`combat`) | `bounty-join-reminder` | toggle | true, false | `true` | Bounty reminder on join |  |  |
+| Display (`display`) | `feedback-channel` | choice | actionbar, chat, both | `actionbar` | Quick results and errors |  |  |
+| Display (`display`) | `booster-bar` | toggle | true, false | `true` | Booster bar |  |  |
+| Display (`display`) | `show-kill-effects` | toggle | true, false | `true` | Kill effects |  |  |
+| Display (`display`) | `scoreboard` | toggle | true, false | `true` | Sidebar |  |  |
+| Privacy (`privacy`) | `hide-coordinates` | toggle | true, false | `false` | Streamer mode: hide coordinates |  |  |
+| Privacy (`privacy`) | `seen-privacy` | choice | everyone, friends, nobody | `everyone` | Who sees when I was last online |  | not offered now (its feature is off or does not read it yet) |
+| Privacy (`privacy`) | `balance-privacy` | choice | everyone, friends, nobody | `everyone` | Who can see my balance |  |  |
+| Privacy (`privacy`) | `hide-from-leaderboards` | toggle | true, false | `false` | Hide me from leaderboards | `siftcore.stats.hide` |  |
+| AFK & shards (`afk`) | `afk-zone-status` | choice | actionbar, bossbar, off | `actionbar` | AFK zone countdown |  |  |
+| AFK & shards (`afk`) | `afk-zone-payouts` | choice | actionbar, chat, off | `actionbar` | AFK zone payout messages |  |  |
+| AFK & shards (`afk`) | `afk-kick-warning` | choice | chat, title | `chat` | AFK kick warning style |  |  |
+| AFK & shards (`afk`) | `afk-status-messages` | choice | actionbar, chat, off | `actionbar` | AFK status messages |  |  |
+| AFK & shards (`afk`) | `afk-return-summary` | toggle | true, false | `true` | Welcome-back summary |  |  |
+| AFK & shards (`afk`) | `shard-confirm-above` | choice | server, always, 100, 1000, 5000, never | `server` | Confirm shard buys from |  |  |
+| AFK & shards (`afk`) | `shard-shop-stay-open` | toggle | true, false | `false` | Keep the shard shop open |  |  |
+| Staff (`staff`) | `staff-chat` | toggle | true, false | `true` | Show staff chat | `siftcore.staff.chat` |  |
+| Staff (`staff`) | `staff-punish-alerts` | choice | chat, actionbar, off | `chat` | Punishment alerts | `siftcore.staff.notify` |  |
+| Staff (`staff`) | `staff-report-alerts` | choice | chat, actionbar, off | `chat` | Report alerts | `siftcore.staff.reports` |  |
+| Staff (`staff`) | `vanish-on-join` | toggle | true, false | `false` | Join vanished | `siftcore.staff.vanish` |  |
+| Staff (`staff`) | `vanish-reminder` | toggle | true, false | `true` | Vanish reminder | `siftcore.staff.vanish` |  |
+| Staff (`staff`) | `vanish-see-vanished` | toggle | true, false | `true` | See vanished staff | `siftcore.staff.vanish.see` | applies at once |
+| Staff (`staff`) | `staff-freeze-alerts` | choice | chat, actionbar, off | `chat` | Frozen player logout alerts | `siftcore.staff.freeze` |  |
+| Staff (`staff`) | `staff-combat-alerts` | choice | combat-logs, combat-logs-and-farming, off | `combat-logs` | Staff combat alerts | `siftcore.admin.combat` |  |
+| Staff (`staff`) | `staff-confirm-bans` | toggle | true, false | `false` | Confirm bans | `siftcore.staff.ban` |  |
+| Staff (`staff`) | `vanish-fake-messages` | toggle | true, false | `false` | Fake join/leave on vanish | `siftcore.staff.vanish` |  |
+| Staff (`staff`) | `admin-config-alerts` | toggle | true, false | `true` | Config problem alerts | `siftcore.admin.reload` |  |
+| General (`general`) | `pay-notifications` | toggle | true, false | `true` | Payment messages |  |  |
+| General (`general`) | `auction-sales` | toggle | true, false | `true` | Auction sales |  |  |
+| General (`general`) | `team-spy` | toggle | true, false | `true` | Team chat spy | `siftcore.teams.spy` |  |
+| General (`general`) | `friends-announce` | toggle | true, false | `true` | Tell friends when I join |  |  |
+| General (`general`) | `friends-request-alerts` | toggle | true, false | `true` | Friend request alerts |  |  |
+| General (`general`) | `friends-leave-alerts` | toggle | true, false | `false` | Friend leave alerts |  |  |
+| General (`general`) | `sell_all_confirm` | toggle | true, false | `true` | Ask before /sell all |  |  |
+| General (`general`) | `sell_orders` | toggle | true, false | `true` | Sell to buy orders first |  |  |
+| General (`general`) | `crate-wins` | toggle | true, false | `true` | Crate wins |  |  |
+| General (`general`) | `order-notices` | toggle | true, false | `true` | Order messages |  |  |
+| General (`general`) | `orders_announce` | toggle | true, false | `true` | Big order announcements |  |  |
+| General (`general`) | `kit-reminders` | toggle | true, false | `true` | Kit reminders | `siftcore.command.kits` |  |
+| General (`general`) | `tpa-requests` | toggle | true, false | `true` | Teleport requests |  |  |
+| General (`general`) | `tpa-friends` | toggle | true, false | `false` | Friends skip requests |  |  |
+
+This table is generated from the registry of a server running every feature with the shipped config
+(`/sift settings catalog`); regenerate it whenever features add or move settings. "Not offered now" settings are
+registered but only shown once their feature reads them or the server turns their feature on.

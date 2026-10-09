@@ -39,4 +39,18 @@ public interface SiftCoreApi {
 
     /** Players' rank labels and groups (read-only; from LuckPerms when it is installed). */
     RankView ranks();
+
+    /**
+     * Players' settings: every setting and group, each player's values, and changing or resetting them. Also in
+     * Bukkit's {@code ServicesManager} under {@link SettingsView} while SiftCore's settings feature is enabled.
+     *
+     * @throws IllegalStateException when the settings feature is not enabled
+     */
+    default SettingsView settings() {
+        RegisteredServiceProvider<SettingsView> registration = Bukkit.getServicesManager().getRegistration(SettingsView.class);
+        if (registration == null) {
+            throw new IllegalStateException("SiftCore's settings are not enabled");
+        }
+        return registration.getProvider();
+    }
 }

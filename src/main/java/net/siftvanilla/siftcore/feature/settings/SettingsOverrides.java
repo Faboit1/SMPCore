@@ -3,19 +3,23 @@ package net.siftvanilla.siftcore.feature.settings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.player.NumberSetting;
 import net.siftvanilla.siftcore.core.player.Overrides;
 import net.siftvanilla.siftcore.core.player.PlayerSetting;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.Registry;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingCategory;
 import net.siftvanilla.siftcore.core.player.Toggle;
 
 /**
  * Checks the server's settings overrides against the registry (pure, unit tested): ids nobody registered, values a
- * setting can't take, and settings both defaulted and locked. Problems are reported as warnings and by the self-test;
- * bad entries are simply not applied.
+ * setting can't take, settings both defaulted and locked, and group overrides naming no group or an unknown icon.
+ * Problems are reported as warnings and by the self-test; bad entries are simply not applied.
  */
 final class SettingsOverrides {
 
@@ -49,6 +53,25 @@ final class SettingsOverrides {
                 problems.add(section + "." + id + ": '" + entries.get(id) + "' is not a value of it (use " + allowed(entry.setting()) + ")");
             }
         }
+    }
+
+    /** Problems with the {@code categories} section: groups that don't exist and icons {@code icons.yml} lacks. */
+    static List<String> categoryProblems(Registry registry, Map<String, SettingsConfig.CategoryOverride> categories,
+                                         Predicate<String> iconKnown) {
+        List<String> problems = new ArrayList<>();
+        new TreeMap<>(categories).forEach((id, override) -> {
+            boolean known = registry.category(id) != null;
+            for (SettingCategory category : SettingCategories.ALL) {
+                known |= category.id().equals(id);
+            }
+            if (!known) {
+                problems.add("categories." + id + ": there is no settings group called " + id);
+            }
+            if (override.icon() != null && !iconKnown.test(override.icon())) {
+                problems.add("categories." + id + ".icon: there is no icon called " + override.icon() + " in icons.yml");
+            }
+        });
+        return problems;
     }
 
     /** The values a setting takes, for messages. */

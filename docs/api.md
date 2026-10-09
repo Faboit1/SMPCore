@@ -1,7 +1,7 @@
 # SiftCore API
 
-Other plugins on the server can read and change SiftCore money, read combat state, placeholders and ranks, and react
-to what players do through events. Everything is in the package `net.siftvanilla.siftcore.api` of the SiftCore jar.
+Other plugins on the server can read and change SiftCore money and players' settings, read combat state, placeholders
+and ranks, and react to what players do through events. Everything is in the package `net.siftvanilla.siftcore.api` of the SiftCore jar.
 
 ## Getting it
 
@@ -40,6 +40,7 @@ shortly after (see `TransactionResult#committed()`).
 | `combat()` | `CombatView`: who is in combat (read-only) |
 | `placeholders()` | `PlaceholderView`: SiftCore's placeholders without PlaceholderAPI (read-only) |
 | `ranks()` | `RankView`: rank labels and primary groups (read-only; from LuckPerms when installed) |
+| `settings()` | `SettingsView`: every player setting and group, players' values, changing and resetting them |
 
 ### Economy
 
@@ -107,6 +108,45 @@ String group = siftcore.ranks().group(uuid);   // "baron", "default" when unknow
 Labels are plain text: SiftCore removes colour codes and tags from LuckPerms display names and meta values. A rank's
 colour (the `siftcore-rank-color` or `siftcore-rank-gradient` meta, see `docs/features/integrations.md`) is available
 as the placeholder `rank_color` (`#RRGGBB`, empty without one).
+
+### Settings
+
+Every per-player setting of SiftCore (the ones in `/settings`, see `docs/features/settings.md`) through plain strings.
+A value travels in its stored form: `true`/`false` for a switch, the option id for a choice (`chat`, `everyone`...),
+the number for a slider.
+
+```java
+SettingsView settings = siftcore.settings();
+List<SettingsView.CategoryInfo> groups = settings.categories();        // id, order, label, description, icon
+SettingsView.SettingInfo volume = settings.setting("sound-volume").orElseThrow();
+// volume.type() NUMBER, min 0, max 100, step 10, unit "%", defaultValue "100" (the server's default when it set one),
+// options() for a CHOICE, permission(), locked(), hidden()
+String value = settings.value(uuid, "feedback-channel");             // "actionbar"; the default for players not online
+settings.stored(uuid).thenAccept(saved -> { /* id -> value the player saved, read from the database */ });
+
+SettingsView.Result result = settings.set(uuid, "sound-volume", "60", "MyPlugin");
+// CHANGED, UNCHANGED, INVALID (not a value of it), NOT_ALLOWED (the server hides it), LOCKED (the server locked it),
+// CANCELLED (a SettingChangeEvent listener said no), UNKNOWN (no such id)
+settings.set(uuid, "feedback-channel", "Above the hotbar");           // a choice's option label works too
+settings.reset(uuid, "sound-volume");                                  // back to the default (the saved value is removed)
+```
+
+- `set` and `reset` work for offline players too: the value is written to the table and applies when they join. No
+  permission is checked (a player without a setting's permission reads its default until they get it).
+- Storing the default removes the saved value, so the player follows the server's default from then on.
+- `set` fires `SettingChangeEvent` with the cause `API` and your actor; a listener may cancel it. `reset` reports
+  the change with the cause `RESET`.
+- Every real change is written to SiftCore's audit log (`/sift audit`): `settings.set` or `settings.reset` with
+  `sound-volume: 100 -> 60`, actor `api:MyPlugin` (`api` without an actor). For an offline player the value before is
+  read from the database first.
+- `categories()` and `settings()` come in the dialog's order with its icons, after the server's `categories`
+  overrides in `features/settings.yml` (`order` is the place the server gave the group).
+- `SettingsView` is also in Bukkit's `ServicesManager` while SiftCore's settings feature is enabled
+  (`Bukkit.getServicesManager().load(SettingsView.class)`); `SiftCoreApi#settings()` throws `IllegalStateException`
+  when it is not.
+- The values are also placeholders: `%siftcore_setting_<id>%` (stored form), `%siftcore_settingtext_<id>%` (as
+  players read it) and `%siftcore_settings_changed%`. Privacy settings and settings that need a permission show an
+  empty text there; the API is for trusted plugins and reads every value.
 
 ## Events
 

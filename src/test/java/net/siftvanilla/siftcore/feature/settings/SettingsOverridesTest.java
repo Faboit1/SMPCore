@@ -137,4 +137,46 @@ class SettingsOverridesTest {
         assertEquals("defaults", reader.problems().getFirst().path(), reader.problems().toString());
         assertEquals(Overrides.NONE, config.overrides(), "an empty section is fine");
     }
+
+    @Test
+    void compactPagesAndGroupOverridesAreRead() throws Exception {
+        SettingsConfig config = parse("""
+            page-size: 4
+            skip-single-group: false
+            show-descriptions: false
+            hidden: []
+            categories:
+              Sound:
+                order: 5
+              privacy:
+                icon: Star
+            """);
+        assertEquals(4, config.pageSize());
+        assertTrue(!config.skipSingleGroup() && !config.showDescriptions());
+        assertEquals(Map.of("sound", new SettingsConfig.CategoryOverride(5, null), "privacy", new SettingsConfig.CategoryOverride(null, "star")),
+            config.categories());
+    }
+
+    @Test
+    void groupOverridesMustNameGroupsAndIcons() {
+        Map<String, SettingsConfig.CategoryOverride> categories = Map.of(
+            "sound", new SettingsConfig.CategoryOverride(5, "star"),
+            "spawners", new SettingsConfig.CategoryOverride(1, null),
+            "pets", new SettingsConfig.CategoryOverride(1, null),
+            "privacy", new SettingsConfig.CategoryOverride(null, "unicorn"));
+        assertEquals(List.of(
+            "categories.pets: there is no settings group called pets",
+            "categories.privacy.icon: there is no icon called unicorn in icons.yml"),
+            SettingsOverrides.categoryProblems(settings().registry(), categories, icon -> !icon.equals("unicorn")),
+            "a shared group without settings yet (spawners) is a valid name");
+    }
+
+    @Test
+    void aGroupWrittenAsOneValueIsAProblem() throws Exception {
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.loadFromString("page-size: 8\nskip-single-group: true\ncategories: sound\n");
+        ConfigReader reader = new ConfigReader("features/settings.yml", yaml);
+        assertEquals(Map.of(), SettingsConfig.parse(reader).categories());
+        assertEquals("categories", reader.problems().getFirst().path(), reader.problems().toString());
+    }
 }
