@@ -23,7 +23,7 @@ class SettingsTableTest {
         List<String> rows = table.lines().filter(line -> line.startsWith("| ") && !line.startsWith("| Group")).toList();
         assertEquals(settings.registry().byId().size(), rows.size(), table);
         assertTrue(table.contains("Every player setting SiftCore 1.0.0 registers (" + rows.size() + ")"));
-        assertEquals("| Sounds (`sound`) | `sound-volume` | number | 0-100 step 10 (%) | `100` | SiftCore volume |  |  |",
+        assertEquals("| Sounds (`sound`) | `sound-volume` | number | 0-100 step 10 (%) | `100` | Sound volume |  |  |",
             rows.stream().filter(row -> row.contains("`sound-volume`")).findFirst().orElseThrow());
         assertTrue(rows.stream().anyMatch(row -> row.startsWith("| Sounds (`sound`) | `sound-mention` | choice | default, bell, pling, chime, off"
             + " | `default` | Mention sound |")), table);

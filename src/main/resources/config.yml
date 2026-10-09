@@ -40,13 +40,17 @@ currency:
   # Text after shard amounts.
   shards-suffix: " shards"
 
-# The whole colour system. Nothing else is coloured.
+# The whole colour system. Texts use each colour as a tag (<primary>, <shards>...); nothing else is coloured.
 palette:
   primary: "#FFFFFF"     # main text
   secondary: "#AAAAAA"   # descriptions and less important text
   money: "#1AFF1A"       # money amounts only
   error: "#FF5555"       # every error message, and <error> in texts
   error-secondary: "#FF9E9E"   # the secondary (gray) parts of error messages
+  shards: "#915DFF"      # every shard amount and mention of shards
+  switch-on: "#55FF55"   # <on>: a switch that is ON
+  switch-off: "#FF5555"  # <off>: a switch that is OFF
+  accent: "#FFD866"      # other values: a chosen option, a number, a time
 
 # The small set of UI sounds. Errors are also shown in the error colour.
 # sound is any sound key from the game (for example ui.button.click). volume 0-2, pitch 0.5-2.

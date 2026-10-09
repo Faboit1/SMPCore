@@ -72,7 +72,7 @@ class SettingsApiTest {
         SettingsView.SettingInfo volume = this.api.setting("sound-volume").orElseThrow();
         assertEquals(SettingsView.Type.NUMBER, volume.type());
         assertEquals("sound", volume.category());
-        assertEquals("SiftCore volume", volume.label());
+        assertEquals("Sound volume", volume.label());
         assertEquals("100", volume.defaultValue());
         assertEquals(List.of(0L, 100L, 10L), List.of(volume.min(), volume.max(), volume.step()));
         assertEquals("%", volume.unit());

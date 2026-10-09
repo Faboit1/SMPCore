@@ -1,5 +1,5 @@
 # Text of teleport requests (/tpa, /tpahere, /tpaccept, /tpdeny, /tpacancel, /tpatoggle).
-# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
 # <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
 # (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 

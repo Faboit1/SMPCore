@@ -203,10 +203,13 @@ Feature-specific additions live in each feature's migration range (see `docs/dev
 |----------|-----|
 | notice | information + one button |
 | confirm | yes/no decision |
-| list | several actions + back/close footer |
-| form | inputs (text, toggle, single choice, number range) + submit/cancel |
+| list | several actions + back/close footer (`column` and `grid`: many buttons in one or two columns, no paging) |
+| form | inputs (text, toggle, single choice, number range) + submit/cancel (`number`: one slider with Done) |
 
-Titles are plain text. Buttons are plain labels. Bodies are white/gray, with icons only where they add meaning.
+Titles are plain text. A dialog shows buttons, not paragraphs: what a button does is in its tooltip, and the body only
+holds what the player needs to decide (an amount, a name, a short status). Switches are buttons reading "Label: ON"
+(green) or "Label: OFF" (red), choices "Label: value" (the value coloured); a click changes them at once and the page
+shows again. Nothing is paged; the dialog scrolls. See "Dialog style" in `docs/development.md`.
 
 The `Dialogs` router secures every click:
 
@@ -242,12 +245,13 @@ click-rate limiter and a per-menu busy lock stop spam.
 
 **Text** comes only from lang files. Messages declare their placeholders and channel. `TextStyle` is the only
 MiniMessage setup for trusted text, and the loader checks every line against it: allowed are the palette tags
-`<primary>`, `<secondary>`, `<money>` and `<error>`, named and hex colours (`<red>`, `<#3CC4EE>`, `<color:...>`),
+`<primary>`, `<secondary>`, `<money>`, `<error>`, `<shards>`, `<on>`, `<off>` and `<accent>`, named and hex colours (`<red>`, `<#3CC4EE>`, `<color:...>`),
 `<bold>`, `<shadow:...>`, `<icon:name>` sprites, `<!italic>`, `<newline>`, `<reset>`, click, hover, key and
 translation tags, and the message's own placeholders. Gradients, rainbow, obfuscated text, other decorations
 (underline, strikethrough, turning italics on), undeclared placeholders and unknown icons are rejected: the entry keeps
-the text the jar ships and the problem is listed. The shipped lang texts keep to white and gray, money in green and
-the error red for warnings, with no bold or other colours. The spawn boards SiftCore ships in `features/displays.yml`
+the text the jar ships and the problem is listed. The shipped lang texts keep to the palette: white and gray text, money
+green, shards purple, switch states green and red, other values in the accent colour, and the error red for warnings,
+with no bold or other colours. The spawn boards SiftCore ships in `features/displays.yml`
 go through the same check and do use the extra tags: bold titles and hex colours (gold, silver and bronze places,
 coloured values). Player text is always inserted literally. The one exception to these rules is cosmetics: the chat
 tag looks the owner writes in `features/cosmetics.yml` have their own parser that allows colours, gradients, rainbow,

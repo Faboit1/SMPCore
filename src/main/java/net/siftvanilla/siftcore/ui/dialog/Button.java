@@ -49,6 +49,11 @@ public record Button(Component label, Component tooltip, int width, Handler hand
         return new Button(this.label, this.tooltip, width, this.handler, this.after);
     }
 
+    /** The same button with a tooltip: what it does, shown when hovering it (the dialog style puts explanations here). */
+    public Button tooltip(Component tooltip) {
+        return new Button(this.label, tooltip, this.width, this.handler, this.after);
+    }
+
     /** Closes the dialog as soon as it is clicked (for buttons that finish something, like Teleport or Done). */
     public Button closes() {
         return new Button(this.label, this.tooltip, this.width, this.handler, After.CLOSE);

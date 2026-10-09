@@ -7,8 +7,11 @@ import net.siftvanilla.siftcore.core.money.MoneyStyle;
 
 /**
  * A typed placeholder value. Text is always inserted literally (never parsed), so player-supplied strings cannot
- * inject formatting, click or hover events. Money renders in the money colour; every other number renders in the
- * primary colour. Formatting happens in {@link Lang}.
+ * inject formatting, click or hover events. Money renders in the money colour, shards in the shards colour; every other
+ * number renders in the primary colour. Formatting happens in {@link Lang}.
+ * <p>
+ * A placeholder wins over a palette tag of the same name: in a message that declares {@code <shards>} as a placeholder,
+ * {@code <shards>} is that value, not the colour. Pass shard amounts with {@link #shards}, which colours them.
  * <p>
  * Money is written the way its reader chose (their "Money format" setting, see {@link Lang#viewing}): the server's
  * way, in full or short. {@link #exact} pins an amount to every digit, and messages of a confirmation (a key path with a
@@ -31,7 +34,7 @@ public sealed interface Arg {
         }
     }
 
-    /** A currency amount: money renders like {@link Money}; shards render as a plain number. */
+    /** A currency amount: money renders like {@link Money}; shards render as a number in the shards colour. */
     record Amount(String name, Currency currency, long amount) implements Arg {
     }
 
@@ -72,6 +75,11 @@ public sealed interface Arg {
 
     static Arg amount(String name, Currency currency, long amount) {
         return new Amount(name, currency, amount);
+    }
+
+    /** A shard amount with grouping, e.g. {@code 1,500}, in the shards colour. */
+    static Arg shards(String name, long amount) {
+        return new Amount(name, Currency.SHARDS, amount);
     }
 
     static Arg number(String name, long value) {

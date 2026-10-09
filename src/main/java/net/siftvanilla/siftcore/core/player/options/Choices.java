@@ -49,7 +49,7 @@ public final class Choices {
     /**
      * A "confirm from" choice: {@code server}, {@code always}, the presets (for example {@code 10k}, {@code 1m}) and,
      * when {@code never} is true, {@code never}. The default is {@code server}. Preset labels read "From $10,000" for
-     * money and "From 1,000" for other amounts.
+     * money (in the money colour) and "From 1,000" for shards (in the shards colour).
      */
     public static Choice.Builder<ConfirmAbove> confirmAbove(String id, Currency currency, boolean never, String... presets) {
         Choice.Builder<ConfirmAbove> builder = Choice.builder(id, ConfirmAbove.SERVER);
@@ -87,6 +87,6 @@ public final class Choices {
     }
 
     private static Arg amount(Currency currency, long amount) {
-        return currency == Currency.MONEY ? Arg.money("amount", amount) : Arg.number("amount", amount);
+        return currency == Currency.MONEY ? Arg.money("amount", amount) : Arg.shards("amount", amount);
     }
 }

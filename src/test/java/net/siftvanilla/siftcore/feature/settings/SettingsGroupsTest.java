@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.player.Registry;
 import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.player.SettingOptions;
@@ -58,6 +59,9 @@ class SettingsGroupsTest {
         assertEquals(5, SettingsGroups.order(SettingCategories.PRIVACY, overrides));
         assertEquals(SettingCategories.SOUND.order(), SettingsGroups.order(SettingCategories.SOUND, overrides), "no order: built-in");
         assertEquals("star", SettingsGroups.icon(SettingCategories.SOUND, overrides));
+        assertEquals(SettingCategories.SOUND.color(), SettingsGroups.color(SettingCategories.SOUND, overrides), "no colour: built-in");
+        assertEquals(TextColor.color(0x123456), SettingsGroups.color(SettingCategories.SOUND,
+            Map.of("sound", new CategoryOverride(null, null, TextColor.color(0x123456)))));
         assertEquals("privacy", SettingsGroups.icon(SettingCategories.PRIVACY, overrides), "no icon: built-in");
         // Equal orders keep the built-in order between them (a stable sort).
         Map<String, CategoryOverride> tie = Map.of("privacy", new CategoryOverride(SettingCategories.CHAT.order(), null));
@@ -70,17 +74,12 @@ class SettingsGroupsTest {
     }
 
     @Test
-    void findingGroupsAndPages() {
+    void findingGroups() {
         List<Shown> groups = SettingsGroups.groups(registry(), PLAYER, Map.of());
         assertEquals("sound", SettingsGroups.find(groups, "SOUND").id());
         assertNull(SettingsGroups.find(groups, "staff"), "not visible");
         assertEquals("privacy", SettingsGroups.holding(groups, "privacy-b").id());
         assertNull(SettingsGroups.holding(groups, "spy"));
-        List<Registry.Entry<?>> privacy = SettingsGroups.find(groups, "privacy").entries();
-        assertEquals(1, SettingsGroups.pageOf(privacy, "privacy-a", 2));
-        assertEquals(1, SettingsGroups.pageOf(privacy, "privacy-b", 2));
-        assertEquals(2, SettingsGroups.pageOf(privacy, "privacy-c", 2));
-        assertEquals(1, SettingsGroups.pageOf(privacy, "missing", 2));
         assertTrue(SettingsGroups.groups(Registry.EMPTY, PLAYER, Map.of()).isEmpty());
     }
 }
