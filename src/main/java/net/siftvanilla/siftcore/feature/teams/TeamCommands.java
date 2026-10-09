@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -25,6 +26,7 @@ import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.Change;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Messenger;
@@ -96,7 +98,8 @@ final class TeamCommands {
                 .then(Commands.literal("invite")
                     .requires(CommandSupport.playerPermission(TEAM_PERMISSION))
                     .executes(this.playerOnly((player, ctx) -> this.menus.show(player, this.menus.inviteForm(player, ""))))
-                    .then(CommandSupport.onlinePlayer("player").executes(this.playerOnly(this::invite))))
+                    .then(Commands.argument("player", StringArgumentType.word()).suggests(this::invitees)
+                        .executes(this.playerOnly(this::invite))))
                 .then(Commands.literal("join")
                     .requires(CommandSupport.playerPermission(TEAM_PERMISSION))
                     .then(Commands.argument("team", StringArgumentType.word()).suggests(this::invitingTeams)
@@ -285,10 +288,14 @@ final class TeamCommands {
         }
     }
 
+    /** Flips team chat spy through the settings registry; a locked or hidden spy setting is refused with the reason. */
     private void spy(Player player) {
-        boolean on = !this.services.settings().enabled(player.getUniqueId(), this.spyToggle);
-        this.services.settings().set(player.getUniqueId(), this.spyToggle, on);
-        this.messenger.send(player, on ? TeamsMessages.SPY_ON : TeamsMessages.SPY_OFF);
+        boolean on = !this.services.settings().get(player, this.spyToggle);
+        switch (this.services.settings().set(player, this.spyToggle, on, Change.command(player.getName()))) {
+            case CHANGED, UNCHANGED -> this.messenger.send(player, on ? TeamsMessages.SPY_ON : TeamsMessages.SPY_OFF);
+            case LOCKED -> this.messenger.send(player, TeamsMessages.SPY_LOCKED);
+            default -> this.messenger.send(player, TeamsMessages.SPY_UNAVAILABLE);
+        }
     }
 
     private int info(CommandSender sender, String name) {
@@ -311,7 +318,7 @@ final class TeamCommands {
             }
         }
         if (sender instanceof Player player) {
-            this.menus.show(player, this.menus.infoView(player, team, null));
+            this.menus.showInfo(player, team, null);
             return CommandSupport.OK;
         }
         this.messenger.chat(sender, TeamsMessages.INFO_HEADER, Arg.text("name", team.name()));
@@ -469,7 +476,8 @@ final class TeamCommands {
         }
         Team after = outcome.team();
         this.messenger.chat(sender, TeamsMessages.ADMIN_TRANSFERRED, Arg.text("name", name), Arg.text("team", after.name()));
-        this.actions.broadcast(after, null, TeamsMessages.TEAM_TRANSFERRED_STAFF, Arg.text("name", name));
+        // The new owner is always told (what they may do changed); the rest of the team as they picked.
+        this.actions.news(after, Set.of(player.get()), TeamsMessages.TEAM_TRANSFERRED_STAFF, Arg.text("name", name));
         this.actions.refreshOwnerLater(player.get());
         this.services.audit().record(actor(sender), "teams.transfer", player.get().toString(), "team " + after.id() + " " + after.name());
         return CommandSupport.OK;
@@ -524,7 +532,7 @@ final class TeamCommands {
         Team old = outcome.team();
         this.actions.disbanded(old);
         this.messenger.chat(sender, TeamsMessages.ADMIN_DISBANDED, Arg.text("team", old.name()));
-        this.actions.broadcast(old, null, TeamsMessages.TEAM_DISBANDED_STAFF, Arg.text("team", old.name()));
+        this.actions.announce(old, null, TeamsMessages.TEAM_DISBANDED_STAFF, Arg.text("team", old.name()));
         this.services.audit().record(actor(sender), "teams.disband", Long.toString(old.id()), old.name() + ", " + old.size() + " members");
         return CommandSupport.OK;
     }
@@ -568,6 +576,28 @@ final class TeamCommands {
                     }
                 }
             });
+        }
+        return builder.buildFuture();
+    }
+
+    /**
+     * The players {@code /team invite} offers: online players the sender may see (never vanished staff, whom an invite
+     * refuses anyway), leaving out those whose {@code team-invites} refuses the sender. Thread-safe (suggestions are
+     * computed off the main threads; the settings, relations and vanish lookups are all safe from any thread).
+     */
+    private CompletableFuture<Suggestions> invitees(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        CommandSender sender = ctx.getSource().getSender();
+        String remaining = builder.getRemainingLowerCase();
+        for (Player target : Bukkit.getOnlinePlayers()) {
+            UUID id = target.getUniqueId();
+            if (!target.getName().toLowerCase(Locale.ROOT).startsWith(remaining) || this.presence.hidden(id)) {
+                continue;
+            }
+            if (sender instanceof Player player && (player.getUniqueId().equals(id) || !player.canSee(target)
+                || !this.actions.takesInvitesFrom(id, player.getUniqueId()))) {
+                continue;
+            }
+            builder.suggest(target.getName());
         }
         return builder.buildFuture();
     }

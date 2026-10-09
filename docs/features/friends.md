@@ -32,7 +32,7 @@ can do everything from chat.
 | `/friend requests` | The requests dialog |
 | `/friend favourite <player>` (`fav`) | Toggles a favourite |
 | `/friend note <player> [text]` | No text: the note form. `-` clears the note. Text sets it (cleaned, at most 64 characters) |
-| `/friend settings [key] [value]` | The settings dialog, or shows/sets one value (tab completes keys and values; an unknown key or value is answered in chat with the choices) |
+| `/friend settings [key] [value]` | The Friends & teams settings page, or shows/sets one friends setting through the settings registry (tab completes keys and values; an unknown key or value is answered in chat with the choices; a locked or hidden setting is refused with the reason) |
 | `/friend list [page]` | The list in chat: each name runs `/profile <name>`, Previous and Next are clickable |
 | `/profile [player]` | A friend's profile or anyone's player card; without a name your own card |
 | `/sift friends ...` | Staff tools, below |
@@ -116,9 +116,11 @@ Every screen is a dialog `View`, so Bedrock players get the same screens as form
 
 - **Friends** (`/friend`, the main menu, the pause menu): "2 of 5 online, 5 of 50 friends." (plus "Ranks raise this
   limit." when full below `limits.hard-cap`, and "Page 1 of 3." when there is more than one page). Rows in two
-  columns, `list.page-size` per page, ordered online favourites, online others (by name), offline favourites, offline
-  others (by last seen): "Alex, online", "Bob, AFK", "Cara, seen 3d ago". The tooltip shows favourite, friends since
-  and the note. "Seen" uses the player directory, the same source as `/seen`.
+  columns, `list.page-size` per page, in the order the player picked (Sort friends by): online first (the default:
+  online favourites, online others by name, offline favourites, offline others by last seen), name, recently online,
+  or longest friends. "Alex, online", "Bob, AFK", "Cara, seen 3d ago", or "Dan, offline" when Dan keeps his last-seen
+  time from the viewer (`seen-privacy`; such a time doesn't count for the order either). The tooltip shows favourite,
+  friends since and the note. "Seen" uses the player directory, the same source as `/seen`.
   Footer: Add a friend, Requests (n), Settings, Find (only when there is more than one page; a name prefix), Previous,
   Next, and Back to the menu when opened from the menu (else Close).
 - **Requests**: "Incoming: 3. Sent: 1." Incoming rows "Alex, 2h ago" (tooltip: mutual friends and team) open the
@@ -130,16 +132,18 @@ Every screen is a dialog `View`, so Bedrock players get the same screens as form
 - **Add a friend**: "Enter a name" (a form, 1-17 characters) and up to `list.suggestions` people you may know:
   online players you can see who share friends with you (or your team), ranked by shared friends, without friends,
   open requests either way, ignores either way, and players whose privacy would refuse you.
-- **Friend profile**: head, status (Online / AFK / Seen 3d ago), friends since, team, rank, mutual friends, your
-  note. Buttons: Message (a form, then `/msg`), Teleport request (`/tpa`), Invite to team (`/team invite`), Pay
+- **Friend profile**: head, status (Online / AFK / Seen 3d ago, or Offline when the player keeps the time from the
+  viewer with `seen-privacy`; staff with `siftcore.staff.whois` always see it), friends since, team, rank, mutual
+  friends, your note. Buttons: Message (a form, then `/msg`), Teleport request (`/tpa`), Invite to team (`/team invite`,
+  only for a player without a team whose `team-invites` takes invites from you), Pay
   (`/pay`, which opens its own form), Stats (`/stats`), Favourite/Unfavourite (while favourites exist), Edit note,
   Remove friend, Back.
 - **Player card** (`/profile` on anyone else, or sneak + right-click with an empty hand): head, status, team, rank,
   one friendship button (Add friend, hidden when they are online and their privacy refuses you; Accept request; Cancel
   request), the same command buttons, Close. Your own card has Stats only. No friendship data is shown on cards.
-- **Settings**: one form: "Requests from" (Everyone, People I know, Nobody; the body says people you know are friends
-  of friends and teammates), "Join alerts" (All friends, Favourites only, Off), and three switches. Short labels, so
-  each choice reads "Label: Option" without scrolling in its button.
+- **Settings** (the list's Settings button and `/friend settings`): the Friends & teams page of the settings dialog
+  (`/settings social`), with the friends and teams settings together; Back returns through the settings groups to the
+  friends list. When the player can change none of them (the server hides them all), the list says so instead.
 
 A click keeps its dialog on screen until the next one replaces it, also when the next screen first writes or reads the
 database: the handler tells the dialog router an answer is coming (`Dialogs#markShown`), so the router doesn't close
@@ -161,7 +165,8 @@ other feature's own screens, whose exit closes them (no Back to the profile yet;
 
 - **Login summary**, `presence.summary-delay` after joining once the friends are loaded, only lines with content:
   "Friends online: Alex, Bob and Cara." (up to five clickable names, favourites first, then "and 2 more"), "Friend
-  requests waiting: 2. View, or type /friend requests.", "New friends while you were away: Cara."
+  requests waiting: 2. View, or type /friend requests.", "New friends while you were away: Cara." A player who turned
+  "Friends summary on join" off gets none of it; friends made while away stay noted for their first login with it on.
 - **Join alerts**: the join is looked at `presence.join-delay` after it (so a vanish applied on join counts) and is not
   told when the joiner turned "Tell friends when I join" off, is vanished, left less than `presence.relog-grace` ago,
   or within `presence.startup-quiet` of the start. Each viewer must want it (`all`, or `favourites` and a favourite),
@@ -178,24 +183,45 @@ other feature's own screens, whose exit closes them (no Back to the profile yet;
 
 ## Settings
 
-Kept in core `PlayerSettings` (the `settings` table); invalid stored values read as the default.
+Registered player settings (`FriendPrefs`, core `PlayerSettings`, the `settings` table) in the shared **Friends &
+teams** group of `/settings`, where the teams settings fill the gaps (catalog order). Ids and stored values are the
+ones friends always used, so old rows still read; values are read leniently (case and spaces), invalid ones read as
+the default, and storing the default deletes the row (the player then follows the server's default).
 
-| Key (`/friend settings`) | Stored as | Values (default) | Also in `/settings` |
-|---|---|---|---|
-| `requests` | `friends-requests` | `everyone` / `known` / `nobody` (`everyone`) | |
-| `join-alerts` | `friends-join-alerts` | `all` / `favourites` / `off` (`all`) | |
-| `leave-alerts` | toggle `friends-leave-alerts` | on / off (off) | yes |
-| `request-alerts` | toggle `friends-request-alerts` | on / off (on) | yes |
-| `announce` | toggle `friends-announce` | on / off (on): "Tell friends when I join" | yes |
+| Order | Id | `/friend settings` key | Kind, values (default) | What it does, where it is read |
+|---|---|---|---|---|
+| 1 | `friends-requests` | `requests` | choice `everyone` / `known` / `nobody` (`everyone`), no placeholder | who can send requests; read inside the request unit (below) |
+| 2 | `friends-join-alerts` | `join-alerts` | choice `all` / `favourites` / `off` (`all`) | which friends' logins are told (`Presence.evaluateJoin`); "Favourites only" is offered while `limits.favourites` is above 0, a stored `favourites` reads as `off` meanwhile |
+| 4 | `friends-request-alerts` | `request-alerts` | switch (on) | the chat line with Accept/Deny (`RequestAlerts.sent`); a switch because its buttons only work in chat |
+| 7 | `friends-announce` | `announce` | switch (on) | "Tell friends when I join": join and leave alerts about this player |
+| 8 | `friends-join-summary` | `join-summary` | switch (on) | the login summary (`Presence.summary`); while off, new-friend notices are kept for later |
+| 9 | `friends-leave-alerts` | `leave-alerts` | switch (off) | "Alex went offline." (`Presence.leaveAlert`) |
+| 10 | `friends-list-order` | `list-order` | choice `status` / `name` / `last-seen` / `oldest` (`status`) | the order of the list dialog and `/friend list` (`ListOrder.Sort`) |
+
+`/friend settings <key> [value]` goes through the registry like the dialog: switches take `on`/`off`, choices their
+option ids; the values offered are the ones the player may pick now (tab completion too). A setting the server locked
+in `features/settings.yml` is refused with "requests is fixed by the server: everyone.", a hidden one with "You can't
+change requests right now.", and one another plugin stopped with "requests couldn't be changed.". The answers keep
+their old words ("Set requests to nobody.", "Use one of these for requests: everyone, known, nobody.").
+
+**The request unit honours the server.** The target's `friends-requests` row is read inside the request's own
+transaction (so a change just before a request is never missed); it is resolved like the registry does
+(`StoredSetting`): the server's lock (or, while the server hides the setting, its default) wins, else the stored row,
+else the server's default from `features/settings.yml`, else `everyone`. Before, a missing row always read as
+`everyone`, which would have ignored `defaults: friends-requests: known` and the "storing the default deletes the
+row" rule.
+
+Shared settings friends reads (defined in core `SharedSettings`):
+
+- `seen-privacy` (Privacy group: everyone / friends / nobody): friend list rows and profiles leave out the last-seen
+  time of players who keep it from the viewer ("offline"; online status always shows). Offline friends' rows are read
+  in one query per screen. Staff with `siftcore.staff.whois` see every time.
+- `friends-tpa` (Teleports & homes: nobody / favourites / all / friends-team): `FriendLookup#autoAcceptTeleport`
+  answers it (favourite friends only while favourites exist; "friends and teammates" also lets teammates in; never
+  someone the target ignores). It is offered once the teleport feature reads it; until then TPA's own "Friends skip
+  requests" switch (`tpa-friends`) is in charge and its rows move to `friends-tpa` when it is retired.
 
 There is no "appear offline": the tab list and `/seen` show you anyway. `announce` off means no join or leave alerts.
-With `limits.favourites: 0`, `join-alerts` takes `all` or `off` only, and a stored `favourites` acts as `off`.
-
-`friends-tpa` (`nobody` / `favourites` / `all`, default `nobody`) is stored in the same table and answers
-`FriendLookup#autoAcceptTeleport`, but players are not offered it yet: TPA still lets friends skip requests with its
-own "Friends skip requests" toggle (`/tpatoggle friends`), and two switches for one thing would contradict each other.
-The integration pass that makes TPA ask `autoAcceptTeleport` adds the choice to `FriendPrefs.Key` and the settings
-form and drops TPA's toggle.
 
 ## Limits and anti-abuse
 
@@ -270,6 +296,7 @@ They read memory only and answer `0` for players who are not loaded.
 | `friendsOf(player)` | an immutable set, empty when the player is not loaded |
 | `recentlyFriends(a, b, window)` | friends now, or removed within `min(window, anti-farm.remember)` |
 | `autoAcceptTeleport(target, requester)` | the target is loaded, they are friends, the target's `friends-tpa` is `all` (or `favourites` and the requester is a favourite) and the target doesn't ignore the requester |
+| `favourite(owner, friend)` | the owner is loaded, `friend` is their friend marked as a favourite, and favourites are on (teams uses it so a favourite who gets the friends login alert isn't told twice) |
 
 Contracts the other features implement when they are built: TPA calls `autoAcceptTeleport(target, from)` on the
 requester's thread for plain `/tpa` only, keeps its warmup and combat refusal through `Teleports`, and suggests online
@@ -283,7 +310,7 @@ own side in the integration pass):
 
 | Feature | Uses today | Still to do on its side |
 |---|---|---|
-| TPA | `friends(target, sender)` plus its own `tpa-friends` toggle (`/tpatoggle friends`, `/settings`) | call `autoAcceptTeleport(target, sender)` for plain `/tpa` instead (one line in `TpaService#skipsRequest`), drop the `tpa-friends` toggle, and add `tpa` back to the friends settings (`FriendPrefs.Key` and the settings form), so the friends choice (nobody, favourites, all) is the only switch; until then players aren't offered it |
+| TPA | `friends(target, sender)` plus its own `tpa-friends` toggle (`/tpatoggle friends`, `/settings`) | read the shared `friends-tpa` (`settings().reads(SharedSettings.FRIENDS_TPA)`) and call `autoAcceptTeleport(target, sender)` for plain `/tpa` (one line in `TpaService#skipsRequest`), and stop registering `tpa-friends` (its rows then move to `friends-tpa`); the teleport package does this |
 | Combat | `recentlyFriends(killer, victim, anti-farm.friends-window)` (24h) for anti-farm, so a removed friend gives no credit or bounty for a while | nothing |
 
 ## Hub and pause menu
@@ -319,6 +346,25 @@ the pause-menu button needs that one-line edit, a restart and a line in `docs/se
 loaded players' memory matches storage, no stray nodes for players who are not online, decision table spot checks,
 and the note cleaner.
 
+## Tests
+
+Unit tests (`src/test/java/.../feature/friends`): the decision table, memory (`FriendGraph`, including auto-accept for
+favourites, all friends and friends and teammates, and the favourite lookup), every write unit on SQLite (`FriendStoreTest`, including the
+request unit reading privacy leniently, with the server's default and lock, and through real `PlayerSettings`
+overrides), the settings (`FriendSettingsTest`: ids and stored values, groups and orders, favourites depending on the
+config, `/friend settings` through the registry with locked and hidden settings, the list orders, who sees a last-seen
+time, the profile's Invite to team following the target's `team-invites`), presence rules, rate limits and the
+bundled text and config.
+
+End-to-end scenarios (`tools/e2e`, `FriendsScenarios`): requests, mutual requests, silent denies, hidden requests,
+limits (with the favourites option missing from the settings page while favourites are off), removal, double accept,
+presence, offline accept and summary, staff tools, the dialogs (the Settings button opens Friends & teams), profile
+buttons (no Invite to team while the friend's `team-invites` refuses), restart, request alerts, suggestions, links,
+second login, command cooldown, and `friends-settings` (who can send requests picked in the settings dialog, the
+server's default and lock, list order and login summary with `/friend settings`, the list order typed as
+`/settings friends-list-order name` (through the API until the settings UI package's command lands), `seen-privacy` in
+the list and profile).
+
 ## Design decisions and what was cut
 
 - **No friend chat mode or `/fc`.** It would be one-sided (other friends don't see the replies), fight team chat on the
@@ -344,6 +390,8 @@ and the note cleaner.
   feature exists, and `ignore` is not a command yet, so "Deny and ignore" stays hidden. Teleport request (`/tpa`),
   Invite to team, Pay and Stats run SiftCore's own commands.
 - `friends-tpa` is not offered to players while TPA uses its own `tpa-friends` toggle (see the table above), so
-  `autoAcceptTeleport` answers false for everyone until the integration pass switches TPA over.
+  `autoAcceptTeleport` answers from its default (nobody) until the teleport package switches TPA over.
+- The settings dialog's page is built by the settings feature: after Save it shows the settings groups (Back from
+  there returns to the friends list), not the friends list directly.
 - Stats and Pay opened from a profile have no Back to it (see the integration list).
 - `recentlyFriends` remembers at most 7 days. Rate buckets reset on restart; the daily cap does not.

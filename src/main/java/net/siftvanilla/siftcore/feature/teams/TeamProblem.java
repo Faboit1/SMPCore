@@ -38,8 +38,13 @@ public enum TeamProblem {
     INVITE_EXPIRED,
     /** The target already has an open invite from this team. */
     ALREADY_INVITED,
-    /** The target ignores the inviter (told like any refusal, so the inviter learns nothing about the ignore). */
+    /**
+     * The target ignores the inviter. Told with the same words as {@link #INVITES_CLOSED}, so the inviter learns
+     * nothing about the ignore.
+     */
     INVITE_BLOCKED,
+    /** The target's {@code team-invites} setting doesn't take invites from the inviter. */
+    INVITES_CLOSED,
     /** The team has too many open invites. */
     TOO_MANY_INVITES,
     /** The team has no home. */

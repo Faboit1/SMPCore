@@ -18,7 +18,8 @@ teams:
     no-invite: "<primary>You don't have an invite from <team>."
     invite-expired: "<primary>That invite has run out."
     already-invited: "<primary><name> already has an invite from your team."
-    invite-blocked: "<primary>You can't invite <name>."
+    # The player's "Team invites from" setting refuses the inviter, or they ignore the inviter (not told apart).
+    invites-closed: "<primary><name> isn't taking team invites from you."
     too-many-invites: "<primary>Your team has too many open invites. Wait for some to run out."
     no-home: "<primary>Your team has no home yet."
     home-world-missing: "<primary>The team home is in a world that isn't loaded."
@@ -67,6 +68,8 @@ teams:
   chat:
     "on": "<primary>Team chat on. <secondary>Your messages only reach your team."
     "off": "<primary>Team chat off."
+    # At login, for players who keep team chat mode (Remember team chat mode in Settings).
+    restored: "<primary>Team chat is still on. <secondary>Your messages only reach your team; /team chat turns it off."
     # Team chat lines. <message> is the player's text, shown as typed.
     format: "<secondary>Team <primary><name><secondary>: <message>"
     # What staff with siftcore.teams.spy (and the console) see from other teams.
@@ -75,6 +78,11 @@ teams:
   spy:
     "on": "<primary>Team chat spy on."
     "off": "<primary>Team chat spy off."
+
+  # Teammate login alerts (each player picks them in Settings, Friends & teams).
+  member:
+    online: "<primary><name> <secondary>from your team is online."
+    offline: "<primary><name> <secondary>from your team went offline."
 
   broadcast:
     joined: "<primary><name> <secondary>joined the team."
@@ -115,6 +123,7 @@ teams:
     members: "<primary>Members"
     member-online: "<primary><name> <secondary><role>, online"
     member-offline: "<primary><name> <secondary><role>, seen <time> ago"
+    member-offline-hidden: "<primary><name> <secondary><role>, offline"
 
   roles:
     owner: "owner"
@@ -275,6 +284,19 @@ teams:
     label: "Team"
     description: "Your team, members and home"
 
+  # The teams settings in Settings (Friends & teams, and Staff for the spy).
   settings:
+    notices: "Team news"
+    notices-description: "How you see team news: new members, promotions, home and friendly fire changes. Your own changes, becoming owner, disbanding and being removed always show."
+    member-alerts: "Teammate login alerts"
+    member-alerts-description: "Tell you when a teammate comes online, and optionally when they log off."
+    member-alerts-joins-and-leaves: "Logins and logouts"
+    member-alerts-joins: "Logins only"
+    invites: "Team invites from"
+    invites-description: "Who can invite you to their team. Ignored players can never invite you."
+    chat-sticky: "Remember team chat mode"
+    chat-sticky-description: "Stay in team chat after you log out and back in."
     spy: "Team chat spy"
-    spy-description: "See the chat of every team"
+    spy-description: "See the chat of every team."
+    spy-locked: "<primary>The server sets team chat spy for every staff member."
+    spy-unavailable: "<primary>You can't change team chat spy right now."

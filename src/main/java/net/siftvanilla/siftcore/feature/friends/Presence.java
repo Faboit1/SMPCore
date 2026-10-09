@@ -115,12 +115,19 @@ final class Presence {
         this.timers.replace(id, Task.NONE, scheduled);
     }
 
-    /** The login summary. Runs on the player's thread (visibility is decided there). */
+    /**
+     * The login summary. Runs on the player's thread (visibility is decided there). A player who turned it off
+     * ({@code friends-join-summary}) gets nothing, and friends made while they were away stay noted for the first
+     * login with the summary on.
+     */
     void summary(Player player) {
         if (!player.isOnline()) {
             return;
         }
         UUID id = player.getUniqueId();
+        if (!this.prefs.joinSummary(id)) {
+            return;
+        }
         FriendGraph.Node node = this.graph.loaded(id);
         if (node == null) {
             return;

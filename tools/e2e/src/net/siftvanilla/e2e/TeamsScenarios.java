@@ -46,7 +46,53 @@ final class TeamsScenarios {
         list.add(of("teams-friendly-fire", TeamsScenarios::friendlyFire));
         list.add(of("teams-staff", TeamsScenarios::staff));
         list.add(of("teams-menu", TeamsScenarios::menu));
+        list.add(of("teams-settings", TeamsScenarios::settings));
+        list.add(of("teams-login-alerts", TeamsScenarios::loginAlerts));
+        list.add(of("teams-seen-privacy", TeamsScenarios::seenPrivacy));
         return list;
+    }
+
+    // ------------------------------------------------------------------ settings helpers
+
+    /** Changes a player's setting as another plugin would (the API cause); the change must go through. */
+    private static <T> void set(E2E e2e, String name, net.siftvanilla.siftcore.core.player.PlayerSetting<T> setting, T value) {
+        var result = e2e.services().settings().set(e2e.uuid(name), setting, value,
+            net.siftvanilla.siftcore.core.player.Change.api("e2e"));
+        e2e.expect(result.succeeded(), name + ": " + setting.id() + " = " + value + " went through: " + result);
+    }
+
+    /** Changes a registered setting by id from typed text (as the API would), checking it went through. */
+    private static void set(E2E e2e, String name, String setting, String value) {
+        var result = e2e.services().settings().setParsed(e2e.uuid(name), setting, value,
+            net.siftvanilla.siftcore.core.player.Change.api("e2e"));
+        e2e.expect(result.succeeded(), name + ": " + setting + " = " + value + " went through: " + result);
+    }
+
+    /** Writes test values into features/teams.yml (key: value, matched anywhere), reloads, runs, and restores the file. */
+    private static void withConfig(E2E e2e, Map<String, String> values, Body action) throws Exception {
+        Path file = e2e.services().plugin().getDataFolder().toPath().resolve("features/teams.yml");
+        String original = Files.readString(file);
+        String changed = original;
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(?m)^(\\s*" + java.util.regex.Pattern.quote(entry.getKey())
+                + ":)\\s*\\S+").matcher(changed);
+            e2e.expect(matcher.find(), "features/teams.yml has " + entry.getKey());
+            changed = matcher.replaceFirst("$1 " + java.util.regex.Matcher.quoteReplacement(entry.getValue()));
+        }
+        Files.writeString(file, changed);
+        e2e.console("sift reload");
+        try {
+            action.run(e2e);
+        } finally {
+            Files.writeString(file, original);
+            e2e.console("sift reload");
+        }
+    }
+
+    /** Leaves and waits until the server let the player go. */
+    private static void quit(E2E e2e, Bot bot) {
+        bot.quit();
+        e2e.eventually(() -> Bukkit.getPlayerExact(bot.name) == null, bot.name + " left");
     }
 
     // ------------------------------------------------------------------ helpers
@@ -616,7 +662,8 @@ final class TeamsScenarios {
         owner.clearLogs();
         target.clearLogs();
         owner.command("team invite " + targetName);
-        e2e.eventually(() -> owner.actionBarContains("You can't invite " + targetName + "."), "refused: " + owner.actionBar());
+        // The same words as the team-invites setting's refusal: the inviter can't tell an ignore from a choice.
+        e2e.eventually(() -> owner.actionBarContains(targetName + " isn't taking team invites from you."), "refused: " + owner.actionBar());
         e2e.sleep(1_000);
         e2e.expect(!target.chatContains(ownerName), "no invite message: " + target.chat());
 
@@ -748,5 +795,293 @@ final class TeamsScenarios {
         e2e.dialog(a, "Team");
         e2e.click(a, "All teams");
         e2e.dialog(a, "All teams");
+    }
+
+    // ------------------------------------------------------------------ player settings
+
+    /**
+     * The teams settings change what happens: who can invite (picked in the settings dialog; "friends" asks the friends
+     * system), how team news shows (above the hotbar or not at all; disbanding always shows in chat), the team chat
+     * sound each member picked, and /team spy through the registry (refused while the server locks it).
+     */
+    static void settings(E2E e2e) throws Exception {
+        String ownerName = e2e.name("TsOwner");
+        String mateName = e2e.name("TsMate");
+        String guestName = e2e.name("TsGuest");
+        String team = e2e.name("Tango");
+        Bot owner = e2e.bot(ownerName);
+        Bot mate = e2e.bot(mateName);
+        Bot guest = e2e.bot(guestName);
+        startTeam(e2e, owner, team);
+        staffAdd(e2e, team, mateName);
+
+        e2e.step("Team invites from: nobody, picked in the settings dialog, refuses invites with a reason");
+        FriendsScenarios.saveSocial(e2e, guest, Map.of("team_invites", "nobody"));
+        e2e.eventually(() -> guest.anyFeedbackContains("Team invites from set to Nobody."), "saved: " + guest.actionBar() + " " + guest.chat());
+        e2e.expect("nobody".equals(FriendsScenarios.stored(e2e, e2e.uuid(guestName), "team-invites")), "stored as nobody");
+        owner.clearLogs();
+        guest.clearLogs();
+        owner.command("team invite " + guestName);
+        e2e.eventually(() -> owner.actionBarContains(guestName + " isn't taking team invites from you."), "refused: " + owner.actionBar());
+        e2e.sleep(800);
+        e2e.expect(!guest.chatContains("invited you"), "no invite arrived: " + guest.chat());
+
+        e2e.step("friends only: a stranger is refused, a friend's invite arrives");
+        set(e2e, guestName, "team-invites", "friends");
+        owner.clearLogs();
+        owner.command("team invite " + guestName);
+        e2e.eventually(() -> owner.actionBarContains(guestName + " isn't taking team invites from you."), "not friends: " + owner.actionBar());
+        List<String> added = e2e.consoleOutput("sift friends add " + ownerName + " " + guestName);
+        e2e.expect(added.stream().anyMatch(line -> line.contains("friends")), "made friends: " + added);
+        e2e.eventually(() -> e2e.services().relations().areFriends(e2e.uuid(guestName), e2e.uuid(ownerName)), "they are friends");
+        guest.clearLogs();
+        owner.command("team invite " + guestName);
+        e2e.eventually(() -> guest.chatContains(ownerName + " invited you to join " + team), "a friend's invite arrives: " + guest.chat());
+
+        e2e.step("Team news above the hotbar, typed as /settings team-notices actionbar: a teammate sees the new home there");
+        FriendsScenarios.setByCommand(e2e, mate, "team-notices", "actionbar", "actionbar");
+        mate.clearLogs();
+        owner.clearLogs();
+        owner.command("team sethome");
+        e2e.eventually(() -> mate.actionBarContains(ownerName + " set the team home."), "news above the hotbar: " + mate.actionBar());
+        e2e.eventually(() -> owner.chatContains(ownerName + " set the team home."), "the default stays chat: " + owner.chat());
+        e2e.expect(!mate.chatContains("set the team home"), "not in chat: " + mate.chat());
+
+        e2e.step("Team news off: a friendly fire change isn't told to that teammate");
+        set(e2e, mateName, "team-notices", "off");
+        mate.clearLogs();
+        owner.clearLogs();
+        owner.command("team friendlyfire on");
+        e2e.eventually(() -> owner.chatContains(ownerName + " turned friendly fire on."), "the owner is told: " + owner.chat());
+        e2e.sleep(800);
+        e2e.expect(!mate.chatContains("friendly fire") && !mate.actionBarContains("friendly fire"), "nothing for the teammate: "
+            + mate.chat() + " " + mate.actionBar());
+
+        e2e.step("Team news off for the one who acts: their own change is still confirmed, in chat");
+        set(e2e, ownerName, "team-notices", "off");
+        mate.clearLogs();
+        owner.clearLogs();
+        owner.command("team sethome");
+        e2e.eventually(() -> owner.chatContains(ownerName + " set the team home."), "the owner's confirmation: " + owner.chat());
+        owner.clearLogs();
+        owner.command("team friendlyfire off");
+        e2e.eventually(() -> owner.chatContains(ownerName + " turned friendly fire off."), "and for friendly fire: " + owner.chat());
+        e2e.sleep(800);
+        e2e.expect(!mate.chatContains("set the team home") && !mate.actionBarContains("set the team home"),
+            "the teammate with news off still hears nothing: " + mate.chat() + " " + mate.actionBar());
+
+        e2e.step("becoming owner is always told, even with team news off");
+        mate.clearLogs();
+        owner.command("team transfer " + mateName);
+        e2e.dialog(owner, "Hand over the team");
+        e2e.click(owner, "Hand over");
+        e2e.eventually(() -> "owner".equals(placeholder(e2e, mateName, "team_role")), mateName + " owns the team");
+        e2e.eventually(() -> mate.chatContains(ownerName + " handed the team to " + mateName + "."), "the new owner is told: " + mate.chat());
+        e2e.eventually(() -> owner.chatContains(ownerName + " handed the team to " + mateName + "."), "and the old owner: " + owner.chat());
+        set(e2e, ownerName, "team-notices", "chat");
+
+        e2e.step("the team chat sound each member picked plays for them, never for the sender");
+        set(e2e, mateName, net.siftvanilla.siftcore.core.player.SharedSettings.SOUND_TEAM_CHAT,
+            net.siftvanilla.siftcore.core.player.options.PingSound.BELL);
+        set(e2e, ownerName, net.siftvanilla.siftcore.core.player.SharedSettings.SOUND_TEAM_CHAT,
+            net.siftvanilla.siftcore.core.player.options.PingSound.BELL);
+        mate.clearLogs();
+        owner.clearLogs();
+        owner.command("tc ping");
+        e2e.eventually(() -> mate.chatContains("Team " + ownerName + ": ping"), "the message: " + mate.chat());
+        e2e.eventually(() -> mate.sounds().stream().anyMatch(s -> s.sound().endsWith("note_block.bell")), "the bell: " + mate.sounds());
+        e2e.sleep(500);
+        e2e.expect(owner.sounds().stream().noneMatch(s -> s.sound().endsWith("note_block.bell")), "not for the sender: " + owner.sounds());
+        set(e2e, mateName, net.siftvanilla.siftcore.core.player.SharedSettings.SOUND_TEAM_CHAT,
+            net.siftvanilla.siftcore.core.player.options.PingSound.OFF);
+        mate.clearLogs();
+        owner.command("tc quiet");
+        e2e.eventually(() -> mate.chatContains("Team " + ownerName + ": quiet"), "the message: " + mate.chat());
+        e2e.sleep(500);
+        e2e.expect(mate.sounds().stream().noneMatch(s -> s.sound().endsWith("note_block.bell")), "off is silent: " + mate.sounds());
+
+        e2e.step("/team spy flips the staff setting, and is refused while the server locks it");
+        e2e.console("op " + guestName);
+        try {
+            guest.clearLogs();
+            guest.command("team spy");
+            e2e.eventually(() -> guest.actionBarContains("Team chat spy off."), "spy off: " + guest.actionBar());
+            guest.command("team spy");
+            e2e.eventually(() -> guest.actionBarContains("Team chat spy on."), "spy on: " + guest.actionBar());
+            FriendsScenarios.withOverrides(e2e, new net.siftvanilla.siftcore.core.player.Overrides(Map.of(), Map.of("team-spy", "true"),
+                java.util.Set.of()), () -> {
+                    guest.clearLogs();
+                    guest.command("team spy");
+                    e2e.eventually(() -> guest.actionBarContains("The server sets team chat spy for every staff member."),
+                        "locked: " + guest.actionBar());
+                });
+        } finally {
+            e2e.console("deop " + guestName);
+        }
+
+        e2e.step("disbanding always shows in chat, whatever the team news setting");
+        mate.clearLogs();
+        List<String> disband = e2e.consoleOutput("team admin disband " + team);
+        e2e.expect(disband.stream().anyMatch(line -> line.contains("Disbanded " + team)), "disbanded: " + disband);
+        e2e.eventually(() -> mate.chatContains(team + " was disbanded by staff."), "told in chat with news off: " + mate.chat());
+    }
+
+    /**
+     * Teammate login alerts ({@code team-member-alerts}, with test timings in teams.yml): logins by default, nothing
+     * when off, logouts too when picked, no double line for friends the friends alert tells; and team chat mode
+     * coming back after a relog for players who keep it ({@code team-chat-sticky}).
+     */
+    static void loginAlerts(E2E e2e) throws Exception {
+        withConfig(e2e, Map.of("join-delay", "1s", "leave-delay", "2s", "relog-grace", "0s", "startup-quiet", "0s"), x -> {
+            String ownerName = e2e.name("TlOwner");
+            String mateName = e2e.name("TlMate");
+            String goerName = e2e.name("TlGoer");
+            String team = e2e.name("Lima");
+            Bot owner = e2e.bot(ownerName);
+            Bot mate = e2e.bot(mateName);
+            Bot goer = e2e.bot(goerName);
+            startTeam(e2e, owner, team);
+            staffAdd(e2e, team, mateName);
+            staffAdd(e2e, team, goerName);
+
+            e2e.step("a teammate's login is told by default");
+            quit(e2e, goer);
+            owner.clearLogs();
+            mate.clearLogs();
+            Bot back = e2e.bot(goerName);
+            e2e.eventually(() -> owner.chatContains(goerName + " from your team is online."), "login alert: " + owner.chat());
+            e2e.eventually(() -> mate.chatContains(goerName + " from your team is online."), "for every teammate: " + mate.chat());
+            e2e.expect(!back.chatContains("from your team is online"), "not for the player themselves: " + back.chat());
+
+            e2e.step("off: no login alert; logins and logouts: the logout is told after the leave delay");
+            set(e2e, mateName, "team-member-alerts", "off");
+            set(e2e, ownerName, "team-member-alerts", "joins-and-leaves");
+            owner.clearLogs();
+            mate.clearLogs();
+            quit(e2e, back);
+            e2e.eventually(() -> owner.chatContains(goerName + " from your team went offline."), 8_000, "logout alert: " + owner.chat());
+            Bot again = e2e.bot(goerName);
+            e2e.eventually(() -> owner.chatContains(goerName + " from your team is online."), "login alert again: " + owner.chat());
+            e2e.sleep(2_000);
+            e2e.expect(!mate.chatContains(goerName + " from your team"), "nothing with alerts off: " + mate.chat());
+
+            e2e.step("a friend who gets the friends login alert isn't told twice");
+            List<String> added = e2e.consoleOutput("sift friends add " + ownerName + " " + goerName);
+            e2e.expect(added.stream().anyMatch(line -> line.contains("friends")), "made friends: " + added);
+            e2e.eventually(() -> e2e.services().relations().areFriends(e2e.uuid(ownerName), e2e.uuid(goerName)), "friends");
+            quit(e2e, again);
+            e2e.sleep(3_000);
+            owner.clearLogs();
+            Bot third = e2e.bot(goerName);
+            e2e.sleep(4_000);
+            e2e.expect(!owner.chatContains(goerName + " from your team is online"), "no team line for a friend: " + owner.chat());
+
+            e2e.step("Remember team chat mode: team chat comes back after a relog, and only while it is on");
+            set(e2e, goerName, "team-chat-sticky", "true");
+            third.clearLogs();
+            third.command("team chat");
+            e2e.eventually(() -> third.actionBarContains("Team chat on"), "team chat on: " + third.actionBar());
+            quit(e2e, third);
+            Bot sticky = e2e.bot(goerName);
+            e2e.eventually(() -> sticky.chatContains("Team chat is still on."), "told at login: " + sticky.chat());
+            mate.clearLogs();
+            sticky.chat("still team");
+            e2e.eventually(() -> mate.chatContains("Team " + goerName + ": still team"), "typed chat goes to the team: " + mate.chat());
+            set(e2e, goerName, "team-chat-sticky", "false");
+            quit(e2e, sticky);
+            Bot plain = e2e.bot(goerName);
+            e2e.sleep(1_500);
+            e2e.expect(!plain.chatContains("Team chat is still on."), "not kept with the setting off: " + plain.chat());
+            owner.clearLogs();
+            plain.chat("public again");
+            e2e.eventually(() -> owner.chatContains("public again") && !owner.chatContains("Team " + goerName + ": public again"),
+                "typed chat is public: " + owner.chat());
+
+            e2e.step("team chat on while the setting is off, a whole session in public chat, then the setting on: it stays off");
+            plain.clearLogs();
+            plain.command("team chat");
+            e2e.eventually(() -> plain.actionBarContains("Team chat on"), "team chat on: " + plain.actionBar());
+            quit(e2e, plain);
+            Bot publicSession = e2e.bot(goerName);
+            e2e.sleep(1_500);
+            e2e.expect(!publicSession.chatContains("Team chat is still on."), "not kept with the setting off: " + publicSession.chat());
+            set(e2e, goerName, "team-chat-sticky", "true");
+            quit(e2e, publicSession);
+            Bot later = e2e.bot(goerName);
+            e2e.sleep(1_500);
+            e2e.expect(!later.chatContains("Team chat is still on."), "a mode from an older session never comes back: " + later.chat());
+            owner.clearLogs();
+            later.chat("still public");
+            e2e.eventually(() -> owner.chatContains("still public") && !owner.chatContains("Team " + goerName + ": still public"),
+                "typed chat is public: " + owner.chat());
+        });
+    }
+
+    /**
+     * Who sees when a member was last online ({@code seen-privacy}) also holds in the team member lists: a stranger's
+     * {@code /team info} and a teammate's {@code /team} show "offline" without the time for a member who keeps it to
+     * nobody (or to friends, for someone who isn't one); staff who may look players up see it.
+     */
+    static void seenPrivacy(E2E e2e) throws Exception {
+        String ownerName = e2e.name("TpOwner");
+        String quietName = e2e.name("TpQuiet");
+        String openName = e2e.name("TpOpen");
+        String strangerName = e2e.name("TpStranger");
+        String team = e2e.name("Papa");
+        Bot owner = e2e.bot(ownerName);
+        Bot quiet = e2e.bot(quietName);
+        Bot open = e2e.bot(openName);
+        Bot stranger = e2e.bot(strangerName);
+        startTeam(e2e, owner, team);
+        staffAdd(e2e, team, quietName);
+        staffAdd(e2e, team, openName);
+
+        e2e.step("one member keeps their last-seen time to nobody, the other keeps the default; both log off");
+        java.util.UUID quietId = e2e.uuid(quietName);
+        java.util.UUID openId = e2e.uuid(openName);
+        set(e2e, quietName, net.siftvanilla.siftcore.core.player.SharedSettings.SEEN_PRIVACY,
+            net.siftvanilla.siftcore.core.player.options.Audience.NOBODY);
+        quit(e2e, quiet);
+        quit(e2e, open);
+        e2e.eventually(() -> "nobody".equals(FriendsScenarios.stored(e2e, quietId, "seen-privacy")), "stored");
+
+        e2e.step("a stranger's /team info shows the hidden member as offline, without the time");
+        Bot.SeenDialog info = infoOf(e2e, stranger, team);
+        e2e.expect(info.bodyText().contains(quietName + " member, offline"), "offline without a time: " + info.body());
+        e2e.expect(!info.bodyText().contains(quietName + " member, seen"), "no last-seen time: " + info.body());
+        e2e.expect(info.bodyText().contains(openName + " member, seen"), "the default shows the time: " + info.body());
+
+        e2e.step("a teammate's /team shows the same");
+        Bot.SeenDialog roster = openTeamMenu(e2e, owner, "Team " + team);
+        e2e.expect(roster.bodyText().contains(quietName + " member, offline") && roster.bodyText().contains(openName + " member, seen"),
+            "the roster: " + roster.body());
+
+        e2e.step("friends only: hidden from the stranger until they are friends");
+        var friendsOnlyResult = e2e.services().settings().setParsed(openId, "seen-privacy", "friends",
+            net.siftvanilla.siftcore.core.player.Change.api("e2e"));
+        e2e.expect(friendsOnlyResult.succeeded(), "set for the offline member: " + friendsOnlyResult);
+        Bot.SeenDialog friendsOnly = infoOf(e2e, stranger, team);
+        e2e.expect(friendsOnly.bodyText().contains(openName + " member, offline"), "not a friend: " + friendsOnly.body());
+        List<String> added = e2e.consoleOutput("sift friends add " + strangerName + " " + openName);
+        e2e.expect(added.stream().anyMatch(line -> line.contains("friends")), "made friends: " + added);
+        e2e.eventually(() -> e2e.services().relations().areFriends(e2e.uuid(strangerName), openId), "friends");
+        Bot.SeenDialog asFriend = infoOf(e2e, stranger, team);
+        e2e.expect(asFriend.bodyText().contains(openName + " member, seen"), "a friend sees it: " + asFriend.body());
+
+        e2e.step("staff who may look players up always see it");
+        e2e.console("op " + strangerName);
+        try {
+            Bot.SeenDialog asStaff = infoOf(e2e, stranger, team);
+            e2e.expect(asStaff.bodyText().contains(quietName + " member, seen"), "staff see the time: " + asStaff.body());
+        } finally {
+            e2e.console("deop " + strangerName);
+        }
+    }
+
+    /** Opens /team info for a team and waits for that fresh dialog. */
+    private static Bot.SeenDialog infoOf(E2E e2e, Bot bot, String team) {
+        bot.clearLogs();
+        bot.command("team info " + team);
+        return e2e.dialog(bot, "Team " + team);
     }
 }

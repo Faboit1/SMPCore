@@ -39,7 +39,7 @@ import org.bukkit.permissions.PermissionDefault;
  */
 public final class TeamsFeature implements Feature {
 
-    /** Staff setting: see the chat of every team (needs {@value TeamChat#SPY_PERMISSION}). */
+    /** Staff setting (Staff group): see the chat of every team (needs {@value TeamChat#SPY_PERMISSION}). */
     public static final Toggle SPY = new Toggle("team-spy", true, TeamsMessages.SETTING_SPY,
         TeamsMessages.SETTING_SPY_DESCRIPTION, TeamChat.SPY_PERMISSION);
 
@@ -57,6 +57,7 @@ public final class TeamsFeature implements Feature {
     private final TeamService service;
     private final TeamTop top = new TeamTop();
     private final TeamPresence presence;
+    private final LoginAlerts loginAlerts;
     private final TeamChat chat;
     private final TeamFeedback feedback;
     private final OwnerLimits limits;
@@ -78,7 +79,8 @@ public final class TeamsFeature implements Feature {
         this.settings = services.configs().register("features/teams.yml",
             reader -> TeamsSettings.parse(reader, services.core().get().money(), name -> Bukkit.getWorld(name) != null), problems);
         services.lang().register(TeamsMessages.class);
-        services.settings().register(SPY);
+        // Settings: team news, teammate logins, who can invite, team chat mode (Friends & teams); team chat spy (Staff).
+        TeamPrefs.register(services.settings(), SPY, services.relations());
         var perms = services.permissions();
         perms.declare(TeamCommands.TEAM_PERMISSION, "Use /team", true);
         perms.declare(TeamCommands.CHAT_PERMISSION, "Use /teamchat (/tc)", true);
@@ -91,12 +93,14 @@ public final class TeamsFeature implements Feature {
         this.service = new TeamService(services.ledger(), this.registry, this.store, this.invites, new TeamEventGate.Bukkit(),
             this.settings::get, this.nextId::getAndIncrement, System::currentTimeMillis, this.logger);
         this.presence = new TeamPresence(vanish);
+        this.loginAlerts = new LoginAlerts(this.registry, this.presence, services.settings(), services.relations(), services.messenger(),
+            services.scheduler(), this.settings);
         this.chat = new TeamChat(this.registry, services.messenger(), services.settings(), SPY, this.settings, mutes);
         this.feedback = new TeamFeedback(services.messenger(), this.settings, this.service);
         this.limits = new OwnerLimits(this.registry, this.service, services.scheduler());
         this.actions = new TeamActions(services, this.service, this.chat, this.feedback, this.limits, this.settings, spawn);
         this.menus = new TeamMenus(services, this.service, this.actions, this.feedback, this.top, stats, this.presence,
-            this.settings);
+            this.settings, new TeamSeen(services.settings(), services.relations(), this.store));
         this.commands = new TeamCommands(services, this.service, this.actions, this.menus, this.feedback, this.presence,
             this.settings, SPY);
         this.guard = new FriendlyFireGuard(this.registry, this.settings, services.messenger(), services.cooldowns());
@@ -135,9 +139,14 @@ public final class TeamsFeature implements Feature {
         plugins.registerEvents(this.chat, this.services.plugin());
         plugins.registerEvents(this.guard, this.services.plugin());
         plugins.registerEvents(this.limits, this.services.plugin());
+        this.loginAlerts.start(System.currentTimeMillis());
+        plugins.registerEvents(this.loginAlerts, this.services.plugin());
 
         var scheduler = this.services.scheduler();
-        this.tasks.add(scheduler.asyncTimer(() -> this.invites.sweep(System.currentTimeMillis()), INVITE_SWEEP, INVITE_SWEEP));
+        this.tasks.add(scheduler.asyncTimer(() -> {
+            this.invites.sweep(System.currentTimeMillis());
+            this.loginAlerts.prune();
+        }, INVITE_SWEEP, INVITE_SWEEP));
         this.tasks.add(scheduler.asyncTimer(this.limits::refreshOnlineOwners, OWNER_REFRESH, OWNER_REFRESH));
         // A first board from what is in memory now, then a full one once offline members' stats are read.
         refreshTop(false);
@@ -226,6 +235,7 @@ public final class TeamsFeature implements Feature {
         }
         this.tasks.clear();
         this.topTask.cancel();
+        this.loginAlerts.stop();
     }
 
     @Override

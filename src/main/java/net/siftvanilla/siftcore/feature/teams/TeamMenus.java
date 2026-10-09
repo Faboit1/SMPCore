@@ -4,7 +4,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.core.CoreMessages;
@@ -31,6 +35,9 @@ import org.bukkit.entity.Player;
  * decisions ask for confirmation. Every handler re-checks through the service: a dialog only shows state, it never
  * proves it. After an action the main dialog is shown again, fresh, with the reason inside it if something was
  * refused.
+ * <p>
+ * Screens with a member list ({@link #showMain}, {@link #showInfo}) first read who may see each offline member's
+ * last-seen time ({@code seen-privacy}, {@link TeamSeen}); the dialog that was clicked stays on screen meanwhile.
  */
 final class TeamMenus {
 
@@ -54,11 +61,13 @@ final class TeamMenus {
     private final StatsRecorder stats;
     private final TeamPresence presence;
     private final Setting<TeamsSettings> settings;
+    private final TeamSeen seen;
     private final Lang lang;
     private final Templates templates;
+    private final Logger logger;
 
     TeamMenus(Services services, TeamService service, TeamActions actions, TeamFeedback feedback, TeamTop top,
-              StatsRecorder stats, TeamPresence presence, Setting<TeamsSettings> settings) {
+              StatsRecorder stats, TeamPresence presence, Setting<TeamsSettings> settings, TeamSeen seen) {
         this.services = services;
         this.service = service;
         this.registry = service.registry();
@@ -68,31 +77,99 @@ final class TeamMenus {
         this.stats = stats;
         this.presence = presence;
         this.settings = settings;
+        this.seen = seen;
         this.lang = services.lang();
         this.templates = services.templates();
+        this.logger = services.plugin().getLogger();
     }
 
     void open(Player player) {
-        show(player, main(player, null));
+        showMain(player, null);
     }
 
     void show(Player player, View view) {
         this.services.dialogs().show(player, view);
     }
 
-    /** The main dialog, with an error line when {@code error} is not null. */
-    View main(Player player, Component error) {
+    /**
+     * Shows the main dialog, with an error line when {@code error} is not null. Without a team it shows at once; in a
+     * team it shows once the members' last-seen times are read. Call on the player's thread.
+     */
+    void showMain(Player player, Component error) {
         Team team = this.registry.of(player.getUniqueId()).orElse(null);
-        View view = team == null ? noTeam(player) : teamView(player, team);
+        if (team == null) {
+            show(player, withError(noTeam(player), error));
+            return;
+        }
+        withRoster(player, team, visible -> main(player, error, visible));
+    }
+
+    /**
+     * The main dialog as it is now (the team may have changed while the last-seen times were read: members not in
+     * {@code visible} show as offline without a time).
+     */
+    private View main(Player player, Component error, Set<UUID> visible) {
+        Team team = this.registry.of(player.getUniqueId()).orElse(null);
+        return withError(team == null ? noTeam(player) : teamView(player, team, visible), error);
+    }
+
+    /** The no-team main dialog with the reason a team action was refused (the player turned out to have no team). */
+    private View noTeamAfter(Player player, TeamProblem problem) {
+        return withError(noTeam(player), error(problem));
+    }
+
+    private static View withError(View view, Component error) {
         return error == null ? view : view.withError(error, FormValues.EMPTY);
     }
 
-    private View mainAfter(Player player, TeamService.Outcome outcome, String target) {
-        return main(player, outcome.ok() ? null : this.feedback.component(outcome.problem(), outcome.team(), target));
+    /** Why an action was refused, or null when it went through. */
+    private Component error(TeamService.Outcome outcome, String target) {
+        return outcome.ok() ? null : this.feedback.component(outcome.problem(), outcome.team(), target);
     }
 
-    private View mainAfter(Player player, TeamProblem problem) {
-        return main(player, problem == null ? null : this.feedback.component(problem, null, null));
+    private Component error(TeamProblem problem) {
+        return problem == null ? null : this.feedback.component(problem, null, null);
+    }
+
+    /**
+     * Builds a screen with the team's member list once it is known whose last-seen time the viewer may see, on the
+     * viewer's thread, and shows it. The dialog the viewer clicked stays on screen meanwhile; a failed read closes it
+     * and tells them. Call on the viewer's thread (the staff check).
+     */
+    private void withRoster(Player viewer, Team team, Function<Set<UUID>, View> build) {
+        UUID self = viewer.getUniqueId();
+        List<UUID> offline = new ArrayList<>(team.size());
+        for (UUID member : team.memberIds()) {
+            if (!this.presence.online(member, self)) {
+                offline.add(member);
+            }
+        }
+        this.services.dialogs().markShown(viewer);
+        this.seen.visible(viewer, offline).whenComplete((visible, error) -> {
+            if (!viewer.isOnline()) {
+                return;
+            }
+            if (error != null) {
+                this.logger.log(Level.WARNING, "Reading the last-seen privacy of team " + team.name() + " for " + viewer.getName()
+                    + " failed", error);
+                this.services.messenger().send(viewer, CoreMessages.ACTION_FAILED);
+                this.services.dialogs().close(viewer);
+                return;
+            }
+            onThread(viewer, () -> {
+                if (viewer.isOnline()) {
+                    show(viewer, build.apply(visible));
+                }
+            });
+        });
+    }
+
+    private void onThread(Player player, Runnable task) {
+        if (this.services.scheduler().owns(player)) {
+            task.run();
+        } else {
+            this.services.scheduler().entity(player, task, null);
+        }
     }
 
     // ------------------------------------------------------------------ main: no team
@@ -133,7 +210,7 @@ final class TeamMenus {
 
     // ------------------------------------------------------------------ main: in a team
 
-    private View teamView(Player player, Team team) {
+    private View teamView(Player player, Team team, Set<UUID> visible) {
         UUID self = player.getUniqueId();
         TeamRole role = team.role(self);
         List<Component> lines = new ArrayList<>(this.lang.lines(TeamsMessages.MENU_SUMMARY,
@@ -149,7 +226,7 @@ final class TeamMenus {
         }
         lines.add(Component.empty());
         lines.add(this.lang.get(TeamsMessages.MENU_MEMBERS));
-        lines.addAll(memberLines(team, self));
+        lines.addAll(memberLines(team, self, visible));
 
         List<Button> buttons = new ArrayList<>();
         if (team.home() != null) {
@@ -159,20 +236,20 @@ final class TeamMenus {
                     if (problem == null) {
                         s.close();
                     } else {
-                        s.show(mainAfter(s.player(), problem));
+                        showMain(s.player(), error(problem));
                     }
                 }));
         }
         buttons.add(button(chatOn ? TeamsMessages.BUTTON_CHAT_OFF : TeamsMessages.BUTTON_CHAT_ON,
-            this.lang.get(TeamsMessages.BUTTON_CHAT_TOOLTIP), s -> s.show(mainAfter(s.player(), this.actions.toggleChat(s.player())))));
+            this.lang.get(TeamsMessages.BUTTON_CHAT_TOOLTIP), s -> showMain(s.player(), error(this.actions.toggleChat(s.player())))));
         if (role != null && role.atLeast(TeamRole.ADMIN)) {
             buttons.add(button(TeamsMessages.BUTTON_INVITE, null, s -> s.show(inviteForm(s.player(), ""))));
             buttons.add(button(TeamsMessages.BUTTON_KICK, null, s -> s.show(picker(s.player(), Pick.KICK))));
             buttons.add(button(TeamsMessages.BUTTON_SET_HOME, this.lang.get(TeamsMessages.BUTTON_SET_HOME_TOOLTIP),
-                s -> s.show(mainAfter(s.player(), this.actions.setHome(s.player()), null))));
+                s -> showMain(s.player(), error(this.actions.setHome(s.player()), null))));
             buttons.add(button(team.friendlyFire() ? TeamsMessages.BUTTON_FRIENDLY_FIRE_OFF : TeamsMessages.BUTTON_FRIENDLY_FIRE_ON,
                 this.lang.get(TeamsMessages.BUTTON_FRIENDLY_FIRE_TOOLTIP),
-                s -> s.show(mainAfter(s.player(), this.actions.friendlyFire(s.player(), !team.friendlyFire()), null))));
+                s -> showMain(s.player(), error(this.actions.friendlyFire(s.player(), !team.friendlyFire()), null))));
         }
         if (role == TeamRole.OWNER) {
             buttons.add(button(TeamsMessages.BUTTON_PROMOTE, null, s -> s.show(picker(s.player(), Pick.PROMOTE))));
@@ -184,9 +261,9 @@ final class TeamMenus {
             buttons.add(button(TeamsMessages.BUTTON_LEAVE, null, s -> s.show(confirmLeave(s.player()))));
         }
         long teamId = team.id();
-        buttons.add(button(TeamsMessages.BUTTON_STATS, null, s -> s.show(this.registry.get(teamId)
-            .map(current -> infoView(s.player(), current, toMain()))
-            .orElseGet(() -> main(s.player(), null)))));
+        buttons.add(button(TeamsMessages.BUTTON_STATS, null, s -> this.registry.get(teamId).ifPresentOrElse(
+            current -> showInfo(s.player(), current, toMain()),
+            () -> showMain(s.player(), null))));
         buttons.add(button(TeamsMessages.BUTTON_TOP, null, s -> s.show(topView(s.player(), TeamTop.Board.KILLS, toMain()))));
         buttons.add(button(TeamsMessages.BUTTON_LIST, null, s -> s.show(listView(s.player(), 1, toMain()))));
         return this.templates.list(this.lang.get(TeamsMessages.MENU_TEAM_TITLE, Arg.text("name", team.name())), lines, buttons, 2, toHub());
@@ -207,9 +284,10 @@ final class TeamMenus {
 
     /**
      * One line per member, owner first: name, role and whether they are online (or when they were last seen), as
-     * {@code viewer} may see it (vanished members show as offline).
+     * {@code viewer} may see it: vanished members show as offline, and an offline member's last-seen time only shows
+     * when they are in {@code visible} (their {@code seen-privacy} lets the viewer see it, see {@link TeamSeen}).
      */
-    List<Component> memberLines(Team team, UUID viewer) {
+    List<Component> memberLines(Team team, UUID viewer, Set<UUID> visible) {
         List<Component> lines = new ArrayList<>(team.size());
         long now = System.currentTimeMillis();
         for (TeamMember member : team.sortedMembers()) {
@@ -217,10 +295,12 @@ final class TeamMenus {
             Arg role = Arg.text("role", this.lang.plain(roleKey(member.role())));
             if (this.presence.online(member.uuid(), viewer)) {
                 lines.add(this.lang.get(TeamsMessages.MENU_MEMBER_ONLINE, name, role));
-            } else {
+            } else if (visible.contains(member.uuid())) {
                 long seen = this.services.directory().get(member.uuid()).map(known -> known.lastSeen()).orElse(member.joined());
                 lines.add(this.lang.get(TeamsMessages.MENU_MEMBER_OFFLINE, name, role,
                     Arg.time("time", Duration.ofMillis(Math.max(0, now - seen)))));
+            } else {
+                lines.add(this.lang.get(TeamsMessages.MENU_MEMBER_OFFLINE_HIDDEN, name, role));
             }
         }
         return lines;
@@ -235,7 +315,7 @@ final class TeamMenus {
     }
 
     private Button.Handler toMain() {
-        return s -> s.show(main(s.player(), null));
+        return s -> showMain(s.player(), null);
     }
 
     /** Back to the main menu of the hub, or null (a Close button) when there is none. */
@@ -264,9 +344,13 @@ final class TeamMenus {
                     return;
                 }
                 long cost = this.settings.get().createCost();
-                submission.show(cost > 0 ? confirmCreate(actor, name, null) : mainAfter(actor, this.actions.create(actor, name, 0), name));
+                if (cost > 0) {
+                    submission.show(confirmCreate(actor, name, null));
+                } else {
+                    showMain(actor, error(this.actions.create(actor, name, 0), name));
+                }
             },
-            submission -> submission.show(main(submission.player(), null)));
+            submission -> showMain(submission.player(), null));
     }
 
     /**
@@ -282,18 +366,23 @@ final class TeamMenus {
             submission -> {
                 Player actor = submission.player();
                 TeamService.Outcome outcome = this.actions.create(actor, name, cost);
-                submission.show(outcome.problem() == TeamProblem.COST_CHANGED ? afterCostChange(actor, name) : mainAfter(actor, outcome, name));
+                if (outcome.problem() == TeamProblem.COST_CHANGED) {
+                    afterCostChange(actor, name);
+                } else {
+                    showMain(actor, error(outcome, name));
+                }
             },
-            submission -> submission.show(main(submission.player(), null)));
-        return error == null ? view : view.withError(error, FormValues.EMPTY);
+            submission -> showMain(submission.player(), null));
+        return withError(view, error);
     }
 
     /** After the cost changed under a confirmation: the new cost to confirm, or the new team when starting one is free now. */
-    private View afterCostChange(Player player, String name) {
+    private void afterCostChange(Player player, String name) {
         if (this.settings.get().createCost() > 0) {
-            return confirmCreate(player, name, this.feedback.component(TeamProblem.COST_CHANGED, null, name));
+            show(player, confirmCreate(player, name, this.feedback.component(TeamProblem.COST_CHANGED, null, name)));
+            return;
         }
-        return mainAfter(player, this.actions.create(player, name, 0), name);
+        showMain(player, error(this.actions.create(player, name, 0), name));
     }
 
     // ------------------------------------------------------------------ invite
@@ -320,9 +409,9 @@ final class TeamMenus {
                     submission.error(this.feedback.component(outcome.problem(), outcome.team(), target.getName()));
                     return;
                 }
-                submission.show(main(submission.player(), null));
+                showMain(submission.player(), null);
             },
-            submission -> submission.show(main(submission.player(), null)));
+            submission -> showMain(submission.player(), null));
     }
 
     // ------------------------------------------------------------------ member pickers
@@ -331,7 +420,7 @@ final class TeamMenus {
         UUID self = player.getUniqueId();
         Team team = this.registry.of(self).orElse(null);
         if (team == null) {
-            return mainAfter(player, TeamProblem.NOT_IN_TEAM);
+            return noTeamAfter(player, TeamProblem.NOT_IN_TEAM);
         }
         TeamRole actor = team.role(self);
         List<Input.Option> options = new ArrayList<>();
@@ -350,7 +439,7 @@ final class TeamMenus {
         };
         if (options.isEmpty()) {
             return this.templates.notice(this.lang.get(title), List.of(this.lang.get(TeamsMessages.PICK_NOBODY)),
-                this.lang.get(CoreMessages.UI_BACK), s -> s.show(main(s.player(), null)));
+                this.lang.get(CoreMessages.UI_BACK), s -> showMain(s.player(), null));
         }
         MessageKey label = switch (pick) {
             case KICK -> TeamsMessages.PICK_KICK_BUTTON;
@@ -366,19 +455,19 @@ final class TeamMenus {
                 try {
                     target = UUID.fromString(submission.values().choice("member"));
                 } catch (IllegalArgumentException e) {
-                    submission.show(main(submission.player(), null));
+                    showMain(submission.player(), null);
                     return;
                 }
                 String name = this.actions.name(target);
                 Player actorPlayer = submission.player();
                 switch (pick) {
-                    case KICK -> submission.show(mainAfter(actorPlayer, this.actions.kick(actorPlayer, target), name));
-                    case PROMOTE -> submission.show(mainAfter(actorPlayer, this.actions.promote(actorPlayer, target), name));
-                    case DEMOTE -> submission.show(mainAfter(actorPlayer, this.actions.demote(actorPlayer, target), name));
+                    case KICK -> showMain(actorPlayer, error(this.actions.kick(actorPlayer, target), name));
+                    case PROMOTE -> showMain(actorPlayer, error(this.actions.promote(actorPlayer, target), name));
+                    case DEMOTE -> showMain(actorPlayer, error(this.actions.demote(actorPlayer, target), name));
                     case TRANSFER -> submission.show(confirmTransfer(actorPlayer, target));
                 }
             },
-            submission -> submission.show(main(submission.player(), null)));
+            submission -> showMain(submission.player(), null));
     }
 
     private static boolean eligible(Pick pick, TeamRole actor, TeamRole target) {
@@ -395,38 +484,38 @@ final class TeamMenus {
     View confirmTransfer(Player player, UUID target) {
         Team team = this.registry.of(player.getUniqueId()).orElse(null);
         if (team == null) {
-            return mainAfter(player, TeamProblem.NOT_IN_TEAM);
+            return noTeamAfter(player, TeamProblem.NOT_IN_TEAM);
         }
         String name = this.actions.name(target);
         return this.templates.confirm(this.lang.get(TeamsMessages.TRANSFER_TITLE),
             this.lang.lines(TeamsMessages.TRANSFER_BODY, Arg.text("name", name), Arg.text("team", team.name())),
             this.lang.get(TeamsMessages.TRANSFER_BUTTON), this.lang.get(CoreMessages.UI_CANCEL),
-            s -> s.show(mainAfter(s.player(), this.actions.transfer(s.player(), target), name)),
-            s -> s.show(main(s.player(), null)));
+            s -> showMain(s.player(), error(this.actions.transfer(s.player(), target), name)),
+            s -> showMain(s.player(), null));
     }
 
     View confirmDisband(Player player) {
         Team team = this.registry.of(player.getUniqueId()).orElse(null);
         if (team == null) {
-            return mainAfter(player, TeamProblem.NOT_IN_TEAM);
+            return noTeamAfter(player, TeamProblem.NOT_IN_TEAM);
         }
         return this.templates.confirm(this.lang.get(TeamsMessages.DISBAND_TITLE),
             this.lang.lines(TeamsMessages.DISBAND_BODY, Arg.text("team", team.name())),
             this.lang.get(TeamsMessages.DISBAND_BUTTON), this.lang.get(CoreMessages.UI_CANCEL),
-            s -> s.show(mainAfter(s.player(), this.actions.disband(s.player()), null)),
-            s -> s.show(main(s.player(), null)));
+            s -> showMain(s.player(), error(this.actions.disband(s.player()), null)),
+            s -> showMain(s.player(), null));
     }
 
     View confirmLeave(Player player) {
         Team team = this.registry.of(player.getUniqueId()).orElse(null);
         if (team == null) {
-            return mainAfter(player, TeamProblem.NOT_IN_TEAM);
+            return noTeamAfter(player, TeamProblem.NOT_IN_TEAM);
         }
         return this.templates.confirm(this.lang.get(TeamsMessages.LEAVE_TITLE),
             this.lang.lines(TeamsMessages.LEAVE_BODY, Arg.text("team", team.name())),
             this.lang.get(TeamsMessages.LEAVE_BUTTON), this.lang.get(CoreMessages.UI_CANCEL),
-            s -> s.show(mainAfter(s.player(), this.actions.leave(s.player()), null)),
-            s -> s.show(main(s.player(), null)));
+            s -> showMain(s.player(), error(this.actions.leave(s.player()), null)),
+            s -> showMain(s.player(), null));
     }
 
     // ------------------------------------------------------------------ info, list, leaderboard
@@ -472,11 +561,19 @@ final class TeamMenus {
             Arg.number("z", home.blockZ()), Arg.text("world", home.world()));
     }
 
-    View infoView(Player viewer, Team team, Button.Handler back) {
+    /**
+     * Shows a team's stats and members once it is known whose last-seen time the viewer may see. Call on the viewer's
+     * thread.
+     */
+    void showInfo(Player viewer, Team team, Button.Handler back) {
+        withRoster(viewer, team, visible -> infoView(viewer, team, back, visible));
+    }
+
+    private View infoView(Player viewer, Team team, Button.Handler back, Set<UUID> visible) {
         List<Component> lines = new ArrayList<>(infoLines(viewer, team));
         lines.add(Component.empty());
         lines.add(this.lang.get(TeamsMessages.MENU_MEMBERS));
-        lines.addAll(memberLines(team, viewer.getUniqueId()));
+        lines.addAll(memberLines(team, viewer.getUniqueId(), visible));
         return this.templates.list(this.lang.get(TeamsMessages.MENU_TEAM_TITLE, Arg.text("name", team.name())), lines,
             List.of(), 1, back);
     }
@@ -507,7 +604,8 @@ final class TeamMenus {
             long id = team.id();
             buttons.add(Button.of(Component.text(team.name()),
                 this.lang.get(TeamsMessages.LIST_BUTTON_TOOLTIP, Arg.number("members", team.size()), Arg.number("online", this.presence.online(team, player.getUniqueId()))),
-                s -> s.show(this.registry.get(id).map(fresh -> infoView(s.player(), fresh, self)).orElseGet(() -> listView(s.player(), current, back))))
+                s -> this.registry.get(id).ifPresentOrElse(fresh -> showInfo(s.player(), fresh, self),
+                    () -> s.show(listView(s.player(), current, back))))
                 .width(150));
         }
         if (current > 1) {

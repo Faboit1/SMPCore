@@ -15,6 +15,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import net.siftvanilla.siftcore.core.player.options.AutoAccept;
 import org.junit.jupiter.api.Test;
 
 /** Memory: commit-ordered changes, loading with replay, tombstones and the lookups other features use. */
@@ -23,19 +24,31 @@ class FriendGraphTest {
     private static final long DAY = Duration.ofDays(1).toMillis();
 
     private final AtomicLong clock = new AtomicLong(1_000 * DAY);
-    private final Map<UUID, FriendPrefs.AutoTpa> tpa = new HashMap<>();
+    private final Map<UUID, AutoAccept> tpa = new HashMap<>();
     private final Map<UUID, Set<UUID>> ignores = new HashMap<>();
     private final FriendGraph graph = new FriendGraph(this.clock::get, () -> Duration.ofDays(7), new FriendGraph.TeleportPolicy() {
         @Override
-        public FriendPrefs.AutoTpa mode(UUID target) {
-            return FriendGraphTest.this.tpa.getOrDefault(target, FriendPrefs.AutoTpa.NOBODY);
+        public AutoAccept mode(UUID target) {
+            return FriendGraphTest.this.tpa.getOrDefault(target, AutoAccept.NOBODY);
         }
 
         @Override
         public boolean ignores(UUID player, UUID other) {
             return FriendGraphTest.this.ignores.getOrDefault(player, Set.of()).contains(other);
         }
+
+        @Override
+        public boolean sameTeam(UUID one, UUID two) {
+            return FriendGraphTest.this.team.contains(one) && FriendGraphTest.this.team.contains(two);
+        }
+
+        @Override
+        public boolean favouritesOn() {
+            return FriendGraphTest.this.favouritesOn;
+        }
     });
+    private boolean favouritesOn = true;
+    private final Set<UUID> team = new java.util.HashSet<>();
     private final UUID a = UUID.randomUUID();
     private final UUID b = UUID.randomUUID();
     private final UUID c = UUID.randomUUID();
@@ -230,21 +243,46 @@ class FriendGraphTest {
     }
 
     @Test
+    void favouriteLookup() {
+        ready(this.a, this.b);
+        this.graph.apply(List.of(friends(this.a, this.b, 1, true, false)));
+        assertTrue(this.graph.favourite(this.a, this.b), "a marked b as a favourite");
+        assertFalse(this.graph.favourite(this.b, this.a), "b did not mark a");
+        assertFalse(this.graph.favourite(this.a, this.c), "not a friend");
+        assertFalse(this.graph.favourite(UUID.randomUUID(), this.a), "the owner must be loaded");
+        this.favouritesOn = false;
+        assertFalse(this.graph.favourite(this.a, this.b), "nobody is a favourite while favourites are off");
+    }
+
+    @Test
     void autoAcceptTeleport() {
         ready(this.a, this.b, this.c);
         this.graph.apply(List.of(friends(this.a, this.b, 1, true, false), friends(this.a, this.c, 2, false, false)));
         assertFalse(this.graph.autoAcceptTeleport(this.a, this.b), "nobody by default");
-        this.tpa.put(this.a, FriendPrefs.AutoTpa.FAVOURITES);
+        this.tpa.put(this.a, AutoAccept.FAVOURITES);
         assertTrue(this.graph.autoAcceptTeleport(this.a, this.b), "b is a's favourite");
         assertFalse(this.graph.autoAcceptTeleport(this.a, this.c));
         assertFalse(this.graph.autoAcceptTeleport(this.b, this.a), "b chose nothing");
-        this.tpa.put(this.a, FriendPrefs.AutoTpa.ALL);
+        this.tpa.put(this.a, AutoAccept.ALL);
         assertTrue(this.graph.autoAcceptTeleport(this.a, this.c));
         this.ignores.put(this.a, Set.of(this.c));
         assertFalse(this.graph.autoAcceptTeleport(this.a, this.c), "never from someone a ignores");
         UUID stranger = UUID.randomUUID();
         assertFalse(this.graph.autoAcceptTeleport(this.a, stranger), "only friends");
         assertFalse(this.graph.autoAcceptTeleport(stranger, this.a), "the target must be loaded");
+
+        // "Friends and teammates" (the shared friends-tpa option): friends, plus teammates who aren't friends.
+        UUID mate = UUID.randomUUID();
+        this.team.addAll(Set.of(this.a, mate));
+        this.ignores.clear();
+        assertFalse(this.graph.autoAcceptTeleport(this.a, mate), "all friends: a teammate who isn't a friend still asks");
+        this.tpa.put(this.a, AutoAccept.FRIENDS_TEAM);
+        assertTrue(this.graph.autoAcceptTeleport(this.a, mate), "a teammate");
+        assertTrue(this.graph.autoAcceptTeleport(this.a, this.c), "a friend");
+        assertFalse(this.graph.autoAcceptTeleport(this.a, stranger), "neither");
+        this.ignores.put(this.a, Set.of(mate));
+        assertFalse(this.graph.autoAcceptTeleport(this.a, mate), "never from someone a ignores, teammate or not");
+        assertFalse(this.graph.autoAcceptTeleport(this.a, this.a), "never yourself");
     }
 
     @Test

@@ -50,6 +50,18 @@ chat:
   # Also print team chat to the server console.
   log-to-console: true
 
+member-alerts:
+  # Teammate login alerts. Each player picks logins, logins and logouts, or none in /settings (Friends & teams);
+  # friends who already get a friend alert for the same login are not told twice, and vanished members never show.
+  # Wait after a member joins before teammates are told.
+  join-delay: 3s
+  # Wait before a logout is told; nothing is told when the member is back by then.
+  leave-delay: 30s
+  # A member who left less than this ago rejoins without an alert.
+  relog-grace: 2m
+  # No login alerts this long after the server starts (everyone is joining at once).
+  startup-quiet: 60s
+
 leaderboard:
   # How often /team top is rebuilt (off the main threads, from memory).
   refresh: 60s

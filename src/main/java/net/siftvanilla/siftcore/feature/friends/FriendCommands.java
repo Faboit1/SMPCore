@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -105,7 +106,7 @@ final class FriendCommands {
                     .then(Commands.argument("text", StringArgumentType.greedyString())
                         .executes(playerOnly((player, ctx) -> note(player, ctx, StringArgumentType.getString(ctx, "text")))))))
                 .then(player("settings")
-                    .executes(playerOnly((player, ctx) -> this.views.openSettings(player, FriendViews.Nav.command())))
+                    .executes(playerOnly((player, ctx) -> this.views.openSettings(player, FriendViews.Nav.command(), false)))
                     .then(Commands.argument("key", StringArgumentType.word()).suggests(this::settingKeys)
                         .executes(playerOnly((player, ctx) -> showSetting(player, StringArgumentType.getString(ctx, "key"))))
                         .then(Commands.argument("value", StringArgumentType.word()).suggests(this::settingValues)
@@ -284,9 +285,18 @@ final class FriendCommands {
 
     // ------------------------------------------------------------------ settings
 
+    /** The lowercase key names {@code /friend settings} takes. */
+    static List<String> settingKeys() {
+        List<String> keys = new ArrayList<>();
+        for (FriendPrefs.Key key : FriendPrefs.Key.values()) {
+            keys.add(key.id().toLowerCase(Locale.ROOT));
+        }
+        return keys;
+    }
+
     /** An unknown key, in chat (it lists every key, too long for the action bar and worth keeping). */
     private void unknownKey(Player player) {
-        this.messenger.chat(player, FriendsMessages.SETTINGS_UNKNOWN_KEY, Arg.text("keys", String.join(", ", FriendViews.settingKeys())));
+        this.messenger.chat(player, FriendsMessages.SETTINGS_UNKNOWN_KEY, Arg.text("keys", String.join(", ", settingKeys())));
     }
 
     private void showSetting(Player player, String keyText) {
@@ -295,34 +305,37 @@ final class FriendCommands {
             unknownKey(player);
             return;
         }
-        String value = this.service.prefs().value(player.getUniqueId(), key);
-        if (!this.views.settingValues(key).contains(value)) {
-            // A stored "favourites" while favourites are off: show what it does (the settings form shows it the same way).
-            value = FriendPrefs.JoinAlerts.OFF.id();
-        }
-        this.messenger.chat(player, FriendsMessages.SETTINGS_CURRENT, Arg.text("setting", key.id()), Arg.text("value", value));
+        // The value the player reads now: a stored "favourites" while favourites are off shows as what it does, off.
+        this.messenger.chat(player, FriendsMessages.SETTINGS_CURRENT, Arg.text("setting", key.id()),
+            Arg.text("value", this.service.prefs().value(player, key)));
     }
 
+    /**
+     * Sets one friends setting through the settings registry, as the settings dialog would: refused with a reason when
+     * the server locked or hides it, or another plugin stops it.
+     */
     private void setSetting(Player player, String keyText, String value) {
         FriendPrefs.Key key = FriendPrefs.Key.parse(keyText);
         if (key == null) {
             unknownKey(player);
             return;
         }
-        List<String> allowed = this.views.settingValues(key);
-        String normalized = value.strip().toLowerCase(Locale.ROOT);
-        if (!allowed.contains(normalized) || !this.service.prefs().set(player.getUniqueId(), key, normalized)) {
-            this.messenger.chat(player, FriendsMessages.SETTINGS_UNKNOWN_VALUE, Arg.text("setting", key.id()),
-                Arg.text("values", String.join(", ", allowed)));
-            return;
+        FriendPrefs prefs = this.service.prefs();
+        switch (prefs.set(player, key, value)) {
+            case CHANGED, UNCHANGED -> this.messenger.send(player, FriendsMessages.SETTINGS_SET, Arg.text("setting", key.id()),
+                Arg.text("value", prefs.value(player, key)));
+            case INVALID -> this.messenger.chat(player, FriendsMessages.SETTINGS_UNKNOWN_VALUE, Arg.text("setting", key.id()),
+                Arg.text("values", String.join(", ", prefs.values(player, key))));
+            case LOCKED -> this.messenger.send(player, FriendsMessages.SETTINGS_LOCKED, Arg.text("setting", key.id()),
+                Arg.text("value", prefs.value(player, key)));
+            case CANCELLED -> this.messenger.send(player, FriendsMessages.SETTINGS_REFUSED, Arg.text("setting", key.id()));
+            case NOT_ALLOWED, UNKNOWN -> this.messenger.send(player, FriendsMessages.SETTINGS_UNAVAILABLE, Arg.text("setting", key.id()));
         }
-        this.messenger.send(player, FriendsMessages.SETTINGS_SET, Arg.text("setting", key.id()),
-            Arg.text("value", this.service.prefs().value(player.getUniqueId(), key)));
     }
 
     private CompletableFuture<Suggestions> settingKeys(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         String remaining = builder.getRemainingLowerCase();
-        for (String key : FriendViews.settingKeys()) {
+        for (String key : settingKeys()) {
             if (key.startsWith(remaining)) {
                 builder.suggest(key);
             }
@@ -332,9 +345,9 @@ final class FriendCommands {
 
     private CompletableFuture<Suggestions> settingValues(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         FriendPrefs.Key key = FriendPrefs.Key.parse(StringArgumentType.getString(ctx, "key"));
-        if (key != null) {
+        if (key != null && ctx.getSource().getSender() instanceof Player player) {
             String remaining = builder.getRemainingLowerCase();
-            for (String value : this.views.settingValues(key)) {
+            for (String value : this.service.prefs().values(player, key)) {
                 if (value.startsWith(remaining)) {
                     builder.suggest(value);
                 }
@@ -345,14 +358,24 @@ final class FriendCommands {
 
     // ------------------------------------------------------------------ /friend list
 
-    /** The list in chat, for clients without dialogs: clickable names and pages. */
+    /** The list in chat, for clients without dialogs: clickable names and pages, in the player's list order. */
     private void chatList(Player player, int page) {
         FriendGraph.Node node = this.graph.loaded(player.getUniqueId());
         if (node == null) {
             this.messenger.send(player, FriendsMessages.LOADING);
             return;
         }
-        List<ListOrder.Row> rows = this.views.rows(player, node);
+        this.views.rows(player, node).whenComplete((rows, error) -> {
+            if (error != null) {
+                this.services.plugin().getLogger().log(Level.WARNING, "Reading friends data for " + player.getName() + " failed", error);
+                this.messenger.send(player, CoreMessages.ACTION_FAILED);
+            } else if (player.isOnline()) {
+                chatList(player, rows, page);
+            }
+        });
+    }
+
+    private void chatList(Player player, List<ListOrder.Row> rows, int page) {
         int pageSize = this.settings.get().pageSize();
         int pages = ListOrder.pages(rows.size(), pageSize);
         int current = Math.clamp(page, 1, pages);

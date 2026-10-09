@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import net.siftvanilla.siftcore.storage.Database;
 import net.siftvanilla.siftcore.storage.SqlWork;
 
@@ -99,11 +101,22 @@ public final class FriendStore {
 
     private final Database database;
     private final LongSupplier clock;
+    private final Supplier<StoredSetting<Privacy>> privacy;
     private final AtomicLong sequence = new AtomicLong();
 
+    /** A store whose request unit reads privacy with the code default ({@code everyone}) and nothing forced. */
     public FriendStore(Database database, LongSupplier clock) {
+        this(database, clock, () -> StoredSetting.codeDefault(FriendPrefs.REQUESTS));
+    }
+
+    /**
+     * @param privacy how the request unit reads the target's stored {@code friends-requests} row: the server's lock
+     *                and default now (asked once per request, on the writer thread)
+     */
+    public FriendStore(Database database, LongSupplier clock, Supplier<StoredSetting<Privacy>> privacy) {
         this.database = database;
         this.clock = clock;
+        this.privacy = privacy;
     }
 
     public Database database() {
@@ -126,7 +139,7 @@ public final class FriendStore {
         return c -> {
             long now = this.clock.getAsLong();
             long seq = this.sequence.incrementAndGet();
-            PairState s = readPair(c, sender, target, rules, now, flags.senderLimit(), true, flags.sameTeam());
+            PairState s = readPair(c, sender, target, rules, now, flags.senderLimit(), this.privacy.get(), flags.sameTeam());
             Decisions.RequestDecision decision = Decisions.request(s, rules, now, flags.targetIgnoresSender(), flags.allowMutual());
             switch (decision.outcome()) {
                 case SENT, SHADOWED -> {
@@ -170,7 +183,7 @@ public final class FriendStore {
         return c -> {
             long now = this.clock.getAsLong();
             long seq = this.sequence.incrementAndGet();
-            PairState s = readPair(c, accepter, requester, rules, now, accepterLimit, false, false);
+            PairState s = readPair(c, accepter, requester, rules, now, accepterLimit, null, false);
             Outcome outcome = Decisions.accept(s, rules, now, ignored);
             if (outcome == Outcome.ALREADY_FRIENDS) {
                 deleteRequests(c, accepter, requester);
@@ -742,6 +755,36 @@ public final class FriendStore {
         });
     }
 
+    /** Players per query of {@link #settingRows} (well below every database's parameter limit). */
+    static final int SETTING_BATCH = 200;
+
+    /**
+     * The stored rows of one player setting for many players at once ({@code settings} table, player to value; players
+     * without a row are left out). For offline players, whose settings are not in memory.
+     */
+    public SqlWork<Map<UUID, String>> settingRows(String setting, Collection<UUID> players) {
+        List<UUID> ids = List.copyOf(new LinkedHashSet<>(players));
+        return c -> {
+            Map<UUID, String> rows = new HashMap<>();
+            for (int from = 0; from < ids.size(); from += SETTING_BATCH) {
+                List<UUID> batch = ids.subList(from, Math.min(ids.size(), from + SETTING_BATCH));
+                try (PreparedStatement ps = c.prepareStatement("SELECT uuid, value FROM settings WHERE setting = ? AND uuid IN ("
+                    + "?, ".repeat(batch.size() - 1) + "?)")) {
+                    ps.setString(1, setting);
+                    for (int i = 0; i < batch.size(); i++) {
+                        ps.setString(i + 2, batch.get(i).toString());
+                    }
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            rows.put(UUID.fromString(rs.getString(1)), rs.getString(2));
+                        }
+                    }
+                }
+            }
+            return rows;
+        };
+    }
+
     /**
      * Storage invariants for the self-test: friendships missing their other direction, rows of a player with
      * themselves, and request rows between friends. Returns three counts.
@@ -760,10 +803,11 @@ public final class FriendStore {
     /**
      * Everything the decisions need about a pair, from {@code self}'s side.
      *
-     * @param privacy whether to read the other side's privacy and the "known" check (requests only)
+     * @param privacy how to read the other side's privacy (then the request counts and the "known" check are read too),
+     *                or null to skip all of that (requests only need it)
      */
     private static PairState readPair(Connection c, UUID self, UUID other, FriendRules rules, long now, int selfLimit,
-                                      boolean privacy, boolean sameTeam) throws SQLException {
+                                      StoredSetting<Privacy> privacy, boolean sameTeam) throws SQLException {
         String s = self.toString();
         String o = other.toString();
         boolean friends = exists(c, "SELECT 1 FROM friends WHERE owner = ? AND friend = ?", s, o);
@@ -778,22 +822,28 @@ public final class FriendStore {
         int sentToday = 0;
         Privacy otherPrivacy = Privacy.EVERYONE;
         boolean known = false;
-        if (privacy) {
+        if (privacy != null) {
             selfOutgoing = countLong(c, "SELECT COUNT(*) FROM friend_requests WHERE sender = ? AND state IN ('pending', 'shadow') "
                 + "AND created >= ?", s, expired);
             otherIncoming = countLong(c, "SELECT COUNT(*) FROM friend_requests WHERE target = ? AND state = 'pending' "
                 + "AND created >= ?", o, expired);
             sentToday = countLong(c, "SELECT COUNT(*) FROM friend_log WHERE player = ? AND action = 'request' AND ts >= ?",
                 s, now - FriendRules.DAY_MILLIS);
-            try (PreparedStatement ps = c.prepareStatement("SELECT value FROM settings WHERE uuid = ? AND setting = ?")) {
-                ps.setString(1, o);
-                ps.setString(2, FriendPrefs.REQUESTS);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        otherPrivacy = Privacy.parse(rs.getString(1));
+            // The stored row in this transaction, resolved like the settings registry does: the server's lock, else the
+            // row, else the server's default (a player who picked the default has no row and follows the server).
+            String stored = null;
+            if (privacy.forced() == null) {
+                try (PreparedStatement ps = c.prepareStatement("SELECT value FROM settings WHERE uuid = ? AND setting = ?")) {
+                    ps.setString(1, o);
+                    ps.setString(2, FriendPrefs.REQUESTS.id());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            stored = rs.getString(1);
+                        }
                     }
                 }
             }
+            otherPrivacy = privacy.resolve(stored);
             if (otherPrivacy == Privacy.KNOWN) {
                 known = sameTeam || exists(c, "SELECT 1 FROM friends a JOIN friends b ON b.owner = ? AND b.friend = a.friend "
                     + "WHERE a.owner = ? LIMIT 1", o, s);

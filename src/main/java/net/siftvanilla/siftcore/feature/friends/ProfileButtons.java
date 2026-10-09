@@ -10,8 +10,10 @@ import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.Messenger;
@@ -23,8 +25,9 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
  * The buttons that lead from a profile to the rest of the server: message, teleport request, team invite, pay and
  * stats. Each one is shown only when the command behind it exists (a feature can be missing or turned off in
  * {@code commands.yml}), the viewer may use it, and, for the ones that need the other player around, the other player
- * is visibly online; Message is left out for a muted viewer, who couldn't send it. The decision is made on the
- * viewer's thread before the profile is built.
+ * is visibly online; Message is left out for a muted viewer, who couldn't send it, and Invite to team for a target
+ * whose {@code team-invites} refuses the viewer. The decision is made on the viewer's thread before the profile is
+ * built.
  * <p>
  * A button runs its command as the player from the dialog handler, on the player's thread, as if they had typed it
  * (the command preprocess event, then {@link Player#performCommand}), so the server's command guards and the other
@@ -68,19 +71,45 @@ final class ProfileButtons {
         }
     }
 
+    /** The teams feature's "Team invites from" choice, read by id (stored form: everyone, friends or nobody). */
+    static final String TEAM_INVITES = "team-invites";
+
     private final TeamLookup teams;
     private final MuteStatus mutes;
     private final Messenger messenger;
     private final Lang lang;
     private final Logger logger;
+    private final PlayerSettings settings;
+    private final FriendLookup friends;
     private final Set<String> failedOnce = ConcurrentHashMap.newKeySet();
 
-    ProfileButtons(TeamLookup teams, MuteStatus mutes, Messenger messenger, Logger logger) {
+    ProfileButtons(TeamLookup teams, MuteStatus mutes, Messenger messenger, Logger logger, PlayerSettings settings,
+                   FriendLookup friends) {
         this.teams = teams;
         this.mutes = mutes;
         this.messenger = messenger;
         this.lang = messenger.lang();
         this.logger = logger;
+        this.settings = settings;
+        this.friends = friends;
+    }
+
+    /**
+     * Whether a player's {@code team-invites} choice lets the viewer invite them (the invite would be refused
+     * otherwise).
+     *
+     * @param choice  the target's {@value #TEAM_INVITES} in its stored form, null without a teams feature
+     * @param friends the viewer and the target are friends
+     */
+    static boolean takesInvites(String choice, boolean friends) {
+        if (choice == null) {
+            return true;
+        }
+        return switch (choice) {
+            case "nobody" -> false;
+            case "friends" -> friends;
+            default -> true;
+        };
     }
 
     /** Whether a command with this label is registered right now. */
@@ -108,7 +137,8 @@ final class ProfileButtons {
             if (!registered(action.command()) || !viewer.hasPermission(action.permission())) {
                 continue;
             }
-            if (action == Action.INVITE && (this.teams.team(target).isPresent() || !this.teams.canInvite(viewer.getUniqueId()))) {
+            if (action == Action.INVITE && (this.teams.team(target).isPresent() || !this.teams.canInvite(viewer.getUniqueId())
+                || !takesInvites(this.settings.encoded(target, TEAM_INVITES), this.friends.friends(viewer.getUniqueId(), target)))) {
                 continue;
             }
             if (action == Action.MESSAGE && this.mutes.mute(viewer.getUniqueId()).isPresent()) {

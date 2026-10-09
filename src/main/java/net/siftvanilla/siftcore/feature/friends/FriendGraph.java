@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
+import net.siftvanilla.siftcore.core.player.options.AutoAccept;
 
 /**
  * The friends of every loaded player, in memory. A player is loaded from just before they join until a grace period
@@ -134,8 +135,8 @@ public final class FriendGraph implements FriendLookup {
 
         TeleportPolicy NEVER = new TeleportPolicy() {
             @Override
-            public FriendPrefs.AutoTpa mode(UUID target) {
-                return FriendPrefs.AutoTpa.NOBODY;
+            public AutoAccept mode(UUID target) {
+                return AutoAccept.NOBODY;
             }
 
             @Override
@@ -144,14 +145,19 @@ public final class FriendGraph implements FriendLookup {
             }
         };
 
-        /** The target's auto-accept choice. */
-        FriendPrefs.AutoTpa mode(UUID target);
+        /** The target's auto-accept choice (the shared {@code friends-tpa} setting). */
+        AutoAccept mode(UUID target);
 
         /** Whether {@code player} ignores {@code other}. */
         boolean ignores(UUID player, UUID other);
 
         /** Whether favourites are on (the friends config gives favourite slots). */
         default boolean favouritesOn() {
+            return false;
+        }
+
+        /** Whether the two players are in the same team (for "friends and teammates"). */
+        default boolean sameTeam(UUID a, UUID b) {
             return false;
         }
     }
@@ -262,18 +268,26 @@ public final class FriendGraph implements FriendLookup {
     }
 
     @Override
+    public boolean favourite(UUID owner, UUID friend) {
+        Node node = loaded(owner);
+        Edge edge = node == null ? null : node.friends().get(friend);
+        return edge != null && edge.favourite() && this.policy.favouritesOn();
+    }
+
+    @Override
     public boolean autoAcceptTeleport(UUID target, UUID requester) {
         Node node = loaded(target);
         if (node == null) {
             return false;
         }
-        Edge edge = node.friends().get(requester);
-        if (edge == null || this.policy.ignores(target, requester)) {
+        if (target.equals(requester) || this.policy.ignores(target, requester)) {
             return false;
         }
+        Edge edge = node.friends().get(requester);
         return switch (this.policy.mode(target)) {
-            case ALL -> true;
-            case FAVOURITES -> edge.favourite();
+            case ALL -> edge != null;
+            case FAVOURITES -> edge != null && edge.favourite();
+            case FRIENDS_TEAM -> edge != null || this.policy.sameTeam(target, requester);
             case NOBODY -> false;
         };
     }

@@ -22,6 +22,7 @@ import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.options.AutoAccept;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
@@ -79,20 +80,19 @@ public final class FriendsFeature implements Feature {
         perms.declare(FriendCommands.PROFILE_PERMISSION, "See player cards with /profile and a sneak right-click", true);
         perms.declare(RankLimits.PREFIX + ".unlimited", "Have as many friends as the hard cap allows", PermissionDefault.FALSE);
         perms.declare(FriendAdmin.PERMISSION, "Use /sift friends", false);
-        services.settings().register(FriendPrefs.ANNOUNCE);
-        services.settings().register(FriendPrefs.REQUEST_ALERTS);
-        services.settings().register(FriendPrefs.LEAVE_ALERTS);
+        // Settings, Friends & teams: who can send requests, alerts, the login summary and the list order.
+        FriendPrefs.register(services.settings(), () -> this.settings.get().favouritesOn());
 
         this.prefs = new FriendPrefs(services.settings());
         this.links = new FriendLinks(combat, ignores, vanish, afk, teams, ranks, mutes);
         this.graph = new FriendGraph(System::currentTimeMillis, () -> this.settings.get().antiFarmRemember(),
             new FriendGraph.TeleportPolicy() {
                 @Override
-                public FriendPrefs.AutoTpa mode(UUID target) {
-                    FriendPrefs.AutoTpa mode = FriendsFeature.this.prefs.autoTpa(target);
+                public AutoAccept mode(UUID target) {
+                    AutoAccept mode = FriendsFeature.this.prefs.autoTpa(target);
                     // Without favourites (limits.favourites 0) stored favourite flags mean nothing, here as everywhere.
-                    return mode == FriendPrefs.AutoTpa.FAVOURITES && !FriendsFeature.this.settings.get().favouritesOn()
-                        ? FriendPrefs.AutoTpa.NOBODY : mode;
+                    return mode == AutoAccept.FAVOURITES && !FriendsFeature.this.settings.get().favouritesOn()
+                        ? AutoAccept.NOBODY : mode;
                 }
 
                 @Override
@@ -104,8 +104,14 @@ public final class FriendsFeature implements Feature {
                 public boolean favouritesOn() {
                     return FriendsFeature.this.settings.get().favouritesOn();
                 }
+
+                @Override
+                public boolean sameTeam(UUID a, UUID b) {
+                    return FriendsFeature.this.links.teams().sameTeam(a, b);
+                }
             });
-        this.store = new FriendStore(services.database(), System::currentTimeMillis);
+        // The request unit reads the target's privacy with the server's lock and default (features/settings.yml).
+        this.store = new FriendStore(services.database(), System::currentTimeMillis, this.prefs::privacyRule);
         this.alerts = new RequestAlerts(services.scheduler(), services.messenger(), this.settings, this.prefs, this.links,
             services.directory()::name);
         this.service = new FriendService(services, this.settings, this.graph, this.store, this.prefs, this.links, this.rates,
@@ -113,8 +119,9 @@ public final class FriendsFeature implements Feature {
         this.alerts.incoming(this.service::incoming);
         this.presence = new Presence(services.scheduler(), services.messenger(), this.settings, this.service, this.alerts, this.logger);
         this.limits = new RankLimits(this.graph, this.store, ranks, services.scheduler(), this.logger);
-        this.buttons = new ProfileButtons(teams, mutes, services.messenger(), this.logger);
-        this.views = new FriendViews(services, this.settings, this.service, this.presence, this.buttons);
+        this.buttons = new ProfileButtons(teams, mutes, services.messenger(), this.logger, services.settings(), this.graph);
+        this.views = new FriendViews(services, this.settings, this.service, this.presence, this.buttons,
+            new SeenPrivacy(services.settings(), this.graph, this.store));
         this.listener = new FriendsListener(services, this.settings, this.service, this.presence, this.limits, this.views);
         this.commands = new FriendCommands(services, this.settings, this.service, this.views);
         this.placeholders = new FriendPlaceholders(this.service);

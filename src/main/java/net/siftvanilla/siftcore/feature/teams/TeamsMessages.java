@@ -25,7 +25,8 @@ public final class TeamsMessages {
     public static final MessageKey NO_INVITE = MessageKey.error("teams.error.no-invite", "team");
     public static final MessageKey INVITE_EXPIRED = MessageKey.error("teams.error.invite-expired");
     public static final MessageKey ALREADY_INVITED = MessageKey.error("teams.error.already-invited", "name");
-    public static final MessageKey INVITE_BLOCKED = MessageKey.error("teams.error.invite-blocked", "name");
+    /** The target doesn't take invites from the inviter: their {@code team-invites} setting, or they ignore them. */
+    public static final MessageKey INVITES_CLOSED = MessageKey.error("teams.error.invites-closed", "name");
     public static final MessageKey TOO_MANY_INVITES = MessageKey.error("teams.error.too-many-invites");
     public static final MessageKey NO_HOME = MessageKey.error("teams.error.no-home");
     public static final MessageKey HOME_WORLD_MISSING = MessageKey.error("teams.error.home-world-missing");
@@ -64,6 +65,11 @@ public final class TeamsMessages {
     public static final MessageKey CHAT_SPY_FORMAT = MessageKey.ui("teams.chat.spy-format", "team", "name", "message");
     public static final MessageKey SPY_ON = MessageKey.info("teams.spy.on");
     public static final MessageKey SPY_OFF = MessageKey.info("teams.spy.off");
+    /** Team chat mode came back on at login ({@code team-chat-sticky}); a chat line, so it is noticed. */
+    public static final MessageKey CHAT_RESTORED = MessageKey.chat("teams.chat.restored");
+    /** A teammate came online / went offline ({@code team-member-alerts}). */
+    public static final MessageKey MEMBER_ONLINE = MessageKey.chat("teams.member.online", "name");
+    public static final MessageKey MEMBER_OFFLINE = MessageKey.chat("teams.member.offline", "name");
 
     // ------------------------------------------------------------------ messages to the whole team (chat)
 
@@ -100,6 +106,8 @@ public final class TeamsMessages {
     public static final MessageKey MENU_MEMBERS = MessageKey.ui("teams.menu.members");
     public static final MessageKey MENU_MEMBER_ONLINE = MessageKey.ui("teams.menu.member-online", "name", "role");
     public static final MessageKey MENU_MEMBER_OFFLINE = MessageKey.ui("teams.menu.member-offline", "name", "role", "time");
+    /** An offline member whose last-seen time the viewer may not see (seen-privacy). */
+    public static final MessageKey MENU_MEMBER_OFFLINE_HIDDEN = MessageKey.ui("teams.menu.member-offline-hidden", "name", "role");
     public static final MessageKey ROLE_OWNER = MessageKey.ui("teams.roles.owner");
     public static final MessageKey ROLE_ADMIN = MessageKey.ui("teams.roles.admin");
     public static final MessageKey ROLE_MEMBER = MessageKey.ui("teams.roles.member");
@@ -227,6 +235,20 @@ public final class TeamsMessages {
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("teams.hub.description");
     public static final MessageKey SETTING_SPY = MessageKey.ui("teams.settings.spy");
     public static final MessageKey SETTING_SPY_DESCRIPTION = MessageKey.ui("teams.settings.spy-description");
+    public static final MessageKey SETTING_NOTICES = MessageKey.ui("teams.settings.notices");
+    public static final MessageKey SETTING_NOTICES_DESCRIPTION = MessageKey.ui("teams.settings.notices-description");
+    public static final MessageKey SETTING_MEMBER_ALERTS = MessageKey.ui("teams.settings.member-alerts");
+    public static final MessageKey SETTING_MEMBER_ALERTS_DESCRIPTION = MessageKey.ui("teams.settings.member-alerts-description");
+    public static final MessageKey SETTING_MEMBER_ALERTS_BOTH = MessageKey.ui("teams.settings.member-alerts-joins-and-leaves");
+    public static final MessageKey SETTING_MEMBER_ALERTS_JOINS = MessageKey.ui("teams.settings.member-alerts-joins");
+    public static final MessageKey SETTING_INVITES = MessageKey.ui("teams.settings.invites");
+    public static final MessageKey SETTING_INVITES_DESCRIPTION = MessageKey.ui("teams.settings.invites-description");
+    public static final MessageKey SETTING_CHAT_STICKY = MessageKey.ui("teams.settings.chat-sticky");
+    public static final MessageKey SETTING_CHAT_STICKY_DESCRIPTION = MessageKey.ui("teams.settings.chat-sticky-description");
+    /** {@code /team spy} while the server fixed team chat spy for everyone. */
+    public static final MessageKey SPY_LOCKED = MessageKey.error("teams.settings.spy-locked");
+    /** {@code /team spy} while the server hides team chat spy. */
+    public static final MessageKey SPY_UNAVAILABLE = MessageKey.error("teams.settings.spy-unavailable");
 
     private TeamsMessages() {
     }

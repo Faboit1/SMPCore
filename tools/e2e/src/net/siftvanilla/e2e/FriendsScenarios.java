@@ -47,7 +47,7 @@ final class FriendsScenarios {
     }
 
     @FunctionalInterface
-    private interface Action {
+    interface Action {
         void run() throws Exception;
     }
 
@@ -92,10 +92,97 @@ final class FriendsScenarios {
         list.add(of("friends-links", FriendsScenarios::links));
         list.add(of("friends-second-login", FriendsScenarios::secondLogin));
         list.add(of("friends-command-cooldown", FriendsScenarios::commandCooldown));
+        list.add(of("friends-settings", FriendsScenarios::settings));
         return list;
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** The title of the settings page with the friends and teams settings. */
+    static final String SOCIAL_PAGE = "Friends & teams settings";
+
+    /** A player's stored row for a setting, or null when none is stored (read after every queued write). */
+    static String stored(E2E e2e, UUID player, String setting) {
+        try {
+            return e2e.services().database().write(c -> {
+                try (java.sql.PreparedStatement ps = c.prepareStatement("SELECT value FROM settings WHERE uuid = ? AND setting = ?")) {
+                    ps.setString(1, player.toString());
+                    ps.setString(2, setting);
+                    try (java.sql.ResultSet rs = ps.executeQuery()) {
+                        return rs.next() ? rs.getString(1) : null;
+                    }
+                }
+            }).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new E2E.Failure("reading " + setting + " failed: " + e);
+        }
+    }
+
+    /**
+     * Opens the Friends &amp; teams settings page and saves {@code wanted} (input key to value) on it, checking that each
+     * choice offers the value. Every wanted key must be on the first page.
+     */
+    static void saveSocial(E2E e2e, Bot bot, Map<String, Object> wanted) {
+        Bot.SeenDialog before = bot.dialog();
+        bot.clearMessages();
+        bot.command("settings social");
+        e2e.eventually(() -> bot.dialog() != before && bot.dialog() != null && bot.dialog().title().equals(SOCIAL_PAGE),
+            bot.name + " sees a fresh '" + SOCIAL_PAGE + "': " + (bot.dialog() == null ? "none" : bot.dialog().title()));
+        Bot.SeenDialog page = bot.dialog();
+        Map<String, Object> values = page.values();
+        wanted.forEach((key, value) -> {
+            e2e.expect(page.inputs().containsKey(key), key + " on the first page: " + page.inputs());
+            if (value instanceof String option) {
+                e2e.expect(page.options().getOrDefault(key, List.of()).contains(option), key + " offers " + option + ": " + page.options());
+            }
+            values.put(key, value);
+        });
+        e2e.click(bot, "Save", values);
+    }
+
+    /**
+     * Whether {@code /settings <setting> <value>} exists (the settings UI package, P2, has landed): its command class is
+     * in the SiftCore jar. Before that the command only takes a group.
+     */
+    static boolean settingsCommandLanded(E2E e2e) {
+        try {
+            Class.forName("net.siftvanilla.siftcore.feature.settings.SettingsCommands", false,
+                e2e.services().getClass().getClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Changes a choice the way a player types it, {@code /settings <id> <value>}, and waits until it is stored
+     * ({@code stored}: the expected row, null for the default, which keeps no row). Until that command exists (P2) the
+     * same change goes through the API, as the plan asks, and the step says so.
+     */
+    static void setByCommand(E2E e2e, Bot bot, String id, String value, String stored) {
+        UUID player = e2e.uuid(bot.name);
+        if (settingsCommandLanded(e2e)) {
+            bot.command("settings " + id + " " + value);
+        } else {
+            e2e.step("(/settings " + id + " " + value + " needs the settings UI package: changed through the API)");
+            var result = e2e.services().settings().setParsed(player, id, value, net.siftvanilla.siftcore.core.player.Change.api("e2e"));
+            e2e.expect(result.succeeded(), bot.name + ": " + id + " = " + value + " went through: " + result);
+        }
+        e2e.eventually(() -> java.util.Objects.equals(stored, stored(e2e, player, id)),
+            bot.name + "'s " + id + " is stored as " + stored + ": " + stored(e2e, player, id));
+    }
+
+    /** Applies the server's settings overrides for a moment (as features/settings.yml would), and puts them back. */
+    static void withOverrides(E2E e2e, net.siftvanilla.siftcore.core.player.Overrides overrides, Action action) throws Exception {
+        var settings = e2e.services().settings();
+        var before = settings.overrides();
+        settings.overrides(overrides);
+        try {
+            action.run();
+        } finally {
+            settings.overrides(before);
+        }
+    }
 
     /** Writes the test values into features/friends.yml, reloads, runs, and puts the file back. */
     private static void withConfig(E2E e2e, Map<String, String> values, Action action) throws Exception {
@@ -437,12 +524,16 @@ final class FriendsScenarios {
             k.clearLogs();
             k.command("friend settings join-alerts favourites");
             e2e.eventually(() -> k.chatContains("Use one of these for join-alerts: all, off."), "no favourites choice: " + k.chat());
-            open(e2e, k, "friend settings", "Friend settings");
-            e2e.click(k, "Save", Map.of("requests", "everyone", "join_alerts", "favourites", "leave_alerts", "false",
-                "request_alerts", "true", "announce", "true"));
-            Bot.SeenDialog refused = e2e.dialog(k, "Friend settings");
+            Bot.SeenDialog social = open(e2e, k, "friend settings", SOCIAL_PAGE);
+            e2e.expect(List.of("all", "off").equals(social.options().get("friends_join_alerts")),
+                "the settings page offers no favourites option: " + social.options());
+            Map<String, Object> forged = social.values();
+            forged.put("friends_join_alerts", "favourites");
+            e2e.click(k, "Save", forged);
+            Bot.SeenDialog refused = e2e.dialog(k, SOCIAL_PAGE);
             e2e.expect(!refused.body().isEmpty() && refused.bodyText().toLowerCase().contains("join alerts"),
-                "the form has no favourites option: " + refused.body());
+                "a forged favourites is refused by the dialog router: " + refused.body());
+            e2e.expect(stored(e2e, e2e.uuid(kai), "friends-join-alerts") == null, "nothing stored");
         });
 
         String nia = e2e.name("FrNia");
@@ -460,8 +551,8 @@ final class FriendsScenarios {
             e2e.eventually(() -> n.chatContains("Use one of these for requests: everyone, known, nobody."), "bad value: " + n.chat());
             n.clearLogs();
             n.command("friend settings alerts on");
-            e2e.eventually(() -> n.chatContains("Unknown setting. Use one of: requests, join-alerts, leave-alerts, request-alerts, announce."),
-                "unknown key, in chat: " + n.chat());
+            e2e.eventually(() -> n.chatContains("Unknown setting. Use one of: requests, join-alerts, leave-alerts, request-alerts, "
+                + "announce, join-summary, list-order."), "unknown key, in chat: " + n.chat());
         });
 
         e2e.step("new accounts wait, and the per-minute bucket slows bursts down");
@@ -657,6 +748,140 @@ final class FriendsScenarios {
         e2e.expect(!again.chatContains("New friends while you were away"), "the notice was used up: " + again.chat());
     }
 
+    /**
+     * The friends settings change what happens: who can send requests (in the settings dialog, with the server's
+     * default and lock honoured by the request unit), the list order and the login summary (with /friend settings), and
+     * who sees an offline friend's last-seen time (the shared seen-privacy, through the API).
+     */
+    static void settings(E2E e2e) throws Exception {
+        String ava = e2e.name("FsAva");
+        String ben = e2e.name("FsBen");
+        String eve = e2e.name("FsEve");
+        Bot a = join(e2e, ava);
+        Bot b = join(e2e, ben);
+        Bot ev = join(e2e, eve);
+        UUID aid = e2e.uuid(ava);
+
+        e2e.step("Friend requests from: nobody, picked in the settings dialog, refuses requests honestly");
+        saveSocial(e2e, a, Map.of("friends_requests", "nobody"));
+        e2e.eventually(() -> a.anyFeedbackContains("Friend requests from set to Nobody."), "saved: " + a.actionBar() + " " + a.chat());
+        e2e.expect("nobody".equals(stored(e2e, aid, "friends-requests")), "stored as nobody");
+        b.clearLogs();
+        b.command("friend " + ava);
+        e2e.eventually(() -> b.actionBarContains(ava + " isn't taking friend requests from you."), "refused: " + b.actionBar());
+
+        e2e.step("back to everyone: the row goes (the player follows the server's default) and requests arrive");
+        saveSocial(e2e, a, Map.of("friends_requests", "everyone"));
+        e2e.eventually(() -> stored(e2e, aid, "friends-requests") == null, "the default deletes the row");
+        b.clearLogs();
+        b.command("friend " + ava);
+        e2e.eventually(() -> b.actionBarContains("Friend request sent to " + ava + "."), "sent: " + b.actionBar());
+
+        e2e.step("the server's default (features/settings.yml defaults) reaches the request unit for players without a row");
+        withOverrides(e2e, new net.siftvanilla.siftcore.core.player.Overrides(Map.of("friends-requests", "nobody"), Map.of(),
+            java.util.Set.of()), () -> {
+                ev.clearLogs();
+                ev.command("friend " + ava);
+                e2e.eventually(() -> ev.actionBarContains(ava + " isn't taking friend requests from you."),
+                    "the server's default applies: " + ev.actionBar());
+            });
+
+        e2e.step("a setting the server locked is refused by /friend settings with the reason");
+        withOverrides(e2e, new net.siftvanilla.siftcore.core.player.Overrides(Map.of(), Map.of("friends-requests", "everyone"),
+            java.util.Set.of()), () -> {
+                a.clearLogs();
+                a.command("friend settings requests nobody");
+                e2e.eventually(() -> a.actionBarContains("requests is fixed by the server: everyone."), "locked: " + a.actionBar());
+                e2e.expect(stored(e2e, aid, "friends-requests") == null, "nothing stored");
+            });
+
+        e2e.step("Sort friends by: /friend settings list-order oldest orders /friend list by friendship age");
+        String zed = e2e.name("FsZed");
+        String yul = e2e.name("FsYul");
+        String xan = e2e.name("FsXan");
+        Bot z = join(e2e, zed);
+        UUID zid = e2e.uuid(zed);
+        join(e2e, yul);
+        join(e2e, xan);
+        befriend(e2e, ava, zed);
+        e2e.sleep(50);
+        befriend(e2e, ava, yul);
+        e2e.sleep(50);
+        befriend(e2e, ava, xan);
+        a.clearLogs();
+        a.command("friend list");
+        e2e.eventually(() -> a.chatContains(zed), "the list: " + a.chat());
+        e2e.expect(order(a.chat(), xan, yul, zed), "online friends by name by default: " + a.chat());
+        a.command("friend settings list-order oldest");
+        e2e.eventually(() -> a.actionBarContains("Set list-order to oldest."), "set: " + a.actionBar());
+        e2e.expect("oldest".equals(stored(e2e, aid, "friends-list-order")), "stored");
+        a.clearLogs();
+        a.command("friend list");
+        e2e.eventually(() -> a.chatContains(xan), "the list again: " + a.chat());
+        e2e.expect(order(a.chat(), zed, yul, xan), "longest friends first: " + a.chat());
+
+        e2e.step("Sort friends by, typed as /settings friends-list-order name: A to Z again");
+        setByCommand(e2e, a, "friends-list-order", "name", "name");
+        a.clearLogs();
+        a.command("friend list");
+        e2e.eventually(() -> a.chatContains(zed), "the list by name: " + a.chat());
+        e2e.expect(order(a.chat(), xan, yul, zed), "by name, not by friendship age any more: " + a.chat());
+
+        e2e.step("Who sees when I was last online (seen-privacy): nobody shows an offline friend as offline, without the time");
+        quit(e2e, z);
+        e2e.eventually(() -> lookupOnlineGone(e2e, zed), zed + " is offline");
+        a.clearLogs();
+        a.command("friend list");
+        e2e.eventually(() -> a.chatContains(zed + " seen"), "everyone sees the time by default: " + a.chat());
+        var result = e2e.services().settings().set(zid, net.siftvanilla.siftcore.core.player.SharedSettings.SEEN_PRIVACY,
+            net.siftvanilla.siftcore.core.player.options.Audience.NOBODY, net.siftvanilla.siftcore.core.player.Change.api("e2e"));
+        e2e.expect(result.succeeded(), "set for an offline player: " + result);
+        e2e.eventually(() -> "nobody".equals(stored(e2e, zid, "seen-privacy")), "stored for the offline player");
+        a.clearLogs();
+        a.command("friend list");
+        e2e.eventually(() -> a.chatContains(zed + " offline"), "the time is kept from the friend: " + a.chat());
+        e2e.expect(!a.chatContains(zed + " seen"), "no last-seen time: " + a.chat());
+        Bot.SeenDialog profile = open(e2e, a, "profile " + zed, zed);
+        e2e.expect(profile.bodyText().contains("Offline") && !profile.bodyText().contains("Seen"), "the profile too: " + profile.body());
+
+        e2e.step("Friends summary on join off (/friend settings join-summary off): no summary at login");
+        a.command("friend settings join-summary off");
+        e2e.eventually(() -> a.actionBarContains("Set join-summary to off."), "set: " + a.actionBar());
+        quit(e2e, a);
+        Bot quiet = join(e2e, ava);
+        e2e.sleep(3_000);
+        e2e.expect(!quiet.chatContains("Friends online:"), "no summary: " + quiet.chat());
+        quiet.command("friend settings join-summary on");
+        e2e.eventually(() -> quiet.actionBarContains("Set join-summary to on."), "set: " + quiet.actionBar());
+        e2e.eventually(() -> stored(e2e, aid, "friends-join-summary") == null, "back to the default: no row");
+        quit(e2e, quiet);
+        Bot told = join(e2e, ava);
+        e2e.eventually(() -> told.chatContains("Friends online:"), "the summary is back: " + told.chat());
+    }
+
+    /** Whether the names appear in this order in the chat lines (each name's first line). */
+    private static boolean order(List<String> chat, String... names) {
+        int last = -1;
+        for (String name : names) {
+            int at = -1;
+            for (int i = 0; i < chat.size(); i++) {
+                if (chat.get(i).startsWith(name + " ")) {
+                    at = i;
+                    break;
+                }
+            }
+            if (at <= last) {
+                return false;
+            }
+            last = at;
+        }
+        return true;
+    }
+
+    private static boolean lookupOnlineGone(E2E e2e, String name) {
+        return Bukkit.getPlayerExact(name) == null;
+    }
+
     /** /sift friends from the console: list, requests, history, add, remove, clear-requests, with audit rows. */
     static void staff(E2E e2e) throws Exception {
         String ada = e2e.name("FrAda");
@@ -789,15 +1014,31 @@ final class FriendsScenarios {
         Bot.SeenDialog after = e2e.dialog(d, "Friend requests");
         e2e.eventually(() -> "0".equals(placeholder(e2e, eli, "friends_requests")), "cancelled: " + requests.body() + " -> " + after.body());
 
-        e2e.step("settings: one form, saved to the player's settings");
-        Bot.SeenDialog settingsForm = open(e2e, d, "friend settings", "Friend settings");
-        e2e.expect(settingsForm.inputs().keySet().equals(java.util.Set.of("requests", "join_alerts", "leave_alerts", "request_alerts",
-            "announce")), "two choices and three switches, no teleport choice while TPA has its own: " + settingsForm.inputs());
-        e2e.expect(settingsForm.bodyText().contains("People you know are friends of friends and teammates."), "known explained");
-        e2e.click(d, "Save", Map.of("requests", "known", "join_alerts", "favourites", "leave_alerts", "true",
-            "request_alerts", "false", "announce", "false"));
+        e2e.step("Settings: the Friends & teams page of the settings dialog, saved through the registry, Back to the list");
+        Bot.SeenDialog friendsList = open(e2e, d, "friend", "Friends");
+        e2e.click(d, "Settings");
+        Bot.SeenDialog settingsForm = e2e.dialog(d, SOCIAL_PAGE);
+        e2e.expect(settingsForm.inputs().keySet().containsAll(java.util.Set.of("friends_requests", "friends_join_alerts",
+            "friends_request_alerts", "friends_announce", "team_notices")), "friends and teams settings on one page: "
+            + settingsForm.inputs());
+        e2e.expect(List.of("everyone", "known", "nobody").equals(settingsForm.options().get("friends_requests")),
+            "who can send requests: " + settingsForm.options());
+        e2e.expect(!settingsForm.inputs().containsKey("friends_tpa"), "auto-accept is with the teleport settings: " + settingsForm.inputs());
+        e2e.expect(settingsForm.bodyText().contains("people you know (friends of friends and teammates)"), "known explained: "
+            + settingsForm.body());
+        Map<String, Object> changed = settingsForm.values();
+        changed.putAll(Map.of("friends_requests", "known", "friends_join_alerts", "favourites", "friends_request_alerts", false,
+            "friends_announce", false));
+        d.clearMessages();
+        e2e.click(d, "Save", changed);
+        e2e.eventually(() -> d.anyFeedbackContains("Saved 4 settings."), "saved: " + d.actionBar() + " " + d.chat());
+        e2e.dialog(d, "Settings");
+        e2e.click(d, "Back");
         e2e.dialog(d, "Friends");
-        e2e.eventually(() -> d.actionBarContains("Friend settings saved."), "saved: " + d.actionBar());
+        e2e.expect(friendsList != null, "the list was open before");
+        e2e.expect("known".equals(stored(e2e, e2e.uuid(dee), "friends-requests")), "stored as before: known");
+        d.command("friend settings leave-alerts on");
+        e2e.eventually(() -> d.actionBarContains("Set leave-alerts to on."), "the command sets it too: " + d.actionBar());
         d.clearLogs();
         d.command("friend settings tpa");
         e2e.eventually(() -> d.chatContains("Unknown setting."), "no tpa key: " + d.chat());
@@ -875,7 +1116,7 @@ final class FriendsScenarios {
         e2e.click(f, "Pay");
         e2e.dialog(f, "Pay a player");
 
-        e2e.step("friends-tpa (stored, not offered while TPA has its own toggle) decides FriendLookup#autoAcceptTeleport");
+        e2e.step("the shared friends-tpa setting decides FriendLookup#autoAcceptTeleport");
         UUID fid = e2e.uuid(fay);
         UUID gid = e2e.uuid(gil);
         e2e.expect(!lookup(e2e).autoAcceptTeleport(gid, fid), "nobody by default");
@@ -933,6 +1174,15 @@ final class FriendsScenarios {
         e2e.dialog(f, "Start a team");
         e2e.click(f, "Start team");
         e2e.eventually(() -> team.equals(e2e.services().placeholders().resolve(e2e.player(fay), "team_name")), "team created");
+        UUID gilId = e2e.uuid(gil);
+        var closed = e2e.services().settings().setParsed(gilId, "team-invites", "nobody",
+            net.siftvanilla.siftcore.core.player.Change.api("e2e"));
+        e2e.expect(closed.succeeded(), "gil takes no team invites: " + closed);
+        Bot.SeenDialog refusing = open(e2e, f, "profile " + gil, gil);
+        e2e.expect(refusing.button("Invite to team") == null, "no invite button while gil's team-invites refuses: " + refusing.buttons());
+        var reopened = e2e.services().settings().setParsed(gilId, "team-invites", "everyone",
+            net.siftvanilla.siftcore.core.player.Change.api("e2e"));
+        e2e.expect(reopened.succeeded(), "gil takes invites again: " + reopened);
         Bot.SeenDialog withTeam = open(e2e, f, "profile " + gil, gil);
         e2e.expect(withTeam.bodyText().contains("Team") || withTeam.button("Invite to team") != null, "team context: " + withTeam.body());
         e2e.expect(withTeam.button("Invite to team") != null, "invite button: " + withTeam.buttons());

@@ -21,7 +21,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
+import net.siftvanilla.siftcore.core.player.Overrides;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.storage.JdbcDatabase;
 import net.siftvanilla.siftcore.storage.Migrations;
 import net.siftvanilla.siftcore.storage.SqlWork;
@@ -51,6 +54,9 @@ class FriendStoreTest {
     private final UUID b = UUID.randomUUID();
     private final UUID c = UUID.randomUUID();
     private final List<UUID> loaded = new ArrayList<>();
+    /** How the request unit reads privacy: the code default unless a test sets the server's default or lock. */
+    private final AtomicReference<StoredSetting<Privacy>> privacyRule =
+        new AtomicReference<>(StoredSetting.codeDefault(FriendPrefs.REQUESTS));
 
     @BeforeEach
     void open() throws Exception {
@@ -58,7 +64,7 @@ class FriendStoreTest {
         this.database = new JdbcDatabase(new SqliteSource(this.dir.resolve("friends-test.db"), 2), logger);
         ClassLoader loader = FriendStoreTest.class.getClassLoader();
         new Migrations(this.database, logger, loader::getResourceAsStream, Migrations.discover(loader::getResourceAsStream)).migrate();
-        this.store = new FriendStore(this.database, this.clock::get);
+        this.store = new FriendStore(this.database, this.clock::get, this.privacyRule::get);
         this.graph = new FriendGraph(this.clock::get, () -> Duration.ofDays(7), FriendGraph.TeleportPolicy.NEVER);
         this.rules = new FriendRules(7 * DAY, 7 * DAY, 20, 50, 30, 50, 500, 10);
         load(this.a, this.b, this.c);
@@ -139,11 +145,15 @@ class FriendStoreTest {
     }
 
     private void setPrivacy(UUID player, Privacy privacy) throws Exception {
+        setPrivacy(player, privacy.id());
+    }
+
+    private void setPrivacy(UUID player, String stored) throws Exception {
         this.store.write(conn -> {
             try (PreparedStatement ps = conn.prepareStatement("INSERT INTO settings (uuid, setting, value) VALUES (?, ?, ?)")) {
                 ps.setString(1, player.toString());
-                ps.setString(2, FriendPrefs.REQUESTS);
-                ps.setString(3, privacy.id());
+                ps.setString(2, FriendPrefs.REQUESTS.id());
+                ps.setString(3, stored);
                 ps.executeUpdate();
             }
             return null;
@@ -295,6 +305,69 @@ class FriendStoreTest {
         assertEquals(Outcome.PRIVATE, request(this.a, e));
         befriend(this.a, this.c);
         assertEquals(Outcome.SENT, request(this.a, e), "a friend of a friend");
+    }
+
+    @Test
+    void storedPrivacyIsReadLeniently() throws Exception {
+        setPrivacy(this.b, " NOBODY ");
+        assertEquals(Outcome.PRIVATE, request(this.a, this.b), "case and spaces are ignored, like the settings registry");
+        setPrivacy(this.c, "sideways");
+        assertEquals(Outcome.SENT, request(this.a, this.c), "an unreadable row reads as the default");
+    }
+
+    @Test
+    void theServersDefaultAppliesWithoutARow() throws Exception {
+        // features/settings.yml defaults: friends-requests: known. A player without a row follows it (storing the default
+        // deletes the row), one with a row keeps their own choice.
+        this.privacyRule.set(new StoredSetting<>(null, Privacy.KNOWN, FriendPrefs.REQUESTS::decodeOrNull));
+        assertEquals(Outcome.PRIVATE, request(this.a, this.b), "no row: the server's default, known");
+        setPrivacy(this.c, Privacy.EVERYONE);
+        assertEquals(Outcome.SENT, request(this.a, this.c), "a stored choice wins over the server's default");
+    }
+
+    @Test
+    void theServersLockWinsOverStoredRows() throws Exception {
+        setPrivacy(this.b, Privacy.EVERYONE);
+        this.privacyRule.set(new StoredSetting<>(Privacy.NOBODY, Privacy.NOBODY, FriendPrefs.REQUESTS::decodeOrNull));
+        assertEquals(Outcome.PRIVATE, request(this.a, this.b), "locked to nobody, whatever b stored");
+        this.privacyRule.set(new StoredSetting<>(Privacy.EVERYONE, Privacy.EVERYONE, FriendPrefs.REQUESTS::decodeOrNull));
+        setPrivacy(this.c, Privacy.NOBODY);
+        assertEquals(Outcome.SENT, request(this.a, this.c), "locked to everyone, whatever c stored");
+    }
+
+    @Test
+    void privacyRuleFollowsThePlayerSettingsOverrides() throws Exception {
+        PlayerSettings settings = new PlayerSettings(this.database, null, Logger.getLogger("friends-test"));
+        FriendPrefs.register(settings, () -> true);
+        this.privacyRule.set(StoredSetting.of(settings, FriendPrefs.REQUESTS));
+        assertEquals(Outcome.SENT, request(this.a, this.b), "no overrides: everyone");
+        assertEquals(Outcome.DONE, run(this.store.cancel(this.a, this.b, this.rules)).outcome());
+
+        settings.overrides(new Overrides(Map.of(FriendPrefs.REQUESTS.id(), "known"), Map.of(), Set.of()));
+        this.privacyRule.set(StoredSetting.of(settings, FriendPrefs.REQUESTS));
+        assertEquals(Outcome.PRIVATE, request(this.a, this.c), "defaults: known");
+
+        settings.overrides(new Overrides(Map.of(), Map.of(FriendPrefs.REQUESTS.id(), "nobody"), Set.of()));
+        StoredSetting<Privacy> locked = StoredSetting.of(settings, FriendPrefs.REQUESTS);
+        assertEquals(Privacy.NOBODY, locked.forced());
+        assertEquals(Privacy.NOBODY, locked.resolve("everyone"), "locked: nobody, whatever is stored");
+
+        settings.overrides(new Overrides(Map.of(FriendPrefs.REQUESTS.id(), "known"), Map.of(), Set.of(FriendPrefs.REQUESTS.id())));
+        StoredSetting<Privacy> hidden = StoredSetting.of(settings, FriendPrefs.REQUESTS);
+        assertEquals(Privacy.KNOWN, hidden.resolve("everyone"), "hidden: everyone reads the server's default, stored rows are ignored");
+    }
+
+    @Test
+    void settingRowsReadManyPlayersAtOnce() throws Exception {
+        setPrivacy(this.a, Privacy.NOBODY);
+        setPrivacy(this.c, Privacy.KNOWN);
+        List<UUID> players = new ArrayList<>(List.of(this.a, this.b, this.c));
+        for (int i = 0; i < FriendStore.SETTING_BATCH + 5; i++) {
+            players.add(UUID.randomUUID());
+        }
+        Map<UUID, String> rows = this.store.write(this.store.settingRows(FriendPrefs.REQUESTS.id(), players)).get();
+        assertEquals(Map.of(this.a, "nobody", this.c, "known"), rows, "only players with a row, across batches");
+        assertEquals(Map.of(), this.store.write(this.store.settingRows(FriendPrefs.REQUESTS.id(), List.of())).get());
     }
 
     @Test

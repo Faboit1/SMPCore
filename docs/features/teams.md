@@ -38,7 +38,7 @@ members, friendly fire, same-team checks; thread-safe, lock-free). It consumes f
 | `/team info [team]` | everyone, console | Owner, members, online count, kills, deaths, total money, age, leaderboard places, friendly fire; the home only for members and staff |
 | `/team list [page]` | everyone, console | Every team by size |
 | `/team top [kills\|money]` | everyone, console | The team leaderboards |
-| `/team spy` | `siftcore.teams.spy` | Turns seeing every team's chat on or off (also in `/settings`) |
+| `/team spy` | `siftcore.teams.spy` | Turns seeing every team's chat on or off (the `team-spy` setting, also in `/settings` under Staff; refused with the reason while the server locks or hides it) |
 | `/team admin ...` | `siftcore.admin.teams`, console | Staff tools, see below |
 | `/tc <message>` | `siftcore.command.teamchat` | Sends one message to the team; `/tc` alone toggles team chat mode |
 
@@ -86,12 +86,23 @@ second click or a racing command can never bypass it.
 - **Without a team:** what starting one costs, a **Start a team** button (name form, then a confirmation with the
   cost), every open invite with an **Invite from X** button, and the team list and leaderboards.
 - **In a team:** the owner, members of the limit and how many are online, the home, friendly fire and team chat
-  state, then every member with role and online status ("seen 2h ago" when offline). Buttons depend on the role:
+  state, then every member with role and online status ("seen 2h ago" when offline, or just "offline" for a member
+  whose last-seen time is kept from the viewer, see below). Buttons depend on the role:
   team home, team chat, invite (form), remove a member, make an admin, remove an admin (each a member picker), set
   home, friendly fire, hand over (picker, then confirmation), disband or leave (confirmation), team stats, top teams,
   all teams.
 
 After an action the dialog is shown again with fresh state; a refused action shows the reason inside it.
+
+### Last seen in member lists
+
+The member lists of `/team` and `/team info <team>` (also opened from **All teams** and **Team stats**) follow each
+member's shared **Who sees when I was last online** setting (`seen-privacy`: everyone, friends, nobody), the same rule
+as the friends list and `/seen`: being in the same team does not count, staff with `siftcore.staff.whois` and the
+member themselves always see it. A member whose time is kept from the viewer reads "Alex member, offline"
+(`teams.menu.member-offline-hidden`). Online members are answered from memory; the offline members' rows are read in
+one query (in the database writer's order) before the dialog is built, so the dialog that was clicked stays on screen
+for that moment (`TeamSeen`).
 
 ### Invites
 
@@ -100,6 +111,32 @@ and **Decline**. That dialog is bound to the invitee (another player can't use i
 the invite again when clicked (expired, team gone, team full, already in a team). One open invite per team and
 player, at most 10 open invites per team, and a 3 second cooldown between invites. Pending invites also show in the
 team dialog, and `/team join <team>` works too. Invites are kept in memory only.
+
+Who may invite a player is their **Team invites from** setting (everyone, friends, nobody). A refused invite reads
+"Cara isn't taking team invites from you." on the inviter's action bar (inside the dialog for the invite form), and
+nothing reaches the player. A player who ignores the inviter is refused with the same words, so the inviter can't tell
+an ignore from the setting. `/team invite` suggests only online players who take invites from the sender (never
+vanished staff), and a friend's profile shows **Invite to team** only when the friend takes invites from the viewer.
+
+## Team news
+
+Team news (a member joined, left or was removed, promotions, a new owner, the home, friendly fire, a rename) goes to
+every online member in the style they picked (**Team news**: chat, above the hotbar, or off). The member who made the
+change always gets the line, since it is the only confirmation of their `/team kick`, `promote`, `demote`,
+`transfer`, `sethome` or `friendlyfire`: in the style they picked, or in chat when they picked off. A new owner (by
+`/team transfer` or `/team admin transfer`) is always told the same way. Disbanding (by the owner or staff) and being
+removed always show in chat, whatever the setting.
+
+## Teammate login alerts
+
+A teammate's login is a chat line, "Alex from your team is online.", and for players who pick logins and logouts
+also "Alex from your team went offline." (**Teammate login alerts**: logins and logouts, logins only (default),
+off). The login is looked at `member-alerts.join-delay` after the join (so a vanish applied on join counts); it is not
+told for a vanished member, a relog within `member-alerts.relog-grace`, or within `member-alerts.startup-quiet` of the
+start. A logout is told after `member-alerts.leave-delay`, unless the member came back. A teammate who ignores the
+member hears nothing, and a friend who already gets the friends login alert ("all friends", or "favourites only"
+and the member is one of their favourites, and the member tells friends) or the friends leave alert isn't told twice
+(the favourite comes from `FriendLookup.favourite`).
 
 ## Team chat
 
@@ -112,6 +149,18 @@ Team chat mode listens to `AsyncChatEvent` at low priority: it cancels the publi
 before formatting, broadcast or relay plugins handle it, and skips events an earlier listener already cancelled
 (anti-spam, mutes). Membership is read from immutable snapshots, so the async chat thread never waits. Leaving the
 team, being removed, a disband or quitting turns chat mode off.
+
+Players who turn **Remember team chat mode** on get it back after a relog: the mode is remembered with the
+membership it was on in (the free per-player value `team-chat-mode`, not a setting: the team's id and when the player
+joined it), and at login, while the player is still in that same membership, it comes back with the chat line "Team
+chat is still on. Your messages only reach your team; /team chat turns it off." The value is kept as it really is: it
+is written when the mode changes and when the player leaves (on or off at that moment), and a login that does not
+bring it back clears it, so a mode that was off for a whole session never returns when the setting is turned on
+later. Leaving the team clears it; a player removed while offline keeps a value of a membership they no longer have,
+which never matches (also not after being invited back into the same team) and is cleared at their next login.
+
+Each member's **Team chat sound** (the shared `sound-team-chat` in Settings, Sounds: off by default, default, bell,
+pling, chime) plays for them when a teammate writes in team chat, never for the sender.
 
 ## Friendly fire
 
@@ -172,11 +221,30 @@ The creation is also a ledger transaction of kind `team_create`, so `EconomyTran
 | `friendly-fire.default` | `false` | Friendly fire of new teams |
 | `friendly-fire.protect-members` | `true` | Whether the guard above is active (turn off only if another plugin handles it) |
 | `chat.log-to-console` | `true` | Print team chat to the console |
+| `member-alerts.join-delay` | `3s` | Wait after a member joins before teammates are told (50ms-1m) |
+| `member-alerts.leave-delay` | `30s` | Wait before a logout is told; nothing when the member is back by then (0-10m) |
+| `member-alerts.relog-grace` | `2m` | A member who left less than this ago rejoins without an alert (0-1h) |
+| `member-alerts.startup-quiet` | `60s` | No login alerts this long after the server starts (0-10m) |
 | `leaderboard.refresh` | `60s` | Leaderboard rebuild period (10s-1h) |
 | `leaderboard.size` | `10` | Teams shown on `/team top` |
 | `page-size` | `10` | Teams per `/team list` page |
 
 Everything applies with `/sift reload` (the leaderboard timer is rescheduled).
+
+## Player settings
+
+Registered in core `PlayerSettings` (`TeamPrefs`); text in `lang/teams.yml` under `teams.settings`. The Friends & teams
+group shares its order with the friends settings (the catalog's order).
+
+| Group, order | Id | Kind, values (default) | Read in |
+|---|---|---|---|
+| Friends & teams, 3 | `team-notices` | choice chat / actionbar / off (chat) | `TeamActions.broadcast` and `TeamActions.news` (`Messenger.alert` per member; the actor and a new owner get chat instead of off, `newsStyle`); disbanding uses `announce` (always chat) |
+| Friends & teams, 5 | `team-member-alerts` | choice joins-and-leaves / joins / off (joins) | `LoginAlerts` (decisions in `MemberAlertRules`) |
+| Friends & teams, 6 | `team-invites` | choice everyone / friends / nobody (everyone), no placeholder | `TeamActions.invite` through `services.relations()`; `/team invite` suggestions (`TeamActions.takesInvitesFrom`); the friends profile's Invite to team button; "friends" is offered while the server has friends and reads as nobody otherwise |
+| Friends & teams, 11 | `team-chat-sticky` | switch (off) | `TeamChat.restore` at login (the remembered mode is written by `TeamChat.toggle`, `off` and `quit`) |
+| Staff, 5 | `team-spy` | switch (on), `siftcore.teams.spy` | `TeamChat.send`; `/team spy` flips it through the registry and says so when the server locked it ("The server sets team chat spy for every staff member.") or hides it |
+| Sounds (shared) | `sound-team-chat` | ping choice (off) | `TeamChat.send`, `Sounds.ping` per member except the sender |
+| Privacy (shared) | `seen-privacy` | everyone / friends / nobody (everyone) | `TeamSeen.visible` for the member lists of `/team` and `/team info` (declared with `reads`) |
 
 ## Design decisions
 
@@ -215,9 +283,23 @@ one transaction (one ledger row, ledger invariants hold, refused creations and a
 creations of one name, 12 concurrent joins against a limit of 4, every rule at execution time, staff tools, and a
 storage round trip compared with memory after every test.
 
+Unit tests of the settings (`TeamSettingsTest`): ids, options and groups, who may invite with and without a friends
+system, the login alert decisions (relog, startup quiet, vanished, ignored, friends or favourites told already), when
+team chat mode comes back and what is remembered at a logout, and that team news always confirms the actor.
+`TeamChatStickyTest` drives `TeamChat` with the real settings store across sessions: back when on at the end of the
+session, never back after a session with it off (the setting turned on later), not back in a new membership after
+a removal while offline. `TeamSeenTest`: the last-seen rule, how a stored row resolves, the members a viewer may see
+(loaded and offline in one query, friends, nobody, staff) and the server's lock, hidden list and default.
+
 End-to-end scenarios (`tools/e2e`, `TeamsScenarios`): `teams-create`, `teams-cost-change` (a reload changes the
 cost under an open confirmation: nothing is charged, the new cost is shown), `teams-invite`, `teams-roles`,
-`teams-ownership`, `teams-chat`, `teams-home`, `teams-friendly-fire`, `teams-staff`, `teams-menu`.
+`teams-ownership`, `teams-chat`, `teams-home`, `teams-friendly-fire`, `teams-staff`, `teams-menu`,
+`teams-ignored-invite`, `teams-settings` (team invites picked in the settings dialog, friends only, team news above
+the hotbar typed as `/settings team-notices actionbar` (through the API until the settings UI package's command
+lands) and off, the actor's own change confirmed with news off, a new owner always told, disbanding still in chat,
+the team chat sound, `/team spy` locked), `teams-login-alerts` (logins, logouts, off, friends not told twice, team chat
+mode kept across a relog, and not brought back from a session where it was off) and `teams-seen-privacy` (a stranger's
+`/team info` and a teammate's `/team` without the time of a member who keeps it to nobody, friends only, staff).
 
 ## Known limitations
 
@@ -226,5 +308,7 @@ cost under an open confirmation: nothing is charged, the new cost is shown), `te
   clicking it says the menu expired and `/team` or `/team join <team>` answers the invite instead.
 - Team kills and deaths read zero until the stats feature is wired in `FeatureCatalog`.
 - A vanished member shows as offline, but the "seen" time in member lists is their last join.
+- The catalog's description of `seen-privacy` (core lang) names /seen and friend profiles; the team member lists
+  follow it too.
 - V035 must be applied in order with the other migrations: the migration runner only applies versions above the
   highest one already applied, so deploy teams no later than any feature with a higher migration number.

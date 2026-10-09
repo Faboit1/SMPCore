@@ -110,10 +110,13 @@ class FriendsResourcesTest {
     void settingsLabelsFitTheirButtons() throws Exception {
         // A choice renders as "Label: Option" in a 250 px button; longer text scrolls. 40 characters stay well inside.
         Lang lang = lang();
-        for (MessageKey label : List.of(FriendsMessages.SETTINGS_REQUESTS, FriendsMessages.SETTINGS_JOIN_ALERTS)) {
-            for (MessageKey option : List.of(FriendsMessages.SETTINGS_REQUESTS_EVERYONE, FriendsMessages.SETTINGS_REQUESTS_KNOWN,
-                FriendsMessages.SETTINGS_REQUESTS_NOBODY, FriendsMessages.SETTINGS_JOIN_ALERTS_ALL,
-                FriendsMessages.SETTINGS_JOIN_ALERTS_FAVOURITES, FriendsMessages.SETTINGS_JOIN_ALERTS_OFF)) {
+        // The shared option names (Everyone, Nobody, Off) live in lang/settings.yml and are shorter than these.
+        for (MessageKey label : List.of(FriendsMessages.SETTING_REQUESTS, FriendsMessages.SETTING_JOIN_ALERTS,
+            FriendsMessages.SETTING_LIST_ORDER)) {
+            for (MessageKey option : List.of(FriendsMessages.SETTING_REQUESTS_KNOWN, FriendsMessages.SETTING_JOIN_ALERTS_ALL,
+                FriendsMessages.SETTING_JOIN_ALERTS_FAVOURITES, FriendsMessages.SETTING_LIST_ORDER_STATUS,
+                FriendsMessages.SETTING_LIST_ORDER_NAME, FriendsMessages.SETTING_LIST_ORDER_LAST_SEEN,
+                FriendsMessages.SETTING_LIST_ORDER_OLDEST)) {
                 String shown = lang.plain(label) + ": " + lang.plain(option);
                 assertTrue(shown.length() <= 40, "too long for its button: " + shown);
             }

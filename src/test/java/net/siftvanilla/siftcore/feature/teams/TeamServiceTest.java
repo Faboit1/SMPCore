@@ -63,7 +63,8 @@ class TeamServiceTest {
 
     private static TeamsSettings settings(long cost, int limit) {
         return new TeamsSettings(cost, 3, 16, List.of("bad"), limit, Duration.ofMinutes(2), 10, Duration.ofSeconds(3),
-            Duration.ofSeconds(5), false, true, true, Duration.ofSeconds(60), 10, 10, java.util.Set.of());
+            Duration.ofSeconds(5), false, true, true, Duration.ofSeconds(60), 10, 10, java.util.Set.of(),
+            TeamsSettings.MemberAlerts.DEFAULTS);
     }
 
     @BeforeEach

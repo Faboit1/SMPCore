@@ -136,13 +136,11 @@ class FriendTextTest {
         assertEquals(Privacy.KNOWN, Privacy.parse(" known "));
         assertEquals(Privacy.EVERYONE, Privacy.parse("garbage"), "invalid values read as the default");
         assertEquals(Privacy.EVERYONE, Privacy.parse(null));
-        assertEquals(FriendPrefs.JoinAlerts.ALL, FriendPrefs.JoinAlerts.parse("nope"));
-        assertEquals(FriendPrefs.JoinAlerts.FAVOURITES, FriendPrefs.JoinAlerts.parse("favourites"));
-        assertEquals(FriendPrefs.AutoTpa.NOBODY, FriendPrefs.AutoTpa.parse(null));
-        assertEquals(FriendPrefs.AutoTpa.ALL, FriendPrefs.AutoTpa.parse("ALL"));
-        assertEquals(null, FriendPrefs.Key.parse("tpa"), "teleport auto-accept is not offered while TPA has its own toggle");
+        assertEquals(null, FriendPrefs.Key.parse("tpa"), "teleport auto-accept is the shared friends-tpa setting, not a friends key");
         assertEquals(FriendPrefs.Key.JOIN_ALERTS, FriendPrefs.Key.parse("Join-Alerts"));
-        assertEquals(List.of("everyone", "known", "nobody"), FriendPrefs.Key.REQUESTS.options());
+        assertEquals(FriendPrefs.REQUESTS, FriendPrefs.Key.REQUESTS.setting());
+        assertEquals(List.of("everyone", "known", "nobody"), FriendPrefs.REQUESTS.optionIds());
+        assertEquals(FriendPrefs.LIST_ORDER, FriendPrefs.Key.parse("list-order").setting());
         assertEquals(null, FriendPrefs.Key.parse("colour"));
     }
 }

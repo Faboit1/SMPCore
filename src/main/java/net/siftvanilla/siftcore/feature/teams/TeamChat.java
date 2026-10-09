@@ -10,6 +10,7 @@ import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -20,6 +21,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
@@ -35,6 +37,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
 final class TeamChat implements Listener {
 
     static final String SPY_PERMISSION = "siftcore.teams.spy";
+    /**
+     * Where team chat mode is remembered for {@code team-chat-sticky}: the membership it was on in ({@link #membership}:
+     * the team's id and when the player joined it), or {@link #MODE_OFF}. A free-form per-player value (not a setting),
+     * kept as it really is: written when the mode changes and when the player leaves. A value from another membership
+     * (the player changed team, or was removed while offline and invited back) never matches, so nothing has to be
+     * written for offline players; their next login clears it.
+     */
+    static final String MODE_KEY = "team-chat-mode";
+    static final String MODE_OFF = "0";
 
     private final TeamRegistry registry;
     private final Messenger messenger;
@@ -61,18 +72,81 @@ final class TeamChat implements Listener {
         return this.chatMode.contains(player);
     }
 
-    /** Switches team chat mode; returns the new state. */
-    boolean toggle(UUID player) {
-        if (this.chatMode.remove(player)) {
-            return false;
+    /**
+     * Switches team chat mode in the player's team; returns the new state. The mode is remembered with the membership,
+     * so it can come back at the next login ({@code team-chat-sticky}).
+     */
+    boolean toggle(UUID player, Team team) {
+        boolean on = !this.chatMode.remove(player);
+        if (on) {
+            this.chatMode.add(player);
         }
-        this.chatMode.add(player);
-        return true;
+        remember(player, on ? membership(team, player) : MODE_OFF);
+        return on;
     }
 
-    /** Turns team chat mode off (left the team, quit). Returns true if it was on. */
+    /** Turns team chat mode off and forgets it (left the team, removed, disbanded). Returns true if it was on. */
     boolean off(UUID player) {
-        return this.chatMode.remove(player);
+        boolean was = this.chatMode.remove(player);
+        // Only a loaded player's remembered mode is known (others read as off, so nothing is written for them): the
+        // membership left for an offline player matches no team they can be in again, and their next login clears it.
+        remember(player, MODE_OFF);
+        return was;
+    }
+
+    /** Stores the remembered mode when it changes (one write; nothing for an unchanged or unknown value). */
+    private void remember(UUID player, String value) {
+        if (!value.equals(this.playerSettings.raw(player, MODE_KEY, MODE_OFF))) {
+            this.playerSettings.setRaw(player, MODE_KEY, value);
+        }
+    }
+
+    /**
+     * The remembered value of team chat mode on in a membership: the team's id and when the player joined it, so a
+     * value from an earlier membership of the same team (removed and invited back) never matches.
+     */
+    static String membership(Team team, UUID player) {
+        TeamMember member = team.members().get(player);
+        return team.id() + ":" + (member == null ? 0 : member.joined());
+    }
+
+    /**
+     * Whether team chat mode comes back at login: the player keeps it ({@code team-chat-sticky}), had it on when they
+     * left, and is still in the same membership they had it on in.
+     *
+     * @param sticky     the player's {@code team-chat-sticky}
+     * @param remembered the remembered mode ({@link #MODE_KEY}: a {@link #membership} or {@link #MODE_OFF})
+     * @param membership the player's membership now ({@link #membership}), or null without a team
+     */
+    static boolean restores(boolean sticky, String remembered, String membership) {
+        return sticky && membership != null && membership.equals(remembered);
+    }
+
+    /**
+     * What to remember when the player leaves: their membership while team chat mode is on, else {@link #MODE_OFF}.
+     *
+     * @param on         team chat mode is on
+     * @param membership the player's membership now, or null without a team
+     */
+    static String atQuit(boolean on, String membership) {
+        return on && membership != null ? membership : MODE_OFF;
+    }
+
+    /**
+     * At login: puts team chat mode back for players who keep it, and tells them in chat; otherwise forgets a
+     * remembered mode, so turning the setting on later never brings back a mode from an older session (or team). Call
+     * on the player's thread.
+     */
+    void restore(Player player) {
+        UUID id = player.getUniqueId();
+        String membership = this.registry.of(id).map(team -> membership(team, id)).orElse(null);
+        String remembered = this.playerSettings.raw(id, MODE_KEY, MODE_OFF);
+        boolean back = restores(this.playerSettings.get(player, TeamPrefs.CHAT_STICKY), remembered, membership);
+        if (back) {
+            this.chatMode.add(id);
+            this.messenger.send(player, TeamsMessages.CHAT_RESTORED);
+        }
+        remember(id, back ? remembered : MODE_OFF);
     }
 
     /** Sends one message from {@code sender} to their team, unless they are muted. Safe from any thread. */
@@ -98,6 +172,10 @@ final class TeamChat implements Listener {
             Player online = Bukkit.getPlayer(member);
             if (online != null) {
                 online.sendMessage(line);
+                if (!member.equals(sender.getUniqueId())) {
+                    // The team chat sound each member picked (off by default).
+                    this.messenger.sounds().ping(online, this.playerSettings.get(member, SharedSettings.SOUND_TEAM_CHAT));
+                }
             }
         }
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -141,7 +219,7 @@ final class TeamChat implements Listener {
         event.viewers().clear();
         Team team = this.registry.of(id).orElse(null);
         if (team == null) {
-            this.chatMode.remove(id);
+            off(id);
             this.messenger.send(player, TeamsMessages.CHAT_NO_TEAM);
             return;
         }
@@ -149,7 +227,22 @@ final class TeamChat implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        restore(event.getPlayer());
+    }
+
+    /**
+     * Quitting remembers the mode as it is (it may come back at the next login). Runs before core forgets the player's
+     * settings (feature listeners are registered first).
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        this.chatMode.remove(event.getPlayer().getUniqueId());
+        quit(event.getPlayer().getUniqueId());
+    }
+
+    /** A player left: team chat mode ends for now and is remembered as it was ({@link #atQuit}). */
+    void quit(UUID player) {
+        boolean on = this.chatMode.remove(player);
+        remember(player, atQuit(on, this.registry.of(player).map(team -> membership(team, player)).orElse(null)));
     }
 }

@@ -7,8 +7,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.siftvanilla.siftcore.storage.Database;
@@ -328,6 +332,44 @@ public final class TeamStore {
             }
             return counts;
         }));
+    }
+
+    /** Players per query of {@link #settingRows} (well below every database's parameter limit). */
+    static final int SETTING_BATCH = 200;
+
+    /**
+     * The stored rows of one player setting for many players at once ({@code settings} table, player to value; players
+     * without a row are left out), read in the writer's order so a change queued before is seen. For offline members,
+     * whose settings are not in memory.
+     */
+    public CompletableFuture<Map<UUID, String>> settingRows(String setting, Collection<UUID> players) {
+        List<UUID> ids = List.copyOf(new LinkedHashSet<>(players));
+        if (ids.isEmpty()) {
+            return CompletableFuture.completedFuture(Map.of());
+        }
+        return this.database.write(c -> {
+            Map<UUID, String> rows = new HashMap<>();
+            for (int from = 0; from < ids.size(); from += SETTING_BATCH) {
+                List<UUID> batch = ids.subList(from, Math.min(ids.size(), from + SETTING_BATCH));
+                try (PreparedStatement ps = c.prepareStatement("SELECT uuid, value FROM settings WHERE setting = ? AND uuid IN ("
+                    + "?, ".repeat(batch.size() - 1) + "?)")) {
+                    ps.setString(1, setting);
+                    for (int i = 0; i < batch.size(); i++) {
+                        ps.setString(i + 2, batch.get(i).toString());
+                    }
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            try {
+                                rows.put(UUID.fromString(rs.getString(1)), rs.getString(2));
+                            } catch (IllegalArgumentException ignored) {
+                                // Not a player row; the settings table is keyed by uuid text.
+                            }
+                        }
+                    }
+                }
+            }
+            return rows;
+        });
     }
 
     /** Queues a write. */

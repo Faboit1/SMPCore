@@ -4,7 +4,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -19,6 +18,7 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
@@ -93,6 +93,7 @@ final class FriendViews {
     private final FriendLinks links;
     private final Presence presence;
     private final ProfileButtons buttons;
+    private final SeenPrivacy seen;
     private final Lang lang;
     private final Templates templates;
     private final PlayerDirectory directory;
@@ -100,7 +101,7 @@ final class FriendViews {
     private final ZoneId zone = ZoneId.systemDefault();
 
     FriendViews(Services services, Setting<FriendsSettings> settings, FriendService service, Presence presence,
-                ProfileButtons buttons) {
+                ProfileButtons buttons, SeenPrivacy seen) {
         this.services = services;
         this.settings = settings;
         this.service = service;
@@ -109,6 +110,7 @@ final class FriendViews {
         this.links = service.links();
         this.presence = presence;
         this.buttons = buttons;
+        this.seen = seen;
         this.lang = services.lang();
         this.templates = services.templates();
         this.directory = services.directory();
@@ -230,12 +232,16 @@ final class FriendViews {
         return this.links.afk().afk(player) ? ListOrder.Status.AFK : ListOrder.Status.ONLINE;
     }
 
-    /** The status word of a row ("online", "AFK", "seen 3d ago"); "seen" comes from the same place as /seen. */
+    /**
+     * The status word of a row ("online", "AFK", "seen 3d ago"); "seen" comes from the same place as /seen. An offline
+     * row without a last-seen time (unknown, or kept from the viewer by {@code seen-privacy}) says "offline".
+     */
     String statusWord(ListOrder.Status status, long lastSeen, long now) {
         return switch (status) {
             case ONLINE -> this.lang.plain(FriendsMessages.STATUS_ONLINE);
             case AFK -> this.lang.plain(FriendsMessages.STATUS_AFK);
-            case OFFLINE -> this.lang.plain(FriendsMessages.STATUS_SEEN, Arg.text("ago", TimeText.ago(lastSeen, now)));
+            case OFFLINE -> lastSeen <= 0 ? this.lang.plain(FriendsMessages.STATUS_OFFLINE)
+                : this.lang.plain(FriendsMessages.STATUS_SEEN, Arg.text("ago", TimeText.ago(lastSeen, now)));
         };
     }
 
@@ -243,16 +249,26 @@ final class FriendViews {
         return this.directory.get(player).map(PlayerDirectory.Known::lastSeen).orElse(0L);
     }
 
-    /** The viewer's friends as list rows. Call on the viewer's thread. */
-    List<ListOrder.Row> rows(Player viewer, FriendGraph.Node node) {
+    /**
+     * The viewer's friends as list rows, in the order they picked ({@code friends-list-order}), with the last-seen
+     * time of friends who keep it from them taken out. The rows are built on the viewer's thread (call it there);
+     * the result may complete on the database thread (one read of offline friends' privacy).
+     */
+    CompletableFuture<List<ListOrder.Row>> rows(Player viewer, FriendGraph.Node node) {
         boolean favouritesOn = this.settings.get().favouritesOn();
         List<ListOrder.Row> rows = new ArrayList<>(node.friends().size());
+        List<UUID> offline = new ArrayList<>();
         for (Map.Entry<UUID, FriendGraph.Edge> entry : node.friends().entrySet()) {
             UUID friend = entry.getKey();
+            ListOrder.Status status = status(viewer, friend);
+            if (!status.online()) {
+                offline.add(friend);
+            }
             rows.add(new ListOrder.Row(friend, this.service.name(friend), favouritesOn && entry.getValue().favourite(),
-                status(viewer, friend), lastSeen(friend), entry.getValue().since()));
+                status, lastSeen(friend), entry.getValue().since()));
         }
-        return ListOrder.sort(rows);
+        ListOrder.Sort sort = this.prefs.listOrder(viewer.getUniqueId());
+        return this.seen.hidden(viewer, offline).thenApply(hidden -> ListOrder.sort(ListOrder.hideSeen(rows, hidden), sort));
     }
 
     // ------------------------------------------------------------------ the list
@@ -264,12 +280,12 @@ final class FriendViews {
             this.services.messenger().send(player, FriendsMessages.LOADING);
             return;
         }
-        List<ListOrder.Row> all = rows(player, node);
+        CompletableFuture<List<ListOrder.Row>> rows = rows(player, node);
         int incoming = this.service.incoming(player.getUniqueId()).size();
         int limit = this.service.limit(player.getUniqueId());
         long now = this.service.now();
-        whenRead(player, this.service.store().notes(player.getUniqueId()),
-            notes -> show(player, listView(player, nav, all, notes, incoming, limit, now), notice));
+        whenRead(player, this.service.store().notes(player.getUniqueId()).thenCombine(rows, Map::entry),
+            read -> show(player, listView(player, nav, read.getValue(), read.getKey(), incoming, limit, now), notice));
     }
 
     private View listView(Player player, Nav nav, List<ListOrder.Row> all, Map<UUID, String> notes, int incoming, int limit,
@@ -313,7 +329,7 @@ final class FriendViews {
         list.add(Button.of(ui(FriendsMessages.LIST_ADD), submission -> openAdd(submission.player(), here, null)).width(ROW_WIDTH));
         list.add(Button.of(ui(FriendsMessages.LIST_REQUESTS, Arg.number("count", incoming)),
             submission -> openRequests(submission.player(), 1, here, null)).width(ROW_WIDTH));
-        list.add(Button.of(ui(FriendsMessages.LIST_SETTINGS), submission -> openSettings(submission.player(), here))
+        list.add(Button.of(ui(FriendsMessages.LIST_SETTINGS), submission -> openSettings(submission.player(), here, true))
             .width(ROW_WIDTH));
         if (!nav.filter().isEmpty()) {
             list.add(Button.of(ui(FriendsMessages.LIST_SHOW_ALL), submission -> openList(submission.player(), here.filter(""), null))
@@ -620,10 +636,15 @@ final class FriendViews {
         Set<UUID> viewerFriends = this.graph.friendsOf(self);
         boolean favouritesOn = this.settings.get().favouritesOn();
         long now = this.service.now();
-        whenRead(viewer, this.service.store().profile(self, target, needFriends), data -> {
+        // The last-seen time only for viewers the player shows it to (seen-privacy).
+        CompletableFuture<Set<UUID>> hiddenSeen = status.online() ? CompletableFuture.completedFuture(Set.of())
+            : this.seen.hidden(viewer, List.of(target));
+        long lastSeen = lastSeen(target);
+        whenRead(viewer, this.service.store().profile(self, target, needFriends).thenCombine(hiddenSeen, Map::entry), read -> {
+            FriendStore.ProfileData data = read.getKey();
             List<Component> body = new ArrayList<>();
             body.add(head(target));
-            body.add(statusLine(status, lastSeen(target), now));
+            body.add(statusLine(status, read.getValue().contains(target) ? 0 : lastSeen, now));
             if (friend && edge != null) {
                 body.add(ui(FriendsMessages.PROFILE_SINCE, Arg.text("date", TimeText.date(edge.since(), this.zone))));
             }
@@ -721,11 +742,13 @@ final class FriendViews {
         return false;
     }
 
+    /** The profile's status line; offline without a last-seen time (unknown or kept from the viewer) says "Offline". */
     private Component statusLine(ListOrder.Status status, long lastSeen, long now) {
         return switch (status) {
             case ONLINE -> ui(FriendsMessages.PROFILE_STATUS_ONLINE);
             case AFK -> ui(FriendsMessages.PROFILE_STATUS_AFK);
-            case OFFLINE -> ui(FriendsMessages.PROFILE_STATUS_SEEN, Arg.text("ago", TimeText.ago(lastSeen, now)));
+            case OFFLINE -> lastSeen <= 0 ? ui(FriendsMessages.PROFILE_STATUS_OFFLINE)
+                : ui(FriendsMessages.PROFILE_STATUS_SEEN, Arg.text("ago", TimeText.ago(lastSeen, now)));
         };
     }
 
@@ -799,66 +822,25 @@ final class FriendViews {
             submission -> openProfile(submission.player(), friend, nav, null)), null);
     }
 
+
     // ------------------------------------------------------------------ settings
 
     /**
-     * The friends settings: who can send requests, join alerts and three switches. "Favourites only" is offered only
-     * while favourites exist ({@code limits.favourites} above 0); a stored "favourites" then shows as what it does, off.
+     * The friends settings: the Friends &amp; teams group of the settings dialog, where they sit with the teams
+     * settings (one place for every setting). Back returns to the friends list when it was opened from there. When the
+     * player can change none of them (the server hides them all), says so instead.
+     *
+     * @param fromList whether the friends list's Settings button opened it (Back returns there); else Close
      */
-    void openSettings(Player player, Nav nav) {
-        UUID id = player.getUniqueId();
-        boolean favouritesOn = this.settings.get().favouritesOn();
-        List<Input.Option> joinOptions = new ArrayList<>();
-        joinOptions.add(new Input.Option(FriendPrefs.JoinAlerts.ALL.id(), ui(FriendsMessages.SETTINGS_JOIN_ALERTS_ALL)));
-        if (favouritesOn) {
-            joinOptions.add(new Input.Option(FriendPrefs.JoinAlerts.FAVOURITES.id(), ui(FriendsMessages.SETTINGS_JOIN_ALERTS_FAVOURITES)));
+    void openSettings(Player player, Nav nav, boolean fromList) {
+        boolean shown = this.services.settings().screens().open(player, SettingCategories.SOCIAL.id(),
+            fromList ? back -> openList(back, nav, null) : null);
+        if (!shown) {
+            if (fromList) {
+                openList(player, nav, ui(FriendsMessages.SETTINGS_NONE));
+            } else {
+                this.services.messenger().send(player, FriendsMessages.SETTINGS_NONE);
+            }
         }
-        joinOptions.add(new Input.Option(FriendPrefs.JoinAlerts.OFF.id(), ui(FriendsMessages.SETTINGS_JOIN_ALERTS_OFF)));
-        FriendPrefs.JoinAlerts joinAlerts = this.prefs.joinAlerts(id);
-        if (!favouritesOn && joinAlerts == FriendPrefs.JoinAlerts.FAVOURITES) {
-            joinAlerts = FriendPrefs.JoinAlerts.OFF;
-        }
-        List<Input> inputs = List.of(
-            Templates.choice("requests", ui(FriendsMessages.SETTINGS_REQUESTS), List.of(
-                new Input.Option(Privacy.EVERYONE.id(), ui(FriendsMessages.SETTINGS_REQUESTS_EVERYONE)),
-                new Input.Option(Privacy.KNOWN.id(), ui(FriendsMessages.SETTINGS_REQUESTS_KNOWN)),
-                new Input.Option(Privacy.NOBODY.id(), ui(FriendsMessages.SETTINGS_REQUESTS_NOBODY))), this.prefs.privacy(id).id()),
-            Templates.choice("join_alerts", ui(FriendsMessages.SETTINGS_JOIN_ALERTS), joinOptions, joinAlerts.id()),
-            Templates.toggle("leave_alerts", ui(FriendsMessages.SETTINGS_LEAVE_ALERTS), this.prefs.leaveAlerts(id)),
-            Templates.toggle("request_alerts", ui(FriendsMessages.SETTINGS_REQUEST_ALERTS), this.prefs.requestAlerts(id)),
-            Templates.toggle("announce", ui(FriendsMessages.SETTINGS_ANNOUNCE), this.prefs.announce(id)));
-        show(player, this.templates.form(ui(FriendsMessages.SETTINGS_TITLE),
-            List.of(ui(FriendsMessages.SETTINGS_BODY), ui(FriendsMessages.SETTINGS_BODY_KNOWN)), inputs,
-            ui(FriendsMessages.SETTINGS_SUBMIT),
-            submission -> {
-                Player clicker = submission.player();
-                UUID clickerId = clicker.getUniqueId();
-                var values = submission.values();
-                this.prefs.set(clickerId, FriendPrefs.Key.REQUESTS, values.choice("requests"));
-                this.prefs.set(clickerId, FriendPrefs.Key.JOIN_ALERTS, values.choice("join_alerts"));
-                this.prefs.set(clickerId, FriendPrefs.Key.LEAVE_ALERTS, values.toggle("leave_alerts") ? "on" : "off");
-                this.prefs.set(clickerId, FriendPrefs.Key.REQUEST_ALERTS, values.toggle("request_alerts") ? "on" : "off");
-                this.prefs.set(clickerId, FriendPrefs.Key.ANNOUNCE, values.toggle("announce") ? "on" : "off");
-                this.services.messenger().send(clicker, FriendsMessages.SETTINGS_SAVED);
-                openList(clicker, nav, null);
-            },
-            submission -> openList(submission.player(), nav, null)), null);
-    }
-
-    /** The values {@code /friend settings <key>} takes right now ("favourites" only while favourites exist). */
-    List<String> settingValues(FriendPrefs.Key key) {
-        if (key == FriendPrefs.Key.JOIN_ALERTS && !this.settings.get().favouritesOn()) {
-            return key.options().stream().filter(value -> !value.equals(FriendPrefs.JoinAlerts.FAVOURITES.id())).toList();
-        }
-        return key.options();
-    }
-
-    /** The lowercase key names {@code /friend settings} takes. */
-    static List<String> settingKeys() {
-        List<String> keys = new ArrayList<>();
-        for (FriendPrefs.Key key : FriendPrefs.Key.values()) {
-            keys.add(key.id().toLowerCase(Locale.ROOT));
-        }
-        return keys;
     }
 }

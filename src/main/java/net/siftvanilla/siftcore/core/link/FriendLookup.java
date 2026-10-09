@@ -51,4 +51,12 @@ public interface FriendLookup {
     default boolean favouritesEnabled() {
         return false;
     }
+
+    /**
+     * True when {@code owner} marked their friend {@code friend} as a favourite while favourites are on (for example to
+     * know whether the friends join alert told {@code owner} about {@code friend}). Exact while {@code owner} is online.
+     */
+    default boolean favourite(UUID owner, UUID friend) {
+        return false;
+    }
 }

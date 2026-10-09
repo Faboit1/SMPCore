@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.teams;
 import io.papermc.paper.dialog.Dialog;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
@@ -14,6 +15,8 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -116,6 +119,10 @@ final class TeamActions {
         if (this.ignores.ignores(target.getUniqueId(), inviter.getUniqueId()) && !inviter.hasPermission(UNIGNORABLE)) {
             return TeamService.Outcome.fail(TeamProblem.INVITE_BLOCKED);
         }
+        // Who may invite the target is their choice (team-invites); refused like an ignore, with the same words.
+        if (!acceptsInvite(this.services.settings().get(target.getUniqueId(), TeamPrefs.INVITES), target.getUniqueId(), inviter.getUniqueId())) {
+            return TeamService.Outcome.fail(TeamProblem.INVITES_CLOSED);
+        }
         TeamService.Outcome outcome = this.service.invite(inviter.getUniqueId(), target.getUniqueId());
         if (!outcome.ok()) {
             return outcome;
@@ -208,7 +215,8 @@ final class TeamActions {
             return outcome;
         }
         removed(target, outcome.team());
-        broadcast(outcome.team(), null, TeamsMessages.TEAM_KICKED, Arg.text("name", name(target)), Arg.text("actor", actor.getName()));
+        news(outcome.team(), Set.of(actor.getUniqueId()), TeamsMessages.TEAM_KICKED, Arg.text("name", name(target)),
+            Arg.text("actor", actor.getName()));
         return outcome;
     }
 
@@ -224,7 +232,8 @@ final class TeamActions {
     TeamService.Outcome promote(Player actor, UUID target) {
         TeamService.Outcome outcome = this.service.promote(actor.getUniqueId(), target);
         if (outcome.ok()) {
-            broadcast(outcome.team(), null, TeamsMessages.TEAM_PROMOTED, Arg.text("name", name(target)), Arg.text("actor", actor.getName()));
+            news(outcome.team(), Set.of(actor.getUniqueId()), TeamsMessages.TEAM_PROMOTED, Arg.text("name", name(target)),
+                Arg.text("actor", actor.getName()));
         }
         return outcome;
     }
@@ -232,7 +241,8 @@ final class TeamActions {
     TeamService.Outcome demote(Player actor, UUID target) {
         TeamService.Outcome outcome = this.service.demote(actor.getUniqueId(), target);
         if (outcome.ok()) {
-            broadcast(outcome.team(), null, TeamsMessages.TEAM_DEMOTED, Arg.text("name", name(target)), Arg.text("actor", actor.getName()));
+            news(outcome.team(), Set.of(actor.getUniqueId()), TeamsMessages.TEAM_DEMOTED, Arg.text("name", name(target)),
+                Arg.text("actor", actor.getName()));
         }
         return outcome;
     }
@@ -240,7 +250,8 @@ final class TeamActions {
     TeamService.Outcome transfer(Player actor, UUID target) {
         TeamService.Outcome outcome = this.service.transfer(actor.getUniqueId(), target);
         if (outcome.ok()) {
-            broadcast(outcome.team(), null, TeamsMessages.TEAM_TRANSFERRED, Arg.text("name", name(target)),
+            // The new owner is always told too: what they may do changed.
+            news(outcome.team(), Set.of(actor.getUniqueId(), target), TeamsMessages.TEAM_TRANSFERRED, Arg.text("name", name(target)),
                 Arg.text("actor", actor.getName()));
             refreshOwnerLater(target);
         }
@@ -252,7 +263,7 @@ final class TeamActions {
         if (outcome.ok()) {
             Team old = outcome.team();
             disbanded(old);
-            broadcast(old, null, TeamsMessages.TEAM_DISBANDED, Arg.text("team", old.name()), Arg.text("actor", actor.getName()));
+            announce(old, null, TeamsMessages.TEAM_DISBANDED, Arg.text("team", old.name()), Arg.text("actor", actor.getName()));
         }
         return outcome;
     }
@@ -279,7 +290,7 @@ final class TeamActions {
         TeamService.Outcome outcome = this.service.setHome(actor.getUniqueId(), home,
             homeDisabled(home.world()), this.spawn.contains(location));
         if (outcome.ok()) {
-            broadcast(outcome.team(), null, TeamsMessages.TEAM_HOME_SET, Arg.text("actor", actor.getName()));
+            news(outcome.team(), Set.of(actor.getUniqueId()), TeamsMessages.TEAM_HOME_SET, Arg.text("actor", actor.getName()));
         }
         return outcome;
     }
@@ -287,7 +298,7 @@ final class TeamActions {
     TeamService.Outcome friendlyFire(Player actor, Boolean on) {
         TeamService.Outcome outcome = this.service.friendlyFire(actor.getUniqueId(), on);
         if (outcome.ok()) {
-            broadcast(outcome.team(), null, outcome.team().friendlyFire() ? TeamsMessages.TEAM_FRIENDLY_FIRE_ON
+            news(outcome.team(), Set.of(actor.getUniqueId()), outcome.team().friendlyFire() ? TeamsMessages.TEAM_FRIENDLY_FIRE_ON
                 : TeamsMessages.TEAM_FRIENDLY_FIRE_OFF, Arg.text("actor", actor.getName()));
         }
         return outcome;
@@ -340,11 +351,12 @@ final class TeamActions {
 
     /** Switches team chat mode; returns why it could not, or null. */
     TeamProblem toggleChat(Player player) {
-        if (this.registry.of(player.getUniqueId()).isEmpty()) {
+        Team team = this.registry.of(player.getUniqueId()).orElse(null);
+        if (team == null) {
             this.chat.off(player.getUniqueId());
             return TeamProblem.NOT_IN_TEAM;
         }
-        boolean on = this.chat.toggle(player.getUniqueId());
+        boolean on = this.chat.toggle(player.getUniqueId(), team);
         this.messenger.send(player, on ? TeamsMessages.CHAT_ON : TeamsMessages.CHAT_OFF);
         return null;
     }
@@ -363,10 +375,62 @@ final class TeamActions {
         return this.chat.inChatMode(player.getUniqueId());
     }
 
+    /** Whether the target's {@code team-invites} choice lets the inviter invite them (friends ask the friends feature). */
+    private boolean acceptsInvite(Audience audience, UUID target, UUID inviter) {
+        return this.services.relations().allows(audience, target, inviter);
+    }
+
+    /**
+     * Whether {@code target} takes team invites from {@code inviter} ({@code team-invites}), for suggestions that leave
+     * out players an invite would be refused for. Thread-safe.
+     */
+    boolean takesInvitesFrom(UUID target, UUID inviter) {
+        return acceptsInvite(this.services.settings().get(target, TeamPrefs.INVITES), target, inviter);
+    }
+
     // ------------------------------------------------------------------ helpers
 
-    /** Sends a message to every online member of a team except {@code except}. */
+    /**
+     * Team news to every online member of a team except {@code except}, in the style each one picked
+     * ({@code team-notices}: chat, above the hotbar, or off).
+     */
     void broadcast(Team team, UUID except, MessageKey key, Arg... args) {
+        for (UUID member : team.memberIds()) {
+            if (!member.equals(except)) {
+                tell(member, false, key, args);
+            }
+        }
+    }
+
+    /**
+     * Team news about something a member did: every online member gets it in the style they picked
+     * ({@code team-notices}), but the members in {@code told} (the one who did it, and a new owner) always get it. For
+     * the actor the line is the only confirmation that their command went through, so with team news off it comes in
+     * chat ({@link #newsStyle}).
+     */
+    void news(Team team, Set<UUID> told, MessageKey key, Arg... args) {
+        for (UUID member : team.memberIds()) {
+            tell(member, told.contains(member), key, args);
+        }
+    }
+
+    private void tell(UUID member, boolean told, MessageKey key, Arg... args) {
+        Player online = Bukkit.getPlayer(member);
+        if (online != null) {
+            this.messenger.alert(online, newsStyle(this.services.settings().get(member, TeamPrefs.NOTICES), told), key, args);
+        }
+    }
+
+    /**
+     * How a member sees one piece of team news: as they picked ({@code team-notices}), except that a member who must be
+     * told (the actor's confirmation, a new owner) gets it in chat instead of not at all.
+     */
+    static AlertStyle newsStyle(AlertStyle picked, boolean told) {
+        return told && picked == AlertStyle.OFF ? AlertStyle.CHAT : picked;
+    }
+
+    /** News every member must see (the team was disbanded): a chat line whatever their {@code team-notices}. */
+    void announce(Team team, UUID except, MessageKey key, Arg... args) {
         for (UUID member : team.memberIds()) {
             if (member.equals(except)) {
                 continue;

@@ -68,6 +68,8 @@ public final class FriendsMessages {
     public static final MessageKey STATUS_ONLINE = MessageKey.ui("friends.status.online");
     public static final MessageKey STATUS_AFK = MessageKey.ui("friends.status.afk");
     public static final MessageKey STATUS_SEEN = MessageKey.ui("friends.status.seen", "ago");
+    /** Offline, when the friend doesn't show the viewer when they were last online ({@code seen-privacy}). */
+    public static final MessageKey STATUS_OFFLINE = MessageKey.ui("friends.status.offline");
 
     // ------------------------------------------------------------------ list dialog and chat list
 
@@ -150,6 +152,8 @@ public final class FriendsMessages {
     public static final MessageKey PROFILE_STATUS_ONLINE = MessageKey.ui("friends.profile.status-online");
     public static final MessageKey PROFILE_STATUS_AFK = MessageKey.ui("friends.profile.status-afk");
     public static final MessageKey PROFILE_STATUS_SEEN = MessageKey.ui("friends.profile.status-seen", "ago");
+    /** Offline, without the time ({@code seen-privacy} keeps it from the viewer). */
+    public static final MessageKey PROFILE_STATUS_OFFLINE = MessageKey.ui("friends.profile.status-offline");
     public static final MessageKey PROFILE_SINCE = MessageKey.ui("friends.profile.since", "date");
     public static final MessageKey PROFILE_TEAM = MessageKey.ui("friends.profile.team", "team");
     public static final MessageKey PROFILE_RANK = MessageKey.ui("friends.profile.rank", "rank");
@@ -189,34 +193,41 @@ public final class FriendsMessages {
 
     // ------------------------------------------------------------------ settings
 
-    public static final MessageKey SETTINGS_TITLE = MessageKey.ui("friends.settings.title");
-    public static final MessageKey SETTINGS_BODY = MessageKey.ui("friends.settings.body");
-    public static final MessageKey SETTINGS_BODY_KNOWN = MessageKey.ui("friends.settings.body-known");
-    public static final MessageKey SETTINGS_REQUESTS = MessageKey.ui("friends.settings.requests");
-    public static final MessageKey SETTINGS_REQUESTS_EVERYONE = MessageKey.ui("friends.settings.requests-everyone");
-    public static final MessageKey SETTINGS_REQUESTS_KNOWN = MessageKey.ui("friends.settings.requests-known");
-    public static final MessageKey SETTINGS_REQUESTS_NOBODY = MessageKey.ui("friends.settings.requests-nobody");
-    public static final MessageKey SETTINGS_JOIN_ALERTS = MessageKey.ui("friends.settings.join-alerts");
-    public static final MessageKey SETTINGS_JOIN_ALERTS_ALL = MessageKey.ui("friends.settings.join-alerts-all");
-    public static final MessageKey SETTINGS_JOIN_ALERTS_FAVOURITES = MessageKey.ui("friends.settings.join-alerts-favourites");
-    public static final MessageKey SETTINGS_JOIN_ALERTS_OFF = MessageKey.ui("friends.settings.join-alerts-off");
-    public static final MessageKey SETTINGS_LEAVE_ALERTS = MessageKey.ui("friends.settings.leave-alerts");
-    public static final MessageKey SETTINGS_REQUEST_ALERTS = MessageKey.ui("friends.settings.request-alerts");
-    public static final MessageKey SETTINGS_ANNOUNCE = MessageKey.ui("friends.settings.announce");
-    public static final MessageKey SETTINGS_SUBMIT = MessageKey.ui("friends.settings.submit");
-    public static final MessageKey SETTINGS_SAVED = MessageKey.success("friends.settings.saved");
     public static final MessageKey SETTINGS_SET = MessageKey.success("friends.settings.set", "setting", "value");
     public static final MessageKey SETTINGS_CURRENT = MessageKey.chat("friends.settings.current", "setting", "value");
     public static final MessageKey SETTINGS_UNKNOWN_KEY = MessageKey.error("friends.settings.unknown-key", "keys");
     public static final MessageKey SETTINGS_UNKNOWN_VALUE = MessageKey.error("friends.settings.unknown-value", "setting", "values");
+    /** The server fixed the setting for everyone ({@code locked} in features/settings.yml). */
+    public static final MessageKey SETTINGS_LOCKED = MessageKey.error("friends.settings.locked", "setting", "value");
+    /** The server hides the setting ({@code hidden} in features/settings.yml), or it is not offered now. */
+    public static final MessageKey SETTINGS_UNAVAILABLE = MessageKey.error("friends.settings.unavailable", "setting");
+    /** Another plugin stopped the change. */
+    public static final MessageKey SETTINGS_REFUSED = MessageKey.error("friends.settings.refused", "setting");
+    /** The friends list's Settings button when the player can change none of the friends and teams settings. */
+    public static final MessageKey SETTINGS_NONE = MessageKey.info("friends.settings.none");
 
-    /** Labels of the three on/off settings in the general settings dialog. */
-    public static final MessageKey SETTING_LEAVE_ALERTS = MessageKey.ui("friends.settings.toggle-leave");
-    public static final MessageKey SETTING_LEAVE_ALERTS_DESCRIPTION = MessageKey.ui("friends.settings.toggle-leave-description");
+    /** The friends settings in Settings, Friends &amp; teams: labels, descriptions and option names. */
+    public static final MessageKey SETTING_REQUESTS = MessageKey.ui("friends.settings.requests");
+    public static final MessageKey SETTING_REQUESTS_DESCRIPTION = MessageKey.ui("friends.settings.requests-description");
+    public static final MessageKey SETTING_REQUESTS_KNOWN = MessageKey.ui("friends.settings.requests-known");
+    public static final MessageKey SETTING_JOIN_ALERTS = MessageKey.ui("friends.settings.join-alerts");
+    public static final MessageKey SETTING_JOIN_ALERTS_DESCRIPTION = MessageKey.ui("friends.settings.join-alerts-description");
+    public static final MessageKey SETTING_JOIN_ALERTS_ALL = MessageKey.ui("friends.settings.join-alerts-all");
+    public static final MessageKey SETTING_JOIN_ALERTS_FAVOURITES = MessageKey.ui("friends.settings.join-alerts-favourites");
     public static final MessageKey SETTING_REQUEST_ALERTS = MessageKey.ui("friends.settings.toggle-requests");
     public static final MessageKey SETTING_REQUEST_ALERTS_DESCRIPTION = MessageKey.ui("friends.settings.toggle-requests-description");
     public static final MessageKey SETTING_ANNOUNCE = MessageKey.ui("friends.settings.toggle-announce");
     public static final MessageKey SETTING_ANNOUNCE_DESCRIPTION = MessageKey.ui("friends.settings.toggle-announce-description");
+    public static final MessageKey SETTING_JOIN_SUMMARY = MessageKey.ui("friends.settings.join-summary");
+    public static final MessageKey SETTING_JOIN_SUMMARY_DESCRIPTION = MessageKey.ui("friends.settings.join-summary-description");
+    public static final MessageKey SETTING_LEAVE_ALERTS = MessageKey.ui("friends.settings.toggle-leave");
+    public static final MessageKey SETTING_LEAVE_ALERTS_DESCRIPTION = MessageKey.ui("friends.settings.toggle-leave-description");
+    public static final MessageKey SETTING_LIST_ORDER = MessageKey.ui("friends.settings.list-order");
+    public static final MessageKey SETTING_LIST_ORDER_DESCRIPTION = MessageKey.ui("friends.settings.list-order-description");
+    public static final MessageKey SETTING_LIST_ORDER_STATUS = MessageKey.ui("friends.settings.list-order-status");
+    public static final MessageKey SETTING_LIST_ORDER_NAME = MessageKey.ui("friends.settings.list-order-name");
+    public static final MessageKey SETTING_LIST_ORDER_LAST_SEEN = MessageKey.ui("friends.settings.list-order-last-seen");
+    public static final MessageKey SETTING_LIST_ORDER_OLDEST = MessageKey.ui("friends.settings.list-order-oldest");
 
     public static final MessageKey HELP = MessageKey.chat("friends.help");
     public static final MessageKey CONSOLE_HELP = MessageKey.chat("friends.console-help");
