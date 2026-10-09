@@ -184,6 +184,8 @@ class StaffHierarchyTest {
     void refusalsAreAudited() throws Exception {
         Fakes.FakePlayer admin = join("Admin", ADMIN);
         guard(this.mod.player, admin.id);
+        // The audit row is written by the database writer; wait for it before reading.
+        this.database.flush();
         List<AuditLog.Entry> rows = new AuditLog(this.database).recent("staff.hierarchy.refused", admin.id.toString(), 5).get(5, TimeUnit.SECONDS);
         assertEquals(1, rows.size());
     }
