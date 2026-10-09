@@ -1,6 +1,8 @@
 # Placeholders
 
-Every placeholder SiftCore 1.0.0 provides (124), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
+Every placeholder SiftCore 1.0.0 provides (127), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
+
+Every placeholder also answers under the server's name, `%siftvanilla_<name>%` (for example `%siftvanilla_shards%`), so configs written for SiftVanilla keep working.
 
 Money placeholders (`balance`, `balance_number`, `baltop_value_<rank>`, `bounty_total`, `bounty_top_value_<n>`, `orders_held`, `orders_best_<item>`, `orders_top_price_<n>`, `sell_sold`, `sell_top_value_<n>`, `stats_earned`, `top_money_value_<n>`, `top_earned_value_<n>`, `worth_<item>`) follow the "Money format" setting of the player PlaceholderAPI asks for: $1,234,567 in full, $1.2m short, $1.23m the server's way. Who that player is depends on the plugin showing it. For the SiftCore sidebar and TAB's header and footer it is the player who sees the line. For TAB's tab list names, nametags and below-name lines, and for chat plugins' formats, it is the player the line is about, so everyone sees that player's choice there: use `balance_server` (the server's way for everyone), `balance_exact` (every digit) or `balance_raw` (the plain number) in those places for one format for all. Asked for no player (holograms, plugins that pass none) they are the server's way; asked for a player who is offline, they follow the server's default (or lock) for `money-format` in `features/settings.yml`.
 
@@ -20,7 +22,7 @@ Money placeholders (`balance`, `balance_number`, `baltop_value_<rank>`, `bounty_
 | `%siftcore_balance_raw%` | Your money as a plain number (2500000) |
 | `%siftcore_balance_server%` | Your money the server's way for everyone ($1,500 or $2.5m), whatever money format anyone chose |
 | `%siftcore_baltop_name_<rank>%` | Name at a leaderboard place (1-100) |
-| `%siftcore_baltop_rank%` | Your place on the money leaderboard (0 when unranked) |
+| `%siftcore_baltop_rank%` | Your place on the money leaderboard (0 when unranked or hidden) |
 | `%siftcore_baltop_value_<rank>%` | Money at a leaderboard place, in the viewer's money format (the server's way without a viewer) |
 | `%siftcore_booster_active%` | Whether a sell booster runs right now (true or false) |
 | `%siftcore_booster_by%` | Who the running sell booster is from (empty when none runs) |
@@ -33,7 +35,7 @@ Money placeholders (`balance`, `balance_number`, `baltop_value_<rank>`, `bounty_
 | `%siftcore_bounty_total_raw%` | The bounty on you as a plain number |
 | `%siftcore_chat_color%` | Your chat colour: a colour name, #RRGGBB or #RRGGBB:#RRGGBB for a gradient; empty without one |
 | `%siftcore_chat_ignoring%` | How many players you ignore |
-| `%siftcore_chat_reply%` | Who /r answers, - when nobody |
+| `%siftcore_chat_reply%` | Who /r answers (following the /r replies to setting), - when nobody |
 | `%siftcore_chat_slowmode%` | The chat slow mode gap in seconds, 0 when off |
 | `%siftcore_combat_tagged%` | Whether you are in combat (true or false) |
 | `%siftcore_combat_time%` | Whole seconds of combat left (0 when not in combat) |
@@ -66,15 +68,18 @@ Money placeholders (`balance`, `balance_number`, `baltop_value_<rank>`, `bounty_
 | `%siftcore_orders_top_price_<n>%` | The price each of the n-th biggest open order |
 | `%siftcore_orders_waiting%` | Delivered items waiting for you in your orders |
 | `%siftcore_orders_wanted_<item>%` | Items still wanted by open orders for an item, like orders_wanted_diamond |
-| `%siftcore_rank%` | Your rank as plain text (LuckPerms; empty for the default group) |
-| `%siftcore_rank_color%` | Your rank's colour as #RRGGBB (the first colour of a gradient), empty without one |
-| `%siftcore_rank_group%` | Your primary LuckPerms group in lowercase (default without LuckPerms) |
+| `%siftcore_rank%` | Your rank as plain text (LuckPerms; empty for the default group or with Show my rank off) |
+| `%siftcore_rank_color%` | Your rank's colour as #RRGGBB (the first colour of a gradient), empty without one or with Show my rank off |
+| `%siftcore_rank_group%` | Your primary LuckPerms group in lowercase (default without LuckPerms or with Show my rank off) |
 | `%siftcore_sell_mastery_<category>%` | Your sell mastery level in a category (0-5) |
 | `%siftcore_sell_multiplier%` | Your sell multiplier from sell.yml multipliers (1 when none apply; mastery not included) |
 | `%siftcore_sell_multiplier_<category>%` | Your multiplier for a sell category, rank plus mastery, like 1.6 (a running sell booster comes on top) |
 | `%siftcore_sell_sold%` | Everything you sold to the server, at base value (what mastery counts), in your money format |
 | `%siftcore_sell_top_name_<n>%` | Name of the n-th best seller (1-10) |
 | `%siftcore_sell_top_value_<n>%` | What the n-th best seller sold (1-10), in the viewer's money format (the server's way without a viewer) |
+| `%siftcore_setting_<id>%` | A setting's value as stored (true or false, an option id, a number); empty for private settings |
+| `%siftcore_settings_changed%` | How many of their settings the player changed from the server's defaults |
+| `%siftcore_settingtext_<id>%` | A setting's value as players read it (on, Everyone, 60%); empty for private settings |
 | `%siftcore_shards%` | Your shards with separators (1,250) |
 | `%siftcore_shards_raw%` | Your shards as a plain number |
 | `%siftcore_spawners_count%` | How many spawner blocks you own |

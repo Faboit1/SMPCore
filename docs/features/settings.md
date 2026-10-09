@@ -315,28 +315,82 @@ the placeholders and the API pick a registered setting up by themselves. A comma
 
 ## Settings catalog
 
-Every player setting SiftCore 1.0.0 registers (69), generated with `/sift settings catalog`. Values are what `/settings`, `/sift settings` and `features/settings.yml` take; the default is the built-in one (the server can change it).
+Every player setting SiftCore 1.0.0 registers (133), generated with `/sift settings catalog`. Values are what `/settings`, `/sift settings` and `features/settings.yml` take; the default is the built-in one (the server can change it).
 
 | Group | Id | Kind | Values | Default | Label | Permission | Notes |
 |---|---|---|---|---|---|---|---|
-| Chat (`chat`) | `mentions` | toggle | true, false | `true` | Mention alerts |  |  |
-| Chat (`chat`) | `private-messages` | toggle | true, false | `true` | Private messages |  |  |
-| Chat (`chat`) | `social-spy` | toggle | true, false | `false` | Social spy | `siftcore.chat.socialspy` |  |
+| Chat (`chat`) | `mentions` | choice | actionbar, chat, title, off | `actionbar` | Mention alerts |  |  |
+| Chat (`chat`) | `private-messages` | choice | everyone, friends-team, friends, nobody | `everyone` | Who can message me |  |  |
+| Chat (`chat`) | `public-chat` | toggle | true, false | `true` | Show public chat |  |  |
+| Chat (`chat`) | `pm-alert` | choice | off, actionbar, title | `off` | Private message pop-up |  |  |
+| Chat (`chat`) | `mention-from` | choice | everyone, friends-team, friends | `everyone` | Who can ping me |  |  |
+| Chat (`chat`) | `mention-highlight` | choice | bold, underline, off | `bold` | Highlight my name |  |  |
+| Chat (`chat`) | `chat-filter-strict` | toggle | true, false | `false` | Strict word filter |  |  |
+| Chat (`chat`) | `reply-target` | choice | last-conversation, last-received | `last-conversation` | /r replies to |  |  |
+| Chat (`chat`) | `mention-plain-names` | toggle | true, false | `true` | Ping on plain name |  |  |
+| Chat (`chat`) | `chat-hide-new` | toggle | true, false | `false` | Hide brand-new players |  |  |
 | Chat (`chat`) | `show-chat-colors` | toggle | true, false | `true` | Chat colours |  |  |
+| Friends & teams (`social`) | `friends-requests` | choice | everyone, known, nobody | `everyone` | Friend requests from |  |  |
+| Friends & teams (`social`) | `friends-join-alerts` | choice | all, favourites, off | `all` | Friend join alerts |  |  |
+| Friends & teams (`social`) | `team-notices` | choice | chat, actionbar, off | `chat` | Team news |  |  |
+| Friends & teams (`social`) | `friends-request-alerts` | toggle | true, false | `true` | Friend request alerts |  |  |
+| Friends & teams (`social`) | `team-member-alerts` | choice | joins-and-leaves, joins, off | `joins` | Teammate login alerts |  |  |
+| Friends & teams (`social`) | `team-invites` | choice | everyone, friends, nobody | `everyone` | Team invites from |  |  |
+| Friends & teams (`social`) | `friends-announce` | toggle | true, false | `true` | Tell friends when I join |  |  |
+| Friends & teams (`social`) | `friends-join-summary` | toggle | true, false | `true` | Friends summary on join |  |  |
+| Friends & teams (`social`) | `friends-leave-alerts` | toggle | true, false | `false` | Friend leave alerts |  |  |
+| Friends & teams (`social`) | `friends-list-order` | choice | status, name, last-seen, oldest | `status` | Sort friends by |  |  |
+| Friends & teams (`social`) | `team-chat-sticky` | toggle | true, false | `false` | Remember team chat mode |  |  |
 | Server announcements (`announcements`) | `death-messages` | choice | all, pvp, friends-team, off | `all` | Death messages |  |  |
+| Server announcements (`announcements`) | `join-leave-messages` | choice | all, first-joins, off | `all` | Join and leave messages |  |  |
+| Server announcements (`announcements`) | `crate-wins` | choice | all, rarest, off | `all` | Crate win announcements |  |  |
 | Server announcements (`announcements`) | `bounty-announcements` | choice | all, 100k, 1m, 10m, off | `all` | Bounty announcements |  |  |
+| Server announcements (`announcements`) | `orders_announce` | choice | all, 1m, 10m, 100m, off | `all` | Big order announcements |  |  |
 | Server announcements (`announcements`) | `kill-streak-announcements` | toggle | true, false | `true` | Kill streak announcements |  |  |
 | Server announcements (`announcements`) | `combat-log-announcements` | toggle | true, false | `true` | Combat log announcements |  |  |
+| Server announcements (`announcements`) | `booster-announcements` | choice | all, starts, off | `all` | Sell booster announcements |  |  |
 | Sounds (`sound`) | `sound-volume` | number | 0-100 step 10 (%) | `100` | SiftCore volume |  |  |
 | Sounds (`sound`) | `sound-notify` | toggle | true, false | `true` | Notification pings |  |  |
-| Sounds (`sound`) | `sound-mention` | choice | default, bell, pling, chime, off | `default` | Mention sound |  | not offered now (its feature is off or does not read it yet) |
-| Sounds (`sound`) | `sound-pm` | choice | default, bell, pling, chime, off | `default` | Private message sound |  | not offered now (its feature is off or does not read it yet) |
+| Sounds (`sound`) | `sound-mention` | choice | default, bell, pling, chime, off | `default` | Mention sound |  |  |
+| Sounds (`sound`) | `sound-pm` | choice | default, bell, pling, chime, off | `default` | Private message sound |  |  |
 | Sounds (`sound`) | `sound-clicks` | toggle | true, false | `true` | Menu click sounds |  |  |
 | Sounds (`sound`) | `sound-success` | toggle | true, false | `true` | Success chimes |  |  |
 | Sounds (`sound`) | `sound-errors` | toggle | true, false | `true` | Error sounds |  |  |
-| Sounds (`sound`) | `sound-team-chat` | choice | off, default, bell, pling, chime | `off` | Team chat sound |  | not offered now (its feature is off or does not read it yet) |
-| Teleports & homes (`teleport`) | `friends-tpa` | choice | nobody, favourites, all, friends-team | `nobody` | Auto-accept /tpa from |  | not offered now (its feature is off or does not read it yet) |
+| Sounds (`sound`) | `sound-team-chat` | choice | off, default, bell, pling, chime | `off` | Team chat sound |  |  |
+| Teleports & homes (`teleport`) | `tpa-requests` | choice | everyone, friends-team, friends, nobody | `everyone` | Teleport requests from |  |  |
+| Teleports & homes (`teleport`) | `friends-tpa` | choice | nobody, favourites, all, friends-team | `nobody` | Auto-accept /tpa from |  |  |
+| Teleports & homes (`teleport`) | `homes-confirm-overwrite` | toggle | true, false | `true` | Confirm moving a home |  |  |
+| Teleports & homes (`teleport`) | `teleport-display` | choice | actionbar, title, chat, off | `actionbar` | Teleport countdown |  |  |
+| Teleports & homes (`teleport`) | `homes-bare-command` | choice | smart, default-home, list | `smart` | /home with no name |  |  |
+| Teleports & homes (`teleport`) | `tpahere-requests` | choice | everyone, friends-team, friends, nobody | `everyone` | Pull requests from |  |  |
+| Teleports & homes (`teleport`) | `tpa-popup` | toggle | true, false | `false` | Requests open a pop-up |  |  |
+| Teleports & homes (`teleport`) | `tpaccept-confirm-here` | toggle | true, false | `true` | Confirm before being pulled |  |  |
+| Teleports & homes (`teleport`) | `rtp-confirm-cost` | toggle | true, false | `true` | Confirm paid random teleports |  |  |
+| Teleports & homes (`teleport`) | `rtp-default` | choice | menu, last | `menu` | /rtp with no region |  |  |
 | Money & selling (`economy`) | `sell_receipts` | choice | chat, actionbar, off | `chat` | Sale receipts |  |  |
+| Money & selling (`economy`) | `pay-notifications` | choice | chat, actionbar, off | `chat` | Payment alerts |  |  |
+| Money & selling (`economy`) | `sell_all_confirm` | choice | server, always, 10k, 100k, 1m, never | `server` | Confirm /sell all from |  |  |
+| Money & selling (`economy`) | `sell-all-hotbar` | choice | server, keep, sell | `server` | Hotbar on /sell all |  |  |
+| Money & selling (`economy`) | `sell_orders` | toggle | true, false | `true` | Sell to buy orders first |  |  |
+| Money & selling (`economy`) | `pay-confirm-above` | choice | server, always, 1k, 10k, 100k | `server` | Confirm payments from |  |  |
+| Money & selling (`economy`) | `pay-accept-from` | choice | everyone, friends-team, friends, nobody | `everyone` | Who can pay me |  |  |
+| Money & selling (`economy`) | `pay-join-summary` | toggle | true, false | `true` | Offline payments summary |  |  |
+| Money & selling (`economy`) | `pay-alert-minimum` | choice | any, 100, 1k, 10k, 100k | `any` | Only alert payments from |  |  |
+| Money & selling (`economy`) | `sell-all-shulkers` | toggle | true, false | `true` | /sell all opens shulker boxes |  |  |
+| Money & selling (`economy`) | `sell-menu-close` | choice | return, sell | `return` | Closing the sell menu |  |  |
+| Money & selling (`economy`) | `mastery-levelup` | choice | chat, actionbar, title, off | `chat` | Sell mastery level-ups |  |  |
+| Shop, auction & orders (`market`) | `auction-sales` | choice | chat, actionbar, off | `chat` | Auction sale alerts |  |  |
+| Shop, auction & orders (`market`) | `order-notices` | choice | chat, actionbar, complete, off | `chat` | Order delivery alerts |  |  |
+| Shop, auction & orders (`market`) | `shop-confirm-above` | choice | server, always, 10k, 100k, 1m, never | `server` | Confirm purchases from |  |  |
+| Shop, auction & orders (`market`) | `auction-join-summary` | toggle | true, false | `true` | Auction summary on join |  |  |
+| Shop, auction & orders (`market`) | `order-join-summary` | toggle | true, false | `true` | Order summary on join |  |  |
+| Shop, auction & orders (`market`) | `shop-default-amount` | choice | stack, one, last, fill | `stack` | Buy window starts at |  |  |
+| Shop, auction & orders (`market`) | `order-ending-alerts` | toggle | true, false | `true` | Order ending warnings |  |  |
+| Shop, auction & orders (`market`) | `auction-price-warning` | toggle | true, false | `true` | Low price warning |  |  |
+| Shop, auction & orders (`market`) | `shop-receipts` | choice | chat, actionbar | `chat` | Purchase receipts |  |  |
+| Shop, auction & orders (`market`) | `order-auto-collect` | toggle | true, false | `false` | Auto-collect deliveries |  |  |
+| Shop, auction & orders (`market`) | `auction-expiry-alerts` | choice | chat, actionbar, off | `chat` | Expired listing alerts |  |  |
+| Shop, auction & orders (`market`) | `auction-hide-own` | toggle | true, false | `false` | Hide my own listings |  |  |
 | Combat & stats (`combat`) | `combat-timer-display` | choice | actionbar, bossbar, both, off | `actionbar` | Combat timer |  |  |
 | Combat & stats (`combat`) | `combat-tag-alert` | choice | chat, actionbar, title, off | `chat` | Entering combat alert |  |  |
 | Combat & stats (`combat`) | `kill-feedback` | choice | actionbar, chat, title, off | `actionbar` | Kill confirmation |  |  |
@@ -348,13 +402,18 @@ Every player setting SiftCore 1.0.0 registers (69), generated with `/sift settin
 | Combat & stats (`combat`) | `leaderboard-rank-alerts` | choice | top-10, all, off | `top-10` | Leaderboard climb alerts |  |  |
 | Combat & stats (`combat`) | `bounty-confirm-above` | choice | server, always, 10k, 100k, 1m | `server` | Confirm bounties from |  |  |
 | Combat & stats (`combat`) | `bounty-join-reminder` | toggle | true, false | `true` | Bounty reminder on join |  |  |
+| Display (`display`) | `scoreboard` | toggle | true, false | `true` | Sidebar |  | applies at once |
 | Display (`display`) | `feedback-channel` | choice | actionbar, chat, both | `actionbar` | Quick results and errors |  |  |
-| Display (`display`) | `booster-bar` | toggle | true, false | `true` | Booster bar |  |  |
+| Display (`display`) | `sidebar-layout` | choice | full, compact, combat | `full` | Sidebar lines |  | applies at once |
+| Display (`display`) | `money-format` | choice | server, full, short | `server` | Money format |  |  |
+| Display (`display`) | `show-spawn-holograms` | toggle | true, false | `true` | Spawn holograms |  | not offered now (its feature is off or does not read it yet); applies at once |
+| Display (`display`) | `booster-bar` | toggle | true, false | `true` | Booster bar |  | applies at once |
 | Display (`display`) | `show-kill-effects` | toggle | true, false | `true` | Kill effects |  |  |
-| Display (`display`) | `scoreboard` | toggle | true, false | `true` | Sidebar |  |  |
 | Privacy (`privacy`) | `hide-coordinates` | toggle | true, false | `false` | Streamer mode: hide coordinates |  |  |
-| Privacy (`privacy`) | `seen-privacy` | choice | everyone, friends, nobody | `everyone` | Who sees when I was last online |  | not offered now (its feature is off or does not read it yet) |
+| Privacy (`privacy`) | `seen-privacy` | choice | everyone, friends, nobody | `everyone` | Who sees when I was last online |  |  |
 | Privacy (`privacy`) | `balance-privacy` | choice | everyone, friends, nobody | `everyone` | Who can see my balance |  |  |
+| Privacy (`privacy`) | `order-announce-mine` | toggle | true, false | `true` | Announce my big orders |  |  |
+| Privacy (`privacy`) | `show-my-rank` | toggle | true, false | `true` | Show my rank | `siftcore.settings.hide-rank` |  |
 | Privacy (`privacy`) | `hide-from-leaderboards` | toggle | true, false | `false` | Hide me from leaderboards | `siftcore.stats.hide` |  |
 | AFK & shards (`afk`) | `afk-zone-status` | choice | actionbar, bossbar, off | `actionbar` | AFK zone countdown |  |  |
 | AFK & shards (`afk`) | `afk-zone-payouts` | choice | actionbar, chat, off | `actionbar` | AFK zone payout messages |  |  |
@@ -363,9 +422,28 @@ Every player setting SiftCore 1.0.0 registers (69), generated with `/sift settin
 | AFK & shards (`afk`) | `afk-return-summary` | toggle | true, false | `true` | Welcome-back summary |  |  |
 | AFK & shards (`afk`) | `shard-confirm-above` | choice | server, always, 100, 1000, 5000, never | `server` | Confirm shard buys from |  |  |
 | AFK & shards (`afk`) | `shard-shop-stay-open` | toggle | true, false | `false` | Keep the shard shop open |  |  |
+| Crates & kits (`crates`) | `crate-receipt` | choice | chat, actionbar, off | `chat` | Crate win receipt |  |  |
+| Crates & kits (`crates`) | `kit-reminders` | choice | chat, actionbar, title, off | `chat` | Kit reminders | `siftcore.command.kits` | applies at once |
+| Crates & kits (`crates`) | `crate-key-reminder` | toggle | true, false | `true` | Unopened key reminder |  |  |
+| Crates & kits (`crates`) | `keyall-countdown` | choice | both, chat, actionbar, off | `both` | Keyall countdown |  |  |
+| Crates & kits (`crates`) | `crate-quick-open` | choice | one, bulk, off | `one` | Sneak + right-click a crate |  |  |
+| Crates & kits (`crates`) | `trash-protect` | choice | gear, valuables, off | `gear` | Trash protection | `siftcore.perk.trash` |  |
+| Crates & kits (`crates`) | `crate-bulk-amount` | number | 2-64 (keys) | `10` | Keys per bulk open |  |  |
+| Crates & kits (`crates`) | `kit-reminder-when` | choice | join-and-ready, join, ready | `join-and-ready` | When to remind about kits | `siftcore.command.kits` | applies at once |
+| Crates & kits (`crates`) | `kit-auto-equip` | toggle | true, false | `false` | Auto-equip kit armour | `siftcore.command.kits` |  |
+| Crates & kits (`crates`) | `trash-confirm` | choice | delete-on-close, delete-button | `delete-on-close` | Trash bin mode | `siftcore.perk.trash` |  |
+| Spawners (`spawners`) | `spawner-open-click` | choice | server, sneak-right-click, right-click | `server` | Open spawner storage with |  |  |
+| Spawners (`spawners`) | `spawner-full-alert` | choice | chat, actionbar, off | `actionbar` | Full storage alert |  |  |
+| Spawners (`spawners`) | `spawner-stack-click` | choice | one, whole-hand | `one` | Right-click with spawners adds |  |  |
+| Spawners (`spawners`) | `spawner-xp-mending` | choice | server, repair-first, levels-only | `server` | Spawner XP and mending |  |  |
+| Spawners (`spawners`) | `spawner-pickup-storage` | choice | server, claim-box, sell | `server` | Storage when I pick up my spawner |  |  |
+| Spawners (`spawners`) | `spawner-team-notices` | choice | pickups, all, off | `pickups` | Teammates using my spawners |  |  |
+| Spawners (`spawners`) | `spawner-confirm-give` | toggle | true, false | `true` | Confirm stacking onto others' spawners |  |  |
+| Staff (`staff`) | `social-spy` | toggle | true, false | `false` | Social spy | `siftcore.chat.socialspy` |  |
 | Staff (`staff`) | `staff-chat` | toggle | true, false | `true` | Show staff chat | `siftcore.staff.chat` |  |
 | Staff (`staff`) | `staff-punish-alerts` | choice | chat, actionbar, off | `chat` | Punishment alerts | `siftcore.staff.notify` |  |
 | Staff (`staff`) | `staff-report-alerts` | choice | chat, actionbar, off | `chat` | Report alerts | `siftcore.staff.reports` |  |
+| Staff (`staff`) | `team-spy` | toggle | true, false | `true` | Team chat spy | `siftcore.teams.spy` |  |
 | Staff (`staff`) | `vanish-on-join` | toggle | true, false | `false` | Join vanished | `siftcore.staff.vanish` |  |
 | Staff (`staff`) | `vanish-reminder` | toggle | true, false | `true` | Vanish reminder | `siftcore.staff.vanish` |  |
 | Staff (`staff`) | `vanish-see-vanished` | toggle | true, false | `true` | See vanished staff | `siftcore.staff.vanish.see` | applies at once |
@@ -374,21 +452,3 @@ Every player setting SiftCore 1.0.0 registers (69), generated with `/sift settin
 | Staff (`staff`) | `staff-confirm-bans` | toggle | true, false | `false` | Confirm bans | `siftcore.staff.ban` |  |
 | Staff (`staff`) | `vanish-fake-messages` | toggle | true, false | `false` | Fake join/leave on vanish | `siftcore.staff.vanish` |  |
 | Staff (`staff`) | `admin-config-alerts` | toggle | true, false | `true` | Config problem alerts | `siftcore.admin.reload` |  |
-| General (`general`) | `pay-notifications` | toggle | true, false | `true` | Payment messages |  |  |
-| General (`general`) | `auction-sales` | toggle | true, false | `true` | Auction sales |  |  |
-| General (`general`) | `team-spy` | toggle | true, false | `true` | Team chat spy | `siftcore.teams.spy` |  |
-| General (`general`) | `friends-announce` | toggle | true, false | `true` | Tell friends when I join |  |  |
-| General (`general`) | `friends-request-alerts` | toggle | true, false | `true` | Friend request alerts |  |  |
-| General (`general`) | `friends-leave-alerts` | toggle | true, false | `false` | Friend leave alerts |  |  |
-| General (`general`) | `sell_all_confirm` | toggle | true, false | `true` | Ask before /sell all |  |  |
-| General (`general`) | `sell_orders` | toggle | true, false | `true` | Sell to buy orders first |  |  |
-| General (`general`) | `crate-wins` | toggle | true, false | `true` | Crate wins |  |  |
-| General (`general`) | `order-notices` | toggle | true, false | `true` | Order messages |  |  |
-| General (`general`) | `orders_announce` | toggle | true, false | `true` | Big order announcements |  |  |
-| General (`general`) | `kit-reminders` | toggle | true, false | `true` | Kit reminders | `siftcore.command.kits` |  |
-| General (`general`) | `tpa-requests` | toggle | true, false | `true` | Teleport requests |  |  |
-| General (`general`) | `tpa-friends` | toggle | true, false | `false` | Friends skip requests |  |  |
-
-This table is generated from the registry of a server running every feature with the shipped config
-(`/sift settings catalog`); regenerate it whenever features add or move settings. "Not offered now" settings are
-registered but only shown once their feature reads them or the server turns their feature on.

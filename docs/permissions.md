@@ -57,7 +57,7 @@ Rank limits (homes, auction listings, team size and similar) are numeric nodes s
 | `siftcore.command.afkzone` | everyone | Teleport to the AFK zone with /afkzone |
 | `siftcore.command.ah` | everyone | Use the auction house with /ah |
 | `siftcore.command.balance` | everyone | Use /balance |
-| `siftcore.command.balance.others` | everyone | See other players' balances |
+| `siftcore.command.balance.others` | everyone | See other players' balances (when their balance privacy lets you) |
 | `siftcore.command.baltop` | everyone | Use /baltop |
 | `siftcore.command.booster` | everyone | See the server sell booster and what comes next with /booster |
 | `siftcore.command.bounties` | everyone | See bounties with /bounties |
@@ -263,7 +263,7 @@ Rank limits (homes, auction listings, team size and similar) are numeric nodes s
 | `siftcore.admin.crates` | operators | Give and take keys, start a keyall and manage crate blocks |
 | `siftcore.admin.debug` | operators | Toggle debug logging |
 | `siftcore.admin.displays` | operators | Place, move and delete leaderboards and info boards with /displays |
-| `siftcore.admin.eco` | operators | Change balances and read the ledger with /eco |
+| `siftcore.admin.eco` | operators | Change balances and read the ledger with /eco; see every balance |
 | `siftcore.admin.export` | operators | Export balances and the ledger as CSV (/sift export) |
 | `siftcore.admin.friends` | operators | Use /sift friends |
 | `siftcore.admin.homes` | operators | See, use and delete other players' homes with /homes &lt;player&gt; |
