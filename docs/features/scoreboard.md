@@ -113,8 +113,9 @@ layout: that layout's shipped lines). A key under `sidebar.layouts` other than `
 
 ### Other plugins (TAB)
 
-The server used the TAB plugin for the tab list, nametags and a sidebar before SiftCore, and the rank plan still
-describes TAB groups. Two plugins drawing the same sidebar, tab names or nametag teams fight (a player can be in one
+The live server runs TAB 6.2.0 with the owner's config (see [server-setup](../server-setup.md#tab)), so there all three
+parts are TAB's and SiftCore's own sidebar, tab list and nametags stay idle; they take over by themselves if TAB is
+removed. Two plugins drawing the same sidebar, tab names or nametag teams fight (a player can be in one
 scoreboard team only, and the last sidebar sent wins). So each part has a `yield-to` list: while one of those plugins
 is enabled, SiftCore leaves that part completely alone. With the defaults, installing TAB hands all three parts to
 it; SiftCore then puts players back on the main scoreboard, leaves tab names and the header alone, and `/sidebar`
@@ -207,7 +208,9 @@ every board. Players get no quit event at shutdown, so nothing else is needed.
   is offered (not with LuckPerms disconnected, and again once it is back), the permission and the server's `hidden`
   list still decide, and the scoreboard's id is the integrations feature's.
 - End to end (`tools/e2e/.../ScoreboardScenarios.java`, the bot records objective, display slot, score, reset,
-  team, tab list header/footer and player info packets):
+  team, tab list header/footer and player info packets). Run them on a test server without TAB: the shipped
+  `yield-to` lists hand every part to TAB, so with TAB installed SiftCore draws nothing and these scenarios fail.
+  None of them needs LuckPerms (ranks come from `group.<name>` permissions):
   - `scoreboard-sidebar`: objective in the sidebar slot, blank number format, plain white title, every line with
     custom text and the right colours; a payment resends only the money line; an idle refresh resends nothing but
     playtime; kills and deaths from the stats recorder; the team line appears in a team and goes on disband; the

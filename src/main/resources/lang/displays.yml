@@ -1,6 +1,8 @@
 # Text of /displays (leaderboards and info boards). What the displays themselves show is set in
-# features/displays.yml. Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline> plus each message's
-# own placeholders.
+# features/displays.yml.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 
 displays:
   created: "<primary>Placed <id> at <where>."

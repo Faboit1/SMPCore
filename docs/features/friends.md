@@ -9,11 +9,11 @@ The feature implements `core.link.FriendLookup`; `FriendsFeature#lookup()` retur
 
 | Contract | Wired | Used for |
 |---|---|---|
-| `IgnoreLookup` | `NONE` (no ignore list yet) | ignored senders' requests are hidden; no join alerts or auto-accepted teleports from ignored friends |
+| `IgnoreLookup` | chat (`ChatFeature#ignores()`) | ignored senders' requests are hidden; no join alerts or auto-accepted teleports from ignored friends |
 | `VanishStatus` | staff (`StaffFeature#vanish()`) | vanished players look offline everywhere here, trigger no alerts, get no Message/Teleport/Invite buttons, and can't send or accept requests while `requests.block-while-vanished` is on |
-| `AfkStatus` | `NONE` (no AFK feature yet) | the "AFK" status word |
+| `AfkStatus` | AFK (`AfkFeature#status()`) | the "AFK" status word |
 | `TeamLookup` | teams (`TeamsFeature#lookup()`) | team line, "friends of friends and teammates" privacy, the Invite to team button |
-| `Ranks` | `NONE` (no LuckPerms integration yet) | the rank line on profiles |
+| `Ranks` | integrations (`IntegrationsFeature#ranks()`, LuckPerms) | the rank line on profiles (empty for players who turned "Show my rank" off) |
 | `CombatStatus` | core combat tags | a sneak-click card is refused while either player is in combat |
 | `MuteStatus` | staff (`StaffFeature#mutes()`) | a muted player gets no Message button on profiles (and the message form refuses if the mute came in between) |
 
@@ -150,16 +150,16 @@ database: the handler tells the dialog router an answer is coming (`Dialogs#mark
 the dialog after its short grace and the player never sees the world flash between two screens. A read that fails
 closes the dialog and says "Something went wrong. Nothing was changed."
 
-Command buttons show only when the command is registered (`commands.yml` can turn commands off), the viewer has its
-permission (`siftcore.command.msg`, `.tpa`, `.team`, `.pay`, `.stats.others`) and, for Message, Teleport and Invite,
-the friend is visibly online (Invite also needs the friend to have no team and the viewer to be allowed to invite;
-Message is left out while the viewer is muted).
+Command buttons show only when a command is registered under the label (any plugin's, see "Known limitations"), the
+viewer has its permission (`siftcore.command.msg`, `.tpa`, `.team`, `.pay`, `.stats.others`) and, for Message,
+Teleport and Invite, the friend is visibly online (Invite also needs the friend to have no team and the viewer to be
+allowed to invite; Message is left out while the viewer is muted).
 They run the command as the player from the dialog handler, on the player's thread, exactly as if it had been typed:
 the command preprocess event fires first (`performCommand` alone would skip it), so the server's command guards apply
 (commands refused in combat, while frozen or while muted) and the other feature checks everything itself. If running
 it throws, or the server reports it as not run (`performCommand` returns false), the player gets "That didn't work.
 Run /tpa Alex instead." with the command as a link; a throw is also logged, once per command. Stats and Pay open the
-other feature's own screens, whose exit closes them (no Back to the profile yet; see the integration list below).
+other feature's own screens, whose exit closes them (no Back to the profile; see "Not built" under Design decisions).
 
 ## Presence
 
@@ -218,8 +218,8 @@ Shared settings friends reads (defined in core `SharedSettings`):
   in one query per screen. Staff with `siftcore.staff.whois` see every time.
 - `friends-tpa` (Teleports & homes: nobody / favourites / all / friends-team): `FriendLookup#autoAcceptTeleport`
   answers it (favourite friends only while favourites exist; "friends and teammates" also lets teammates in; never
-  someone the target ignores). It is offered once the teleport feature reads it; until then TPA's own "Friends skip
-  requests" switch (`tpa-friends`) is in charge and its rows move to `friends-tpa` when it is retired.
+  someone the target ignores). The teleport feature reads it (`TpaService`), so it is offered in Teleports & homes;
+  rows of TPA's retired "Friends skip requests" switch (`tpa-friends`) move to `friends-tpa` when a player loads.
 
 There is no "appear offline": the tab list and `/seen` show you anyway. `announce` off means no join or leave alerts.
 
@@ -300,27 +300,23 @@ They read memory only and answer `0` for players who are not loaded.
 | `autoAcceptTeleport(target, requester)` | the target is loaded, they are friends, the target's `friends-tpa` is `all` (or `favourites` and the requester is a favourite) and the target doesn't ignore the requester |
 | `favourite(owner, friend)` | the owner is loaded, `friend` is their friend marked as a favourite, and favourites are on (teams uses it so a favourite who gets the friends login alert isn't told twice) |
 
-Contracts the other features implement when they are built: TPA calls `autoAcceptTeleport(target, from)` on the
-requester's thread for plain `/tpa` only, keeps its warmup and combat refusal through `Teleports`, and suggests online
-friends first. Combat anti-farm and bounties use `recentlyFriends(killer, victim, window)` (24h by default), not
-`friends()`, so unfriend, kill and re-friend gives no credit. Chat makes names clickable (`/profile <name>`), uses
-`friends()` for friends-only messages, and implements `IgnoreLookup`; because chat consumes `FriendLookup`, the
-integration pass should build `IgnoreLookup` in core over the V009 `ignores` table to avoid a constructor cycle.
+How the other features use it (all wired in `FeatureCatalog`):
 
-State of the features that were merged before friends (wired for real in `FeatureCatalog`, each to be finished on its
-own side in the integration pass):
-
-| Feature | Uses today | Still to do on its side |
-|---|---|---|
-| TPA | `friends(target, sender)` plus its own `tpa-friends` toggle (`/tpatoggle friends`, `/settings`) | read the shared `friends-tpa` (`settings().reads(SharedSettings.FRIENDS_TPA)`) and call `autoAcceptTeleport(target, sender)` for plain `/tpa` (one line in `TpaService#skipsRequest`), and stop registering `tpa-friends` (its rows then move to `friends-tpa`); the teleport package does this |
-| Combat | `recentlyFriends(killer, victim, anti-farm.friends-window)` (24h) for anti-farm, so a removed friend gives no credit or bounty for a while | nothing |
+| Feature | Uses |
+|---|---|
+| TPA | `autoAcceptTeleport(target, sender)` for plain `/tpa` only (`TpaService`, reading the shared `friends-tpa`); the warmup and combat refusal still apply through `Teleports`; online friends are suggested first |
+| Combat (anti-farm, and through kill credit bounties and stats) | `recentlyFriends(killer, victim, anti-farm.friends-window)` (24h by default), not `friends()`, so unfriend, kill and re-friend gives no credit or bounty for a while |
+| Teams | `favourite(owner, friend)`, so a favourite who already gets the friends login alert isn't told twice |
+| Chat, economy, TPA, teams and every who-can setting | `services.relations()`, which core binds to `FriendLookup`, `TeamLookup` and chat's `IgnoreLookup` once every feature is built (friends only, friends and teammates, friends of friends) |
+| Chat | clicking a name in public chat runs `/profile <name>` |
 
 ## Hub and pause menu
 
 Hub entry `friends` (order 52, "Friends", "See who's online and add friends", `siftcore.command.friend`) opens the
 list with Back to the menu. The bundled `features/hub.yml` lists `friends` after `teams` in the pause menu and
-`lang/hub.yml` has its label. A live server keeps its existing `hub.yml` (only missing files are copied), so deploying
-the pause-menu button needs that one-line edit, a restart and a line in `docs/server-undo-log.md`.
+`lang/hub.yml` has its label. A server whose `pause-menu.entries` nobody edited gets the new entry written into its
+file by itself (shipped values nobody changed follow new defaults, see [hub](hub.md)), and the pause screen shows it from
+the following restart; an edited list needs `friends` added by hand and a restart.
 
 ## Config (`features/friends.yml`)
 
@@ -364,8 +360,7 @@ presence, offline accept and summary, staff tools, the dialogs (the Settings but
 buttons (no Invite to team while the friend's `team-invites` refuses), restart, request alerts, suggestions, links,
 second login, command cooldown, and `friends-settings` (who can send requests picked in the settings dialog, the
 server's default and lock, list order and login summary with `/friend settings`, the list order typed as
-`/settings friends-list-order name` (through the API until the settings UI package's command lands), `seen-privacy` in
-the list and profile).
+`/settings friends-list-order name`, `seen-privacy` in the list and profile).
 
 ## Design decisions and what was cut
 
@@ -377,23 +372,23 @@ the list and profile).
 - **No visible deny cooldown.** A detectable re-poke timer; silent deny memory replaces it.
 - **No inline dialogs in request lines, no rank on list rows, no Accept all, no friend leaderboards or activity feeds**
   (they invite alt farming and noise), **no `last_visible` column** ("seen" matches `/seen` exactly).
-- **Left for the integration pass** (they touch other packages): a core profile actions registry (it would also give
-  the Stats and Pay screens opened from a profile a Back to it: `StatsViews` already takes a back handler, the pay
-  form a cancel handler, but both are reached by command today), a shared chat modes service, `IgnoreLookup` in core,
-  per-player hub tooltips, a vanish change event, `StatsRecorder.load`, a suggest-command dialog button type, and the
-  `CommandSupport.knownPlayer` vanish leak (friends uses its own suggestion providers).
+- **Not built** (they touch other packages): a core profile actions registry (it would also give the Stats and Pay
+  screens opened from a profile a Back to it: `StatsViews` already takes a back handler, the pay form a cancel handler,
+  but both are reached by command), a shared chat modes service, per-player hub tooltips, a vanish change event,
+  `StatsRecorder.load` and a suggest-command dialog button type. Friends keeps its own name suggestion providers;
+  core's `CommandSupport.onlinePlayer`/`knownPlayer` hide vanished staff as well now.
 
 ## Known limitations
 
 - Vanishing or unvanishing mid-session produces no fake leave or join alert; lists and buttons follow `VanishStatus`
   live. A vanished player's "seen" time is their last join, the same as `/seen`.
-- `IgnoreLookup` is `NONE` until an ignore list exists, so ignore hiding is inactive until then.
-- Profile buttons appear only for commands that exist: `msg` is the vanilla command (operators only) until the chat
-  feature exists, and `ignore` is not a command yet, so "Deny and ignore" stays hidden. Teleport request (`/tpa`),
-  Invite to team, Pay and Stats run SiftCore's own commands.
-- `friends-tpa` is not offered to players while TPA uses its own `tpa-friends` toggle (see the table above), so
-  `autoAcceptTeleport` answers from its default (nobody) until the teleport package switches TPA over.
+- Profile buttons and "Deny and ignore" appear only when a command answers to the label (`/msg`, `/tpa`, `/team`,
+  `/pay`, `/stats`, `/ignore`) and the viewer has SiftCore's node for it (`siftcore.command.msg`, ...,
+  `siftcore.command.stats.others` on someone else's card). The label check looks for any command registered under
+  that name, not only SiftCore's: a label yielded to another plugin in `commands.yml` keeps its button, which then
+  runs that plugin's command, and a command turned off there loses its button only when nothing else registers the
+  label.
 - The settings dialog's page is built by the settings feature: after Save it shows the settings groups (Back from
   there returns to the friends list), not the friends list directly.
-- Stats and Pay opened from a profile have no Back to it (see the integration list).
+- Stats and Pay opened from a profile have no Back to it (see "Not built" above).
 - `recentlyFriends` remembers at most 7 days. Rate buckets reset on restart; the daily cap does not.

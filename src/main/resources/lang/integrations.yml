@@ -1,5 +1,8 @@
-# Text of the plugin hooks and the admin tools under /sift (status, backups, exports, audit, registries, store).
-# Allowed tags: <primary> <secondary> <money> <icon:name> <!italic> <newline>, plus each message's own placeholders.
+# Text of the plugin hooks and the admin tools under /sift (status, backups, exports, audit, registries, store)
+# and /purchases.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 
 integrations:
   status:

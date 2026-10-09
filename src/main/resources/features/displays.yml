@@ -9,8 +9,9 @@
 # Changes apply with /sift reload: text and looks change in place, displays with a new position move there.
 
 # What each display shows, one entry per line. Lines use the same tags as the lang files: <primary> (white),
-# <secondary> (gray), <money> (money amounts), <error> (red), any colour (<red>, <gold>, <#3CC4EE>), <bold>,
-# <shadow:#000000> and <icon:name> (followed by a space).
+# <secondary> (gray), <money> (money amounts), <error> (red), named and hex colours (<red>, <gold>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name> (followed by a space) and <!italic>. Gradients, rainbow, obfuscated text and
+# § colour codes are rejected: /sift reload refuses the file and lists the line.
 # "" is an empty line.
 # {name} inserts a SiftCore placeholder that is the same for every player, for example {baltop_name_1} and
 # {baltop_value_1} (/sift placeholders lists them). A placeholder without a value, such as an empty leaderboard

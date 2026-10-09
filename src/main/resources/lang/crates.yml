@@ -1,7 +1,9 @@
 # Text of /crates, /keys and /keyall.
-# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, click and hover, plus each message's own
-# placeholders. Money amounts are coloured automatically. Bold, gradients and other colours are rejected on load.
-# Crate names, reward lines and rarity labels come from features/crates.yml and are inserted as plain text.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Money amounts are coloured automatically. Crate names, reward lines and rarity labels come from
+# features/crates.yml and are inserted as plain text.
 
 crates:
   keys:

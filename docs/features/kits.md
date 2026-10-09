@@ -6,12 +6,13 @@ commands that work anywhere: the ender chest, crafting table, anvil, stonecutter
 cartography table, a trash bin and a hat. Package `feature/kits`, config `features/kits.yml`, text `lang/kits.yml`,
 table `kit_claims` (V008), claim box `deliveries` (V001, source `kit`).
 
-It consumes two contracts and provides none:
+It consumes three contracts (all wired in `FeatureCatalog`) and provides none:
 
 | Contract | Wired | Used for |
 |---|---|---|
 | `CombatStatus` | the shared combat tags (`CombatTags`) | With `block-in-combat` (shipped on) kits can't be claimed in combat; perks listed in `perks.blocked-in-combat` (all of them in the shipped file) are refused, and with `close-on-combat` their open screens close when the player gets tagged |
 | `CrateKeys` | the crates feature (`CratesFeature#keys()`) | A kit's `keys:` and validating that the named crates exist. No shipped kit gives keys: crates are random rewards, which the store rules don't allow a paid rank to buy; free or event kits can use it |
+| `WorthLookup` | the sell feature (`SellFeature#worth()`) | The trash bin's "valuables" protection: stacks worth at least `perks.trash.protect-worth` at /sell are given back |
 
 `KitsFeature` is constructed right after `CratesFeature` in `FeatureCatalog`. The public cancellable
 `api.event.KitClaimEvent(player, kit, forced)` fires on the player's thread before every claim and every staff gift to

@@ -13,9 +13,10 @@ The feature implements three `core.link` contracts for the other features and th
 | `VanishStatus` | `StaffFeature#vanish()` | Whether a player is vanished. Lock-free set lookup, safe from any thread |
 | `FreezeStatus` | `StaffFeature#freezes()` | Whether a player is frozen. Lock-free map lookup, safe from any thread. `FeatureCatalog` installs it in the shared teleports (`Teleports#freezes`) and the dialog router (`Dialogs#freezes`) |
 
-Both are wired as `NONE` in features that are integrated before this one. At integration, pass `staff.mutes()` to
-the chat feature and private messages, and `staff.vanish()` to join/quit messages, online counts, `/seen`, tab and
-scoreboard features (see "Integration" below).
+All three are wired in `FeatureCatalog` (see "Integration" below): `MuteStatus` to chat (public chat and private
+messages), teams (team chat) and friends (the Message button); `VanishStatus` to core's player-name arguments and
+nearly every feature that shows who is online. The staff feature in turn takes the cosmetics contract
+(`staff.cosmetics(...)`) for its fake join and leave lines.
 
 Every staff action is written to the audit log (`services.audit()`, actions listed below). All state lives in
 memory (thread-safe maps and sets, loaded at enable) and every change is queued to the database writer at the same
@@ -195,8 +196,8 @@ Staff settings for vanish:
   read by id) is not `all` don't get them. Offered only while there is a line to imitate: the plain lines are on, or
   the cosmetics link is bound and `features/cosmetics.yml` has `enabled` and `join-messages.enabled` on (read from the
   file when it changes, like extras.yml). The link is handed over by the composition root
-  (`staff.cosmetics(cosmetics.cosmetics())` in `FeatureCatalog`, wired in the settings integration pass); until then
-  only the plain lines are imitated and offered. The offer is server-wide: with only rank lines on, staff without
+  (`staff.cosmetics(cosmetics.cosmetics())` in `FeatureCatalog`, once cosmetics is built); while the cosmetics feature
+  is off only the plain lines are imitated and offered. The offer is server-wide: with only rank lines on, staff without
   `siftcore.join.message` still see the switch, and their `/vanish` says there is no line. Friend join alerts and the
   tab list are not faked.
 
@@ -363,9 +364,10 @@ console always gets every notice.
 The other places in the group belong to other features: social spy (1, chat), team spy (5, teams), staff combat alerts
 (10, combat) and config problem alerts (13, admin: when an admin with `siftcore.admin.reload` joins, a chat line with
 the number of problems the last startup or `/sift reload` found, listed on hover; clicking fills in `/sift reload`).
-A reload hands its problems to the admin feature; the startup's are read from `CoreControl.startupProblems()` once the
-plugin keeps that list (integration pass), and until then from the plugin log (`Config problem: ...` lines, and the
-`features/settings.yml: ...` override warnings), formats pinned by `ConfigProblemLogTest` against their sources.
+A reload hands its problems to the admin feature, and the startup's come from the list SiftCore keeps
+(`CoreControl.startupProblems()`). The admin feature also reads SiftCore's own log: `Config problem: ...` lines, and the
+`features/settings.yml: ...` override warnings the settings feature writes a second after startup and on each reload
+(formats pinned by `ConfigProblemLogTest` against their sources); the same problem from two sources counts once.
 
 ## Audit log actions
 
@@ -424,17 +426,14 @@ from every online player without the see permission, and that times and reasons 
 
 ## Integration
 
-`FeatureCatalog` constructs it after `hub` (it registers a hub entry) and before the features that consume its
-contracts:
+`FeatureCatalog` constructs it right after `hub` and before every feature that consumes its contracts:
 
-```java
-StaffFeature staff = new StaffFeature(this.services, this.problems);
-features.add(staff);
-```
-
-Then pass `staff.mutes()` (`MuteStatus`) to chat and private messages and `staff.vanish()` (`VanishStatus`) to the
-features that show who is online (join/quit messages, tab list, scoreboard, `/seen`, `/list`, online counts,
-private message targets and their suggestions).
+| Contract | Handed to |
+|---|---|
+| `FreezeStatus` (`staff.freezes()`) | core: the shared teleports (`Teleports#freezes`) and the dialog router (`Dialogs#freezes`), so a frozen player can't teleport or use any menu |
+| `VanishStatus` (`staff.vanish()`) | core's player-name arguments (`CommandService#vanish`: suggestions and lookups never find vanished staff for players who can't see them), AFK, stats, teams, chat, friends, spawners, crates, orders, combat, TPA, extras (join and leave lines, `/seen`) and the scoreboard |
+| `MuteStatus` (`staff.mutes()`) | chat (public chat and private messages), teams (team chat) and friends (no Message button) |
+| `Cosmetics` (taken, `staff.cosmetics(cosmetics.cosmetics())`) | after cosmetics is built: fake join and leave lines copy the rank lines and nicknames |
 
 ## Tests
 

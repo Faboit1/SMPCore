@@ -1,5 +1,7 @@
 # Text of the friends system (/friend, /f, /friends and /profile).
-# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, plus each message's own placeholders.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 # Player names and notes are always inserted as plain text. Dialog titles and button labels are plain text.
 
 friends:

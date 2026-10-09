@@ -261,7 +261,8 @@ are deleted (left behind by a failed write) before ids are handed out.
   rewards (zombie, skeleton and blaze spawners in the shipped crates) are given and previewed as SiftCore spawners.
 - Consumes `WorthLookup` (`SellFeature#worth()`) for selling, `TeamLookup` (`TeamsFeature#lookup()`) for access and
   the team list, `VanishStatus` (`StaffFeature#vanish()`) for activation, the shared `CombatTags` (as `CombatStatus`)
-  to keep storages closed in combat, and `AfkStatus` (`AfkStatus.NONE` until the AFK feature exists).
+  to keep storages closed in combat, and `AfkStatus` (`AfkFeature#status()`: with `activation.count-afk: false` AFK players keep no
+  spawner working).
 - Ledger kind `spawner_sell` (counted as earnings by the stats feature); claim box source `spawner`, refs
   `spawner:<id>`.
 - Events: `SpawnerPlaceEvent`, `SpawnerStackEvent`, `SpawnerBreakEvent`, `SpawnerSellEvent` (all cancellable, fired

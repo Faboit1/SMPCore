@@ -1,5 +1,7 @@
 # Text of homes (/sethome, /home, /delhome, /homes).
-# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 
 homes:
   set: "<primary>Home <name> set. <secondary>You have <count> of <limit>."

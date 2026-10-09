@@ -18,7 +18,7 @@ It provides two contracts and consumes these:
 | `/profile` | friends feature (found in the command map 20 ticks after startup; only SiftCore's own counts) | Clicking a name in public chat opens the player's profile |
 | `MuteStatus` | staff feature | Muted players can't send private messages (any alias); public chat is refused by the staff tools, and by chat itself if anything let it through |
 | `VanishStatus` | staff feature | Vanished staff look offline to `/msg` for players who can't see them |
-| `AfkStatus` | `NONE` (AFK) | The sender is told when the player they message or mention is AFK |
+| `AfkStatus` | AFK feature (`AfkFeature#status()`) | The sender is told when the player they message or mention is AFK |
 
 ## Public chat
 
@@ -250,6 +250,24 @@ default, bell, pling, chime, off) and `balance-privacy` (Privacy: who sees the b
 | `chat_slowmode` | The slow mode gap in seconds, `0` when off |
 
 ## Config (`features/chat.yml`)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `format.hover-card` / `item-tag` | true / true | The hover card on names; `[item]` in chat |
+| `anti-spam.max-length` | 200 | Characters per message |
+| `anti-spam.cooldown` | 1s | Shortest gap between two messages (0s off) |
+| `anti-spam.rate-limit.messages` / `window` | 5 / 10s | At most this many messages in the window |
+| `anti-spam.repeats.window` / `similarity` / `compare-last` | 30s / 0.9 / 3 | Repeats: how long, how alike (0.5-1), how many recent messages |
+| `anti-spam.caps.max-ratio` / `min-letters` / `action` | 0.6 / 8 / lowercase | Capitals: share, from how many letters, `lowercase` or `block` |
+| `filter.enabled` / `action` / `replacement` | true / replace / `***` | The word filter, `replace` or `block` |
+| `filter.leetspeak` / `join-spaced-letters` / `private-messages` / `log` | true each | Filter options |
+| `filter.words` / `strict-words` | a shipped list / 23 milder words | What the filter and the strict filter catch |
+| `links.enabled` / `action` / `private-messages` | true / block / true | The link check, `block` or `replace` |
+| `links.allowed` / `top-level-domains` | `siftvanilla.net`, `discord.gg/siftvanilla` / 42 endings | Addresses that pass; which endings count as a domain |
+| `mentions.enabled` / `plain-names` / `min-plain-length` / `cooldown` | true / true / 3 / 3s | Mentions, bare-name mentions, their minimum length, one alert per sender and player per cooldown |
+| `private-messages.reply-expiry` / `log-to-console` | 10m / true | How long `/r` remembers a conversation; console log |
+| `ignore.max` / `page-size` | 100 / 10 | Ignore list size; names per dialog page |
+| `new-players.playtime` | 30m | Who counts as brand new for "Hide brand-new players" (`0s` removes the setting) |
 
 Every key is explained in the file. Sections: `format` (hover card, `[item]`), `anti-spam` (length, gap, rate limit,
 repeats, capitals), `filter` (words, replace or block, leetspeak, spaced letters, private messages, logging, and

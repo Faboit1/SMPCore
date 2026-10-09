@@ -1,6 +1,9 @@
-# Shared text. Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's
-# own placeholders (shown in angle brackets). Money and numbers are coloured automatically.
-# Bold, gradients, other colours and decorations are not part of the design and are rejected on load.
+# Shared text: the answers every feature uses, common button labels, teleport countdowns, the shared settings
+# and the money format setting.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Money and numbers are coloured automatically.
 
 core:
   players-only: "<primary>Only players can do that."

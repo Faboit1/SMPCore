@@ -18,6 +18,16 @@ Small things every SMP has: `/rules`, `/help`, `/ping`, `/seen`, `/links`, and j
 | `/seen <player>` (`/lastseen`) | `siftcore.command.seen` | everyone | Online since, or last online and first joined; vanished staff read as offline. The last online time follows the player's `seen-privacy` |
 | `/links` (`/discord`, `/store`, `/website`) | `siftcore.command.links` | everyone | The server links dialog |
 
+- **Rules and help** are dialogs whose text is in `lang/extras.yml` (`extras.rules.body`, `extras.help.body`: one line
+  per list entry). `/rules` closes on its button; the main menu's **Rules** entry (hub id `rules`, order 94) returns to
+  the menu. `/help`'s button opens the main menu.
+- **Links** opens the client's own Server Links screen (also in the pause screen). The links are the
+  `server-links` of `features/hub.yml` (label and https address each), registered by the hub feature at startup.
+- **Ping** answers like every short result: above the hotbar, or where the player's "Quick results and errors"
+  setting says. `/ping <player>` needs `siftcore.command.ping.others` (everyone) and finds only players the sender can
+  see.
+- `/seen` suggests known names and never finds vanished staff as online for players who can't see them.
+
 ## Join and leave messages
 
 Which line a join shows, first match wins:

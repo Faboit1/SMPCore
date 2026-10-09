@@ -5,15 +5,17 @@ other from friendly fire and compete on team leaderboards. Package `feature/team
 `lang/teams.yml`, tables `teams` and `team_members` (migration V005) plus the `teams.size_limit` column (V035).
 
 The feature implements `core.link.TeamLookup`; `TeamsFeature#lookup()` returns it (team of a player, team name,
-members, friendly fire, same-team checks; thread-safe, lock-free). It consumes five contracts:
+members, friendly fire, same-team checks; thread-safe, lock-free). It consumes these contracts (all wired in
+`FeatureCatalog`):
 
 | Contract | Used for |
 |---|---|
-| `StatsRecorder` | Team kills and deaths (sum of the members) in `/team info` and the kills leaderboard |
-| `MuteStatus` | A muted player can't use team chat (`/tc` or chat mode) |
-| `VanishStatus` | A vanished member shows as offline in member lists, online counts and placeholders |
+| `StatsRecorder` (stats) | Team kills and deaths (sum of the members) in `/team info` and the kills leaderboard |
+| `MuteStatus` (staff) | A muted player can't use team chat (`/tc` or chat mode) |
+| `VanishStatus` (staff) | A vanished member shows as offline in member lists, online counts and placeholders |
 | `IgnoreLookup` (chat, installed with `TeamsFeature#ignores` once chat is built) | A player who ignores the inviter gets no invite; the inviter hears "You can't invite <name>." (players with `siftcore.chat.unignorable` still invite) |
 | `SpawnArea` (spawn) | No team home inside the protected spawn area, as with `/sethome`; a team home already stored there can't be used |
+| `Relations` (`services.relations()`: friends, teams and ignore lists, bound once every feature is built) | Who may send team invites (`team-invites`), who sees a member's last-seen time (`seen-privacy`), and favourite friends who already got the friends login alert aren't told twice |
 | Homes' disabled worlds (installed with `TeamsFeature#homeWorlds` once homes are built) | `homes.yml`'s `disabled-worlds` apply to team homes too, on top of `home.disabled-worlds` here |
 
 ## Commands and permissions
@@ -295,8 +297,7 @@ End-to-end scenarios (`tools/e2e`, `TeamsScenarios`): `teams-create`, `teams-cos
 cost under an open confirmation: nothing is charged, the new cost is shown), `teams-invite`, `teams-roles`,
 `teams-ownership`, `teams-chat`, `teams-home`, `teams-friendly-fire`, `teams-staff`, `teams-menu`,
 `teams-ignored-invite`, `teams-settings` (team invites picked in the settings dialog, friends only, team news above
-the hotbar typed as `/settings team-notices actionbar` (through the API until the settings UI package's command
-lands) and off, the actor's own change confirmed with news off, a new owner always told, disbanding still in chat,
+the hotbar typed as `/settings team-notices actionbar` and off, the actor's own change confirmed with news off, a new owner always told, disbanding still in chat,
 the team chat sound, `/team spy` locked), `teams-login-alerts` (logins, logouts, off, friends not told twice, team chat
 mode kept across a relog, and not brought back from a session where it was off) and `teams-seen-privacy` (a stranger's
 `/team info` and a teammate's `/team` without the time of a member who keeps it to nobody, friends only, staff).

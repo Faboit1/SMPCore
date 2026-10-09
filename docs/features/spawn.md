@@ -6,9 +6,10 @@ Package `feature/spawn`, config `features/spawn.yml`, text `lang/spawn.yml`, the
 (per server, not in the shared database, because it belongs to this server's worlds).
 
 The feature implements `core.link.SpawnArea`: `SpawnFeature#area()` returns it. It is plain arithmetic on
-coordinates (an immutable region swapped on `/setspawn` and reload), safe from any thread. Homes and random teleport
-use it today; combat and AFK are meant to (no combat logging out of spawn, AFK zone). `SpawnFeature#borders()`
-returns `WorldBorders`, which random teleport uses to keep its rings inside the borders.
+coordinates (an immutable region swapped on `/setspawn` and reload), safe from any thread. `FeatureCatalog` hands it
+to homes and team homes (no homes inside), random teleport (never lands inside), combat (tagged players can't enter),
+cosmetics (no kill effects inside) and AFK (whether the zone lies inside). `SpawnFeature#borders()` returns
+`WorldBorders`, which random teleport uses to keep its rings inside the borders.
 
 ## Commands and permissions
 
@@ -50,8 +51,9 @@ cuboid between two corners. Inside it:
 Every handler runs at `LOW` priority, so features listening with `ignoreCancelled` (combat tags, stats) never see
 refused actions. Refusals tell the player on the action bar at most once a second.
 
-Note for the crates feature: a crate opened by right-clicking a block at spawn must either use a block type listed in
-`allowed-interactions`, or handle `PlayerInteractEvent` at `LOWEST` and cancel it itself.
+Crate blocks: the crates feature handles a right click on a crate block at `LOWEST` and cancels the event itself, so
+crate blocks at spawn need no entry in `allowed-interactions` (see `crates.md`). Any other plugin block that should
+work at spawn must do the same or use a block type in the list.
 
 ## Flying at spawn (`/fly`)
 

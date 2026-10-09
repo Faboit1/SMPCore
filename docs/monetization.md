@@ -49,34 +49,52 @@ player's own name on the scoreboard. No rank is red, so errors stay unmistakable
 
 ## Perks
 
-| Perk | default | Prospector | Baron | Tycoon | Node |
-|---|---|---|---|---|---|
-| Homes | 2 | 6 | 15 | 40 | `siftcore.homes.<n>` |
-| Auction listings | 3 | 8 | 20 | 40 | `siftcore.auction.listings.<n>` |
-| Buy-order slots | 3 | 8 | 20 | 40 | `siftcore.orders.limit.<n>` |
-| Friends | 50 | 100 | 200 | 500 | `siftcore.friends.limit.<n>` |
-| Spawner stack cap | 1,000 | 1,250 | 1,500 | 2,000 | `siftcore.spawners.stack.<bonus>` (tidiness only: output per spawner is the same) |
-| Daily supply kit | daily food | + Prospector kit | + Baron kit | + Tycoon kit | `siftcore.kit.<id>` (supplies only: no armour, weapons, gapples, totems, pearls or keys) |
-| /craft, /trash, /hat | | yes | yes | yes | `siftcore.perk.craft`, `.trash`, `.hat` |
-| /ec, /stonecutter, /loom, /cartography, /grindstone | | | yes | yes | `siftcore.perk.<name>` |
-| /anvil, /smithing | | | | yes | `siftcore.perk.anvil`, `.smithing` |
-| Coloured rank in chat, tab and nametag | gray name | blue | gold | gradient | LuckPerms meta `siftcore-rank`, `siftcore-rank-color`, `siftcore-rank-gradient` and the prefix |
-| Chat tags (/tags) | | 3 tags | +7 tags | +6 tags and a monthly exclusive | `siftcore.tags.<tier>` |
-| Chat colour (/chatcolor) | | | 8 colours (no red, no green) | + any hex and gradients | `siftcore.chat.color`, `siftcore.chat.color.hex` |
-| Nickname (/nick, real name on hover) | | | one colour | + hex and gradient | `siftcore.command.nick`, `siftcore.nick.gradient` |
-| Join and leave message | | | rank message | custom message | `siftcore.join.message`, `siftcore.join.message.custom` |
-| Kill effects (/killeffect, visual only) | | | | all effects | `siftcore.killeffect.*` |
-| Flight inside the protected spawn (off on leaving or when tagged; at most `fly.max-height`, 48 blocks, above the spawn point; a soft landing) | | | yes | yes | `siftcore.spawn.fly` |
-| Join when the server is full | | | yes | yes | `siftcore.join.full` |
-| Server-wide +10% sell booster for 30 min on every purchase | | | | yes | store command |
-| Discord role | | yes | yes | yes | Tebex Discord delivery |
-| Team size | 5 | 5 | 5 | 5 | not sold |
-| Sell multiplier | 1x | 1x | 1x | 1x | not sold |
-| AFK zone shards | 1 per minute | same | same | same | not sold |
-| Crate keys | keyall: 1 Basic key every 4h | same | same | same | not sold |
+Every perk below that is a permission node or LuckPerms meta is live on the server: the nodes are set on the LuckPerms
+groups (undo log rows 26, 34, 35 and 39) and SiftCore reads each one. The last column names the row that set it up.
+The two perks only the store delivers, Tycoon's server-wide booster and the Discord role, are not live: no store
+plugin is installed yet (see [server-setup.md](server-setup.md#plugins)), so nothing is sold until the Tebex setup
+below is done. Until then ranks are given by hand (`lp user <name> parent add <group>` or `/sift store rank` from the
+console).
 
-Players see their purchases with `/purchases`, the active booster with `/booster`, and every player can turn off
-other players' chat colours and kill effects in `/settings`.
+| Perk | default | Prospector | Baron | Tycoon | Node | Live (undo log) |
+|---|---|---|---|---|---|---|
+| Homes | 2 | 6 | 15 | 40 | `siftcore.homes.<n>` | yes (26) |
+| Auction listings | 3 | 8 | 20 | 40 | `siftcore.auction.listings.<n>` (SiftCore's auction house, which serves `/ah`) | yes (26) |
+| Buy-order slots | 3 | 8 | 20 | 40 | `siftcore.orders.limit.<n>` | yes (26) |
+| Friends | 50 | 100 | 200 | 500 | `siftcore.friends.limit.<n>` | yes (26) |
+| Spawner stack cap | 1,000 | 1,250 | 1,500 | 2,000 | `siftcore.spawners.stack.<bonus>` (tidiness only: output per spawner is the same) | yes (26) |
+| Daily supply kit | daily food | + Prospector kit | + Baron kit | + Tycoon kit | `siftcore.kit.<id>` (supplies only: no armour, weapons, gapples, totems, pearls or keys) | yes (26) |
+| /craft, /trash, /hat | | yes | yes | yes | `siftcore.perk.craft`, `.trash`, `.hat` | yes (26) |
+| /ec, /stonecutter, /loom, /cartography, /grindstone | | | yes | yes | `siftcore.perk.<name>` | yes (26) |
+| /anvil, /smithing | | | | yes | `siftcore.perk.anvil`, `.smithing` | yes (26) |
+| Coloured rank in chat, tab and nametag | gray name | blue | gold | gradient | LuckPerms meta `siftcore-rank`, `siftcore-rank-color`, `siftcore-rank-gradient` (SiftCore's chat) and the prefix (TAB's tab list and nametags) | yes (26) |
+| Chat tags (/tags) | | 3 tags | +7 tags | +6 tags and a monthly exclusive | `siftcore.tags.<tier>` | yes (34) |
+| Chat colour (/chatcolor) | | | 8 colours (no red, no green) | + any hex and gradients | `siftcore.chat.color`, `siftcore.chat.color.hex` | yes (34) |
+| Nickname (/nick, real name on hover) | | | one colour | + hex and gradient | `siftcore.command.nick`, `siftcore.nick.gradient` | yes (34) |
+| Join and leave message | | | rank message | custom message | `siftcore.join.message`, `siftcore.join.message.custom` | yes (34) |
+| Kill effects (/killeffect, visual only) | | | | all effects | `siftcore.killeffect.*` | yes (34) |
+| Flight inside the protected spawn (off on leaving or when tagged; at most `fly.max-height`, 48 blocks, above the spawn point; a soft landing) | | | yes | yes | `siftcore.spawn.fly` | yes (35) |
+| Join when the server is full | | | yes | yes | `siftcore.join.full` | yes (35) |
+| Show my rank (a setting to hide the rank tag in chat, on profiles and in SiftCore's placeholders; see below) | | yes | yes | yes | `siftcore.settings.hide-rank` | yes (39) |
+| Server-wide +10% sell booster for 30 min on every purchase | | | | yes | store command | not yet: needs the Tebex package command (setup below); SiftCore's side is deployed (35) |
+| Purchase history (/purchases) | yes | yes | yes | yes | `siftcore.command.purchases` (everyone) | yes (35) |
+| Discord role | | yes | yes | yes | Tebex Discord delivery | not yet: Tebex side, no store yet |
+| Team size | 5 | 5 | 5 | 5 | not sold | |
+| Sell multiplier | 1x | 1x | 1x | 1x | not sold | |
+| AFK zone shards | 1 per minute | same | same | same | not sold | |
+| Crate keys | keyall: 1 Basic key every 4h | same | same | same | not sold | |
+
+**Show my rank** is the one rank perk that is a setting: players with a paid rank get "Show my rank" in the Privacy
+group of `/settings` and can turn their rank tag off. Their rank then disappears from SiftCore's chat, profiles, join
+lines and the `%siftcore_rank%` placeholders, but not from TAB's tab list and nametags as TAB is configured now (it
+reads LuckPerms' prefix directly; see [server-setup.md](server-setup.md#tab)). Their perks stay.
+
+**Settings are never a perk.** Every player, ranked or not, has the same per-player settings: 133 settings in 14
+groups (chat, sounds, alerts, privacy, the money format, the sidebar, teleports, market alerts and more; see
+[features/settings.md](features/settings.md)). A few settings only show where they mean something (a rank to hide, a
+perk command whose screen they adjust, staff tools), never because someone paid. Players see their purchases with
+`/purchases`, the active booster with `/booster`, and anyone can turn off other players' chat colours and kill effects
+in `/settings`.
 
 ## LuckPerms setup
 
@@ -176,8 +194,9 @@ All of this ships as SiftCore's defaults, so a fresh install needs no edits:
 
 ## Tebex setup
 
-Install the Tebex plugin for Folia (`tebex-folia`), link the store, and create these packages. Every command:
-"execute even if the player is offline", no inventory slots required, quantity 1. `{uuid}` must arrive with dashes.
+Not done yet on the live server (no store plugin is installed). Install the Tebex plugin for Folia (`tebex-folia`),
+link the store, and create these packages. Every command: "execute even if the player is offline", no inventory slots
+required, quantity 1. `{uuid}` must arrive with dashes.
 
 ### Ranks, 30 days
 

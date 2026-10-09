@@ -101,13 +101,19 @@ The same values are offered to PlaceholderAPI as `%siftcore_<name>%` when it is 
 ### Ranks
 
 ```java
-String label = siftcore.ranks().label(uuid);   // "Baron", empty for the default group or without LuckPerms
-String group = siftcore.ranks().group(uuid);   // "baron", "default" when unknown
+String label = siftcore.ranks().label(uuid);   // "Baron"; empty for the default group, without LuckPerms, offline,
+                                               // or when the player turned "Show my rank" off
+String group = siftcore.ranks().group(uuid);   // "baron", "default" when unknown; always the real group
 ```
 
 Labels are plain text: SiftCore removes colour codes and tags from LuckPerms display names and meta values. A rank's
 colour (the `siftcore-rank-color` or `siftcore-rank-gradient` meta, see `docs/features/integrations.md`) is available
 as the placeholder `rank_color` (`#RRGGBB`, empty without one).
+
+Players with `siftcore.settings.hide-rank` (the paid ranks on SiftVanilla) can turn "Show my rank" off: `label` is then
+empty, as everywhere SiftCore shows ranks, and the `rank`, `rank_group` and `rank_color` placeholders read as an
+unranked player. `group` stays the real group, because plugins act on it (perks, limits); don't display it as the
+player's rank.
 
 ### Settings
 
@@ -160,7 +166,7 @@ from a world thread (the main thread on Paper, a region thread on Folia/Canvas) 
 | `EconomyTransactionEvent` | yes | before every money or shards transaction (payments, sales, purchases, taxes, refunds, rewards, admin changes, Vault and API calls), on the caller's thread | the transaction fails with status `CANCELLED`; nothing changes |
 | `EconomyTransactionCommittedEvent` | no | asynchronously, after a transaction was durably stored; carries the postings and the balances after | |
 | `PlayerPayEvent` | yes | before `/pay` moves money | the payment is stopped |
-| `ItemSellEvent` | yes | before `/sell` (hand, all, menu) takes items and pays, on the player's thread; has the items, total and multiplier (a running server sell booster included) | the items stay where they are |
+| `ItemSellEvent` | yes | before `/sell` (menu, hand, hand all, all, a category) takes items and pays, on the player's thread; has the items, total and multiplier (a running server sell booster included) | the items stay where they are |
 | `SellMasteryLevelEvent` | no | after a stored sale raised the player's sell mastery level in a category, on the player's thread | |
 | `ShopPurchaseEvent` | yes | before a server shop purchase, on the player's thread | nothing is charged |
 | `ShardShopPurchaseEvent` | yes | before a shard shop purchase, on the player's thread | no shards move |
@@ -191,6 +197,10 @@ from a world thread (the main thread on Paper, a region thread on Folia/Canvas) 
 | `PlayerKillCreditEvent` | yes | when a kill passed the anti-farm rules, on the victim's thread | the kill is not counted (no streak, no bounty) |
 | `BountyPlaceEvent` | yes | before money is put on a player's head | nothing is paid |
 | `BountyClaimEvent` | yes | before a killer is paid a bounty | the bounty stays |
+| `FriendRequestEvent` | yes | on the sender's thread for every friend request that passed the sender's own checks, before anything is stored; has the sender and target (whether the target will see it is deliberately not exposed) | the request is not sent |
+| `FriendAddEvent` | yes | before two players become friends, on the acting player's thread (the global thread for staff); the cause is `REQUEST` (accepted), `MUTUAL` (both asked) or `STAFF` (`/sift friends add`) | they stay apart; nothing changes |
+| `FriendRemoveEvent` | yes | before a friendship ends, on the acting player's thread (the global thread for staff); the cause is `PLAYER` or `STAFF` (`/sift friends remove`) | the friendship stays |
+| `KitClaimEvent` | yes | before a player gets a kit, on the player's thread: when they claim it (`/kit <name>`, the kits dialog) and when staff give it with `/kits give` (`forced()`); not fired for kits given to offline players | nothing is given and the kit's cooldown does not start |
 | `TeleportRequestEvent` | yes | before a `/tpa` or `/tpahere` request reaches its target | the sender is told they can't send one |
 | `PrivateMessageEvent` | yes | before a `/msg` or `/r` message is delivered, after mutes, ignore lists, the receiver's setting, anti-spam and the filter passed | the message is not delivered; the sender is told they can't message that player |
 | `RandomTeleportEvent` | yes | after random teleport found a spot, before charging and teleporting, on the player's thread | nothing is charged |

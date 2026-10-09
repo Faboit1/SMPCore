@@ -16,7 +16,8 @@ src/main/resources/features/<id>.yml   fully commented defaults (every key expla
 src/main/resources/lang/<id>.yml       every string; top-level key is <id>
 src/main/resources/db/migrations/V0NN.sql  only if the feature needs schema changes (see ranges below)
 src/test/java/net/siftvanilla/siftcore/feature/<id>/...  unit tests for pure logic
-docs/features/<id>.md   commands, permissions, placeholders, config summary, design decisions
+docs/features/<id>.md   commands, permissions, settings, placeholders, events, config, storage, what it consumes and
+                        provides (with the FeatureCatalog wiring), design decisions; link it from README.md
 ```
 
 Register the feature in `FeatureCatalog.create()` (one line, in dependency order).
@@ -25,8 +26,10 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 
 - The feature constructor takes `Services services, List<ConfigProblem> problems` plus any other feature's
   service it depends on (for example `WorthLookup`, `StatsRecorder`, `TeamLookup`, `CrateKeys`, `AfkStatus`, `MuteStatus`, `VanishStatus`, `FriendLookup`, `IgnoreLookup`,
-  `Cosmetics`, `TextChecks`, `CombatTags`). Interfaces for cross-feature contracts live in `core.link`; use them, never another feature's
-  internals.
+  `Cosmetics`, `TextChecks`, `OrderMarket`, `ServerBoosters`, `SpawnArea`, `SpawnerItems`, `CombatTags`). Interfaces for
+  cross-feature contracts live in `core.link`; use them, never another feature's internals. When two features need each
+  other, the one built first takes a late-bound reference (`AtomicReference` in `FeatureCatalog`, or a setter called
+  once the other is built); `docs/architecture.md` lists the existing ones.
 - In the constructor:
   - `services.configs().register("features/<id>.yml", Settings::parse, problems)` returns a `Setting<S>` holder.
     Always read `holder.get()` when you need a value so `/sift reload` takes effect.
@@ -102,9 +105,14 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - Every player-facing string lives in `lang/<id>.yml` and is referenced by a `MessageKey`. The factory method
   picks the channel: `chat` (worth keeping), `notify` (chat + sound), `success`/`error`/`info` (action bar,
   transient), `title` (rare), `ui` (lore, dialog text, names, never sent alone).
-- Allowed tags: `<primary>` (white), `<secondary>` (gray), `<money>` (#1AFF1A, money only), `<icon:name>`,
-  `<!italic>`, `<newline>`, plus the message's declared placeholders. Bold, gradients, other colours, decorations
-  and prefixes like "[Server] »" are rejected when lang loads.
+- What `TextStyle` accepts (and the lang loader checks): `<primary>` (white), `<secondary>` (gray), `<money>`
+  (#1AFF1A, money only), `<error>` (the error red), named and hex colours (`<red>`, `<#3CC4EE>`, `<color:...>`),
+  `<bold>`, `<shadow:...>`, `<icon:name>`, `<!italic>`, `<newline>`, `<reset>`, click, hover, key and translation
+  tags, plus the message's declared placeholders. Gradients, rainbow, obfuscated text, other decorations, turning
+  italics on, undeclared placeholders and unknown icons are rejected when lang loads (the entry keeps the shipped
+  text). Lang texts use only the palette tags (white, gray, money green, `<error>` for warnings), never bold, other
+  colours or prefixes like "[Server] »"; colours, bold and shadow are for server owners and for the spawn boards in
+  `features/displays.yml` (same check), whose titles are bold and whose places and values are hex coloured.
 - Placeholders are typed: `Arg.money` (renders `$1,500` in the money colour), `Arg.number` (white), `Arg.amount`,
   `Arg.decimal`, `Arg.time`, `Arg.text` (untrusted text, inserted literally), `Arg.component` (pre-built safe
   component). Never concatenate player text into MiniMessage.
@@ -151,12 +159,15 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - Chat messages may embed a dialog: `ClickEvent.showDialog(services.dialogs().inline(viewer, view))`. Its session is
   kept apart from the screens the player opens, so browsing menus never expires it, and stays clickable for an hour
   (screens: 15 minutes), as long as the longest request it can answer. Check the request itself in the handler.
-- Chest GUIs only where a grid is needed (auction house, sell, order delivery, spawner storage, crate preview).
+- Chest GUIs only where a grid of items is needed (the auction house, shop, sell menu, price list, buy orders,
+  spawner storage, crate preview, staff inspection; `docs/architecture.md` lists them all).
   Extend `ui.gui.Menu` or `ui.gui.PagedMenu` (standard layout: rows 1-5 entries; 45 prev, 46 back, 47 sort,
   48 filter, 49 search, 50-52 extras, 53 next). Buttons: white name, gray description. Sort/filter buttons use
   `Cycle` (gray bullets, selected in white). No filler glass.
-- Hub: register a `HubEntry` in `enable()`. Pause-menu ids are fixed: `shop`, `sell`, `auction`, `orders`,
-  `spawners`, `teams`, `friends`, `homes`, `rtp`, `spawn`, `stats`, `settings`, `money`. Use them if you own that area.
+- Hub: register a `HubEntry` in `enable()` (see `docs/features/hub.md`). Its id is also the pause-screen route
+  `siftcore:hub/<id>`; the pause menu lists the ids in `features/hub.yml` `pause-menu.entries` (shipped: menu, money,
+  shop, sell, auction, orders, spawners, crates, kits, teams, friends, homes, rtp, spawn, stats, settings, report), so
+  keep an existing id if you own that area, and add a `hub.entries.<id>` label to `lang/hub.yml`.
 - Sounds: the messenger plays the key's feedback sound; use `messenger.feedback(player, Feedback.CLICK)` for clicks.
   Every sound goes through `Sounds`, which applies each player's volume and sound switches; personal pings use
   `Sounds.ping(player, choice)`. Never add a sound switch of your own.
@@ -189,7 +200,8 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 
 ## Storage
 
-- Tables for every feature already exist (`db/migrations/V001`-`V009`). Read them before adding anything.
+- The base tables are in `db/migrations/V001`-`V009`, feature additions after them (the table list with their
+  migrations is in `docs/architecture.md`). Read them before adding anything.
 - Need a change? Add `src/main/resources/db/migrations/V0NN.sql` in your range (first line is a `-- name`
   comment; use `{autoinc} {blob} {bigint} {text} {uuid} {engine}` tokens; one statement per `;` line ending):
   economy 10-14, shop/sell 15-19, orders 20-24, auction 25-29, spawners 30-34, teams 35-39, teleport 40-44,
@@ -208,9 +220,11 @@ Resolvers must be cheap and thread-safe (read caches). Names are exposed to Plac
 
 ## Testing (mandatory)
 
-1. `mvn -q -B package` (JDK 25: `JAVA_HOME=<scratchpad>/dl/jdk/jdk-25.0.4.1+1`). Zero compile warnings from your code.
+1. `mvn -q -B package` with `JAVA_HOME` pointing at a JDK 25. Zero compile warnings from your code.
 2. Unit tests for pure logic (`src/test/java`, JUnit 5). Keep logic that can be tested free of Bukkit calls.
-3. Boot test on a private copy of the local server (see the brief for the harness and your port): clean enable,
-   zero SiftCore warnings, your commands registered, `/sift selftest` passing your checks, console commands
-   exercised, clean shutdown, data persisted across a restart.
-4. Record what you could not verify (things that need a real client: dialog rendering, sprite looks).
+3. Boot test on a private copy of a test server: clean enable, zero SiftCore warnings, your commands registered,
+   `/sift selftest` passing your checks, console commands exercised, clean shutdown, data persisted across a
+   restart.
+4. End-to-end scenarios in `tools/e2e` (`tools/e2e/README.md`) for what players do: real bots click your dialogs and
+   menus and run your commands; add yours to the scenario list and run `e2e run all` before merging.
+5. Record what you could not verify (things that need a real client: dialog rendering, sprite looks).

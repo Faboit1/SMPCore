@@ -11,61 +11,102 @@ net.siftvanilla.siftcore
 ├── SiftCorePlugin          entry point (JavaPlugin); delegates to SiftCore
 ├── SiftCoreBootstrap       Paper bootstrapper: registers the siftcore:hub dialog into the pause-screen
 │                           and quick-actions dialog tags before registries freeze
-├── SiftCore                composition root: builds services in dependency order, owns start/reload/stop
-├── FeatureCatalog          constructs every feature with exactly what it needs (dependency order)
-├── CoreControl             what /sift may do with the plugin (reload, self-test, metrics, debug)
+├── SiftCore                composition root: builds services in dependency order, owns start/reload/stop, core
+│                           self-tests, the economy and settings events
+├── FeatureCatalog          constructs every feature with exactly what it needs (dependency order, late-bound links)
+├── CoreControl             what /sift may do with the plugin (reload, self-test, metrics, debug, startup problems)
 │
-├── api                     public, stable surface for other plugins
+├── api                     public, stable surface for other plugins (docs/api.md)
+│   ├── SiftCoreApi         the entry point (ServicesManager): economy(), combat(), placeholders(), ranks(), settings()
+│   ├── CombatView, PlaceholderView, RankView, SettingsView   read-only views (settings can also be changed)
 │   ├── economy             Currency, Flow, Posting, TransactionResult/Status, EconomyApi
-│   └── event               SiftEvent/SiftCancellableEvent and one event per economic/combat action
+│   └── event               SiftEvent/SiftCancellableEvent and 42 events (economy, trades, combat, social, settings)
 │
 ├── core                    framework, no gameplay
-│   ├── scheduler           Scheduler (global/region/entity/async) over Paper's region scheduler API
+│   ├── Feature, Services, CoreSettings (config.yml), CoreMessages (lang/core.yml)
+│   ├── scheduler           Scheduler (global/region/entity/async) over Paper's region scheduler API, Task
 │   ├── config              ConfigReader (typed, validating), Configs (all-or-nothing reload), Setting<S>, YamlFiles
-│   ├── money               MoneyFormat ($10, 1.5k parsing, compact display)
+│   │                       (new keys added, unedited shipped values updated), Durations, ConfigProblem
+│   ├── money               MoneyFormat ($10, 1.5k parsing, compact display), MoneyStyle (full, short, server)
 │   ├── text                Palette, TextStyle (the only MiniMessage), Lang (+LangFiles), MessageKey, Arg,
-│   │                       Messenger (+Routing: feedback channel, alerts, quiet in combat), Sounds (per-player
-│   │                       volume and kinds, pings), StatusBars (one boss bar per player), Icons, Channel, Feedback
-│   ├── command             SiftCommand/SimpleCommand, CommandService (Brigadier lifecycle), CommandSupport,
+│   │                       Messenger (+Routing: feedback channel, alerts, quiet in combat), ChatRepeats, Sounds
+│   │                       (per-player volume and kinds, pings), StatusBars (one boss bar per player), Icons
+│   │                       (+IconSettings), MoneyDisplay (each reader's money format), Channel, Feedback
+│   ├── command             SiftCommand/SimpleCommand, CommandService (Brigadier lifecycle, yield-to, cooldowns on
+│   │                       every node), CommandSupport (player arguments that hide vanished staff), CommandTrees,
 │   │                       CommandSettings (commands.yml), Cooldowns
-│   ├── player              PlayerDirectory (uuid/name/ip-hash, previous visit), PlayerSettings (Registry of
-│   │                       Toggle/Choice/NumberSetting in SettingCategories, server Overrides), SharedSettings,
-│   │                       options (AlertStyle, Audience, ConfirmAbove, Announce, PingSound), Limits, PlayerLifecycle
+│   ├── player              PlayerDirectory (uuid/name/ip-hash, previous visit), PlayerLifecycle, Limits, and the
+│   │                       settings model: PlayerSettings, Registry, Toggle/Choice/NumberSetting, SettingCategories,
+│   │                       SharedSettings, Overrides (features/settings.yml), Change, SetResult, SettingTexts,
+│   │                       SettingsCheck; options (AlertStyle, Audience, AutoAccept, ConfirmAbove, Announce, PingSound,
+│   │                       Choices, OptionTexts)
 │   ├── permission          Permissions (runtime registration + docs)
-│   ├── placeholder         Placeholders (feeds PlaceholderAPI, scoreboard, tab)
-│   ├── teleport            Teleports (warmup, cancel on move/damage, combat refusal), CombatStatus
+│   ├── placeholder         Placeholders (feeds PlaceholderAPI, the scoreboard, displays and the API)
+│   ├── teleport            Teleports (warmup, cancel on move/damage, combat and freeze refusal), TeleportDisplay,
+│   │                       TeleportMessages, CombatStatus
 │   ├── combat              CombatTags (who is tagged until when)
-│   ├── link                contracts between features: StatsRecorder, WorthLookup, TeamLookup, AfkStatus,
-│   │                       CrateKeys, SpawnerItems, SpawnArea, MuteStatus, VanishStatus,
-│   │                       FreezeStatus (teleports and dialogs refuse frozen players), FriendLookup, IgnoreLookup,
-│   │                       Cosmetics, TextChecks; Relations (late-bound friends, teams, ignores for who-can settings);
-│   │                       ServerBoosters
-│   ├── integration         Ranks (LuckPerms labels)
+│   ├── item                ContainerItems (shulker boxes and bundles), ItemCategories/ItemCategory (the item
+│   │                       classifier of sell, orders and the auction house), ItemPatterns (`*` patterns)
+│   ├── link                contracts between features: AfkStatus, Cosmetics, CrateKeys, FreezeStatus, FriendLookup,
+│   │                       IgnoreLookup, MuteStatus, OrderMarket, ServerBoosters, SpawnArea, SpawnerItems,
+│   │                       StatsRecorder, TeamLookup, TextChecks, VanishStatus, WorthLookup; Relations (late-bound
+│   │                       friends, teams and ignore lists for every who-can setting)
+│   ├── integration         Ranks (rank labels and groups; LuckPerms behind it)
 │   ├── audit               AuditLog
 │   └── selftest            SelfTest
 │
-├── storage                 Database, JdbcDatabase (ordered writer + group commit + read pool),
-│                           SqliteSource/MysqlSource, Dialect, Migrations (auto-discovered V###.sql)
+├── storage                 Database, JdbcDatabase (ordered writer + group commit + read pool), ConnectionSource,
+│                           SqliteSource/MysqlSource, Dialect, SqlWork, Migrations (auto-discovered V###.sql)
 │
 ├── economy                 the money engine: Ledger, LedgerTx, CommittedTx, LedgerHooks, Deliveries (claim box),
+│                           ClaimHandouts and Handoffs (hand claimed items over exactly once), SlotPlan,
 │                           SystemAccounts (escrow), IdSequence
 │
 ├── ui
-│   ├── dialog              View model + Templates (notice/confirm/list/form), Dialogs (renderer + router),
+│   ├── dialog              View + Templates (notice/confirm/list/form), Dialogs (renderer + router), DialogSessions,
 │   │                       Input, Button, Body, FormValues, Submission, FormBridge (Bedrock)
-│   ├── gui                 Menu, PagedMenu, Cycle, Items, MenuListener, MenuContext
+│   ├── gui                 Menu, PagedMenu, MenuItem, Cycle, Items, MenuListener, MenuContext, ClickContext,
+│   │                       GridBackup (a copy of items in an open grid inside the player's data)
 │   └── hub                 HubRegistry, HubEntry
 │
-├── feature                 one package per gameplay feature (see docs/features/)
-│   ├── economy  hub  admin  sell  shop  auction  orders  spawners  crates  kits  stats  teams  friends
-│   └── combat  bounties  homes  tpa  rtp  spawn  chat  settings  afk  shards  scoreboard  cosmetics  extras  boosters
+├── feature                 one package per gameplay feature, 30 in all (docs/features/<id>.md)
+│   ├── economy  hub  admin  staff  spawn  afk  stats  teams  boosters  integrations  chat  cosmetics  friends
+│   ├── sell  spawners  crates  orders  combat  settings  kits  shop  homes  rtp  tpa  extras  displays
+│   └── scoreboard  bounties  shards  auction
 │
-└── integration             vault, placeholderapi, luckperms, floodgate (loaded only when present)
+└── integration             only these classes touch optional plugins' APIs, loaded only when the plugin is present
+    ├── vault               VaultHook, VaultBridge, LegacyVaultEconomy, ModernVaultEconomy, VaultMoney, Callers
+    ├── placeholderapi      SiftCoreExpansion (%siftcore_<name>% and %siftvanilla_<name>%)
+    ├── luckperms           LuckPermsHook, RankText
+    └── floodgate           FloodgateForms, FormPlan, BedrockText
 ```
 
 Rules: layered (`feature` depends on `core`/`economy`/`ui`/`storage`, never the other way; features talk to each
-other only through `core.link` interfaces), constructor injection everywhere, no static mutable state, one
-responsibility per class.
+other only through `core.link` interfaces or a small contract a feature exports, such as `AfkZoneInfo` from afk,
+`WorldBorders` from spawn and `Pricing.Source`, `SellLink` and `ShopOffers` between sell and the shop), constructor
+injection everywhere, no static mutable state, one responsibility per class.
+
+### How the features are wired
+
+`FeatureCatalog.create()` builds the features in dependency order and hands each one the contracts it needs. Where
+two features need each other, the one built first gets a late-bound reference (an `AtomicReference` set once the
+other is built) or a setter:
+
+| Link | Built first | Bound after |
+|---|---|---|
+| `WorthLookup` (auction's low price warning) | auction | sell (`worth.set(sell.worth())`) |
+| `CrateKeys` (store key delivery) | integrations | crates (`CrateKeys.late(...)`) |
+| `Cosmetics` (names, tags and colours in chat) | chat | cosmetics (`Cosmetics.late(...)`) |
+| `IgnoreLookup` (payment notices, team invites) | economy, teams | chat (`economy.ignores(...)`, `teams.ignores(...)`) |
+| `Cosmetics` (fake join and leave lines) | staff | cosmetics (`staff.cosmetics(...)`) |
+| `OrderMarket` (selling into buy orders) | sell | orders (`orderMarket.set(orders.market())`) |
+| `ShopOffers` (shop prices in `/worth`) | sell | shop (`sell.shop(shop.offers())`) |
+| homes' disabled worlds (team homes) | teams | homes (`teams.homeWorlds(...)`) |
+| `FreezeStatus`, `VanishStatus` | core teleports, dialogs, commands | staff (`teleports().freezes`, `dialogs().freezes`, `commands().vanish`) |
+| `Relations` (friends, teams, ignores) | every who-can setting | friends, teams, chat (`relations().bind(...)`) |
+
+Every other link is passed straight to the constructor. Each feature page has a table of what it consumes and
+provides, with the getter that wires it.
 
 ## Threading model
 
@@ -91,7 +132,9 @@ one lock. A `LedgerTx` bundles:
 - **postings**: `transfer` (nets to zero), `source` (creates currency) and `sink` (destroys it);
 - **checks**: domain conditions evaluated under the lock, e.g. "listing still active";
 - **applies**: in-memory domain changes with their undo;
-- **writes**: domain SQL committed together with the ledger rows.
+- **writes**: domain SQL committed together with the ledger rows;
+- **after commit**: callbacks that may only run once the change is stored for good (telling players), never for a
+  reverted transaction.
 
 Execution is check → apply → enqueue one database unit (ledger rows, balance deltas, domain SQL) on the
 single ordered writer. The result is known immediately; `committed()` completes after the group commit. If
@@ -123,24 +166,32 @@ SQLite by default (WAL, one writer connection, pinned reader connections), Maria
 Migrations are `db/migrations/V###.sql`, auto-discovered, applied once each in a transaction, recorded in
 `schema_version`.
 
-| Table | Purpose |
-|-------|---------|
-| `players` | uuid, name, first/last seen, salted IP hash |
-| `accounts` | (uuid, currency) → balance |
-| `ledger` | append-only: tx_id, ts, currency, account, delta, balance_after, kind, flow, counterparty, ref, actor, note |
-| `settings` | per-player toggles and preferences |
-| `deliveries` | claim box: owner, source, ref, serialized item, created, claimed |
-| `audit_log` | staff and sensitive actions |
-| `auction_listings` | listings with serialized items, price, state, buyer, tax |
-| `orders`, `order_fills` | buy orders and each delivery to them |
-| `spawners`, `spawner_items` | stacked spawners and their stored drops |
-| `teams`, `team_members` | teams, roles, homes, friendly fire |
-| `homes` | player homes |
-| `stats`, `kills`, `bounties` | lifetime counters, kill log for anti-farm, bounty contributions |
-| `crate_keys`, `crate_log`, `kit_claims` | virtual keys, reward log, kit cooldowns |
-| `ignores` | ignore lists |
-| `player_cosmetics` | chat colours, nicknames, chat tags (and owned monthly tags), join and leave messages, kill effects |
-| `friends`, `friend_requests`, `friend_profiles`, `friend_log` | friendships (two directed rows each), requests (pending, hidden, closed), stored rank limits, friends history |
+| Table | Migration | Purpose |
+|-------|-----------|---------|
+| `players` | V001 | uuid, name, first/last seen, salted IP hash |
+| `accounts` | V001 | (uuid, currency) → balance |
+| `ledger` | V001 | append-only: tx_id, ts, currency, account, delta, balance_after, kind, flow, counterparty, ref, actor, note |
+| `settings` | V001 | per-player settings (one row per changed setting) and remembered UI state (sort orders) |
+| `deliveries` | V001 | claim box: owner, source, ref, serialized item, created, claimed |
+| `audit_log` | V001 | staff and sensitive actions |
+| `auction_listings` | V002 | listings with serialized items, price, state, buyer, tax |
+| `orders`, `order_fills`, `order_notices` | V003, V020-V023 | buy orders, each delivery to them, notices for owners who were offline |
+| `spawners`, `spawner_items`, `spawner_xp` | V004, V030 | stacked spawners, their stored drops, XP waiting for its player |
+| `teams`, `team_members` | V005, V035 | teams, roles, homes, friendly fire, the owner's remembered member limit |
+| `homes` | V006 | player homes |
+| `stats`, `kills`, `bounties` | V007, V045 | lifetime counters, kill log for anti-farm, bounty contributions |
+| `crate_keys`, `crate_log`, `kit_claims` | V008 | virtual keys, reward log, kit cooldowns |
+| `crate_grants`, `crate_blocks`, `crate_schedule`, `crate_commands` | V055, V056 | applied key grant references, crate blocks, the keyall schedule, command rewards waiting to run |
+| `ignores` | V009 | ignore lists |
+| `sell_mastery` | V015 | base value each player sold per sell category |
+| `shop_recent` | V016 | each player's latest purchases (Buy again) |
+| `shard_purchases` | V065 | crate keys bought in the shard shop |
+| `store_deliveries` | V075 | store purchases, one row per reference (exactly-once delivery) |
+| `boosters` | V076 | server-wide sell boosters and their queue |
+| `staff_punishments`, `staff_reports`, `staff_vanish`, `staff_freeze` | V090 | punishments, reports, vanish and freeze |
+| `displays` | V095 | positions of leaderboards and info boards placed in game |
+| `friends`, `friend_requests`, `friend_profiles`, `friend_log` | V100 | friendships (two directed rows each), requests (pending, hidden, closed), stored rank limits and labels, friends history |
+| `player_cosmetics` | V110, V111 | chat colours, nicknames (and their holds), chat tags (and owned monthly tags), join and leave messages, kill effects |
 
 Feature-specific additions live in each feature's migration range (see `docs/development.md`).
 
@@ -177,8 +228,11 @@ The `Dialogs` router secures every click:
 
 Bedrock players (when Floodgate is installed) get the same `View`s as Cumulus forms through `FormBridge`.
 
-**Chest GUIs** are used only for grids (auction house, sell, order delivery, spawner storage, crate preview). They
-share one framework (`Menu`/`PagedMenu`) with one layout:
+**Chest GUIs** are used only where a grid of items is needed: the auction house, your listings and the claim box, the
+shop (categories, pages, search), the sell menu, the price list and sell history, the buy orders browser, your orders,
+your finished orders, your delivery history, delivering to an order and the item picker, spawner storage, the crate
+preview, the trash bin and ender chest views of the perk commands, and the staff inventory inspection. They share
+one framework (`Menu`/`PagedMenu`) with one layout:
 
 - rows 1-5: entries;
 - bottom row: previous page, back, sort, filter, search, three extra buttons, next page.
@@ -186,31 +240,48 @@ share one framework (`Menu`/`PagedMenu`) with one layout:
 Every click is cancelled and routed; double-click gathering and shift-moves into button slots are blocked; a
 click-rate limiter and a per-menu busy lock stop spam.
 
-**Text** comes only from lang files. Messages declare their placeholders and channel; the loader rejects
-anything outside the design system (bold, gradients, other colours, undeclared placeholders, unknown icons).
-Player text is always inserted literally.
+**Text** comes only from lang files. Messages declare their placeholders and channel. `TextStyle` is the only
+MiniMessage setup for trusted text, and the loader checks every line against it: allowed are the palette tags
+`<primary>`, `<secondary>`, `<money>` and `<error>`, named and hex colours (`<red>`, `<#3CC4EE>`, `<color:...>`),
+`<bold>`, `<shadow:...>`, `<icon:name>` sprites, `<!italic>`, `<newline>`, `<reset>`, click, hover, key and
+translation tags, and the message's own placeholders. Gradients, rainbow, obfuscated text, other decorations
+(underline, strikethrough, turning italics on), undeclared placeholders and unknown icons are rejected: the entry keeps
+the text the jar ships and the problem is listed. The shipped lang texts keep to white and gray, money in green and
+the error red for warnings, with no bold or other colours. The spawn boards SiftCore ships in `features/displays.yml`
+go through the same check and do use the extra tags: bold titles and hex colours (gold, silver and bronze places,
+coloured values). Player text is always inserted literally. The one exception to these rules is cosmetics: the chat
+tag looks the owner writes in `features/cosmetics.yml` have their own parser that allows colours, gradients, rainbow,
+decorations and shadows (no clicks or hovers), and players' chat colours and nicknames are built from checked colours,
+never parsed (see `features/cosmetics.md`).
 
 ## Public API and events
 
-`SiftCoreApi` (ServicesManager) exposes `EconomyApi` (balances, deposit/withdraw/transfer, format, top,
-history) and read-only views. Every economic and combat action fires a cancellable event before anything
-changes:
+`SiftCoreApi` (ServicesManager) exposes `EconomyApi` (balances, deposit/withdraw/transfer, format, top, history),
+`CombatView`, `PlaceholderView`, `RankView` (read-only) and `SettingsView` (every player setting: read, change, reset).
+Every economic, combat and social action fires an event, most of them cancellable before anything changes. The 42
+events of `api.event`, by area (each with its thread and what cancelling does in `docs/api.md`):
 
-- `EconomyTransactionEvent` (every transaction, both currencies) and `EconomyTransactionCommittedEvent` (after
-  storage);
-- `PlayerPayEvent`, `ItemSellEvent`, `ShopPurchaseEvent`;
-- `AuctionListEvent`, `AuctionPurchaseEvent`;
-- `OrderCreateEvent`, `OrderFillEvent`, `OrderCancelEvent`;
-- `SpawnerPlaceEvent`, `SpawnerBreakEvent`, `SpawnerStackEvent`;
-- `BountyPlaceEvent`, `BountyClaimEvent`;
-- `CombatTagEvent`, `CombatLogEvent`, `PlayerKillCreditEvent`;
-- `CrateOpenEvent`, `KeyallEvent`;
-- `TeamCreateEvent`, `TeamJoinEvent`, `TeamLeaveEvent`, `TeamDisbandEvent`;
-- `FriendRequestEvent`, `FriendAddEvent`, `FriendRemoveEvent`.
+- economy: `EconomyTransactionEvent` (every transaction, both currencies), `EconomyTransactionCommittedEvent` (after
+  storage), `PlayerPayEvent`;
+- selling and the shop: `ItemSellEvent`, `SellMasteryLevelEvent`, `ShopPurchaseEvent`, `ShardShopPurchaseEvent`,
+  `SellBoosterEvent`, `StoreDeliveryEvent`;
+- buy orders: `OrderCreateEvent`, `OrderEditEvent`, `OrderFillEvent`, `OrderCancelEvent`, `OrderEndEvent`,
+  `OrderCollectEvent`;
+- auction house: `AuctionListEvent`, `AuctionPurchaseEvent`;
+- spawners: `SpawnerPlaceEvent`, `SpawnerStackEvent`, `SpawnerBreakEvent`, `SpawnerSellEvent`;
+- crates and kits: `CrateOpenEvent`, `KeyallEvent`, `KitClaimEvent`;
+- combat and bounties: `CombatTagEvent`, `CombatLogEvent`, `PlayerKillCreditEvent`, `BountyPlaceEvent`,
+  `BountyClaimEvent`;
+- AFK: `AfkStatusChangeEvent`, `AfkZoneRewardEvent`;
+- teams: `TeamCreateEvent`, `TeamJoinEvent`, `TeamLeaveEvent`, `TeamDisbandEvent`;
+- friends: `FriendRequestEvent`, `FriendAddEvent`, `FriendRemoveEvent`;
+- chat and teleports: `PrivateMessageEvent`, `TeleportRequestEvent`, `RandomTeleportEvent`;
+- settings: `SettingChangeEvent`.
 
 Events fired from a world thread are synchronous; others are asynchronous (`isAsynchronous()` tells which).
 
-A PlaceholderAPI expansion (`%siftcore_<name>%`) is registered when PlaceholderAPI is present.
+A PlaceholderAPI expansion (`%siftcore_<name>%`, also answered as `%siftvanilla_<name>%`) is registered when
+PlaceholderAPI is present.
 
 ### Vault
 

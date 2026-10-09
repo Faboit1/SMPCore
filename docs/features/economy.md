@@ -14,7 +14,12 @@ money engine itself (the ledger, `economy/Ledger`) is core; this feature is how 
 | `/pay` | `siftcore.command.pay` (everyone) | The pay form (player and amount); refusals come back in the form with what was typed. |
 | `/pay <name> <amount>` | `siftcore.command.pay` | Pays at once, or asks first (see Confirmation). |
 | `/baltop [page]` (`/balancetop`, `/moneytop`) | `siftcore.command.baltop` (everyone) | The richest players (a dialog; chat lines for the console). |
-| `/eco give|take|set <name> <amount> [money|shards]`, `/eco history <name> [page]`, `/eco resume` | `siftcore.admin.eco` | Staff money tools, audited. |
+| `/eco give\|take\|set <name> <amount> [money\|shards]` (`/economy`) | `siftcore.admin.eco` (operators) | Adds, removes or sets a balance (money unless `shards` is named; `set` re-checks the balance inside the transaction, ledger kinds `admin_give`, `admin_take`, `admin_set`). Console too. Audited as `eco.give`, `eco.take`, `eco.set`. |
+| `/eco history <name> [page]` | `siftcore.admin.eco` | The player's ledger rows, newest first (`page-size` per page): transaction id, amount, kind, how long ago and the balance after. |
+| `/eco resume` | `siftcore.admin.eco` | Takes the economy out of read-only mode after storage failures (the ledger turns read-only after five failed writes). Audited as `eco.resume`. |
+
+Other nodes: `siftcore.pay.unlimited` (operators) removes the daily pay limit, and `siftcore.bypass.cooldown`
+(operators) skips the `pay.cooldown`.
 
 The main menu's Money page (`money`, order 10) shows the balance, shards, leaderboard place and what is left of the
 daily pay limit, with Pay a player and Richest players.
@@ -116,6 +121,20 @@ buttons that pay or charge at once. The money page (opened after the day's pay t
 pay form's daily-limit refusal (after the day's total loads) are rendered for their player. "In full" is not offered
 while `currency.compact-from` is 0, and "Short" while the server already shortens from `k` with one decimal: they
 would change nothing.
+
+## Integration
+
+- Provides `EconomyFeature#economy()` (`EconomyService`, the public `EconomyApi`): the integrations feature exposes it as
+  `SiftCoreApi#economy()`, and stats reads money earned and the money leaderboard from it.
+- **Vault.** When VaultUnlocked (plugin name `Vault`) is enabled, `enable()` registers SiftCore's money as the
+  server's Vault economy, both the classic and the modern interface (`integration/vault`, `VaultHook`); whole dollars,
+  rounding in the server's favour, one ledger transaction of kind `vault_<plugin>` per call. Details:
+  [architecture](../architecture.md#vault). The self-test `Vault economy is SiftCore's` fails when another economy
+  plugin is registered above it; `/sift integrations` shows the state.
+- Consumes `IgnoreLookup` (chat, installed with `EconomyFeature#ignores` once chat is built, because economy is built
+  first) and `services.relations()` for "Who can pay me".
+- Events: `api.event.PlayerPayEvent` (cancellable, before a payment moves money); every transaction also fires the
+  ledger's `EconomyTransactionEvent` and, once stored, `EconomyTransactionCommittedEvent` (see [api](../api.md)).
 
 ## Self-tests
 

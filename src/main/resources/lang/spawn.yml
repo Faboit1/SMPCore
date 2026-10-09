@@ -1,5 +1,7 @@
-# Text of /spawn, /setspawn, spawn protection and the first-join welcome.
-# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Text of /spawn, /setspawn, /fly, spawn protection and the first-join welcome.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 
 spawn:
   not-available: "<primary>Spawn isn't available right now."

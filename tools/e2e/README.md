@@ -15,12 +15,23 @@ The test server directory must contain `versions/` (the patched Canvas jar) and 
 
 ## Run
 
-1. Copy `SiftCore-1.0.0.jar` and `tools/e2e/SiftE2E.jar` into the test server's `plugins/`, plus
-   VaultUnlocked 2.20.3 (`VaultUnlocked-2.20.3.jar`, plugin name `Vault`) for the `vault-economy` scenario.
+1. Copy `SiftCore-1.0.0.jar` and `tools/e2e/SiftE2E.jar` into the test server's `plugins/`, with two of the plugins
+   the live server runs (see `docs/server-setup.md`):
+   - **VaultUnlocked** 2.20.3 (`VaultUnlocked-2.20.3.jar`, plugin name `Vault`): `vault-economy` fails without it.
+   - **LuckPerms**: `cosmetics-join-lines` fails without it. The other rank scenarios check the fallback instead:
+     `store-rank` checks that a rank delivery is refused, `show-my-rank` and `scoreboard-hide-rank` that the Show my
+     rank switch is not offered, and `join-full`, `friends-rank-label` and the weights part of `staff-hierarchy` skip
+     the part that needs LuckPerms. The scoreboard's rank order needs no LuckPerms: `scoreboard-nametags` gives a bot
+     the `group.baron` permission directly.
+   - **Leave TAB out.** The shipped `features/scoreboard.yml` yields the sidebar, tab list and nametags to TAB, so
+     while TAB runs SiftCore draws none of them, and every `scoreboard-*` scenario fails, as does `money-format-views`
+     at its sidebar step. `scoreboard-yield` checks the step-aside itself, with SiftE2E standing in for TAB.
+
+   The `axauctions-*` scenarios need the AxAuctions jar and pass without it (see `docs/features/auction.md`).
 2. Use `online-mode=false`, `allow-flight=true` (bots don't simulate gravity) and a high
    `packet-limiter.all-packets.max-packet-rate` in `config/paper-global.yml` (the bot's client-side connection
    reuses the server's packet limiter).
-3. Console: `e2e list`, `e2e run all` or `e2e run pay forged-clicks`.
+3. Console: `e2e list`, `e2e run all` or `e2e run pay forged-clicks` (scenario names; about 335 in all).
 4. Results are logged as `E2E PASS <scenario>` / `E2E FAIL <scenario> at step '...'` and a final
    `E2E SUMMARY passed=N failed=M`.
 

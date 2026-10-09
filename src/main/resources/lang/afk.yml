@@ -1,6 +1,8 @@
 # Text of AFK detection, /afk and the AFK zone.
-# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, plus each message's own placeholders.
-# Numbers and times are coloured automatically. Bold, gradients and other colours are rejected on load.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Numbers and times are coloured automatically.
 
 afk:
   now-afk: "<secondary>You are now AFK."

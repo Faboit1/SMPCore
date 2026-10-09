@@ -14,12 +14,12 @@ plugin names are compile-time constants, so even the check loads nothing). `/sif
 hook when its setting changes. The Vault economy (VaultUnlocked, legacy and modern interfaces) belongs to the economy
 feature (`integration/vault`); `/sift integrations` reports on it too.
 
-The feature provides one contract and consumes five:
+The feature provides one contract and consumes these (all wired in `FeatureCatalog`):
 
 | Contract | Direction | Wired |
 |---|---|---|
-| `core.integration.Ranks` | provides, `IntegrationsFeature#ranks()` | for chat, the scoreboard and other features that show ranks; one object for the whole run, answering `Ranks.NONE` until LuckPerms is connected |
-| `CrateKeys` | consumes | `crates.keys()` (store key delivery) |
+| `core.integration.Ranks` | provides, `IntegrationsFeature#ranks()` | chat, cosmetics, friends and the scoreboard; one object for the whole run, answering like `Ranks.NONE` while LuckPerms is not connected |
+| `CrateKeys` | consumes | `crates.keys()`, late-bound because crates is built after this feature (store key delivery) |
 | `ServerBoosters` | consumes | `boosters.boosters()` (store booster delivery and revokes, `/purchases` booster states; see `docs/features/boosters.md`) |
 | `EconomyApi` | consumes | `economy.economy()` (the public API) |
 | `CombatTags` | consumes | the shared combat tags (the public API's read-only combat view) |
@@ -63,7 +63,8 @@ lp group tycoon meta set siftcore-rank-color #FF6AD5
 lp group tycoon meta set siftcore-rank-gradient #FF6AD5:#B26BFF
 ```
 
-Chat currently shows the plain label (`Arg.text`); to show the coloured rank it can use `ranks.component(player)`.
+Chat (the name in front of public chat lines and the hover card) and the cosmetics join and leave lines show this
+coloured rank (`ranks.component(player)`); the scoreboard and friends profiles use the plain label.
 
 Labels are cached per player and dropped whenever LuckPerms recalculates that player (`UserDataRecalculateEvent`),
 unloads them, or recalculates any group, so a lookup is a map read and safe from any thread; a reload clears the
@@ -370,12 +371,14 @@ becomes a custom form whose submit and close press the right buttons, a list a s
 
 ## Integration notes
 
-- Chat takes `integrations.ranks()` in `FeatureCatalog` (the integrations feature is constructed before it); the
-  scoreboard and any later feature that shows ranks should do the same. The object never changes, so passing it at
-  construction is enough, and it applies Show my rank for them.
-- Store deliveries name crates by id; buyers see `3 legendary keys`.
-- The feature id is `integrations`; its lang and config files are new, so an existing server gets them on the next
-  start.
+- Chat, cosmetics, friends and the scoreboard take `integrations.ranks()` in `FeatureCatalog` (the integrations feature
+  is constructed before them); any new feature that shows ranks should do the same. The object never changes, so
+  passing it at construction is enough, and it applies Show my rank for them.
+- Store key deliveries reach the crates feature through a late-bound `CrateKeys` (crates is built later); buyers see
+  the crate's name (`3 Basic keys`).
+- `/sift` subcommands are added to the admin feature with `admin.addPart(...)`. `SiftCoreApi` (`PublicApi`) is
+  registered at enable from `economy.economy()`, the shared combat tags, the placeholder registry and `ranks()`; its
+  `settings()` looks up the `SettingsView` the settings feature registers itself.
 
 ## Unverified
 

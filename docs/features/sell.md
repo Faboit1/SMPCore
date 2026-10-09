@@ -193,9 +193,10 @@ got on screen still have (nothing else), so a stale copy can't be saved next to 
 ## Buy orders
 
 Selling routes units to buy orders when they pay the seller more than the server would. The contract is
-`core.link.OrderMarket` (implemented by the orders feature); `SellFeature` takes a `Supplier<OrderMarket>` and
-`FeatureCatalog` passes `() -> OrderMarket.NONE` until orders exists, so today nothing is routed and no order text
-is shown.
+`core.link.OrderMarket` (implemented by the orders feature, `OrdersFeature#market()`). Orders price with the worth
+table, so they are built after selling: `SellFeature` takes a `Supplier<OrderMarket>` and `FeatureCatalog` passes a
+late-bound reference (`orderMarket::get`) that is set to the orders market once orders is built. While the orders
+feature is off the supplier answers `OrderMarket.NONE`: nothing is routed and no order text is shown.
 
 - Conditions: the market is available, the player's "Sell to buy orders first" switch (`sell_orders`) is on
   (registered at startup in Money & selling, offered only while the market is available, also when the orders
@@ -233,7 +234,8 @@ inside each strongly connected component, so prices never chain around a loop. R
 something behind (a milk bucket leaves its bucket) and special recipes are not used. Items worth less than $1 are not
 sellable. The table is written to `plugins/SiftCore/data/worth-generated.yml` with the origin of every price. At
 startup: `Worth table: 1019 sellable items (404 base, 615 from recipes, 0 overrides) in 6 categories, using 1519 of
-1585 recipes (66 special recipes skipped). Best multiplier 1.75x (rank 1.5x plus mastery 0.25).`
+1585 recipes (66 special recipes skipped). Best multiplier 1.25x (rank 1x plus mastery 0.25), up to 1.5625x with the
+largest sell booster (+25%).` (the shipped config: no rank multipliers; the item and recipe counts are from one boot).
 
 Default prices include seeds, saplings, flowers, leaves, coral, concrete, cobwebs, bells, goat horns, pottery
 sherds, music discs, smithing templates (the netherite upgrade $2,500 and every armor trim $1,000, both below what
@@ -278,7 +280,7 @@ would sell for.
 
 `/worth` with an empty hand, `/worth list [search]` and the `prices` hub entry open the price list, a paged menu of
 every sellable item with its real icon: "Sells for $400 each", "With your bonus $600" (above 1x), "Category Mining",
-"The shop sells it for $1,000", "Best buy order $450 each" (once orders exist), "You carry 64, worth $38,400", and
+"The shop sells it for $1,000", "Best buy order $450 each" (while the orders feature runs), "You carry 64, worth $38,400", and
 for `siftcore.worth.details` where the price comes from. Sort: Name, Highest price, Lowest price. Filter: All and
 each category. Search: name and id; an exact name match comes first. The sort and filter are remembered per player
 (`worth_sort`, `worth_filter`; a filter the list was opened with, from mastery or a search, is only remembered once
@@ -287,7 +289,7 @@ the player picks one).
 Clicking an item opens its **details** dialog, the one place where selling, the shop and buy orders meet for one
 item: price each, with the player's bonus, the category mastery level, the shop price, the best order, how many the
 player carries, and the buttons "Sell your 64 for $25,600" (the `/sell hand all` rules and confirmation), "Buy in
-the shop for $1,000" (the shop's purchase dialog), "Order it" (the orders form, once orders exist) and Back.
+the shop for $1,000" (the shop's purchase dialog), "Order it" (the orders form, while the orders feature runs) and Back.
 
 ## Placeholders
 

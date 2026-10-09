@@ -1,6 +1,8 @@
-# Text of the staff tools. Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each
-# message's own placeholders (shown in angle brackets). Player names, reasons and messages are inserted literally.
-# A value may be a list: each entry is one line.
+# Text of the staff tools.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Player names, reasons and messages are inserted literally. A value may be a list: each entry is one line.
 
 staff:
   console: "Console"

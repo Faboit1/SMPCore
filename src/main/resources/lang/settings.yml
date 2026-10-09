@@ -1,6 +1,8 @@
 # Text of the settings dialog (/settings, and Settings in the main menu), its groups and the shared option names.
 # Every feature adds its own settings; their labels and descriptions live in that feature's lang file.
-# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 
 settings:
   title: "Settings"

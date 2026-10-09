@@ -17,14 +17,14 @@ is no reason to leave a fight).
 
 ## Contracts
 
-It provides one contract and consumes five:
+It provides one contract and consumes five (all wired in `FeatureCatalog`):
 
 | Contract | Wired | Used for |
 |---|---|---|
-| `Cosmetics` (provided, `CosmeticsFeature#cosmetics()`) | chat (late-bound, chat is built first), combat, extras | Names (nicknames), tags, chat colours, join and leave lines, kill effects. `Cosmetics.NONE` shows everything plain |
+| `Cosmetics` (provided, `CosmeticsFeature#cosmetics()`) | chat (late-bound, chat is built first), staff (fake join and leave lines, handed over after cosmetics is built), combat, extras | Names (nicknames), tags, chat colours, join and leave lines, kill effects. `Cosmetics.NONE` shows everything plain |
 | `TextChecks` | chat (`ChatFeature#textChecks()`) | Nicknames and custom join messages must pass chat's word filter; join messages may not contain any address |
-| `Ranks` | integrations | The rank, in its colour, in front of join and leave lines |
-| `SpawnArea` | spawn | No kill effects inside the protected spawn |
+| `Ranks` | integrations (`IntegrationsFeature#ranks()`) | The rank, in its colour, in front of join and leave lines |
+| `SpawnArea` | spawn (`SpawnFeature#area()`) | No kill effects inside the protected spawn |
 | `CombatStatus` | the shared combat tags | Every perk command and dialog is refused in combat |
 
 `FeatureCatalog` also hands it chat's settings group (`ChatFeature.SETTINGS`) and the display group
@@ -185,14 +185,14 @@ player picked and can take off themselves ("No tag"), not their rank (see integr
 
 | Command | Permission | Default | What it does |
 |---|---|---|---|
-| `/cosmetics` | `siftcore.command.cosmetics` | everyone | The cosmetics menu |
-| `/chatcolor [colour\|reset]` | `siftcore.chat.color` or `siftcore.chat.color.hex` | operators (ranks) | Chat colour dialog, or set it typed |
-| `/nick [name\|off]` | `siftcore.command.nick` | operators (ranks) | Nickname form, or set it typed |
+| `/cosmetics` (`/cosmetic`) | `siftcore.command.cosmetics` | everyone | The cosmetics menu |
+| `/chatcolor [colour\|reset]` (`/chatcolour`) | `siftcore.chat.color` or `siftcore.chat.color.hex` | operators (ranks) | Chat colour dialog, or set it typed |
+| `/nick [name\|off]` (`/nickname`) | `siftcore.command.nick` | operators (ranks) | Nickname form, or set it typed |
 | `/nick <player> <name\|off>` | `siftcore.admin.nick` | operators | Staff: set or remove anyone's nickname (console too, audited) |
 | `/realname <nickname>` | `siftcore.command.realname` | everyone | Who uses a nickname |
-| `/tags [id\|off]` | `siftcore.command.tags` | everyone | Tag dialog, or pick one typed |
-| `/joinmessage`, `/leavemessage` `[set <text>\|reset\|preview]` | `siftcore.join.message.custom` | operators (ranks) | Custom join and leave messages |
-| `/killeffect [id\|off]` | `siftcore.command.killeffect` | everyone | Kill effect dialog, or pick one typed |
+| `/tags [id\|off]` (`/tag`) | `siftcore.command.tags` | everyone | Tag dialog, or pick one typed |
+| `/joinmessage` (`/joinmsg`), `/leavemessage` (`/leavemsg`, `/quitmessage`) `[set <text>\|reset\|preview]` | `siftcore.join.message.custom` | operators (ranks) | Custom join and leave messages |
+| `/killeffect [id\|off]` (`/killeffects`) | `siftcore.command.killeffect` | everyone | Kill effect dialog, or pick one typed |
 | `/cosmetics admin`, `admin show <player>` | `siftcore.admin.cosmetics` | operators | Status (players with choices, nicknames, tags, effects played and held back); a player's stored choices and owned tags |
 | `/cosmetics admin reset <player>` | `siftcore.admin.cosmetics` | operators | Forgets a player's choices but keeps the monthly exclusives they own (those can't be picked again). The player is told; the audit entry (`cosmetics.reset`) lists everything that was there (`was chat=gold; nick=Shadow #FF6AD5:#B26BFF; tag=spooky; owned=spooky; ...`) so a mistake can be put back |
 | `/cosmetics admin owned <player> give\|take <tag>` | `siftcore.admin.cosmetics` | operators | Gives a tag for good or takes an owned one away (audited `cosmetics.owned`) |
@@ -210,7 +210,7 @@ Perk nodes (all default to operators, granted to the rank groups in LuckPerms):
 | `siftcore.nick.gradient` | `siftcore.command.nick` | Tycoon |
 | `siftcore.join.message.custom` | `siftcore.join.message` | Tycoon |
 | `siftcore.tags.tycoon` | `siftcore.tags.baron`, `siftcore.tags.prospector` | Tycoon |
-| `siftcore.killeffect.*` | every `siftcore.killeffect.<id>` | Tycoon |
+| `siftcore.killeffect.*` | every `siftcore.killeffect.<id>`: `hearts`, `flames`, `souls`, `totem`, `lightning`, `notes`, `ender` | Tycoon |
 
 LuckPerms setup on top of the rank groups:
 

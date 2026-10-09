@@ -9,9 +9,9 @@ adds the index the startup read uses).
 | `core.combat.CombatTags` | core (shared state) | Writes who is in combat until when; teleports (`core.teleport.Teleports`) and the auction house read it |
 | `StatsRecorder` | stats (`StatsFeature#recorder()`) | Counted kills go to `kill(killer, victim)`, every other death to `death(victim)`; streaks are read back for announcements |
 | `TeamLookup` | teams (`TeamsFeature#lookup()`) | Same-team kills never count |
-| `FriendLookup` | friends | Kills between friends, or players who were friends within `anti-farm.friends-window`, never count |
+| `FriendLookup` | friends (`FriendsFeature#lookup()`) | Kills between friends, or players who were friends within `anti-farm.friends-window`, never count |
 | `VanishStatus` | staff (`StaffFeature#vanish()`) | Vanished staff take no part in combat and are never named to players who can't see them |
-| `SpawnArea` | spawn (`NONE` until the spawn feature is merged) | Tagged players can't walk, pearl or chorus into the protected spawn area |
+| `SpawnArea` | spawn (`SpawnFeature#area()`) | Tagged players can't walk, pearl or chorus into the protected spawn area |
 | `Cosmetics` | cosmetics (`CosmeticsFeature#cosmetics()`) | Players are named as they show themselves (nicknames) in death messages, kill streaks and combat-log lines; the killer's kill effect plays where the victim fell |
 
 Bounties hook into counted kills through `PlayerKillCreditEvent` (see `bounties.md`).
@@ -229,7 +229,8 @@ the end notice in chat and as a title) and `combat-death-settings` (kill confirm
 as a title and off; the death location with coordinates, in streamer mode and off; the death recap switched off in
 the dialog; the death message filter for player kills only and for friends and teammates only; combat log
 announcements switched off; staff farming and combat log alerts, and none for a staff member who turned them off).
-The `/settings <id> <value>` command path is not covered yet: it comes with the settings dialog package.
+These scenarios open the groups with `/settings <group>`; the `/settings <id> <value>` command itself is covered by the
+settings scenarios (`settings-commands`, see [settings](settings.md)).
 
 ## Design decisions
 

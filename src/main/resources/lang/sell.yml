@@ -1,7 +1,9 @@
 # Text of /sell, /sell hand, /sell hand all, /sell all, /sell mastery, /sell top, /sell history, /worth and the
 # price list.
-# Allowed tags: <primary> <secondary> <icon:name> <!italic> <newline>, plus each message's own placeholders.
-# Money amounts are coloured automatically. Bold, gradients and other colours are rejected on load.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Money amounts are coloured automatically.
 
 sell:
   # The receipt in chat. <items> is "64 diamond" for one kind, "150 items" for several; hovering it lists them.

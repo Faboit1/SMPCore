@@ -219,18 +219,21 @@ when they next join). There is no delete: delivered items always stay collectabl
   uses `order_not_active`, and one refused by `refuse-same-ip` uses `order_own_order` (fresh bids leave both orders
   out); the delivery menu and quick deliver still show the precise message from their own checks.
 
-`core/link/OrderMarket.java` and `core/item/*` are byte-identical to the sell branch's versions, so the two features
-merge without conflicts. Wiring at integration (the orders feature is built after selling because it prices with
-`sell.worth()`):
+The wiring in `FeatureCatalog` (the orders feature is built after selling because it prices with `sell.worth()`, so
+selling gets a late-bound market):
 
 ```java
 AtomicReference<OrderMarket> orderMarket = new AtomicReference<>(OrderMarket.NONE);
-SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, orderMarket::get);
+SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, orderMarket::get, boosters.boosters());
 ...
 OrdersFeature orders = new OrdersFeature(this.services, this.problems, this.combatTags, sell.worth(),
-    () -> sell.worth().current().highestMultiplier(), spawners.items(), IgnoreLookup.NONE, staff.vanish());
+    () -> sell.worth().current().highestMultiplier(), spawners.items(), chat.ignores(), staff.vanish());
 orderMarket.set(orders.market());
 ```
+
+`chat.ignores()` (`IgnoreLookup`): a player who ignores an order's owner gets no big-order announcement of it.
+`staff.vanish()` (`VanishStatus`): a vanished owner's orders are not announced. The shared item classifier and key
+helpers are in `core/item` (also used by selling and the auction house).
 
 ## Placeholders
 

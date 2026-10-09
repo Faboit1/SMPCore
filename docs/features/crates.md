@@ -8,7 +8,8 @@ is a staff and event tool. Crates can also be blocks in the world. Package
 plus `crate_grants`, `crate_blocks` and `crate_schedule` (V055).
 
 The feature implements `core.link.CrateKeys`; `CratesFeature#keys()` returns it for the features that hand out keys
-(shard shop, store delivery):
+(the shard shop, kits that include keys, and store delivery, which is built before crates and gets a late-bound
+reference):
 
 - `crates()`: the configured crate ids;
 - `give(player, crate, amount, actor, ref)`: one transaction, stored before `committed()` completes. With a `ref`
@@ -17,23 +18,22 @@ The feature implements `core.link.CrateKeys`; `CratesFeature#keys()` returns it 
   `bad_ref`, `limit` (1,000,000 keys of one crate);
 - `keys(player, crate)`: the count, from memory.
 
-It consumes five contracts:
+It consumes five contracts, all wired in `FeatureCatalog`:
 
 | Contract | Wired | Used for |
 |---|---|---|
-| `WorthLookup` | the sell feature | "Sells for" in the preview and the item value in `/crates info` |
-| `SpawnerItems` | `NONE` until the spawners feature is integrated | Spawner rewards. While the provider can't make a mob's spawner, that reward is left out of the crate and the other chances grow to fill in (one INFO line at startup says how many; no warning) |
-| `VanishStatus` | the staff feature | Vanished staff get no keyall keys (unless `include-vanished`) and their wins are never announced |
+| `WorthLookup` | the sell feature (`SellFeature#worth()`) | "Sells for" in the preview and the item value in `/crates info` |
+| `SpawnerItems` | the spawners feature (`SpawnersFeature#items()`) | Spawner rewards. While the provider can't make a mob's spawner, that reward is left out of the crate and the other chances grow to fill in (one INFO line at startup says how many; no warning) |
+| `VanishStatus` | the staff feature (`StaffFeature#vanish()`) | Vanished staff get no keyall keys (unless `include-vanished`) and their wins are never announced |
 | `CombatStatus` | the shared combat tags (`CombatTags`) | With `block-in-combat` (shipped on) a player in combat can't open crates (no totems or golden apples mid-fight); looking at crates and previews still works |
-| `AfkStatus` | `NONE` until the AFK feature is integrated | With `keyall.include-afk: false` AFK players get no keyall keys (shipped `true`: staying online is what earns them) |
+| `AfkStatus` | the AFK feature (`AfkFeature#status()`) | With `keyall.include-afk: false` AFK players get no keyall keys (shipped `true`: staying online is what earns them) |
 
 Money and shards are paid with the ledger kind `crate_reward`, which the stats feature counts as money earned.
 
-Integration notes: when the spawners and AFK features are merged, `FeatureCatalog` passes their `SpawnerItems` and
-`AfkStatus` here instead of `NONE` (nothing else changes; the left-out spawner rewards come back on their own). The
-shard shop and store delivery take `crates.keys()` and should give keys with a `ref` (order id, purchase id) so a
-retried delivery is never paid twice. Crate blocks at spawn need no entry in `spawn.yml`'s `allowed-interactions`
-(see Crate blocks), and `crates` can be added to `hub.yml`'s `pause-menu.entries` to put Crates in the pause screen.
+While the spawners feature is off, its provider is `SpawnerItems.NONE` and spawner rewards are left out as above (they
+come back on their own once spawners run). The shard shop and store delivery give keys with a `ref` (order id,
+purchase id), so a retried delivery is never paid twice. Crate blocks at spawn need no entry in `spawn.yml`'s
+`allowed-interactions` (see Crate blocks). Crates is in the shipped pause menu (`hub.yml` `pause-menu.entries`).
 
 ## Commands and permissions
 

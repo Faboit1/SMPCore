@@ -5,9 +5,12 @@ for its anti-dupe protections. SiftCore's own auction house (feature `auction`, 
 this page) stays in the plugin as the fallback: it takes over `/ah` and the menu button automatically whenever
 AxAuctions is not running.
 
-> **Status, 8 Oct 2026: AxAuctions 2.7.2 does not start.** It started 12 times between 08:02 and 09:10 UTC and
-> everything under "Verified behaviour" was checked then. Since about 09:12 UTC every start fails, on a fresh server
-> directory too and with a complete library cache. See "Start failure" below. Do not put it on the live server until
+> **Status: AxAuctions 2.7.2 does not start, so SiftCore's own auction house serves `/ah` on the live server.** It
+> started 12 times on 8 Oct 2026 between 08:02 and 09:10 UTC and everything under "Verified behaviour" was checked
+> then. Since about 09:12 UTC every start fails, on a fresh server directory too and with a complete library cache
+> (see "Start failure" below). The jar and its restyled config are in the live server's `plugins/` (undo log rows 17
+> and 19) and fail at every start with the `NoClassDefFoundError` below; `commands.yml` has `ah: yield-to:
+> AxAuctions`, so SiftCore registers its own `/ah` whenever AxAuctions is not enabled. Rely on AxAuctions only once
 > it starts again (or a newer AxAuctions does) and `e2e run` of the `axauctions-*` scenarios passes.
 
 ## AxAuctions
@@ -51,9 +54,11 @@ Until then nothing breaks: with AxAuctions missing or failed, SiftCore keeps `/a
    jar is licensed: never commit it (`.gitignore` excludes `server/**/*.jar`).
 2. Copy `server/plugins/AxAuctions/` from this repository to the server's `plugins/AxAuctions/` (all files,
    including `guis/`), and `server/plugins/SiftCore/commands.yml` to `plugins/SiftCore/commands.yml`.
-3. Give the default listing slots: `lp group default permission set axauctions.limit.3 true`. Ranks later get
-   `axauctions.limit.5`, `.7`, `.10`, `.15` (the highest node counts, they don't add up). Without any node a
-   player has 1 slot.
+3. Give the default listing slots: `lp group default permission set axauctions.limit.3 true`, and the paid ranks
+   the same slots as SiftCore's own auction house (`siftcore.auction.listings.<n>`, see
+   [monetization](../monetization.md)): `axauctions.limit.8` (prospector), `.20` (baron), `.40` (tycoon). The highest
+   node counts, they don't add up. Without any node a player has 1 slot. (Not set on the live server, where
+   AxAuctions does not start.)
 4. Start the server. The first start downloads the libraries. Check the log for `Loaded currency integrations: Vault`
    and `Successfully registered internal expansion: axauctions`.
 5. After editing a file, `/ahadmin reload` applies it (expected: `Reloaded 16 files with 0 failures`). The
@@ -66,18 +71,24 @@ directory and style any new text the same way.
 
 **Money.** AxAuctions uses the Vault currency (`currencies.yml`: only `Vault` is registered, 5% tax). It calls the
 legacy `net.milkbowl.vault.economy.Economy` interface with `double` amounts: `has`, `withdrawPlayer` on the buyer,
-then `depositPlayer` on the seller with the price minus tax. On test servers that is the TEST-ONLY TestEco economy;
-on the live server it will be SiftCore's Vault provider (not built yet). That provider must:
+then `depositPlayer` on the seller with the price minus tax. The checks under "Verified behaviour" ran against the
+TEST-ONLY TestEco economy; with SiftCore installed the Vault economy is SiftCore's own provider (`integration/vault`,
+registered by the economy feature when VaultUnlocked is installed; see
+[architecture](../architecture.md#vault) and [economy](economy.md)). What that means for AxAuctions:
 
-- **never refuse a deposit** of a valid amount. AxAuctions does not undo a purchase when the seller's deposit fails:
-  the buyer keeps the item, has paid, and the seller's money is gone (verified, see below).
-- **accept amounts that aren't whole dollars.** The 5% tax makes most payouts fractional ($33 sells for $31.35)
-  and AxAuctions accepts decimal prices (`/ah sell 10.5`). Its menus and messages round every amount half-even to
-  whole dollars (`#,##0`): 10.5 shows as $10, 31.35 as $31, 9.5 as $10. If the provider rounds every Vault amount
-  the same way (half-even to whole dollars), players get and pay exactly what AxAuctions shows them, and the
-  ledger's books still balance (withdrawal and deposit are separate postings; the difference is the tax sink).
-- answer `has` consistently with `withdrawPlayer` (same rounding), and be safe to call from any thread
-  (AxAuctions calls it from region and async threads).
+- **Deposits.** A deposit of a valid amount succeeds unless the seller's balance would go over the money limit or the
+  economy turned read-only after storage failures (until `/eco resume`). AxAuctions does not undo a purchase when the
+  seller's deposit fails: the buyer keeps the item, has paid, and the seller's money is gone (verified with TestEco,
+  see below), so those two cases are the remaining risk.
+- **Amounts that aren't whole dollars.** The 5% tax makes most payouts fractional ($33 sells for $31.35) and
+  AxAuctions accepts decimal prices (`/ah sell 10.5`). SiftCore rounds every Vault amount in the server's favour after
+  rounding to six decimals: a deposit rounds down ($31.35 pays $31), a withdrawal rounds up (a price of $10.50 costs
+  $11). AxAuctions' menus and messages round half-even to whole dollars (`#,##0`), so for a fractional price the
+  buyer can pay up to $1 more than shown (10.5 shows as $10) and the seller get up to $1 less (9.5 shows as $10).
+  Whole-dollar prices and payouts are exact. Each call is its own ledger transaction (kind `vault_axauctions`), so
+  the books balance: the withdrawal and the deposit are separate postings and the difference is the tax sink.
+- `has` uses the same rounding as `withdrawPlayer`, and every call is safe from any thread (AxAuctions calls from
+  region and async threads); balances come from memory.
 
 **Commands.** AxAuctions registers `/ah` (aliases `/auction`, `/auctionhouse`, `/axah`) and `/ahadmin`
 (`/auctionadmin`, `/axahadmin`) through its own command framework. SiftCore registers its commands last, so its own
@@ -105,7 +116,7 @@ click). That `/ah` is fired as `PlayerCommandPreprocessEvent` first, like a type
 | Node | Default | What |
 |---|---|---|
 | `axauctions.use` | everyone | Player commands (`/ah`, `open`, `sell`, `search`, `view`, `history`, `deleted`) |
-| `axauctions.limit.<n>` | none (1 slot) | Listing slots; default group gets `.3`, ranks `.5`/`.7`/`.10`/`.15` |
+| `axauctions.limit.<n>` | none (1 slot) | Listing slots; default group gets `.3`, the paid ranks `.8`/`.20`/`.40` |
 | `axauctions.admin` | op | `/ahadmin reload`, `forceopen`, `history`, `deleted`, `logs`, `limit`, `convert` |
 | `axauctions.admin.removal` | op | Shift click any listing to remove it |
 | `axauctions.history.admin.take`, `axauctions.deleted.admin.take` | op | Take a copy out of the history or deleted-items viewers (staff restores) |
@@ -257,7 +268,8 @@ at each start.
   AxAuctions stopped starting.
 - Deletion times other than 7 days, staff restoring deleted items, a restart with listings up, a crash during a
   trade, paying sellers who are offline, and MySQL.
-- Behaviour with SiftCore's real Vault provider (not built yet).
+- AxAuctions trades against SiftCore's Vault provider (AxAuctions stopped starting before the provider was built; the
+  provider itself is covered by the `vault-economy` e2e scenario).
 
 ### Database
 

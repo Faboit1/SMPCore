@@ -1,5 +1,8 @@
-# Text of stats and leaderboards. Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>,
-# plus each message's own placeholders (shown in angle brackets). Numbers, times and money are coloured automatically.
+# Text of stats and leaderboards (/stats, /top, /playtime, /sift stats).
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Numbers, times and money are coloured automatically.
 
 stats:
   view:

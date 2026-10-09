@@ -1,6 +1,7 @@
-# Text of the sidebar, the tab list and nametags. Allowed tags: <primary> <secondary> <money> <error>, colours
-# (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's own placeholders
-# (shown in angle brackets).
+# Text of the sidebar, the tab list and nametags.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 #
 # Sidebar lines and the tab list header and footer can also show placeholders in braces, like {balance}: any of
 # SiftCore's placeholders (/sift placeholders lists them) and these, which the scoreboard provides itself:

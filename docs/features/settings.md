@@ -8,6 +8,32 @@ public `SettingsView`. The model and storage live in core (`core/player`: `Playe
 `lang/core.yml` (`shared-settings`). Config: `features/settings.yml`. Table: `settings` (V001, one row per player and
 setting; no schema change). Every setting is listed at the end ([Settings catalog](#settings-catalog)).
 
+SiftCore 1.0.0 registers **133 settings in 14 groups**: Chat 11, Friends & teams 11, Server announcements 8, Sounds 8,
+Teleports & homes 10, Money & selling 12, Shop, auction & orders 12, Combat & stats 11, Display 7, Privacy 6,
+AFK & shards 7, Crates & kits 10, Spawners 7 and Staff 13. A 15th group, General, catches settings registered without a
+group; none is, so it never shows. Every player has the same settings whatever their rank: none is sold. A setting
+shows only where it means something: 20 need a permission (Show my rank for players with a rank to hide, Hide me from
+leaderboards for staff and test accounts, the kit settings for players who may use `/kits`, the trash bin settings for
+players who have `/trash`, and the 13 settings of the Staff group for staff), and many are offered only while the config gives them a meaning (mentions turned on, buy orders
+running, a display standing in the world).
+
+## How players and staff use them
+
+- **Players** open `/settings` (or Settings in the main menu or the pause screen), pick a group, change switches,
+  choices and sliders on its pages and press Save; or search, see what they changed, and reset a group or everything.
+  The same works typed: `/settings sound-volume 60`, `/settings chat`, `/settings search ping`, `/settings reset all`
+  (see [/settings](#settings)). Several commands flip one setting directly (`/msgtoggle`, `/tpatoggle`, `/sidebar`,
+  `/socialspy`, `/team spy`, `/friend settings`). Changes apply at once and are stored; choosing the default again
+  removes the stored value, so the player follows the server's default from then on.
+- **The server** shapes the dialog and sets defaults in `features/settings.yml`: a different default for players who
+  never changed a setting, a lock that fixes a value for everyone, a hidden list, and the group order and icons (see
+  [Server overrides](#server-overrides-featuressettingsyml)).
+- **Staff** with `siftcore.admin.settings` look up and change any player's settings, online or not, with
+  `/sift settings <player> [setting] [value]` and reset them; every change is audited (see
+  [Staff tools](#staff-tools-sift-settings)). `/sift settings catalog` writes the catalog below.
+- **Other plugins** read and change settings through `SettingsView` and the `%siftcore_setting_<id>%` placeholders,
+  and can veto a player's own change with `SettingChangeEvent` (see [API and events](#api-and-events)).
+
 ## Kinds of settings
 
 | Kind | Stored as | Dialog input | Notes |
@@ -271,16 +297,17 @@ every real change with the setting, group, old and new value, cause (`DIALOG`, `
 - `siftcore.command.settings` (everyone): `/settings`.
 - `siftcore.admin.settings` (operators): `/sift settings`.
 - `siftcore.stats.hide` (nobody by default; give it to staff and test accounts): offers Hide me from leaderboards.
-- `siftcore.settings.hide-rank` (nobody by default; give it to the rank groups): offers Show my rank (once the rank
-  feature reads it).
+- `siftcore.settings.hide-rank` (nobody by default; give it to the rank groups, as SiftVanilla does from prospector
+  up): offers Show my rank (integrations feature, read by chat, profiles, join lines, the rank placeholders and the
+  scoreboard; see [integrations](integrations.md#show-my-rank)).
 
 ## Self-test
 
 Core:
 - every setting, option, unit and group has text; every group icon resolves;
 - every shared setting is registered;
-- groups hold at most 15 settings, and at least 4 once no setting is left in General;
-- every shared setting is read by a feature (once no setting is left in General).
+- groups hold 4 to 15 settings (checked once General is empty, as it is now);
+- every shared setting is read by a feature (also checked once General is empty).
 
 Settings feature:
 - dialog input keys are valid and unique;
@@ -314,6 +341,10 @@ the placeholders and the API pick a registered setting up by themselves. A comma
 `/settings` does.
 
 ## Settings catalog
+
+The table below was generated on a test server, so its Notes column reflects that server: `show-spawn-holograms`
+reads "not offered now" because no display stood in its world (it is offered wherever a display stands, as on the live
+server), and on a server with TAB, like the live one, `scoreboard` and `sidebar-layout` are not offered either.
 
 Every player setting SiftCore 1.0.0 registers (133), generated with `/sift settings catalog`. Values are what `/settings`, `/sift settings` and `features/settings.yml` take; the default is the built-in one (the server can change it).
 

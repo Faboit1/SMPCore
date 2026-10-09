@@ -3,7 +3,8 @@
 
 format:
   # Hovering a name in chat shows a card with the player's rank, team, balance, kills and playtime; clicking it
-  # starts a private message (/msg <name>).
+  # opens the player's profile (/profile <name>, or /msg <name> on a server without profiles) and shift-clicking it
+  # starts a private message.
   hover-card: true
   # Typing [item] or [i] shows the item in your hand, which others can hover to see (permission siftcore.chat.item).
   item-tag: true

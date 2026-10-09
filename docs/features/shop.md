@@ -1,6 +1,6 @@
 # Shop (`feature/shop`, id `shop`)
 
-The server shop: players buy items (and spawners, once the spawner feature provides them) for money.
+The server shop: players buy items and spawners for money.
 
 ## Commands
 
@@ -106,10 +106,12 @@ the redstone block ($110) and slime block ($275) went up with mastery.
 
 ## Spawners
 
-The `spawners` category lists the spec's spawner prices (zombie $60k ... iron golem $2.5m). Spawner items come from
-`core.link.SpawnerItems`; until the spawner feature provides a real implementation (`SpawnerItems.NONE` today) those
-entries are hidden, and startup logs `its 15 spawner entries are hidden until spawner items are available`.
-Spawners are not checked against the worth table (they can't be sold) and show no sell-back price.
+The `spawners` category lists 15 spawners (zombie $60k ... iron golem $2.5m). Spawner items come from
+`core.link.SpawnerItems`, which `FeatureCatalog` wires to the spawners feature (`SpawnersFeature#items()`), so a bought
+spawner is a SiftCore stacking spawner (see [spawners](spawners.md)). Startup logs
+`Shop: 8 categories with ... items, 15 of them spawners.` While the spawners feature is off the provider is
+`SpawnerItems.NONE`: those entries are hidden and startup logs `its 15 spawner entries are hidden until spawner items
+are available`. Spawners are not checked against the worth table (they can't be sold) and show no sell-back price.
 
 ## Config (`features/shop.yml`)
 
@@ -129,7 +131,7 @@ entry's `price x max` must fit the money limit.
   right-click selling.
 - Offers itself to selling as `feature.sell.ShopOffers` (`ShopFeature#offers()`, handed to `SellFeature#shop`): the
   lowest shop price of a plain item and opening its purchase dialog, for `/worth`, the price list and item details.
-- Consumes `core.link.SpawnerItems` (`SpawnerItems.NONE` until the spawner feature exists) and
+- Consumes `core.link.SpawnerItems` (the spawners feature, `SpawnersFeature#items()`) and
   `core.teleport.CombatStatus` (the shared combat tags).
 - Events: `api.event.ShopPurchaseEvent`.
 
