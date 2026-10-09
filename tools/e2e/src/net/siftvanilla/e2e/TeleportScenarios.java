@@ -1126,7 +1126,13 @@ final class TeleportScenarios {
                 e2e.expect(tip != null && !tip.contains("$") && !tip.toLowerCase(Locale.ROOT).contains("free") && tip.contains("Ready"),
                     "the shipped places are free and say nothing about money: " + free + " " + tip);
             }
-            e2e.expect("#FF8A65".equals(menu.button("Nether").valueColor()), "each place in its colour: " + menu.button("Nether").valueColor());
+            // "Nether test" comes first and has no colour of its own: pick the shipped Nether by its whole label.
+            Bot.Button shippedNether = menu.buttons().stream().filter(button -> button.label().equals("Nether")).findFirst().orElse(null);
+            e2e.expect(shippedNether != null && "#FF8A65".equals(shippedNether.valueColor()), "each place in its colour: "
+                + (shippedNether == null ? menu.buttons() : shippedNether.valueColor()));
+            Bot.Button test = menu.button("Nether test");
+            e2e.expect(test != null && "#FFFFFF".equals(test.valueColor()), "a place without a colour is white: "
+                + (test == null ? menu.buttons() : test.valueColor()));
 
             e2e.step("the chosen region: warmup, search, pay once, land safely in the ring");
             e2e.click(bot, "Test ring");
