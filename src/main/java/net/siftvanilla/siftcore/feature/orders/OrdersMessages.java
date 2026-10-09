@@ -123,6 +123,21 @@ final class OrdersMessages {
     static final MessageKey NOTIFY_SOLD = MessageKey.notify("orders.notify.sold", "name", "amount", "item");
     static final MessageKey NOTIFY_SOLD_MANY = MessageKey.notify("orders.notify.sold-many", "name", "amount");
     static final MessageKey NOTIFY_COMPLETE = MessageKey.notify("orders.notify.complete", "quantity", "item");
+    /** One line above the hotbar for a sale that also completed orders (a second line there would replace it at once). */
+    static final MessageKey NOTIFY_SOLD_DONE = MessageKey.notify("orders.notify.sold-done", "name", "amount", "item", "done");
+    /** Auto-collect: everything that arrived went into the inventory. */
+    static final MessageKey NOTIFY_AUTO_COLLECTED = MessageKey.notify("orders.notify.auto-collected", "name", "amount", "item", "done");
+    /** Auto-collect: what fit went into the inventory, the rest waits in the order. */
+    static final MessageKey NOTIFY_AUTO_COLLECTED_SOME = MessageKey.notify("orders.notify.auto-collected-some", "name", "amount", "item",
+        "waiting", "done");
+    /** Auto-collect: an order is complete and none of its items waits any more. */
+    static final MessageKey NOTIFY_AUTO_COMPLETE = MessageKey.notify("orders.notify.auto-complete", "quantity", "item");
+    /** The end of a combined line: one order is complete. */
+    static final MessageKey NOTIFY_DONE_ONE = MessageKey.ui("orders.notify.done-one");
+    /** The end of a combined line: several orders are complete. */
+    static final MessageKey NOTIFY_DONE_MANY = MessageKey.ui("orders.notify.done-many", "count");
+    /** The item of a line about several kinds of items. */
+    static final MessageKey NOTIFY_ITEMS = MessageKey.ui("orders.notify.items");
     static final MessageKey NOTIFY_EXPIRED = MessageKey.notify("orders.notify.expired", "quantity", "item", "refund");
     static final MessageKey NOTIFY_STAFF_CANCELLED = MessageKey.notify("orders.notify.staff-cancelled", "quantity", "item", "refund", "reason");
     static final MessageKey NOTIFY_ENDING = MessageKey.notify("orders.notify.ending", "quantity", "item", "time");
@@ -284,6 +299,15 @@ final class OrdersMessages {
     static final MessageKey SETTING_NOTIFICATIONS_DESCRIPTION = MessageKey.ui("orders.settings.notifications-description");
     static final MessageKey SETTING_ANNOUNCE = MessageKey.ui("orders.settings.announce");
     static final MessageKey SETTING_ANNOUNCE_DESCRIPTION = MessageKey.ui("orders.settings.announce-description");
+    static final MessageKey SETTING_NOTIFICATIONS_COMPLETE = MessageKey.ui("orders.settings.notifications-complete");
+    static final MessageKey SETTING_ENDING_ALERTS = MessageKey.ui("orders.settings.ending-alerts");
+    static final MessageKey SETTING_ENDING_ALERTS_DESCRIPTION = MessageKey.ui("orders.settings.ending-alerts-description");
+    static final MessageKey SETTING_JOIN_SUMMARY = MessageKey.ui("orders.settings.join-summary");
+    static final MessageKey SETTING_JOIN_SUMMARY_DESCRIPTION = MessageKey.ui("orders.settings.join-summary-description");
+    static final MessageKey SETTING_AUTO_COLLECT = MessageKey.ui("orders.settings.auto-collect");
+    static final MessageKey SETTING_AUTO_COLLECT_DESCRIPTION = MessageKey.ui("orders.settings.auto-collect-description");
+    static final MessageKey SETTING_ANNOUNCE_MINE = MessageKey.ui("orders.settings.announce-mine");
+    static final MessageKey SETTING_ANNOUNCE_MINE_DESCRIPTION = MessageKey.ui("orders.settings.announce-mine-description");
 
     private OrdersMessages() {
     }

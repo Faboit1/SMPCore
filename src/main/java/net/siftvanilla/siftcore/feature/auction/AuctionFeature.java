@@ -10,8 +10,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.logging.Level;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
@@ -19,11 +22,19 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.item.ItemCategory;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Choices;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Feedback;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -42,17 +53,40 @@ import org.bukkit.plugin.Plugin;
  * The auction house: players list items for a price, others buy them; expired and taken-down items and purchases
  * go through the claim box. Listings live in memory (loaded at startup) and change only inside economy
  * transactions, so money, listing state, rows and deliveries always move together.
+ * <p>
+ * Player settings (group Shop, auction &amp; orders): how sellers are told about sales and expired listings, the
+ * summary on join, the low price warning when listing, and hiding one's own listings while browsing. The ones about
+ * SiftCore's own auction house are offered only while it is the server's (not while AxAuctions runs).
  */
 public final class AuctionFeature implements Feature, Listener {
 
-    public static final Toggle SALE_NOTIFICATIONS = new Toggle("auction-sales", true,
-        AuctionMessages.SETTING_SALES, AuctionMessages.SETTING_SALES_DESCRIPTION, null);
+    /** How a seller is told one of their listings sold (was a switch: on reads as chat, off as off). */
+    public static final Choice<AlertStyle> SALE_ALERTS = Choices.alert("auction-sales", AlertStyle.CHAT,
+            AlertStyle.CHAT, AlertStyle.ACTIONBAR, AlertStyle.OFF)
+        .legacyValue("true", "chat").legacyValue("false", "off")
+        .text(AuctionMessages.SETTING_SALES, AuctionMessages.SETTING_SALES_DESCRIPTION).build();
+    /** What sold while the player was away and what waits in their claim box, a moment after they join. */
+    public static final Toggle JOIN_SUMMARY = new Toggle("auction-join-summary", true,
+        AuctionMessages.SETTING_JOIN_SUMMARY, AuctionMessages.SETTING_JOIN_SUMMARY_DESCRIPTION, null);
+    /** A warning line in the listing confirmation when the price is far below what the items fetch elsewhere. */
+    public static final Toggle PRICE_WARNING = new Toggle("auction-price-warning", true,
+        AuctionMessages.SETTING_PRICE_WARNING, AuctionMessages.SETTING_PRICE_WARNING_DESCRIPTION, null);
+    /** How a seller is told their listings expired and went to the claim box. */
+    public static final Choice<AlertStyle> EXPIRY_ALERTS = Choices.alert("auction-expiry-alerts", AlertStyle.CHAT,
+            AlertStyle.CHAT, AlertStyle.ACTIONBAR, AlertStyle.OFF)
+        .text(AuctionMessages.SETTING_EXPIRY_ALERTS, AuctionMessages.SETTING_EXPIRY_ALERTS_DESCRIPTION).build();
+    /** Leaves the viewer's own listings out of the auction house (they stay in Your listings). */
+    public static final Toggle HIDE_OWN = new Toggle("auction-hide-own", false,
+        AuctionMessages.SETTING_HIDE_OWN, AuctionMessages.SETTING_HIDE_OWN_DESCRIPTION, null);
+
+    /** Sales listed by name in the join summary at most (the rest are counted). */
+    static final int SUMMARY_DETAILS = 3;
+    private static final long JOIN_DELAY_TICKS = 60L;
 
     /** The licensed auction plugin that, when it runs, is the server's auction house (docs/features/auction.md). */
     static final String AXAUCTIONS = "AxAuctions";
 
     private final Services services;
-    private final Supplier<WorthLookup> worth;
     private final Setting<AuctionSettings> settings;
     private final AuctionEngine<ItemStack> engine;
     private final AuctionService service;
@@ -69,11 +103,10 @@ public final class AuctionFeature implements Feature, Listener {
      */
     public AuctionFeature(Services services, List<ConfigProblem> problems, CombatStatus combat, Supplier<WorthLookup> worth) {
         this.services = services;
-        this.worth = worth;
         this.settings = services.configs().register("features/auction.yml",
             reader -> AuctionSettings.parse(reader, services.core().get().money()), problems);
         services.lang().register(AuctionMessages.class);
-        services.settings().register(SALE_NOTIFICATIONS);
+        registerSettings(services.settings(), this.settings::get, () -> !axAuctionsRunning());
         var perms = services.permissions();
         perms.declare(AuctionService.PERMISSION_USE, "Use the auction house with /ah", true);
         perms.declare(AuctionService.PERMISSION_SELL, "List items on the auction house", true);
@@ -95,10 +128,34 @@ public final class AuctionFeature implements Feature, Listener {
         }, (tx, owner, ref, item) -> services.deliveries().add(tx, owner, AuctionEngine.SOURCE, ref, item),
             System::currentTimeMillis, services.plugin().getLogger());
         this.claims = new ClaimBox(services);
-        this.service = new AuctionService(services, this.settings, this.engine, new AuctionItems(), this.claims, combat, SALE_NOTIFICATIONS);
-        this.dialogs = new AuctionDialogs(services, this.service);
+        this.service = new AuctionService(services, this.settings, this.engine, new AuctionItems(), this.claims, combat);
+        this.dialogs = new AuctionDialogs(services, this.service, worth);
         this.menus = new AuctionMenus(services, this.service, this.dialogs);
         this.commands = new AuctionCommands(services, this.service, this.menus, this.dialogs);
+    }
+
+    /**
+     * Registers the auction settings in the Shop, auction &amp; orders group, in the catalog's order. The ones about
+     * SiftCore's own auction house are offered while {@code ownHouse} says it is the server's; the join summary also
+     * while the claim box reminder is on (the claim box holds items from every feature).
+     */
+    static void registerSettings(PlayerSettings prefs, Supplier<AuctionSettings> config, BooleanSupplier ownHouse) {
+        prefs.register(SettingCategories.MARKET, SALE_ALERTS, SettingOptions.<AlertStyle>builder().order(1)
+            .availableWhen(ownHouse).build());
+        prefs.register(SettingCategories.MARKET, JOIN_SUMMARY, SettingOptions.<Boolean>builder().order(4)
+            .availableWhen(() -> ownHouse.getAsBoolean() || config.get().joinReminder()).build());
+        prefs.register(SettingCategories.MARKET, PRICE_WARNING, SettingOptions.<Boolean>builder().order(8)
+            .availableWhen(ownHouse).build());
+        prefs.register(SettingCategories.MARKET, EXPIRY_ALERTS, SettingOptions.<AlertStyle>builder().order(11)
+            .availableWhen(ownHouse).build());
+        prefs.register(SettingCategories.MARKET, HIDE_OWN, SettingOptions.<Boolean>builder().order(12)
+            .availableWhen(ownHouse).build());
+    }
+
+    /** Whether AxAuctions runs and so is the server's auction house (SiftCore's own then yields /ah to it). */
+    static boolean axAuctionsRunning() {
+        Plugin axAuctions = Bukkit.getPluginManager().getPlugin(AXAUCTIONS);
+        return axAuctions != null && axAuctions.isEnabled();
     }
 
     @Override
@@ -146,8 +203,7 @@ public final class AuctionFeature implements Feature, Listener {
      * grace. When nothing opened (AxAuctions or a guard refused), the router closes the dialog as usual.
      */
     private void openFromHub(Player player) {
-        Plugin axAuctions = Bukkit.getPluginManager().getPlugin(AXAUCTIONS);
-        if (axAuctions != null && axAuctions.isEnabled()) {
+        if (axAuctionsRunning()) {
             PlayerCommandPreprocessEvent asTyped = new PlayerCommandPreprocessEvent(player, "/ah");
             if (asTyped.callEvent()) {
                 String line = asTyped.getMessage();
@@ -179,18 +235,78 @@ public final class AuctionFeature implements Feature, Listener {
         return this.commands.all();
     }
 
+    /**
+     * A moment after joining (so the lines are not lost among the join messages), players who keep the join summary
+     * on hear what sold while they were away (since they last left, up to the moment they joined: later sales were
+     * told live) and what waits in their claim box (while
+     * {@code join-reminder} is on).
+     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        if (!this.settings.get().joinReminder()) {
+        // Sales from now on are told live (the seller is online), so the summary stops at the join.
+        long joined = this.engine.now();
+        this.services.scheduler().entityLater(player, () -> joinSummary(player, joined), null, JOIN_DELAY_TICKS);
+    }
+
+    private void joinSummary(Player player, long joined) {
+        UUID id = player.getUniqueId();
+        if (!player.isOnline() || !this.services.settings().get(id, JOIN_SUMMARY)) {
             return;
         }
-        this.services.scheduler().entityLater(player, () -> {
-            int waiting = this.claims.count(player.getUniqueId());
-            if (waiting > 0 && player.isOnline()) {
-                this.services.messenger().send(player, AuctionMessages.CLAIM_REMINDER, Arg.number("count", waiting));
+        long since = this.services.directory().previousSeen(id);
+        CompletableFuture<AuctionEngine.SalesSince<ItemStack>> sales = since <= 0
+            ? CompletableFuture.completedFuture(AuctionEngine.SalesSince.none())
+            : this.engine.salesSince(id, since, joined, Math.min(SUMMARY_DETAILS, this.settings.get().historySize()));
+        sales.whenComplete((summary, error) -> {
+            if (error != null) {
+                this.services.plugin().getLogger().log(Level.WARNING, "Reading the auction sales of " + player.getName() + " failed", error);
             }
-        }, null, 60L);
+            AuctionEngine.SalesSince<ItemStack> found = error == null ? summary : AuctionEngine.SalesSince.none();
+            this.services.scheduler().entity(player, () -> showJoinSummary(player, found), null);
+        });
+    }
+
+    private void showJoinSummary(Player player, AuctionEngine.SalesSince<ItemStack> sales) {
+        if (!player.isOnline()) {
+            return;
+        }
+        if (sales.count() > 0) {
+            player.sendMessage(Component.join(JoinConfiguration.newlines(), soldLines(sales)));
+            this.services.messenger().feedback(player, Feedback.NOTIFY);
+        }
+        int waiting = this.claims.count(player.getUniqueId());
+        if (waiting > 0 && this.settings.get().joinReminder()) {
+            this.services.messenger().send(player, AuctionMessages.CLAIM_REMINDER, Arg.number("count", waiting));
+        }
+    }
+
+    /** The "while you were away" lines: one sale by name, or the count and earnings with the latest few. */
+    private List<Component> soldLines(AuctionEngine.SalesSince<ItemStack> sales) {
+        Lang lang = this.services.lang();
+        List<Component> lines = new ArrayList<>();
+        if (sales.count() == 1 && sales.latest().size() == 1) {
+            AuctionEngine.HistoryEntry<ItemStack> sale = sales.latest().getFirst();
+            lines.add(lang.get(AuctionMessages.AWAY_SOLD_ONE, Arg.text("name", buyerName(sale)), Arg.number("amount", sale.amount()),
+                Arg.text("item", AuctionItems.plainName(sale.item())), this.service.price("price", sale.price()),
+                this.service.price("earned", sale.price() - sale.tax())));
+            return lines;
+        }
+        lines.add(lang.get(AuctionMessages.AWAY_SOLD_MANY, Arg.number("count", sales.count()), this.service.price("earned", sales.earned())));
+        for (AuctionEngine.HistoryEntry<ItemStack> sale : sales.latest()) {
+            lines.add(lang.get(AuctionMessages.AWAY_SOLD_LINE, Arg.number("amount", sale.amount()),
+                Arg.text("item", AuctionItems.plainName(sale.item())), Arg.text("name", buyerName(sale)),
+                this.service.price("price", sale.price())));
+        }
+        long more = sales.count() - sales.latest().size();
+        if (more > 0) {
+            lines.add(lang.get(AuctionMessages.AWAY_SOLD_MORE, Arg.number("count", more)));
+        }
+        return lines;
+    }
+
+    private String buyerName(AuctionEngine.HistoryEntry<ItemStack> sale) {
+        return sale.counterparty() == null ? "-" : this.service.name(sale.counterparty());
     }
 
     @Override

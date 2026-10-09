@@ -10,7 +10,8 @@ duration: 7d
 # How often the server looks for orders that ended and refunds them. Between 5s and 1h.
 expiry-check: 30s
 
-# How long before an order ends its owner is told (once per order, or when they next join). 0 turns it off.
+# How long before an order ends its owner is told (once per order, or when they next join). 0 turns it off (and
+# with it the players' Order ending warnings switch in /settings).
 expiry-warning: 12h
 
 limits:
@@ -80,7 +81,8 @@ extend:
   max-lifetime: 30d
 
 announce:
-  # Orders that hold at least this much are announced in chat (players can turn it off). 0 turns it off.
+  # Orders that hold at least this much are announced in chat. 0 turns it off. In /settings each player picks which
+  # announcements they see (all, only from a bigger amount, or none) and whether their own orders are announced.
   min-total: 1m
   # The least time between two announcements of the same player.
   cooldown: 10m

@@ -60,7 +60,8 @@ expiry-check: 30s
 # When they don't fit (or this is false) they wait in the claim box.
 auto-claim: true
 
-# Tell players when they join that items are waiting in their claim box.
+# Tell players when they join that items are waiting in their claim box. It is part of the auction summary on join,
+# which each player can turn off in /settings (Shop, auction & orders).
 join-reminder: true
 
 # How many sales and purchases /ah history shows.

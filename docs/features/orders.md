@@ -165,13 +165,30 @@ delivered item was collected.
 
 ## Telling owners
 
-Online owners are told when items arrive (unless they turned order messages off), when an order completes, expires
-(always), is cancelled by staff (always, with the reason) or ends within `expiry-warning` (once per order, clickable to
-the order). Offline owners get a row in `order_notices` instead (additive upsert per owner, order and kind, best effort:
-the money is always in the ledger). Two seconds after joining, the owner gets one message: "While you were away: <n>
-items were delivered to your orders, <c> completed, <refund> came back from ended orders.", up to four detail lines,
-"and <n> more", the waiting-items reminder (`join-reminder`) and a clickable "Open /orders". Shown rows are deleted;
-a row that grew meanwhile is kept for next time.
+Online owners are told when items arrive and when an order completes (as their `order-notices` setting says: every
+delivery in chat or above the hotbar, only completions, or nothing), when an order expires (always), is cancelled by
+staff (always, with the reason) or ends within `expiry-warning` (once per order, clickable to the order, unless they
+turned `order-ending-alerts` off). A sale routed into several orders of one online owner is one line, plus one line
+per order it completed; above the hotbar, where a second line would replace the first at once, it is one line that
+also says how many orders it completed (`orders.notify.sold-done`, decided by `OwnerNotices.saleLines`). Offline owners get a row in `order_notices` instead (additive upsert per owner, order and kind,
+best effort: the money is always in the ledger). Two seconds after joining, the owner gets one message: "While you were
+away: <n> items were delivered to your orders, <c> completed, <refund> came back from ended orders.", up to four detail
+lines, "and <n> more", the waiting-items reminder (`join-reminder`) and a clickable "Open /orders". The summary follows
+the same settings (deliveries and completions as `order-notices` says, ending rows only with `order-ending-alerts`); with
+`order-join-summary` off only refunds show (no waiting-items line). Shown rows are deleted either way; a row that grew
+meanwhile is kept for next time.
+
+With `order-auto-collect` on, an online owner gets delivered items straight into their inventory once the delivery (or
+sale) is stored: `OrderService.arrived` plans what fits from every order the items reached (a simulated inventory, as
+Collect all does) and collects it in one transaction on their thread; the items are handed over after the commit, and
+what no longer fits by then goes back into its order. The owner is then told once, instead of the arrival line, as
+`order-notices` says (`OwnerNotices.autoLines`): chat or above the hotbar "Steve delivered 64 Diamond straight into
+your inventory." (or "... What fit went into your inventory; 20 wait in /orders." when not all fit), with the orders it
+completed as separate chat lines ("Your order for 64 Diamond is complete and in your inventory.") or, above the hotbar,
+folded into the one line; "only when complete" hears only the completions and "never" nothing at all (no "Collected"
+line, no full-inventory line). When nothing is collected (they are in combat with `block-in-combat`, nothing fits,
+the collect is refused or can't be stored) they hear about the arrival as usual and the items wait in the order; an
+owner who leaves before that gets the usual notice rows.
 
 ## Staff
 
@@ -249,8 +266,16 @@ interaction:
 
 Hub entry `orders` (order 35, permission `siftcore.command.orders`), also the `orders` pause-menu entry.
 
-Player settings: `order-notices` ("Order messages", default on: deliveries, completions and ending warnings; refunds and
-staff cancels always show) and `orders_announce` ("Big order announcements", default on).
+Player settings (`/settings`; labels in `lang/orders.yml` under `orders.settings`):
+
+| Id | Group | Kind, default | What it does |
+|---|---|---|---|
+| `order-notices` | Shop, auction & orders (2) | choice chat / actionbar / complete / off, chat | Delivery alerts: every delivery in chat or above the hotbar, only when an order is complete (in chat), or never. Expiries and staff cancellations always show. Was a switch: `true` reads as chat, `false` as off |
+| `order-join-summary` | Shop, auction & orders (5) | switch, on | The "while you were away" summary; off leaves only refunds |
+| `order-ending-alerts` | Shop, auction & orders (7) | switch, on | The ending warning, live and in the summary. Offered while `expiry-warning` is not 0. It used to be part of `order-notices`: players who had that off start with this on |
+| `order-auto-collect` | Shop, auction & orders (10) | switch, off | Delivered items go straight into the inventory when they fit, while the owner is online when they arrive; items that arrive while they are away, or in combat with `block-in-combat`, wait in the order as usual (see Telling owners) |
+| `orders_announce` | Server announcements (5) | choice all / from $1m / from $10m / from $100m / off, all | Which big new orders a player sees announced; `announce.min-total` stays the floor, and presets at or below it are not offered (they would be the same as All; a player who picked one reads All meanwhile). Offered while `min-total` is not 0. Was a switch: `true` reads as all, `false` as off |
+| `order-announce-mine` | Privacy (4) | switch, on | Whether the server may announce the player's own big orders (read when they place it; turning it off skips the announcement and its cooldown). Offered while `min-total` is not 0; never a placeholder |
 
 Events (`api.event`):
 
@@ -328,7 +353,19 @@ escrow account and lists orders whose item can't be built.
   refunds, double cancel harmless, expiry, collect and collect-all, edit and extend, storage reload, history and
   notices aggregation: `OrderEngineTest`), the market (bid order, own and ended orders skipped, revision, a guarded
   refusal rolling back a whole mixed sale, merged takes: `OrderMarketTest`), the book rule (`VariantMatchTest`),
-  quantities and prices (`OrderInputTest`) and the browser's sorts and filter (`BrowserSortTest`).
+  quantities and prices (`OrderInputTest`), the browser's sorts and filter (`BrowserSortTest`), and the player
+  settings: groups and order, offering by config (ending warnings, announcements and their presets), old switch rows
+  read through the real store, delivery lines, the sale and auto-collect lines (never two lines above the hotbar,
+  nothing for "never", only completions for "only when complete"), the join summary filter and the announcement rules
+  (`OrderPlayerSettingsTest`).
+- Settings end to end (`tools/e2e`, `MarketScenarios`, registered from `OrdersScenarios.all()`):
+  `market-order-settings` (delivery alerts "only when complete" changed in the `/settings` dialog, the announcement
+  filter without the preset at the server's own minimum, the owner's opt-out, `/settings order-notices actionbar` and
+  a sale into two orders that completes one: one line above the hotbar, no second line replacing it, the join summary
+  turned off), `market-order-auto-collect` (`/settings order-auto-collect on`: "only when complete" says nothing for a
+  partial delivery and no "Collected" line, then "complete and in your inventory"; above the hotbar one line, and how
+  many wait when not all fit; "never" says nothing while the items still arrive) and `market-order-ending` (one-minute
+  orders: the ending warning for the default owner, none for one who turned it off with `/settings`).
 - End to end (`tools/e2e`, `OrdersScenarios`): placing with the command, the form and the picker (typed input kept),
   quick deliver (including the changed-inventory re-check), shulker deliveries, Fill from inventory, raising the price
   and adding items (and the stale delivery menu), order again, collect all and the claim box, the history views, the

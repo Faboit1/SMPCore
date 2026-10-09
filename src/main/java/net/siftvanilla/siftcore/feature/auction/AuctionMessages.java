@@ -64,6 +64,8 @@ public final class AuctionMessages {
     public static final MessageKey SELL_CONFIRM_BODY = MessageKey.ui("auction.sell.confirm-body", "amount", "item", "price",
         "tax", "rate", "earn", "time");
     public static final MessageKey SELL_CONFIRM_SLOTS = MessageKey.ui("auction.sell.confirm-slots", "used", "limit");
+    public static final MessageKey SELL_WARNING_SELL = MessageKey.ui("auction.sell.warning-sell", "worth");
+    public static final MessageKey SELL_WARNING_MARKET = MessageKey.ui("auction.sell.warning-market", "price", "yours");
     public static final MessageKey SELL_CONFIRM_BUTTON = MessageKey.ui("auction.sell.confirm-button");
     public static final MessageKey SELL_LISTED = MessageKey.success("auction.sell.listed", "amount", "item", "price");
     public static final MessageKey SELL_NOTHING = MessageKey.error("auction.sell.nothing-in-hand");
@@ -124,6 +126,20 @@ public final class AuctionMessages {
     public static final MessageKey HISTORY_EMPTY = MessageKey.ui("auction.history.empty");
     public static final MessageKey SETTING_SALES = MessageKey.ui("auction.settings.sales");
     public static final MessageKey SETTING_SALES_DESCRIPTION = MessageKey.ui("auction.settings.sales-description");
+    public static final MessageKey SETTING_JOIN_SUMMARY = MessageKey.ui("auction.settings.join-summary");
+    public static final MessageKey SETTING_JOIN_SUMMARY_DESCRIPTION = MessageKey.ui("auction.settings.join-summary-description");
+    public static final MessageKey SETTING_PRICE_WARNING = MessageKey.ui("auction.settings.price-warning");
+    public static final MessageKey SETTING_PRICE_WARNING_DESCRIPTION = MessageKey.ui("auction.settings.price-warning-description");
+    public static final MessageKey SETTING_EXPIRY_ALERTS = MessageKey.ui("auction.settings.expiry-alerts");
+    public static final MessageKey SETTING_EXPIRY_ALERTS_DESCRIPTION = MessageKey.ui("auction.settings.expiry-alerts-description");
+    public static final MessageKey SETTING_HIDE_OWN = MessageKey.ui("auction.settings.hide-own");
+    public static final MessageKey SETTING_HIDE_OWN_DESCRIPTION = MessageKey.ui("auction.settings.hide-own-description");
+
+    // ---------------------------------------------------------------- join summary
+    public static final MessageKey AWAY_SOLD_ONE = MessageKey.chat("auction.away.sold-one", "name", "amount", "item", "price", "earned");
+    public static final MessageKey AWAY_SOLD_MANY = MessageKey.chat("auction.away.sold-many", "count", "earned");
+    public static final MessageKey AWAY_SOLD_LINE = MessageKey.ui("auction.away.sold-line", "amount", "item", "name", "price");
+    public static final MessageKey AWAY_SOLD_MORE = MessageKey.ui("auction.away.sold-more", "count");
 
     // ---------------------------------------------------------------- staff
     public static final MessageKey ADMIN_INFO = MessageKey.chat("auction.admin.info", "active", "sellers", "pending",

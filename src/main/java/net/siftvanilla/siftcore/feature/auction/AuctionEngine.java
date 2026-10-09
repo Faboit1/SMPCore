@@ -85,6 +85,24 @@ public final class AuctionEngine<T> {
                                   long closedAt) {
     }
 
+    /**
+     * A seller's sales since a moment (for the join summary).
+     *
+     * @param count  how many listings sold
+     * @param earned what they got for them after tax
+     * @param latest the newest of them, newest first, at most the asked number (unreadable items left out)
+     */
+    public record SalesSince<T>(long count, long earned, List<HistoryEntry<T>> latest) {
+
+        public SalesSince {
+            latest = List.copyOf(latest);
+        }
+
+        public static <T> SalesSince<T> none() {
+            return new SalesSince<>(0, 0, List.of());
+        }
+    }
+
     /** What startup loaded. */
     public record LoadResult(int loaded, int unreadable) {
     }
@@ -368,6 +386,62 @@ public final class AuctionEngine<T> {
             }
             return entries;
         });
+    }
+
+    /**
+     * A seller's sales closed after {@code since} and no later than {@code until} (epoch millis, the engine's clock):
+     * how many, what they earned after tax and the newest {@code details} of them. Read after every write queued so
+     * far, so a sale stored just before is counted.
+     */
+    public CompletableFuture<SalesSince<T>> salesSince(UUID seller, long since, long until, int details) {
+        String uuid = seller.toString();
+        return this.database.write(c -> {
+            long count;
+            long earned;
+            try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*), COALESCE(SUM(price - tax), 0) FROM auction_listings "
+                + "WHERE seller = ? AND state = 'SOLD' AND closed_at > ? AND closed_at <= ?")) {
+                ps.setString(1, uuid);
+                ps.setLong(2, since);
+                ps.setLong(3, until);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    count = rs.getLong(1);
+                    earned = rs.getLong(2);
+                }
+            }
+            List<HistoryRow> rows = new ArrayList<>();
+            if (count > 0 && details > 0) {
+                try (PreparedStatement ps = c.prepareStatement("SELECT id, buyer, item, amount, price, tax, closed_at FROM auction_listings "
+                    + "WHERE seller = ? AND state = 'SOLD' AND closed_at > ? AND closed_at <= ? ORDER BY closed_at DESC, id DESC LIMIT ?")) {
+                    ps.setString(1, uuid);
+                    ps.setLong(2, since);
+                    ps.setLong(3, until);
+                    ps.setInt(4, details);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            rows.add(new HistoryRow(rs.getLong(1), true, rs.getString(2), rs.getBytes(3), rs.getInt(4),
+                                rs.getLong(5), rs.getLong(6), rs.getLong(7)));
+                        }
+                    }
+                }
+            }
+            return new SalesRows(count, earned, rows);
+        }).thenApply(result -> {
+            List<HistoryEntry<T>> latest = new ArrayList<>();
+            for (HistoryRow row : result.rows()) {
+                try {
+                    T item = this.codec.decode(row.item());
+                    UUID buyer = row.counterparty() == null ? null : UUID.fromString(row.counterparty());
+                    latest.add(new HistoryEntry<>(row.id(), true, buyer, item, row.amount(), row.price(), row.tax(), row.closedAt()));
+                } catch (RuntimeException e) {
+                    this.logger.log(Level.WARNING, "Auction listing " + row.id() + " has an unreadable item; it is left out of the join summary", e);
+                }
+            }
+            return new SalesSince<>(result.count(), result.earned(), latest);
+        });
+    }
+
+    private record SalesRows(long count, long earned, List<HistoryRow> rows) {
     }
 
     private static void readHistory(Connection c, String sql, String uuid, int limit, boolean sale, List<HistoryRow> into)

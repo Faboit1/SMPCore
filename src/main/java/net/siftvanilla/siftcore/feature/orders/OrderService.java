@@ -11,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.DoubleSupplier;
+import java.util.function.IntConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
@@ -468,6 +469,8 @@ final class OrderService {
         }
         Order order = created.order();
         String ownerName = player.getName();
+        // Read on the owner's thread while they are surely loaded (the commit may land after they left).
+        boolean announceMine = this.services.settings().get(player.getUniqueId(), OrdersFeature.ANNOUNCE_MINE);
         result.committed().whenComplete((ignored, error) -> {
             if (error != null) {
                 this.logger.log(Level.WARNING, "Order " + order.id() + " could not be stored; nothing was charged", error);
@@ -476,7 +479,7 @@ final class OrderService {
             }
             this.services.messenger().send(player, OrdersMessages.CREATE_DONE, Arg.number("quantity", order.quantity()),
                 item("item", order.key()), exact("total", order.escrow()));
-            this.notices.announce(order, ownerName);
+            this.notices.announce(order, ownerName, announceMine);
             refreshAll();
         });
         return null;
@@ -631,7 +634,8 @@ final class OrderService {
             this.handovers.take(token);
             this.services.messenger().send(seller, OrdersMessages.DELIVER_DONE, Arg.number("amount", units),
                 item("item", order.key()), Arg.money("payout", paid - tax), Arg.money("tax", tax));
-            this.notices.delivered(order, sellerName, units, paid, complete, source == FillSource.SELL);
+            arrived(new OwnerNotices.Arrival(order.owner(), sellerName, source == FillSource.SELL,
+                List.of(new OwnerNotices.Part(order, units, paid, complete))));
             refreshAll();
         });
     }
@@ -927,45 +931,73 @@ final class OrderService {
             return new Problem(OrdersMessages.COLLECT_NOTHING);
         }
         orders.sort(Comparator.comparingLong(Order::created).reversed().thenComparingLong(Order::id));
+        List<OrderEngine.Collect> collects = plan(owner, orders);
+        if (collects.isEmpty()) {
+            return new Problem(CoreMessages.INVENTORY_FULL);
+        }
+        int collected = collects.stream().mapToInt(OrderEngine.Collect::amount).sum();
+        int count = collects.size();
+        return collectPlanned(owner, orders, collects, given -> {
+            this.services.messenger().send(owner, OrdersMessages.COLLECT_ALL_DONE, Arg.number("amount", collected),
+                Arg.number("count", count));
+        }, () -> this.services.messenger().send(owner, OrdersMessages.COLLECT_FAILED), () -> { });
+    }
+
+    /**
+     * How much of each order to collect so that it all fits into the owner's inventory, in the orders' order: each
+     * takes what still fits after the ones before it (a simulated copy of the inventory is filled as it goes). Orders
+     * nothing fits from are left out. Owner's thread.
+     */
+    private List<OrderEngine.Collect> plan(Player owner, List<Order> orders) {
         ItemStack[] simulated = cloneAll(owner.getInventory().getStorageContents());
         List<OrderEngine.Collect> collects = new ArrayList<>();
-        Map<Long, Order> byId = new HashMap<>();
         for (Order order : orders) {
             OrderItem item = this.items.of(order);
+            if (item == null || order.waiting() <= 0) {
+                continue;
+            }
             int fits = item.space(simulated, order.waiting());
             if (fits <= 0) {
                 continue;
             }
             addVirtual(simulated, item, fits);
             collects.add(new OrderEngine.Collect(order.id(), fits));
-            byId.put(order.id(), order);
         }
-        if (collects.isEmpty()) {
-            return new Problem(CoreMessages.INVENTORY_FULL);
+        return collects;
+    }
+
+    /**
+     * Collects planned amounts from several orders in one transaction, then hands the items over on the owner's
+     * thread once it is committed (what no longer fits by then goes back into its order). Returns the problem when
+     * the transaction is refused (nothing changed). After the commit exactly one callback runs: {@code handed} on the
+     * owner's thread with how many items reached the inventory; {@code failed} when storing failed (the items stay in
+     * the orders); or {@code left} when the owner left before the hand-over (the items went back into the orders).
+     */
+    private Problem collectPlanned(Player owner, List<Order> orders, List<OrderEngine.Collect> collects, IntConsumer handed,
+                                   Runnable failed, Runnable left) {
+        Map<Long, Order> byId = new HashMap<>();
+        for (Order order : orders) {
+            byId.put(order.id(), order);
         }
         TransactionResult result;
         try {
             result = this.engine.collectAll(owner.getUniqueId(), collects, owner.getUniqueId().toString());
         } catch (RuntimeException e) {
-            this.logger.log(Level.SEVERE, "Collecting all orders failed for " + owner.getName(), e);
+            this.logger.log(Level.SEVERE, "Collecting orders failed for " + owner.getName(), e);
             return new Problem(CoreMessages.ACTION_FAILED);
         }
         if (!result.success()) {
             return collectProblem(result);
         }
         List<Long> tokens = new ArrayList<>();
-        int total = 0;
         for (OrderEngine.Collect collect : collects) {
             tokens.add(this.handovers.collect(owner.getUniqueId(), collect.orderId(), byId.get(collect.orderId()).key(), collect.amount(),
                 result.committed()));
-            total += collect.amount();
         }
-        int collected = total;
-        int count = collects.size();
         result.committed().whenComplete((ignored, error) -> {
             if (error != null) {
                 tokens.forEach(this.handovers::take);
-                this.services.messenger().send(owner, OrdersMessages.COLLECT_FAILED);
+                failed.run();
                 return;
             }
             for (OrderEngine.Collect collect : collects) {
@@ -974,15 +1006,71 @@ final class OrderService {
             }
             // The owner left (or the server is stopping) before the hand-over: the items go back into their orders.
             Handoffs.onEntity(this.services.scheduler(), owner, () -> {
+                int given = 0;
                 for (long token : tokens) {
-                    handOver(owner, token, false);
+                    given += handOver(owner, token, false);
                 }
-                this.services.messenger().send(owner, OrdersMessages.COLLECT_ALL_DONE, Arg.number("amount", collected),
-                    Arg.number("count", count));
+                handed.accept(given);
                 refresh(owner);
-            }, () -> tokens.forEach(this::putBack));
+            }, () -> {
+                tokens.forEach(this::putBack);
+                left.run();
+            });
         });
         return null;
+    }
+
+    /**
+     * Items reached an owner's orders (the delivery or sale is stored). An owner who is online with
+     * {@code order-auto-collect} on gets what fits collected into their inventory on their thread, through the same
+     * safe path as Collect all, and is then told once, as their {@code order-notices} setting says, that the items
+     * are in their inventory (nothing for "never", only completions for "only when complete"). When nothing is
+     * collected (they are in combat while orders are blocked in combat, nothing fits, the collect was refused or
+     * could not be stored) they are told about the arrival as usual and the items wait in the order; an owner who is
+     * away, or leaves first, gets the usual notice rows.
+     */
+    void arrived(OwnerNotices.Arrival arrival) {
+        Player owner = Bukkit.getPlayer(arrival.owner());
+        if (owner == null || !this.services.settings().get(arrival.owner(), OrdersFeature.AUTO_COLLECT)) {
+            this.notices.tell(owner, arrival);
+            return;
+        }
+        Handoffs.onEntity(this.services.scheduler(), owner, () -> autoCollect(owner, arrival), () -> this.notices.tell(null, arrival));
+    }
+
+    /** {@link #arrived} for an owner with auto-collect on, on their thread. */
+    private void autoCollect(Player owner, OwnerNotices.Arrival arrival) {
+        if (!owner.isOnline()) {
+            this.notices.tell(null, arrival);
+            return;
+        }
+        List<Order> orders = new ArrayList<>();
+        for (long id : arrival.orderIds()) {
+            Order order = this.engine.book().get(id);
+            if (order != null && order.owner().equals(owner.getUniqueId())) {
+                orders.add(order);
+            }
+        }
+        List<OrderEngine.Collect> collects = blocked(owner) != null ? List.of() : plan(owner, orders);
+        if (collects.isEmpty()) {
+            this.notices.tell(owner, arrival);
+            return;
+        }
+        Problem refused = collectPlanned(owner, orders, collects, given -> {
+            if (given <= 0) {
+                this.notices.tell(owner, arrival);
+                return;
+            }
+            Map<Long, Integer> waiting = new HashMap<>();
+            for (long id : arrival.orderIds()) {
+                Order now = this.engine.book().get(id);
+                waiting.put(id, now == null ? 0 : now.waiting());
+            }
+            this.notices.collected(owner, arrival, waiting);
+        }, () -> this.notices.tell(owner, arrival), () -> this.notices.tell(null, arrival));
+        if (refused != null) {
+            this.notices.tell(owner, arrival);
+        }
     }
 
     private Problem collectProblem(TransactionResult result) {
@@ -1021,16 +1109,19 @@ final class OrderService {
         }
     }
 
-    /** Hands collected items to the owner (on the owner's thread, after the commit). */
-    private void handOver(Player owner, long token, boolean tell) {
+    /**
+     * Hands collected items to the owner (on the owner's thread, after the commit); what doesn't fit goes back into
+     * the order. With {@code tell} the owner is told what they got. Returns how many reached the inventory.
+     */
+    private int handOver(Player owner, long token, boolean tell) {
         Handovers.Pending entry = this.handovers.take(token);
         if (entry == null) {
-            return;
+            return 0;
         }
         OrderItem item = this.items.resolve(entry.key());
         if (item == null) {
             uncollect(entry.player(), entry.orderId(), entry.key(), entry.amount());
-            return;
+            return 0;
         }
         Map<Integer, ItemStack> left = owner.getInventory().addItem(item.stacks(entry.amount()).toArray(ItemStack[]::new));
         int notGiven = OrderItem.count(new ArrayList<>(left.values()));
@@ -1040,10 +1131,10 @@ final class OrderService {
         if (this.services.core().get().savePlayerAfterTrade()) {
             owner.saveData();
         }
-        if (!tell) {
-            return;
-        }
         int given = entry.amount() - notGiven;
+        if (!tell) {
+            return given;
+        }
         Order now = this.engine.book().get(entry.orderId());
         long more = now == null ? 0 : now.waiting();
         if (given <= 0) {
@@ -1055,6 +1146,7 @@ final class OrderService {
             this.services.messenger().send(owner, OrdersMessages.COLLECT_DONE, Arg.number("amount", given), item("item", entry.key()));
         }
         refresh(owner);
+        return given;
     }
 
     /** The owner left before collected items reached them: the items go back into the order. */

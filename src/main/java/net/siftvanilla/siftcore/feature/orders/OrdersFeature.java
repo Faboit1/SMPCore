@@ -12,9 +12,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
@@ -28,8 +30,15 @@ import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.permission.Permissions;
+import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.player.Limits;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.Announce;
+import net.siftvanilla.siftcore.core.player.options.Choices;
+import net.siftvanilla.siftcore.core.player.options.OptionTexts;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
@@ -55,13 +64,41 @@ import org.bukkit.permissions.PermissionDefault;
  * sale routed through the {@link OrderMarket}) and are paid from that money; the buyer collects the items. Orders live
  * in memory (loaded at startup) and change only inside economy transactions, so money, order state, rows and items
  * always move together.
+ * <p>
+ * Player settings: delivery alerts, ending warnings, the join summary and auto-collect (group Shop, auction &amp;
+ * orders), which big orders a player hears about (Server announcements) and whether their own are announced
+ * (Privacy).
  */
 public final class OrdersFeature implements Feature, Listener {
 
-    public static final Toggle NOTIFICATIONS = new Toggle("order-notices", true,
-        OrdersMessages.SETTING_NOTIFICATIONS, OrdersMessages.SETTING_NOTIFICATIONS_DESCRIPTION, null);
-    public static final Toggle ANNOUNCEMENTS = new Toggle("orders_announce", true,
-        OrdersMessages.SETTING_ANNOUNCE, OrdersMessages.SETTING_ANNOUNCE_DESCRIPTION, null);
+    /**
+     * How an owner hears about deliveries: every one in chat or above the hotbar, only completions, or nothing (was a
+     * switch: on reads as chat, off as off). Expiries and staff cancellations always show.
+     */
+    public static final Choice<DeliveryAlerts> NOTIFICATIONS = Choice.ofEnum("order-notices", DeliveryAlerts.class,
+            DeliveryAlerts::id, DeliveryAlerts.CHAT)
+        .option(DeliveryAlerts.CHAT, OptionTexts.ALERT_CHAT)
+        .option(DeliveryAlerts.ACTIONBAR, OptionTexts.ALERT_ACTIONBAR)
+        .option(DeliveryAlerts.COMPLETE, OrdersMessages.SETTING_NOTIFICATIONS_COMPLETE)
+        .option(DeliveryAlerts.OFF, OptionTexts.ALERT_OFF)
+        .legacyValue("true", "chat").legacyValue("false", "off")
+        .text(OrdersMessages.SETTING_NOTIFICATIONS, OrdersMessages.SETTING_NOTIFICATIONS_DESCRIPTION).build();
+    /** Which big new orders a player sees announced: all, from an amount, or none (was a switch: on all, off off). */
+    public static final Choice<Announce> ANNOUNCEMENTS = Choices.announce("orders_announce", Currency.MONEY, "1m", "10m", "100m")
+        .legacyValue("true", "all").legacyValue("false", "off")
+        .text(OrdersMessages.SETTING_ANNOUNCE, OrdersMessages.SETTING_ANNOUNCE_DESCRIPTION).build();
+    /** The warning before one of the player's orders runs out of time (was part of order-notices). */
+    public static final Toggle ENDING_ALERTS = new Toggle("order-ending-alerts", true,
+        OrdersMessages.SETTING_ENDING_ALERTS, OrdersMessages.SETTING_ENDING_ALERTS_DESCRIPTION, null);
+    /** The "while you were away" summary on join (refunds always show). */
+    public static final Toggle JOIN_SUMMARY = new Toggle("order-join-summary", true,
+        OrdersMessages.SETTING_JOIN_SUMMARY, OrdersMessages.SETTING_JOIN_SUMMARY_DESCRIPTION, null);
+    /** Delivered items go straight into the owner's inventory when they are online and the items fit. */
+    public static final Toggle AUTO_COLLECT = new Toggle("order-auto-collect", false,
+        OrdersMessages.SETTING_AUTO_COLLECT, OrdersMessages.SETTING_AUTO_COLLECT_DESCRIPTION, null);
+    /** Whether the server may announce the player's own big new orders. */
+    public static final Toggle ANNOUNCE_MINE = new Toggle("order-announce-mine", true,
+        OrdersMessages.SETTING_ANNOUNCE_MINE, OrdersMessages.SETTING_ANNOUNCE_MINE_DESCRIPTION, null);
 
     /** How many orders the top-orders placeholders list. */
     private static final int TOP_SIZE = 10;
@@ -97,8 +134,7 @@ public final class OrdersFeature implements Feature, Listener {
         this.settings = services.configs().register("features/orders.yml",
             reader -> OrdersSettings.parse(reader, services.core().get().money(), knownItems), problems);
         services.lang().register(OrdersMessages.class);
-        services.settings().register(NOTIFICATIONS);
-        services.settings().register(ANNOUNCEMENTS);
+        registerSettings(services.settings(), this.settings::get);
         Permissions perms = services.permissions();
         perms.declare(OrderService.PERMISSION_USE, "Use buy orders with /orders (browse, deliver, your orders)", true);
         perms.declare(OrderService.PERMISSION_CREATE, "Place buy orders", true);
@@ -121,8 +157,7 @@ public final class OrdersFeature implements Feature, Listener {
             }
         };
         this.engine = new OrderEngine(services.ledger(), this.book, System::currentTimeMillis, () -> this.ids.get().next(), rules);
-        OwnerNotices notices = new OwnerNotices(services, this.store, this.items, this.settings::get, NOTIFICATIONS, ANNOUNCEMENTS,
-            vanish, ignores);
+        OwnerNotices notices = new OwnerNotices(services, this.store, this.items, this.settings::get, vanish, ignores);
         this.service = new OrderService(services, this.settings, this.engine, this.store, this.items, combat, worth,
             highestSellMultiplier, notices);
         this.menus = new OrderMenus(this.service);
@@ -130,6 +165,30 @@ public final class OrdersFeature implements Feature, Listener {
         this.menus.dialogs(this.dialogs);
         this.market = new OrdersMarket(this.service, this.dialogs);
         this.commands = new OrdersCommands(services, this.service, this.menus);
+    }
+
+    /**
+     * Registers the order settings in their groups, in the catalog's order. Ending warnings are offered while
+     * {@code expiry-warning} is on; the announcement settings while big orders are announced, and amount presets only
+     * above the server's own minimum (below it they would show every announcement, like All).
+     */
+    static void registerSettings(PlayerSettings prefs, Supplier<OrdersSettings> config) {
+        prefs.register(SettingCategories.MARKET, NOTIFICATIONS, SettingOptions.<DeliveryAlerts>builder().order(2).build());
+        prefs.register(SettingCategories.MARKET, JOIN_SUMMARY, SettingOptions.<Boolean>builder().order(5).build());
+        prefs.register(SettingCategories.MARKET, ENDING_ALERTS, SettingOptions.<Boolean>builder().order(7)
+            .availableWhen(() -> !config.get().expiryWarning().isZero()).build());
+        prefs.register(SettingCategories.MARKET, AUTO_COLLECT, SettingOptions.<Boolean>builder().order(10).build());
+        SettingOptions.Builder<Announce> announce = SettingOptions.<Announce>builder().order(5)
+            .availableWhen(() -> config.get().announceMinTotal() > 0);
+        for (Choice.Option<Announce> option : ANNOUNCEMENTS.options()) {
+            long minimum = option.value().minimum();
+            if (option.value().kind() == Announce.Kind.FROM) {
+                announce.optionAvailableWhen(option.id(), () -> config.get().announceMinTotal() < minimum);
+            }
+        }
+        prefs.register(SettingCategories.ANNOUNCEMENTS, ANNOUNCEMENTS, announce.build());
+        prefs.register(SettingCategories.PRIVACY, ANNOUNCE_MINE, SettingOptions.<Boolean>builder().order(4).placeholder(false)
+            .availableWhen(() -> config.get().announceMinTotal() > 0).build());
     }
 
     @Override

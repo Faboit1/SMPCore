@@ -22,11 +22,23 @@ import org.bukkit.inventory.ItemStack;
 final class ShopSearchMenu extends PagedMenu<ShopSettings.Entry> {
 
     private final ShopMenus shop;
+    private final Cycle<Comparator<ShopSettings.Entry>> sort;
 
     ShopSearchMenu(MenuContext ctx, Player viewer, ShopMenus shop, Component title, Cycle<Comparator<ShopSettings.Entry>> sort,
                    Cycle<Predicate<ShopSettings.Entry>> filter, Runnable back) {
         super(ctx, viewer, title, sort, filter, back);
         this.shop = shop;
+        this.sort = sort;
+    }
+
+    /** The id of the selected sort order. */
+    String sortId() {
+        return this.sort.selected().id();
+    }
+
+    @Override
+    protected void closed() {
+        this.shop.rememberSort(this.viewer, sortId());
     }
 
     /** Asks what to search for first, then opens the results (cancelling opens the full list). */

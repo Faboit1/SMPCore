@@ -21,8 +21,15 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-/** Opens the shop's menus and builds their icons from the current {@code features/shop.yml}. */
+/**
+ * Opens the shop's menus and builds their icons from the current {@code features/shop.yml}. Each player's sort order
+ * of the item pages is remembered silently (the {@code shop-sort} row, like the auction house and order browsers).
+ */
 final class ShopMenus {
+
+    /** The remembered sort order of category and search pages (UI state, not a setting). */
+    static final String SORT_SETTING = "shop-sort";
+    private static final String DEFAULT_SORT = "shop";
 
     private final Services services;
     private final Setting<ShopSettings> settings;
@@ -59,7 +66,7 @@ final class ShopMenus {
             this.services.messenger().send(player, ShopMessages.UNKNOWN_CATEGORY, Arg.text("name", id));
             return;
         }
-        new CategoryMenu(this.services.menus(), player, this, category.id(), Component.text(category.name()), sortCycle(),
+        new CategoryMenu(this.services.menus(), player, this, category.id(), Component.text(category.name()), sortCycle(player),
             () -> openShop(player)).open();
     }
 
@@ -72,7 +79,7 @@ final class ShopMenus {
             return;
         }
         ShopSearchMenu menu = new ShopSearchMenu(this.services.menus(), player, this,
-            Component.text(this.services.lang().plain(ShopMessages.SEARCH_TITLE)), sortCycle(), categoryFilter(),
+            Component.text(this.services.lang().plain(ShopMessages.SEARCH_TITLE)), sortCycle(player), categoryFilter(),
             () -> openShop(player));
         if (query == null || query.isBlank()) {
             menu.prompt();
@@ -236,10 +243,29 @@ final class ShopMenus {
     }
 
     /**
-     * Sort orders of a category menu, shop order first. Labels are plain text so the cycle button can colour them
-     * (gray, the selected one white).
+     * Sort orders of a category menu, shop order first, starting at the player's remembered one (or at the one of the
+     * shop page they are still looking at: its choice is saved only when it closes, after this menu was built).
+     * Labels are plain text so the cycle button can colour them (gray, the selected one white).
      */
-    Cycle<Comparator<ShopSettings.Entry>> sortCycle() {
+    Cycle<Comparator<ShopSettings.Entry>> sortCycle(Player player) {
+        String initial = this.services.settings().raw(player.getUniqueId(), SORT_SETTING, DEFAULT_SORT);
+        Object open = player.getOpenInventory().getTopInventory().getHolder(false);
+        if (open instanceof CategoryMenu menu) {
+            initial = menu.sortId();
+        } else if (open instanceof ShopSearchMenu menu) {
+            initial = menu.sortId();
+        }
+        return sortCycle(initial);
+    }
+
+    /** Remembers the sort order a shop page closed with, when it differs from the stored one. */
+    void rememberSort(Player player, String sortId) {
+        if (!sortId.equals(this.services.settings().raw(player.getUniqueId(), SORT_SETTING, DEFAULT_SORT))) {
+            this.services.settings().setRaw(player.getUniqueId(), SORT_SETTING, sortId);
+        }
+    }
+
+    private Cycle<Comparator<ShopSettings.Entry>> sortCycle(String initial) {
         Lang lang = this.services.lang();
         Comparator<ShopSettings.Entry> shopOrder = (a, b) -> 0;
         Comparator<ShopSettings.Entry> cheapest = Comparator.comparingLong(ShopSettings.Entry::price);
@@ -248,7 +274,7 @@ final class ShopMenus {
             new Cycle.Option<>("shop", Component.text(lang.plain(ShopMessages.SORT_SHOP)), shopOrder),
             new Cycle.Option<>("cheapest", Component.text(lang.plain(ShopMessages.SORT_CHEAPEST)), cheapest),
             new Cycle.Option<>("priciest", Component.text(lang.plain(ShopMessages.SORT_PRICIEST)), cheapest.reversed()),
-            new Cycle.Option<>("name", Component.text(lang.plain(ShopMessages.SORT_NAME)), name)), "shop");
+            new Cycle.Option<>("name", Component.text(lang.plain(ShopMessages.SORT_NAME)), name)), initial);
     }
 
     /** The search menu's filter: all categories, then each visible category. */

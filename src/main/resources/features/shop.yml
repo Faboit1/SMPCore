@@ -7,7 +7,8 @@
 # never makes money.
 # Items that can't be sold at all may have any price.
 
-# Purchases that cost at least this much ask for confirmation first. 0 never asks.
+# Purchases that cost at least this much ask for confirmation first. 0 never asks. Players can pick their own
+# amount in /settings (Confirm purchases from); its "Server default" follows this.
 confirm-above: 50k
 
 # The most of one item a single purchase can buy, unless a category or item says otherwise (1 to 6400).

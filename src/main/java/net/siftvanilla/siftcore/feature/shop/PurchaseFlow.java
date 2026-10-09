@@ -15,6 +15,7 @@ import net.siftvanilla.siftcore.api.event.ShopPurchaseEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
@@ -99,7 +100,10 @@ final class PurchaseFlow {
         open(player, ref, back, 0);
     }
 
-    /** Opens the purchase dialog starting at {@code amount} (0 for the usual stack; capped at the entry's limit). */
+    /**
+     * Opens the purchase dialog starting at {@code amount} (capped at the entry's limit), or with 0 at the amount the
+     * player's {@code shop-default-amount} setting says.
+     */
     void open(Player player, String ref, Runnable back, int amount) {
         if (blocked(player)) {
             return;
@@ -114,9 +118,17 @@ final class PurchaseFlow {
             this.services.messenger().send(player, ShopMessages.UNAVAILABLE);
             return;
         }
-        int start = amount > 0 ? Math.min(amount, entry.max())
-            : PurchaseMath.defaultAmount(entry.spawner() ? 1 : unit.get().getMaxStackSize(), entry.max());
+        int start = amount > 0 ? Math.min(amount, entry.max()) : startAmount(player, entry, unit.get());
         this.services.dialogs().show(player, view(player, entry, unit.get(), start, null, back));
+    }
+
+    /** The amount the dialog starts at for this player: one stack, one item, their last amount or a full inventory. */
+    private int startAmount(Player player, ShopSettings.Entry entry, ItemStack unit) {
+        StartAmount mode = this.services.settings().get(player.getUniqueId(), ShopFeature.DEFAULT_AMOUNT);
+        // Any entry the player ever bought, not only the few of the Buy again row.
+        int last = mode == StartAmount.LAST ? this.recent.lastAmount(player.getUniqueId(), entry.ref()) : 0;
+        long room = mode == StartAmount.FILL ? capacity(player, unit) : 0;
+        return mode.start(entry.spawner() ? 1 : unit.getMaxStackSize(), entry.max(), last, room);
     }
 
     private View view(Player player, ShopSettings.Entry entry, ItemStack unit, int amount, Component note, Runnable back) {
@@ -289,8 +301,7 @@ final class PurchaseFlow {
                 Arg.money("balance", balance)), back);
             return;
         }
-        long confirmAbove = this.settings.get().confirmAbove();
-        if (!confirmed && confirmAbove > 0 && total >= confirmAbove) {
+        if (!confirmed && asks(this.services.settings().get(uuid, ShopFeature.CONFIRM_ABOVE), total, this.settings.get().confirmAbove())) {
             s.show(confirmView(player, entry, unit, amount, total, balance, back));
             return;
         }
@@ -387,14 +398,26 @@ final class PurchaseFlow {
         });
     }
 
+    /**
+     * The receipt where the buyer's {@code shop-receipts} setting says (chat or above the hotbar); items that went to
+     * the claim box are always told in chat, so the player knows where to find them.
+     */
     private void bought(Player player, String name, int amount, long inClaimBox, long total) {
         if (inClaimBox > 0) {
             this.services.messenger().send(player, ShopMessages.BOUGHT_CLAIM_BOX, Arg.number("amount", amount),
                 Arg.text("item", name), Arg.money("total", total), Arg.number("count", inClaimBox));
         } else {
-            this.services.messenger().send(player, ShopMessages.BOUGHT, Arg.number("amount", amount), Arg.text("item", name),
-                Arg.money("total", total));
+            this.services.messenger().alert(player, this.services.settings().get(player.getUniqueId(), ShopFeature.RECEIPTS),
+                ShopMessages.BOUGHT, Arg.number("amount", amount), Arg.text("item", name), Arg.money("total", total));
         }
+    }
+
+    /**
+     * Whether buying for {@code total} asks for confirmation: the buyer's {@code shop-confirm-above} choice, where
+     * "server default" follows {@code confirm-above} in shop.yml ({@code serverAbove}, 0 never asks).
+     */
+    static boolean asks(ConfirmAbove choice, long total, long serverAbove) {
+        return choice.asks(total, serverAbove > 0 && total >= serverAbove);
     }
 
     /** A claim box reference of its own for the part of one purchase that goes into the inventory. */

@@ -3,8 +3,9 @@ package net.siftvanilla.siftcore.feature.shop;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -15,9 +16,11 @@ import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.storage.Database;
 
 /**
- * Every online player's most recent shop purchases, for the "Buy again" row: one row per entry with the amount last
- * bought, loaded when the player joins and updated inside each purchase's transaction (so it is only remembered
- * when the purchase is). Thread-safe: each player's list is an immutable snapshot replaced as a whole.
+ * Every online player's shop purchases: one row per entry with the amount last bought, loaded when the player joins
+ * and updated inside each purchase's transaction (so it is only remembered when the purchase is). The newest few make
+ * the "Buy again" row; the amount of any entry the player ever bought starts the buy window when they chose "my last
+ * amount" ({@code shop-default-amount}). Thread-safe: each player's entries are an immutable snapshot replaced as a
+ * whole. At most one row per shop entry is kept per player, so the memory stays bounded by the shop's size.
  */
 final class RecentPurchases {
 
@@ -33,7 +36,8 @@ final class RecentPurchases {
 
     private final Database database;
     private final Logger logger;
-    private final Map<UUID, List<Recent>> players = new ConcurrentHashMap<>();
+    /** Player to their remembered purchases by entry (immutable snapshots). */
+    private final Map<UUID, Map<String, Recent>> players = new ConcurrentHashMap<>();
 
     RecentPurchases(Database database, Logger logger) {
         this.database = database;
@@ -42,18 +46,22 @@ final class RecentPurchases {
 
     /** The newest purchases first, at most {@link ShopSettings#RECENT}. */
     List<Recent> of(UUID player) {
-        return this.players.getOrDefault(player, List.of());
+        return newest(this.players.getOrDefault(player, Map.of()).values());
+    }
+
+    /** The amount the player last bought of an entry, or 0 when they never bought it (or it is not loaded yet). */
+    int lastAmount(UUID player, String ref) {
+        Recent recent = this.players.getOrDefault(player, Map.of()).get(ref);
+        return recent == null ? 0 : recent.amount();
     }
 
     /** Starts loading a joining player's purchases; purchases made meanwhile are kept. */
     void load(UUID player) {
-        this.players.putIfAbsent(player, List.of());
+        this.players.putIfAbsent(player, Map.of());
         this.database.read(c -> {
             List<Recent> stored = new ArrayList<>();
-            try (PreparedStatement ps = c.prepareStatement(
-                "SELECT ref, amount, ts FROM shop_recent WHERE uuid = ? ORDER BY ts DESC LIMIT ?")) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT ref, amount, ts FROM shop_recent WHERE uuid = ?")) {
                 ps.setString(1, player.toString());
-                ps.setInt(2, ShopSettings.RECENT);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         stored.add(new Recent(rs.getString(1), rs.getInt(2), rs.getLong(3)));
@@ -66,7 +74,7 @@ final class RecentPurchases {
                 this.logger.log(Level.WARNING, "Could not load the recent shop purchases of " + player, error);
                 return;
             }
-            this.players.computeIfPresent(player, (uuid, current) -> merge(current, stored));
+            this.players.computeIfPresent(player, (uuid, current) -> with(current, stored));
         });
     }
 
@@ -75,18 +83,18 @@ final class RecentPurchases {
     }
 
     /**
-     * Adds a purchase to its transaction: the remembered list changes when the transaction applies (and back if it
+     * Adds a purchase to its transaction: the remembered entries change when the transaction applies (and back if it
      * is not stored), and the row is written with it.
      */
     void contribute(LedgerTx.Builder tx, UUID player, String ref, int amount) {
         long now = System.currentTimeMillis();
         Recent recent = new Recent(ref, amount, now);
-        List<List<Recent>> before = new ArrayList<>(1);
+        List<Map<String, Recent>> before = new ArrayList<>(1);
         tx.apply(() -> {
-            List<Recent> current = this.players.get(player);
+            Map<String, Recent> current = this.players.get(player);
             if (current != null) {
                 before.add(current);
-                this.players.put(player, merge(current, List.of(recent)));
+                this.players.put(player, with(current, List.of(recent)));
             }
         }, () -> {
             if (!before.isEmpty()) {
@@ -107,16 +115,24 @@ final class RecentPurchases {
         });
     }
 
+    /** The remembered entries with {@code added} merged in: one per entry, the newest of each. */
+    static Map<String, Recent> with(Map<String, Recent> current, Collection<Recent> added) {
+        Map<String, Recent> byRef = new HashMap<>(current);
+        for (Recent recent : added) {
+            byRef.merge(recent.ref(), recent, (x, y) -> x.ts() >= y.ts() ? x : y);
+        }
+        return Map.copyOf(byRef);
+    }
+
+    /** The newest purchases first (ties by entry), at most {@link ShopSettings#RECENT}. */
+    static List<Recent> newest(Collection<Recent> recents) {
+        List<Recent> sorted = new ArrayList<>(recents);
+        sorted.sort(Comparator.comparingLong(Recent::ts).reversed().thenComparing(Recent::ref));
+        return List.copyOf(sorted.subList(0, Math.min(ShopSettings.RECENT, sorted.size())));
+    }
+
     /** Both lists together, one entry per ref (the newest), newest first, at most {@link ShopSettings#RECENT}. */
     static List<Recent> merge(List<Recent> a, List<Recent> b) {
-        Map<String, Recent> byRef = new LinkedHashMap<>();
-        for (List<Recent> list : List.of(a, b)) {
-            for (Recent recent : list) {
-                byRef.merge(recent.ref(), recent, (x, y) -> x.ts() >= y.ts() ? x : y);
-            }
-        }
-        List<Recent> merged = new ArrayList<>(byRef.values());
-        merged.sort(Comparator.comparingLong(Recent::ts).reversed().thenComparing(Recent::ref));
-        return List.copyOf(merged.subList(0, Math.min(ShopSettings.RECENT, merged.size())));
+        return newest(with(with(Map.of(), a), b).values());
     }
 }

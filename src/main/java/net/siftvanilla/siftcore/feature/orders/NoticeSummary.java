@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * The "while you were away" summary of an owner's notices. Pure: the server side renders it.
  * <p>
- * Deliveries, completions and ending warnings respect the player's order messages setting; refunds of ended orders
+ * Deliveries, completions and ending warnings follow the player's settings ({@link Filter}); refunds of ended orders
  * and staff cancellations always show (money moved). Detail lines are capped; the rest is counted.
  *
  * @param delivered items delivered to the owner's orders while away
@@ -25,6 +25,36 @@ record NoticeSummary(long delivered, int complete, long refunded, List<OrderStor
     static final String CANCELLED = "cancelled";
     static final String ENDING = "ending";
 
+    /**
+     * Which kinds of rows a player wants summed up (refunds and staff cancellations always show).
+     *
+     * @param deliveries  every delivery ({@code order-notices} chat or above the hotbar)
+     * @param completions completed orders ({@code order-notices} anything but off)
+     * @param ending      orders that end soon ({@code order-ending-alerts})
+     */
+    record Filter(boolean deliveries, boolean completions, boolean ending) {
+
+        static final Filter ALL = new Filter(true, true, true);
+        static final Filter REFUNDS_ONLY = new Filter(false, false, false);
+
+        /**
+         * The filter of a player's settings: with the join summary off ({@code summary} false) only refunds show,
+         * otherwise their delivery alerts and ending warnings decide.
+         */
+        static Filter of(boolean summary, DeliveryAlerts alerts, boolean endingAlerts) {
+            return summary ? new Filter(alerts.everyDelivery(), alerts.completions(), endingAlerts) : REFUNDS_ONLY;
+        }
+
+        boolean shows(String kind) {
+            return switch (kind) {
+                case DELIVERED -> this.deliveries;
+                case COMPLETE -> this.completions;
+                case ENDING -> this.ending;
+                default -> true;
+            };
+        }
+    }
+
     NoticeSummary {
         details = List.copyOf(details);
         shown = List.copyOf(shown);
@@ -39,10 +69,10 @@ record NoticeSummary(long delivered, int complete, long refunded, List<OrderStor
      * Summarizes rows (newest first, as stored). Staff cancellations come first, then expiries, completions, ending
      * warnings and deliveries, each kind newest first.
      *
-     * @param notifications the player's order messages setting
-     * @param maxDetails    detail lines to show at most
+     * @param filter     which kinds the player wants to hear about
+     * @param maxDetails detail lines to show at most
      */
-    static NoticeSummary of(List<OrderStore.NoticeRow> rows, boolean notifications, int maxDetails) {
+    static NoticeSummary of(List<OrderStore.NoticeRow> rows, Filter filter, int maxDetails) {
         long delivered = 0;
         int complete = 0;
         long refunded = 0;
@@ -52,8 +82,7 @@ record NoticeSummary(long delivered, int complete, long refunded, List<OrderStor
                 if (!row.kind().equals(kind)) {
                     continue;
                 }
-                boolean always = kind.equals(CANCELLED) || kind.equals(EXPIRED);
-                if (!always && !notifications) {
+                if (!filter.shows(kind)) {
                     continue;
                 }
                 switch (kind) {

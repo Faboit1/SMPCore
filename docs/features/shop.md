@@ -38,7 +38,8 @@ buttons check again when pressed, so a dialog opened before a fight can't buy go
    total before anything is bought. Dialog buttons can't change their label while the slider moves, so a press with
    a different amount first shows the dialog again with the new total; nothing is bought until the player presses a
    button that names the amount and total they get.
-5. **Confirmation** for purchases of at least `confirm-above` ($50,000): amount, item, total and the balance left.
+5. **Confirmation** for purchases of at least `confirm-above` ($50,000), or the amount the player picked in
+   `shop-confirm-above` (see Player settings): amount, item, total and the balance left.
 6. **One `LedgerTx`**: `sink(player, MONEY, total, kind "shop_buy", ref "<category>/<entry>")` with a note
    (`64 stone`). Every bought item goes into the claim box in the same transaction: the part that fits the inventory
    right now under a reference of its own (`shop:<random id>`), the rest under `<category>/<entry>`. The purchase is
@@ -47,8 +48,9 @@ buttons check again when pressed, so a dialog opened before a fight can't buy go
    price.
 7. Once the transaction is committed to storage, the part that fitted is claimed into the inventory on the player's
    thread (`economy.ClaimHandouts`: marked claimed in storage first, then handed over; whatever no longer fits stays in
-   the claim box), then `player.saveData()` when `crash-safety.save-player-after-trade` is on, and a chat receipt:
-   `You bought 64 stone for $384.` (plus how many wait in the claim box). A buyer who left before the commit (or a
+   the claim box), then `player.saveData()` when `crash-safety.save-player-after-trade` is on, and the receipt
+   `You bought 64 stone for $384.` in chat or above the hotbar (`shop-receipts`); when items wait in the claim box the
+   receipt always goes to chat and says how many. A buyer who left before the commit (or a
    server that stopped) finds everything in the claim box; at shutdown, claims still on their way finish and whatever
    was not handed over goes back into the claim box before storage closes.
 
@@ -59,8 +61,24 @@ so double or forged submits buy once. `api.event.ShopPurchaseEvent` (cancellable
 quantity, unit price, total) fires right before the transaction.
 
 **Buy again storage.** `shop_recent` (migration `V016`): one row per player and entry with the amount last bought
-and when; loaded when the player joins, updated inside each purchase's transaction (in memory and in storage
-together). Entries that were removed or are hidden right now are not shown.
+and when; all of a player's rows are loaded when they join (at most one per shop entry) and updated inside each
+purchase's transaction (in memory and in storage together). Buy again shows the newest five; "My last amount" uses
+the row of the entry being bought, whenever it was bought. Entries that were removed or are hidden right now are not
+shown.
+
+**Remembered sort.** The sort order of category and search pages is remembered per player (the `settings` row
+`shop-sort`, UI state like the auction house's and the order browser's, not a setting). It is saved when the page
+closes.
+
+## Player settings (`/settings`, group Shop, auction & orders)
+
+| Id | Kind, default | What it does | Read in |
+|---|---|---|---|
+| `shop-confirm-above` | choice server / always / from $10k / from $100k / from $1m / never, server | From which total buying asks once more; Server default follows `confirm-above` (0 never asks) | `PurchaseFlow.buy` (`PurchaseFlow.asks`) |
+| `shop-default-amount` | choice stack / one / last / fill, stack | How many the purchase dialog starts with when opened from the shop, a search or another feature: one stack (one for spawners), one item, the amount of the player's last purchase of that entry, however long ago (one stack when they never bought it), or as many as fit the inventory (one stack when nothing fits); always capped at the entry's limit. Buy again keeps its own amount | `PurchaseFlow.open` (`StartAmount.start`) |
+| `shop-receipts` | choice chat / actionbar, chat | Where the purchase receipt shows (`Messenger.alert`). Items sent to the claim box are always told in chat | `PurchaseFlow.bought` |
+
+Labels and descriptions are in `lang/shop.yml` under `shop.settings`; positions 3, 6 and 9 of the group.
 
 ## Price safety
 
@@ -129,11 +147,15 @@ entry's `price x max` must fit the money limit.
 Unit: `ShopValidatorTest` (liquidation values, recipe chains, ingredient costs, multipliers including the mastery
 bonus, the largest booster, margin), `ShopSettingsTest`, `PurchaseMathTest` (totals and overflow, typed and slider amounts, capacity and
 claim-box split, "Max you can afford" and "Fill your inventory"), `RecentPurchasesTest`, `PurchaseRefTest` (every
-purchase claims under its own reference), and the shared hand-over pieces `economy.HandoffsTest` (a scheduler that
+purchase claims under its own reference), `ShopPlayerSettingsTest` (group and order, option ids, the confirmation
+threshold, every start amount, the setting text), and the shared hand-over pieces `economy.HandoffsTest` (a scheduler that
 returns no task, throws, retires the player or never runs: exactly one of delivery and fallback, once) and
 `economy.SlotPlanTest`. End to end (`tools/e2e`): `SellShopScenarios` (`shop-buy`, `shop-amount`, `shop-confirm`,
 `shop-refusals`, `shop-claim-box`, `shop-double-submit`, `shop-left-before-commit`: the buyer leaves while storage
 is held up, and the paid items wait in the claim box), `SellPlusScenarios` (`shop-combat-blocked`, `shop-search`,
 `shop-quick-and-buy-again`, `shop-right-click-sell`) and `BoostersScenarios` (`boosters-shop-guard`: a diamond price
 safe at +5% but not at +25% is refused, accepted together with `max-percent: 5`, and raising the limit again is
-refused).
+refused). Settings: `MarketScenarios` (registered with the auction scenarios; `market-shop-settings`: the start amount
+changed in the `/settings` dialog, the last amount and the hotbar receipt with `/settings <setting> <value>`, a full
+inventory and the confirmation threshold through the API, the remembered sort). `RecentPurchasesTest` also checks that
+the last amount of an entry outside the five newest is remembered and loads back.

@@ -78,6 +78,8 @@ final class AuctionScenarios {
         list.add(of("auction-persist-setup", AuctionScenarios::persistSetup));
         list.add(of("auction-persist-check", AuctionScenarios::persistCheck));
         list.add(of("auction-expiry", AuctionScenarios::expiry));
+        // The player settings of the auction house and the shop (MarketScenarios, the same package's file).
+        list.addAll(MarketScenarios.withAuction());
         return list;
     }
 

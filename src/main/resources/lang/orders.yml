@@ -160,6 +160,16 @@ orders:
     sold: "<primary><name> sold <amount> <item> to your order."
     sold-many: "<primary><name> sold <amount> items to your orders."
     complete: "<primary>Your order for <quantity> <item> is complete. Collect it in /orders."
+    # Above the hotbar, one line for a sale that also completed orders. <item> is the item or "items" (below).
+    sold-done: "<primary><name> sold <amount> <item> to your orders. <done>"
+    # Auto-collect (order-auto-collect): the delivery went straight into the inventory. <done> is empty, or the
+    # done-one/done-many text when the line is above the hotbar and the delivery completed orders.
+    auto-collected: "<primary><name> delivered <amount> <item> straight into your inventory. <done>"
+    auto-collected-some: "<primary><name> delivered <amount> <item>. What fit went into your inventory; <waiting> wait in /orders. <done>"
+    auto-complete: "<primary>Your order for <quantity> <item> is complete and in your inventory."
+    done-one: "<secondary>An order is complete."
+    done-many: "<secondary><count> orders are complete."
+    items: "items"
     expired: "<primary>Your order for <quantity> <item> ended and <refund> came back to you."
     staff-cancelled: "<primary>Staff cancelled your order for <quantity> <item> and <refund> came back to you. <secondary>Reason: <reason>"
     ending: "<primary>Your order for <quantity> <item> ends in <time>."
@@ -363,8 +373,19 @@ orders:
     label: "Orders"
     description: "Ask players for items or fill their orders"
 
+  # Labels and descriptions of the order settings (/settings): Shop, auction & orders, Server announcements and Privacy.
   settings:
-    notifications: "Order messages"
-    notifications-description: "Tell me when items arrive for my orders"
+    notifications: "Order delivery alerts"
+    notifications-description: "Every delivery in chat, every delivery above the hotbar, only when an order is complete, or never. Expiries and staff cancellations always show."
+    # The option of Order delivery alerts that only tells completed orders.
+    notifications-complete: "Only when complete"
     announce: "Big order announcements"
-    announce-description: "Tell me when someone places a big buy order"
+    announce-description: "New big buy orders in chat: everything the server announces, only above an amount, or none."
+    ending-alerts: "Order ending warnings"
+    ending-alerts-description: "Warn you before one of your orders runs out of time."
+    join-summary: "Order summary on join"
+    join-summary-description: "When you join, sum up what happened to your orders while you were away. Refunds always show."
+    auto-collect: "Auto-collect deliveries"
+    auto-collect-description: "Put items delivered to your orders straight into your inventory when they fit."
+    announce-mine: "Announce my big orders"
+    announce-mine-description: "Let the server announce your big new buy orders to everyone."

@@ -3,11 +3,13 @@ package net.siftvanilla.siftcore.feature.auction;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.player.Limits;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -32,10 +34,13 @@ final class AuctionDialogs {
 
     private final Services services;
     private final AuctionService service;
+    private final Supplier<WorthLookup> worth;
 
-    AuctionDialogs(Services services, AuctionService service) {
+    /** @param worth what /sell pays (bound once selling is built), for the low price warning */
+    AuctionDialogs(Services services, AuctionService service, Supplier<WorthLookup> worth) {
         this.services = services;
         this.service = service;
+        this.worth = worth;
     }
 
     private Lang lang() {
@@ -129,6 +134,9 @@ final class AuctionDialogs {
             int used = this.service.engine().book().count(player.getUniqueId()) + 1;
             lines.addAll(lang().lines(AuctionMessages.SELL_CONFIRM_SLOTS, Arg.number("used", used), Arg.number("limit", draft.slotLimit())));
         }
+        if (this.services.settings().get(player.getUniqueId(), AuctionFeature.PRICE_WARNING)) {
+            lines.addAll(priceWarnings(player, draft, listed));
+        }
         List<Body> body = List.of(Body.item(AuctionItems.revealed(listed), null),
             Body.text(Component.join(JoinConfiguration.newlines(), lines)));
         return this.services.templates().confirmWithBody(lang().get(AuctionMessages.SELL_CONFIRM_TITLE), body,
@@ -144,6 +152,38 @@ final class AuctionDialogs {
                 this.services.messenger().send(no.player(), AuctionMessages.SELL_CANCELLED);
                 finish(no, back);
             });
+    }
+
+    /**
+     * The low price warning lines (none when the price is fine): below what /sell pays the player for the same items,
+     * or less than half the price per item of the cheapest similar listing of another seller. They never block.
+     */
+    private List<Component> priceWarnings(Player player, AuctionService.SaleDraft draft, ItemStack listed) {
+        List<Component> warnings = new ArrayList<>(2);
+        WorthLookup lookup = this.worth.get();
+        long sellValue;
+        try {
+            sellValue = lookup == null ? 0 : lookup.priceFor(player, listed);
+        } catch (ArithmeticException e) {
+            sellValue = 0;
+        }
+        if (PriceCheck.belowSell(draft.price(), sellValue)) {
+            warnings.addAll(lang().lines(AuctionMessages.SELL_WARNING_SELL, this.service.price("worth", sellValue)));
+        }
+        String type = AuctionItems.typeKey(listed);
+        List<Listing<ItemStack>> similar = new ArrayList<>();
+        for (Listing<ItemStack> listing : this.service.engine().book().available(this.service.engine().now())) {
+            if (!listing.seller().equals(player.getUniqueId()) && listing.typeKey().equals(type) && listing.item().isSimilar(listed)) {
+                similar.add(listing);
+            }
+        }
+        Listing<ItemStack> cheapest = PriceCheck.cheapest(similar);
+        if (cheapest != null && PriceCheck.farBelow(draft.price(), draft.amount(), cheapest.price(), cheapest.amount())) {
+            warnings.addAll(lang().lines(AuctionMessages.SELL_WARNING_MARKET,
+                this.service.price("price", PriceCheck.each(cheapest.price(), cheapest.amount())),
+                this.service.price("yours", PriceCheck.each(draft.price(), draft.amount()))));
+        }
+        return warnings;
     }
 
     // ------------------------------------------------------------------ buying and taking down

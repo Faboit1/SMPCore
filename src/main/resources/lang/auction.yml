@@ -93,6 +93,9 @@ auction:
       - "<secondary>You get <earn>"
       - "<secondary>It ends in <primary><time></primary> if nobody buys it"
     confirm-slots: "<secondary>Listing slots used <primary><used></primary> of <primary><limit>"
+    # The low price warning (players can turn it off). It never blocks the listing.
+    warning-sell: "<error>That's less than /sell pays you for them (<worth>)."
+    warning-market: "<error>That's far below similar listings: they start at <price> each, you ask <yours> each."
     confirm-button: "List it"
     listed: "<primary>Listed <amount> <item> for <price>."
     nothing-in-hand: "<primary>Hold the item you want to sell."
@@ -165,9 +168,25 @@ auction:
     bought: "<primary>Bought <amount> <item> from <name> for <price><newline><secondary><ago> ago"
     empty: "<secondary>You haven't sold or bought anything yet."
 
+  # The summary a moment after joining (players can turn it off): what sold since they last left.
+  away:
+    sold-one: "<primary>While you were away, <name> bought your <amount> <item> for <price>. You got <earned> after tax."
+    sold-many: "<primary>While you were away, <count> of your listings sold. You got <earned> after tax:"
+    sold-line: "<secondary><amount> <item> to <primary><name></primary> for <price>"
+    sold-more: "<secondary>and <count> more. <click:run_command:'/ah history'>Click to see your history, or use /ah history.</click>"
+
+  # Labels and descriptions of the auction settings (/settings, group Shop, auction & orders).
   settings:
-    sales: "Auction sales"
-    sales-description: "Tell me when one of my listings sells"
+    sales: "Auction sale alerts"
+    sales-description: "How you are told one of your listings sold."
+    join-summary: "Auction summary on join"
+    join-summary-description: "When you join, tell you what sold while you were away and what waits in your claim box."
+    price-warning: "Low price warning"
+    price-warning-description: "Warn you when you list an item for much less than /sell or similar listings pay. It never blocks the listing."
+    expiry-alerts: "Expired listing alerts"
+    expiry-alerts-description: "How you are told your listings expired and went to your claim box."
+    hide-own: "Hide my own listings"
+    hide-own-description: "Leave your own listings out when browsing the auction house. They stay in Your listings."
 
   admin:
     info:

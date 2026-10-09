@@ -10,7 +10,6 @@ import java.util.function.Predicate;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.economy.LedgerTx;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -172,24 +171,17 @@ final class OrdersMarket implements OrderMarket {
             byOwner.computeIfAbsent(order.owner(), k -> new ArrayList<>()).add(take);
         }
         String sellerName = seller.getName();
+        // Each owner hears about the sale once: offline owners get a notice row per order (summed up when they join);
+        // an online owner whose several orders took part of it gets one line for all of them, and auto-collect takes
+        // what fits from all of them at once.
         byOwner.forEach((owner, ownerTakes) -> {
-            if (Bukkit.getPlayer(owner) == null || ownerTakes.size() == 1) {
-                // Offline owners get a notice row per order (summed up when they join); one order is one line.
-                for (Take take : ownerTakes) {
-                    Order order = orders.get(take.orderId());
-                    this.service.notices().delivered(order, sellerName, (int) take.units(), take.gross(),
-                        order.state() == OrderState.FILLED, true);
-                }
-                return;
+            List<OwnerNotices.Part> parts = new ArrayList<>(ownerTakes.size());
+            for (Take take : ownerTakes) {
+                Order order = orders.get(take.orderId());
+                parts.add(new OwnerNotices.Part(order, (int) Math.min(Integer.MAX_VALUE, take.units()), take.gross(),
+                    order.state() == OrderState.FILLED));
             }
-            // An online owner whose several orders took part of one sale gets one line for all of them.
-            int units = (int) Math.min(Integer.MAX_VALUE, ownerTakes.stream().mapToLong(Take::units).sum());
-            if (ownerTakes.stream().map(Take::key).distinct().count() == 1) {
-                Order first = orders.get(ownerTakes.getFirst().orderId());
-                this.service.notices().delivered(first, sellerName, units, 0, false, true);
-            } else {
-                this.service.notices().soldMany(owner, sellerName, units);
-            }
+            this.service.arrived(new OwnerNotices.Arrival(owner, sellerName, true, parts));
         });
         this.service.refreshAll();
     }

@@ -89,4 +89,37 @@ class RecentPurchasesTest {
         assertEquals(List.of("ores/diamond", "blocks/stone"), recent.of(PLAYER).stream().map(RecentPurchases.Recent::ref).toList());
         assertEquals(3, recent.of(PLAYER).getFirst().amount());
     }
+
+    /**
+     * "My last amount" reads the last purchase of any entry the player bought, not only the five newest of the Buy
+     * again row, before and after the purchases are loaded back on a later join.
+     */
+    @Test
+    void theLastAmountOfEveryEntryIsRememberedBeyondTheBuyAgainRow() throws Exception {
+        RecentPurchases recent = new RecentPurchases(this.database, this.logger);
+        recent.load(PLAYER);
+        assertTrue(buy(recent, "blocks/stone", 37, true));
+        for (int i = 0; i < 6; i++) {
+            Thread.sleep(3);
+            assertTrue(buy(recent, "blocks/other" + i, 1 + i, true));
+        }
+        assertEquals(5, recent.of(PLAYER).size(), "Buy again keeps the five newest");
+        assertTrue(recent.of(PLAYER).stream().noneMatch(r -> r.ref().equals("blocks/stone")), "stone is no longer among them");
+        assertEquals(37, recent.lastAmount(PLAYER, "blocks/stone"), "its last amount is still known");
+        assertEquals(6, recent.lastAmount(PLAYER, "blocks/other5"));
+        assertEquals(0, recent.lastAmount(PLAYER, "ores/diamond"), "never bought");
+
+        recent.forget(PLAYER);
+        assertEquals(0, recent.lastAmount(PLAYER, "blocks/stone"), "forgotten when the player leaves");
+        recent.load(PLAYER);
+        for (int i = 0; i < 200 && recent.lastAmount(PLAYER, "blocks/stone") == 0; i++) {
+            Thread.sleep(10);
+        }
+        assertEquals(37, recent.lastAmount(PLAYER, "blocks/stone"), "loaded back on the next join although it is the oldest of seven");
+        assertEquals(List.of("blocks/other5", "blocks/other4", "blocks/other3", "blocks/other2", "blocks/other1"),
+            recent.of(PLAYER).stream().map(RecentPurchases.Recent::ref).toList());
+        assertTrue(buy(recent, "blocks/stone", 12, true));
+        assertEquals(12, recent.lastAmount(PLAYER, "blocks/stone"), "a new purchase replaces it");
+        assertEquals("blocks/stone", recent.of(PLAYER).getFirst().ref());
+    }
 }

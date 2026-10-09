@@ -398,7 +398,22 @@ The purchase transaction also fires the ledger's `EconomyTransactionEvent` (kind
 | `default-sort` | `newest` | Sort for players who never picked one |
 
 Everything applies with `/sift reload` (the expiry timer is rescheduled). A broken value is reported with its path
-and falls back to the default. Players can turn sale notifications off with the `auction-sales` setting.
+and falls back to the default.
+
+### Player settings (`/settings`, group Shop, auction & orders)
+
+| Id | Kind, default | What it does | Read in |
+|---|---|---|---|
+| `auction-sales` | choice chat / actionbar / off, chat | How a seller is told a listing sold (`Messenger.alert`; quiet in combat turns the hotbar line into chat). Was a switch: stored `true` reads as chat, `false` as off | `AuctionService.notifySeller` |
+| `auction-join-summary` | switch, on | A moment after joining: what sold since the player last left (one sale by name, or the count and earnings after tax with the newest three and "and n more", `AuctionEngine.salesSince` from `PlayerDirectory.previousSeen` up to the moment they joined: later sales were told live), then the claim box reminder while `join-reminder` is on | `AuctionFeature.onJoin` |
+| `auction-price-warning` | switch, on | Red warning lines in the listing confirmation when the price is below what `/sell` pays the player for the items, or less than half the price per item of the cheapest similar listing of another seller (`ItemStack.isSimilar`, `PriceCheck.FAR_BELOW_PERCENT`). Never blocks | `AuctionDialogs.sellConfirmView` |
+| `auction-expiry-alerts` | choice chat / actionbar / off, chat | How a seller is told listings expired and went to the claim box | `AuctionService.notifyExpired` |
+| `auction-hide-own` | switch, off | Leaves the viewer's own listings out of the auction house; they stay in Your listings | `AuctionMenu.entries` |
+
+While AxAuctions runs (it is then the server's auction house) the settings about SiftCore's own auction house are not
+offered; the join summary stays while `join-reminder` is on, because the claim box holds items from every feature.
+Labels and descriptions are in `lang/auction.yml` under `auction.settings`. The order in the group follows the
+settings catalog (positions 1, 4, 8, 11 and 12, between the shop and order settings).
 
 ### How a trade works
 
@@ -468,7 +483,16 @@ compared on the ordered writer), that the expiry timer runs and that nothing is 
   winner, storage failures that revert everything, restart loading and history (`AuctionEngineTest`), tax, percent and
   price math (`AuctionMathTest`), exponent prices refused within a time limit (`AuctionPriceInputTest`), the item
   size measurement (`ItemDataTest`), the shutdown counter (`InFlightTest`), categories, blacklist patterns, sort orders
-  and inventory planning (`ItemRulesTest`), and the bundled config and lang files (`AuctionResourcesTest`).
+  and inventory planning (`ItemRulesTest`), the bundled config and lang files (`AuctionResourcesTest`), and the player
+  settings: group and order, offering while AxAuctions runs, old `auction-sales` rows read through the real store, the
+  low price warning math and hiding one's own listings (`AuctionPlayerSettingsTest`); `AuctionEngineTest` also covers
+  the join summary's `salesSince` (only sales between leaving and joining).
+- Settings end to end (`tools/e2e`, `MarketScenarios`, registered from `AuctionScenarios.all()`):
+  `market-auction-settings` (sale alerts above the hotbar changed in the `/settings` dialog, the low price warning and
+  turning it off through the API, hiding one's own listings with `/settings auction-hide-own on`, the join summary
+  naming the sale while away but not the one bought right after the join, which was told live, and the summary turned
+  off) and `market-auction-expiry-alerts` (one-minute listings: `/settings auction-expiry-alerts off` says nothing
+  while the item still reaches the claim box, `actionbar` shows it above the hotbar and not in chat).
 - End to end (`tools/e2e`, `AuctionScenarios`): selling with `/ah sell` and the sell form, buying (money, tax, item,
   receipts), taking down, the claim box (full inventory, claim one, claim all, join reminder), refusals (including
   oversized items and exponent prices), triple clicks

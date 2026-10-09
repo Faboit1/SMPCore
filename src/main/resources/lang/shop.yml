@@ -72,3 +72,15 @@ shop:
   hub:
     label: "Shop"
     description: "Buy blocks, farming supplies and spawners"
+  # Labels and descriptions of the shop settings (/settings, group Shop, auction & orders).
+  settings:
+    confirm-above: "Confirm purchases from"
+    confirm-above-description: "Ask before buying when the total is at least this much."
+    default-amount: "Buy window starts at"
+    default-amount-description: "How many the buy window starts with: one stack, one item, your last amount, or a full inventory."
+    default-amount-stack: "One stack"
+    default-amount-one: "One item"
+    default-amount-last: "My last amount"
+    default-amount-fill: "Full inventory"
+    receipts: "Purchase receipts"
+    receipts-description: "Show what you bought in chat or above the hotbar. Items sent to your claim box are always told in chat."

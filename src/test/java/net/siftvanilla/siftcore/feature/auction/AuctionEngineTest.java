@@ -527,4 +527,57 @@ class AuctionEngineTest {
         assertTrue(this.engine.history(new UUID(9, 9), 20).get(10, TimeUnit.SECONDS).isEmpty());
         assertLedgerHealthy();
     }
+
+    /**
+     * The join summary's read: only the seller's sales after the moment they left and up to the moment they joined
+     * (later sales were told live), their earnings after tax, the newest few.
+     */
+    @Test
+    void salesSinceCountsOnlySalesBetweenLeavingAndJoining() throws Exception {
+        Listing<String> old = list(SELLER, "old", 100, 10);
+        Listing<String> second = list(SELLER, "second", 200, 10);
+        Listing<String> third = list(SELLER, "third", 300, 10);
+        Listing<String> corrupt = list(SELLER, "corrupt-item", 1_000, 10);
+        Listing<String> bought = list(OTHER, "bought", 50, 10);
+        fund(SELLER, 1_000);
+        this.clock.addAndGet(1_000);
+        this.engine.buy(BUYER, old.id(), 100, TAX, "t").committed().get(10, TimeUnit.SECONDS);
+        long since = this.clock.get();
+        this.clock.addAndGet(1_000);
+        this.engine.buy(OTHER, second.id(), 200, TAX, "t").committed().get(10, TimeUnit.SECONDS);
+        this.clock.addAndGet(1_000);
+        this.engine.buy(BUYER, corrupt.id(), 1_000, TAX, "t").committed().get(10, TimeUnit.SECONDS);
+        this.clock.addAndGet(1_000);
+        this.engine.buy(BUYER, third.id(), 300, TAX, "t").committed().get(10, TimeUnit.SECONDS);
+        this.engine.buy(SELLER, bought.id(), 50, TAX, "t").committed().get(10, TimeUnit.SECONDS);
+        long joined = this.clock.get();
+        // After the seller joined: told live, so the join summary leaves it out.
+        Listing<String> live = list(SELLER, "live", 400, 10);
+        this.clock.addAndGet(1_000);
+        this.engine.buy(BUYER, live.id(), 400, TAX, "t").committed().get(10, TimeUnit.SECONDS);
+
+        AuctionEngine.SalesSince<String> one = this.engine.salesSince(SELLER, since, joined, 1).get(10, TimeUnit.SECONDS);
+        assertEquals(3, one.count(), "the sale at the moment itself, the sale after the join and the purchase don't count");
+        assertEquals((200 - 10) + (1_000 - 50) + (300 - 15), one.earned(), "what the seller got after tax");
+        assertEquals(List.of("third"), one.latest().stream().map(AuctionEngine.HistoryEntry::item).toList());
+        assertEquals(BUYER, one.latest().getFirst().counterparty());
+        assertTrue(one.latest().getFirst().sale());
+
+        AuctionEngine.SalesSince<String> all = this.engine.salesSince(SELLER, since, joined, 5).get(10, TimeUnit.SECONDS);
+        assertEquals(List.of("third", "second"), all.latest().stream().map(AuctionEngine.HistoryEntry::item).toList(),
+            "newest first; an unreadable item is counted but not listed");
+        assertEquals(3, all.count());
+
+        AuctionEngine.SalesSince<String> later = this.engine.salesSince(SELLER, since, this.clock.get(), 5).get(10, TimeUnit.SECONDS);
+        assertEquals(List.of("live", "third", "second"), later.latest().stream().map(AuctionEngine.HistoryEntry::item).toList(),
+            "with the bound at now the later sale counts too");
+        assertEquals(4, later.count());
+
+        AuctionEngine.SalesSince<String> none = this.engine.salesSince(SELLER, this.clock.get(), this.clock.get(), 5).get(10, TimeUnit.SECONDS);
+        assertEquals(0, none.count());
+        assertEquals(0, none.earned());
+        assertTrue(none.latest().isEmpty());
+        assertEquals(0, this.engine.salesSince(BUYER, 0, this.clock.get(), 5).get(10, TimeUnit.SECONDS).count(), "buyers sold nothing");
+        assertLedgerHealthy();
+    }
 }

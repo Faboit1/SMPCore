@@ -85,6 +85,8 @@ final class OrdersScenarios {
         list.add(of("orders-delivery-grid-crash", OrdersScenarios::deliveryGridCrash));
         list.add(of("orders-persist-setup", OrdersScenarios::persistSetup));
         list.add(of("orders-persist-check", OrdersScenarios::persistCheck));
+        // The player settings of buy orders (MarketScenarios, the same package's file).
+        list.addAll(MarketScenarios.withOrders());
         return list;
     }
 

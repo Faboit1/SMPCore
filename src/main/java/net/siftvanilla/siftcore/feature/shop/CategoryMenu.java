@@ -21,12 +21,24 @@ final class CategoryMenu extends PagedMenu<ShopSettings.Entry> {
 
     private final ShopMenus shop;
     private final String category;
+    private final Cycle<Comparator<ShopSettings.Entry>> sort;
 
     CategoryMenu(MenuContext ctx, Player viewer, ShopMenus shop, String category, Component title,
                  Cycle<Comparator<ShopSettings.Entry>> sort, Runnable back) {
         super(ctx, viewer, title, sort, null, back);
         this.shop = shop;
         this.category = category;
+        this.sort = sort;
+    }
+
+    /** The id of the selected sort order. */
+    String sortId() {
+        return this.sort.selected().id();
+    }
+
+    @Override
+    protected void closed() {
+        this.shop.rememberSort(this.viewer, sortId());
     }
 
     @Override

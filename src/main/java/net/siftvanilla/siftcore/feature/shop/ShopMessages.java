@@ -65,6 +65,17 @@ public final class ShopMessages {
     public static final MessageKey HUB_LABEL = MessageKey.ui("shop.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("shop.hub.description");
 
+    public static final MessageKey SETTING_CONFIRM_ABOVE = MessageKey.ui("shop.settings.confirm-above");
+    public static final MessageKey SETTING_CONFIRM_ABOVE_DESCRIPTION = MessageKey.ui("shop.settings.confirm-above-description");
+    public static final MessageKey SETTING_DEFAULT_AMOUNT = MessageKey.ui("shop.settings.default-amount");
+    public static final MessageKey SETTING_DEFAULT_AMOUNT_DESCRIPTION = MessageKey.ui("shop.settings.default-amount-description");
+    public static final MessageKey SETTING_DEFAULT_AMOUNT_STACK = MessageKey.ui("shop.settings.default-amount-stack");
+    public static final MessageKey SETTING_DEFAULT_AMOUNT_ONE = MessageKey.ui("shop.settings.default-amount-one");
+    public static final MessageKey SETTING_DEFAULT_AMOUNT_LAST = MessageKey.ui("shop.settings.default-amount-last");
+    public static final MessageKey SETTING_DEFAULT_AMOUNT_FILL = MessageKey.ui("shop.settings.default-amount-fill");
+    public static final MessageKey SETTING_RECEIPTS = MessageKey.ui("shop.settings.receipts");
+    public static final MessageKey SETTING_RECEIPTS_DESCRIPTION = MessageKey.ui("shop.settings.receipts-description");
+
     private ShopMessages() {
     }
 }

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.item.ItemCategory;
@@ -109,7 +110,22 @@ final class AuctionMenu extends PagedMenu<Listing<ItemStack>> {
 
     @Override
     protected List<Listing<ItemStack>> entries() {
-        return this.service.engine().book().available(this.service.engine().now());
+        boolean hideOwn = this.menus.services().settings().get(this.viewer.getUniqueId(), AuctionFeature.HIDE_OWN);
+        return visible(this.service.engine().book().available(this.service.engine().now()), this.viewer.getUniqueId(), hideOwn);
+    }
+
+    /** The listings a viewer browses: all of them, or without their own when they hide them ({@code auction-hide-own}). */
+    static <T> List<Listing<T>> visible(List<Listing<T>> available, UUID viewer, boolean hideOwn) {
+        if (!hideOwn) {
+            return available;
+        }
+        List<Listing<T>> others = new ArrayList<>(available.size());
+        for (Listing<T> listing : available) {
+            if (!listing.seller().equals(viewer)) {
+                others.add(listing);
+            }
+        }
+        return others;
     }
 
     @Override

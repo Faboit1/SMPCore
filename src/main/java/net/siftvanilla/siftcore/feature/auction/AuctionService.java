@@ -18,7 +18,7 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.player.Limits;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
@@ -67,19 +67,17 @@ final class AuctionService {
     private final AuctionItems items;
     private final ClaimBox claims;
     private final CombatStatus combat;
-    private final Toggle salesToggle;
     private final AtomicBoolean sweeping = new AtomicBoolean();
     private volatile long lastSweep;
 
     AuctionService(Services services, Setting<AuctionSettings> settings, AuctionEngine<ItemStack> engine, AuctionItems items,
-                   ClaimBox claims, CombatStatus combat, Toggle salesToggle) {
+                   ClaimBox claims, CombatStatus combat) {
         this.services = services;
         this.settings = settings;
         this.engine = engine;
         this.items = items;
         this.claims = claims;
         this.combat = combat;
-        this.salesToggle = salesToggle;
     }
 
     AuctionEngine<ItemStack> engine() {
@@ -385,12 +383,14 @@ final class AuctionService {
         });
     }
 
+    /** Tells an online seller about the sale in their {@code auction-sales} style (offline sellers see it on join). */
     private void notifySeller(Listing<ItemStack> listing, Player buyer, long tax) {
         Player seller = Bukkit.getPlayer(listing.seller());
-        if (seller == null || !this.services.settings().enabled(listing.seller(), this.salesToggle)) {
+        if (seller == null) {
             return;
         }
-        this.services.messenger().send(seller, AuctionMessages.SOLD, Arg.text("buyer", buyer.getName()),
+        AlertStyle style = this.services.settings().get(listing.seller(), AuctionFeature.SALE_ALERTS);
+        this.services.messenger().alert(seller, style, AuctionMessages.SOLD, Arg.text("buyer", buyer.getName()),
             Arg.number("amount", listing.amount()), Arg.text("item", AuctionItems.plainName(listing.item())),
             price("price", listing.price()), price("earned", listing.price() - tax));
     }
@@ -508,17 +508,19 @@ final class AuctionService {
         }
     }
 
+    /** Tells an online seller their listings went to the claim box, in their {@code auction-expiry-alerts} style. */
     private void notifyExpired(UUID sellerId, List<Listing<ItemStack>> expired) {
         Player seller = Bukkit.getPlayer(sellerId);
         if (seller == null) {
             return;
         }
+        AlertStyle style = this.services.settings().get(sellerId, AuctionFeature.EXPIRY_ALERTS);
         if (expired.size() == 1) {
             Listing<ItemStack> listing = expired.getFirst();
-            this.services.messenger().send(seller, AuctionMessages.EXPIRED_ONE, Arg.number("amount", listing.amount()),
+            this.services.messenger().alert(seller, style, AuctionMessages.EXPIRED_ONE, Arg.number("amount", listing.amount()),
                 Arg.text("item", AuctionItems.plainName(listing.item())));
         } else {
-            this.services.messenger().send(seller, AuctionMessages.EXPIRED_MANY, Arg.number("count", expired.size()));
+            this.services.messenger().alert(seller, style, AuctionMessages.EXPIRED_MANY, Arg.number("count", expired.size()));
         }
     }
 

@@ -2,6 +2,7 @@ package net.siftvanilla.siftcore.feature.orders;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,7 +17,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -25,9 +26,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
- * Tells owners what happened to their orders: right away when they are online (respecting their order messages
- * setting for deliveries), otherwise as a notice row (V021) that is summed up when they next join. Refunds and staff
- * cancellations always reach the owner. Also announces big new orders to players who want to hear about them.
+ * Tells owners what happened to their orders: right away when they are online (deliveries as their
+ * {@code order-notices} setting says, also when auto-collect put them into the inventory, ending warnings unless they
+ * turned {@code order-ending-alerts} off), otherwise
+ * as a notice row (V021) that is summed up when they next join ({@code order-join-summary}). Refunds and staff
+ * cancellations always reach the owner. Also announces big new orders to players whose {@code orders_announce}
+ * filter shows them, unless the owner turned {@code order-announce-mine} off.
  * <p>
  * Notices are best effort: the money is always in the ledger, a lost notice only means a missing chat line.
  */
@@ -42,21 +46,17 @@ final class OwnerNotices {
     private final OrderStore store;
     private final OrderItems items;
     private final Supplier<OrdersSettings> settings;
-    private final Toggle notifications;
-    private final Toggle announcements;
     private final VanishStatus vanish;
     private final IgnoreLookup ignores;
     private final Logger logger;
     private final Map<UUID, Long> lastAnnounced = new ConcurrentHashMap<>();
 
-    OwnerNotices(Services services, OrderStore store, OrderItems items, Supplier<OrdersSettings> settings, Toggle notifications,
-                 Toggle announcements, VanishStatus vanish, IgnoreLookup ignores) {
+    OwnerNotices(Services services, OrderStore store, OrderItems items, Supplier<OrdersSettings> settings, VanishStatus vanish,
+                 IgnoreLookup ignores) {
         this.services = services;
         this.store = store;
         this.items = items;
         this.settings = settings;
-        this.notifications = notifications;
-        this.announcements = announcements;
         this.vanish = vanish;
         this.ignores = ignores;
         this.logger = services.plugin().getLogger();
@@ -70,8 +70,22 @@ final class OwnerNotices {
         return Arg.component("item", this.items.name(key));
     }
 
-    private boolean wantsMessages(UUID owner) {
-        return this.services.settings().enabled(owner, this.notifications);
+    private DeliveryAlerts alerts(UUID owner) {
+        return this.services.settings().get(owner, OrdersFeature.NOTIFICATIONS);
+    }
+
+    /**
+     * The line an online owner gets when items arrive for one order, or null for none: every delivery (or the
+     * completion, when it was the last of them) for chat and the hotbar, only the completion for "only when complete".
+     */
+    static MessageKey deliveryLine(DeliveryAlerts alerts, boolean complete, boolean sold) {
+        if (complete) {
+            return alerts.completions() ? OrdersMessages.NOTIFY_COMPLETE : null;
+        }
+        if (!alerts.everyDelivery()) {
+            return null;
+        }
+        return sold ? OrdersMessages.NOTIFY_SOLD : OrdersMessages.NOTIFY_DELIVERED;
     }
 
     private void store(UUID owner, long orderId, String kind, int units, long amount, String detail) {
@@ -85,35 +99,170 @@ final class OwnerNotices {
     // ------------------------------------------------------------------ events of an order
 
     /**
-     * Items arrived for an order (after the delivery was stored). {@code complete} when it was the last of them.
-     * {@code sold} when they came from a sale rather than a delivery.
+     * Items that reached one of the owner's orders in one go.
+     *
+     * @param order    the order (its id, owner, item and quantity)
+     * @param units    how many arrived
+     * @param paid     what they were paid (before tax)
+     * @param complete whether they were the last the order wanted
      */
-    void delivered(Order order, String sellerName, int units, long paid, boolean complete, boolean sold) {
-        Player owner = Bukkit.getPlayer(order.owner());
-        if (owner == null) {
-            store(order.owner(), order.id(), NoticeSummary.DELIVERED, units, paid, sellerName);
-            if (complete) {
-                store(order.owner(), order.id(), NoticeSummary.COMPLETE, order.quantity(), 0, null);
+    record Part(Order order, int units, long paid, boolean complete) {
+    }
+
+    /**
+     * Items that reached one owner's orders in one go: a delivery to one order, or one sale (sell routing) that filled
+     * one or several of their orders.
+     *
+     * @param sold whether they came from a sale rather than a delivery
+     */
+    record Arrival(UUID owner, String sellerName, boolean sold, List<Part> parts) {
+        Arrival {
+            parts = List.copyOf(parts);
+            if (parts.isEmpty()) {
+                throw new IllegalArgumentException("An arrival needs at least one order");
             }
-            return;
         }
-        if (!wantsMessages(order.owner())) {
-            return;
+
+        List<Long> orderIds() {
+            return this.parts.stream().map(part -> part.order().id()).toList();
         }
-        if (complete) {
-            this.services.messenger().send(owner, OrdersMessages.NOTIFY_COMPLETE, Arg.number("quantity", order.quantity()), item(order.key()));
-        } else {
-            this.services.messenger().send(owner, sold ? OrdersMessages.NOTIFY_SOLD : OrdersMessages.NOTIFY_DELIVERED,
-                Arg.text("name", sellerName), Arg.number("amount", units), item(order.key()));
+
+        /** How many items arrived in all. */
+        int units() {
+            return (int) Math.min(Integer.MAX_VALUE, this.parts.stream().mapToLong(Part::units).sum());
+        }
+
+        /** The one item that arrived, or null when they were several kinds. */
+        String key() {
+            String key = this.parts.getFirst().order().key();
+            for (Part part : this.parts) {
+                if (!part.order().key().equals(key)) {
+                    return null;
+                }
+            }
+            return key;
+        }
+
+        /** The orders the arrival completed, in order. */
+        List<Order> completed() {
+            return this.parts.stream().filter(Part::complete).map(Part::order).toList();
         }
     }
 
-    /** One message per owner for a sale that filled several of their orders (sell routing). */
-    void soldMany(UUID ownerId, String sellerName, int units) {
-        Player owner = Bukkit.getPlayer(ownerId);
-        if (owner != null && wantsMessages(ownerId)) {
-            this.services.messenger().send(owner, OrdersMessages.NOTIFY_SOLD_MANY, Arg.text("name", sellerName), Arg.number("amount", units));
+    /**
+     * What an online owner is told about an arrival: a main line about the items (null: none) with {@code done}
+     * completed orders folded into its end, then one line per completed order (an entry may be null: none), all
+     * where their {@code order-notices} setting puts them.
+     */
+    record Lines(MessageKey main, int done, List<MessageKey> completed) {
+    }
+
+    /**
+     * The lines for items that reached several of an owner's orders in one sale: who sold how many, then a line per
+     * order the sale completed. Above the hotbar a second line would replace the first at once, so there the
+     * completions are folded into the one line.
+     */
+    static Lines saleLines(DeliveryAlerts alerts, boolean oneItem, int completed) {
+        MessageKey sold = oneItem ? OrdersMessages.NOTIFY_SOLD : OrdersMessages.NOTIFY_SOLD_MANY;
+        List<MessageKey> each = Collections.nCopies(completed, alerts.completions() ? OrdersMessages.NOTIFY_COMPLETE : null);
+        return switch (alerts) {
+            case OFF, COMPLETE -> new Lines(null, 0, each);
+            case CHAT -> new Lines(sold, 0, each);
+            case ACTIONBAR -> completed == 0 ? new Lines(sold, 0, List.of())
+                : new Lines(OrdersMessages.NOTIFY_SOLD_DONE, completed, Collections.nCopies(completed, null));
+        };
+    }
+
+    /**
+     * The lines for items that arrived and went into the owner's inventory by auto-collect: nothing for "never",
+     * only completions for "only when complete", otherwise one line that says the items are in the inventory (and how
+     * many still wait when not all fit). A completed order whose items were all collected says so; one whose items
+     * partly wait says to collect them. Above the hotbar the completions are folded into the one line.
+     *
+     * @param waiting          whether items of these orders still wait (not all fit)
+     * @param completedWaiting for each completed order, whether some of its items still wait
+     */
+    static Lines autoLines(DeliveryAlerts alerts, boolean waiting, List<Boolean> completedWaiting) {
+        List<MessageKey> each = new ArrayList<>(completedWaiting.size());
+        for (boolean left : completedWaiting) {
+            each.add(!alerts.completions() || alerts == DeliveryAlerts.ACTIONBAR ? null
+                : left ? OrdersMessages.NOTIFY_COMPLETE : OrdersMessages.NOTIFY_AUTO_COMPLETE);
         }
+        MessageKey main = !alerts.everyDelivery() ? null
+            : waiting ? OrdersMessages.NOTIFY_AUTO_COLLECTED_SOME : OrdersMessages.NOTIFY_AUTO_COLLECTED;
+        int done = alerts == DeliveryAlerts.ACTIONBAR ? completedWaiting.size() : 0;
+        return new Lines(main, done, each);
+    }
+
+    /**
+     * Tells the owner about items that arrived for their orders (after the delivery was stored): online, as their
+     * {@code order-notices} setting says; away, a notice row per order for their join summary.
+     *
+     * @param owner the owner when online, or null when they are away (or left before they could be told)
+     */
+    void tell(Player owner, Arrival arrival) {
+        if (owner == null || !owner.isOnline()) {
+            for (Part part : arrival.parts()) {
+                store(arrival.owner(), part.order().id(), NoticeSummary.DELIVERED, part.units(), part.paid(), arrival.sellerName());
+                if (part.complete()) {
+                    store(arrival.owner(), part.order().id(), NoticeSummary.COMPLETE, part.order().quantity(), 0, null);
+                }
+            }
+            return;
+        }
+        DeliveryAlerts alerts = alerts(arrival.owner());
+        if (arrival.parts().size() == 1) {
+            Part part = arrival.parts().getFirst();
+            MessageKey line = deliveryLine(alerts, part.complete(), arrival.sold());
+            if (line == OrdersMessages.NOTIFY_COMPLETE) {
+                completed(owner, alerts.place(), line, part.order());
+            } else if (line != null) {
+                this.services.messenger().alert(owner, alerts.place(), line, Arg.text("name", arrival.sellerName()),
+                    Arg.number("amount", part.units()), item(part.order().key()));
+            }
+            return;
+        }
+        show(owner, alerts, arrival, saleLines(alerts, arrival.key() != null, arrival.completed().size()), 0);
+    }
+
+    /**
+     * Tells an online owner that items which arrived for their orders went into their inventory (auto-collect), as
+     * their {@code order-notices} setting says. Owner's thread, after the hand-over.
+     *
+     * @param waitingAfter what still waits in each of the arrival's orders now
+     */
+    void collected(Player owner, Arrival arrival, Map<Long, Integer> waitingAfter) {
+        DeliveryAlerts alerts = alerts(arrival.owner());
+        List<Boolean> completedWaiting = new ArrayList<>();
+        for (Order order : arrival.completed()) {
+            completedWaiting.add(waitingAfter.getOrDefault(order.id(), 0) > 0);
+        }
+        long waiting = waitingAfter.values().stream().mapToLong(Integer::longValue).sum();
+        show(owner, alerts, arrival, autoLines(alerts, waiting > 0, completedWaiting), waiting);
+    }
+
+    private void show(Player owner, DeliveryAlerts alerts, Arrival arrival, Lines lines, long waiting) {
+        if (lines.main() != null) {
+            String key = arrival.key();
+            Component done = lines.done() <= 0 ? Component.empty()
+                : lines.done() == 1 ? lang().get(OrdersMessages.NOTIFY_DONE_ONE)
+                : lang().get(OrdersMessages.NOTIFY_DONE_MANY, Arg.number("count", lines.done()));
+            this.services.messenger().alert(owner, alerts.place(), lines.main(), Arg.text("name", arrival.sellerName()),
+                Arg.number("amount", arrival.units()),
+                key == null ? Arg.component("item", lang().get(OrdersMessages.NOTIFY_ITEMS)) : item(key),
+                Arg.number("waiting", waiting), Arg.component("done", done));
+        }
+        List<Order> completed = arrival.completed();
+        for (int i = 0; i < completed.size() && i < lines.completed().size(); i++) {
+            MessageKey line = lines.completed().get(i);
+            if (line != null) {
+                completed(owner, alerts.place(), line, completed.get(i));
+            }
+        }
+    }
+
+    private void completed(Player owner, AlertStyle place, MessageKey line, Order order) {
+        this.services.messenger().alert(owner, place, line, Arg.number("quantity", order.quantity()), item(order.key()));
     }
 
     /** An order ran out of time and its money came back (always told). */
@@ -138,14 +287,14 @@ final class OwnerNotices {
             item(order.key()), Arg.money("refund", refund), Arg.text("reason", reason));
     }
 
-    /** The order ends soon (once per order); the message opens the order. */
+    /** The order ends soon (once per order); the message opens the order. Owners can turn it off (order-ending-alerts). */
     void ending(Order order) {
         Player owner = Bukkit.getPlayer(order.owner());
         if (owner == null) {
             store(order.owner(), order.id(), NoticeSummary.ENDING, order.quantity(), 0, null);
             return;
         }
-        if (!wantsMessages(order.owner())) {
+        if (!this.services.settings().get(order.owner(), OrdersFeature.ENDING_ALERTS)) {
             return;
         }
         Component text = lang().get(OrdersMessages.NOTIFY_ENDING, Arg.number("quantity", order.quantity()), item(order.key()),
@@ -173,8 +322,11 @@ final class OwnerNotices {
         if (!player.isOnline()) {
             return;
         }
-        NoticeSummary summary = NoticeSummary.of(rows, wantsMessages(player.getUniqueId()), MAX_DETAILS);
-        boolean remind = waiting > 0 && this.settings.get().joinReminder();
+        UUID id = player.getUniqueId();
+        boolean wanted = this.services.settings().get(id, OrdersFeature.JOIN_SUMMARY);
+        NoticeSummary.Filter filter = NoticeSummary.Filter.of(wanted, alerts(id), this.services.settings().get(id, OrdersFeature.ENDING_ALERTS));
+        NoticeSummary summary = NoticeSummary.of(rows, filter, MAX_DETAILS);
+        boolean remind = wanted && waiting > 0 && this.settings.get().joinReminder();
         if (summary.empty() && !remind) {
             if (!rows.isEmpty()) {
                 this.store.deleteNotices(player.getUniqueId(), rows);
@@ -261,11 +413,13 @@ final class OwnerNotices {
 
     /**
      * Announces a new order that holds at least the configured amount, at most once per cooldown per owner, to every
-     * online player who wants announcements and does not ignore the owner. Vanished owners are never announced.
+     * online player whose {@code orders_announce} filter shows an order holding that much and who does not ignore the
+     * owner. Vanished owners and owners who turned {@code order-announce-mine} off ({@code ownerAllows}, read when
+     * they placed it) are never announced, and their cooldown is left alone.
      */
-    void announce(Order order, String ownerName) {
+    void announce(Order order, String ownerName, boolean ownerAllows) {
         OrdersSettings s = this.settings.get();
-        if (s.announceMinTotal() <= 0 || order.escrow() < s.announceMinTotal() || this.vanish.vanished(order.owner())) {
+        if (!announced(s.announceMinTotal(), order.escrow(), ownerAllows) || this.vanish.vanished(order.owner())) {
             return;
         }
         long now = System.currentTimeMillis();
@@ -282,11 +436,19 @@ final class OwnerNotices {
             .hoverEvent(HoverEvent.showText(lang().get(OrdersMessages.ANNOUNCE_HOVER)));
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID id = player.getUniqueId();
-            if (!this.services.settings().enabled(id, this.announcements) || this.ignores.ignores(id, order.owner())) {
+            if (!this.services.settings().get(id, OrdersFeature.ANNOUNCEMENTS).shows(order.escrow()) || this.ignores.ignores(id, order.owner())) {
                 continue;
             }
             player.sendMessage(text);
         }
+    }
+
+    /**
+     * Whether a new order is announced at all: the server announces orders holding at least {@code minTotal} (0:
+     * never) and the owner allows it ({@code order-announce-mine}). Each player's own filter applies on top.
+     */
+    static boolean announced(long minTotal, long escrow, boolean ownerAllows) {
+        return ownerAllows && minTotal > 0 && escrow >= minTotal;
     }
 
     /** Forgets announcement cooldowns that ran out (bounded memory). */

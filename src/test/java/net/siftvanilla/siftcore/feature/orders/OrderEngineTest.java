@@ -462,7 +462,7 @@ class OrderEngineTest {
         List<OrderStore.NoticeRow> rows = List.of(
             row(1, NoticeSummary.DELIVERED, 10, 1_000), row(2, NoticeSummary.DELIVERED, 5, 500), row(2, NoticeSummary.COMPLETE, 64, 0),
             row(3, NoticeSummary.EXPIRED, 64, 2_000), row(4, NoticeSummary.CANCELLED, 64, 300), row(5, NoticeSummary.ENDING, 64, 0));
-        NoticeSummary all = NoticeSummary.of(rows, true, 4);
+        NoticeSummary all = NoticeSummary.of(rows, NoticeSummary.Filter.ALL, 4);
         assertEquals(15, all.delivered());
         assertEquals(1, all.complete());
         assertEquals(2_300, all.refunded());
@@ -472,14 +472,14 @@ class OrderEngineTest {
         assertEquals(NoticeSummary.EXPIRED, all.details().get(1).kind());
         assertEquals(rows, all.shown(), "every row is deleted after showing");
 
-        NoticeSummary quiet = NoticeSummary.of(rows, false, 4);
-        assertEquals(0, quiet.delivered(), "deliveries respect the order messages setting");
+        NoticeSummary quiet = NoticeSummary.of(rows, NoticeSummary.Filter.REFUNDS_ONLY, 4);
+        assertEquals(0, quiet.delivered(), "deliveries respect the order settings");
         assertEquals(0, quiet.complete());
         assertEquals(2_300, quiet.refunded(), "refunds and staff cancels always show");
         assertEquals(2, quiet.details().size());
         assertEquals(0, quiet.more());
         assertFalse(quiet.empty());
-        assertTrue(NoticeSummary.of(List.of(row(1, NoticeSummary.DELIVERED, 1, 1)), false, 4).empty());
-        assertNotNull(NoticeSummary.of(List.of(), true, 4).details());
+        assertTrue(NoticeSummary.of(List.of(row(1, NoticeSummary.DELIVERED, 1, 1)), NoticeSummary.Filter.REFUNDS_ONLY, 4).empty());
+        assertNotNull(NoticeSummary.of(List.of(), NoticeSummary.Filter.ALL, 4).details());
     }
 }
