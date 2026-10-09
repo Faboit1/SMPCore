@@ -16,10 +16,12 @@ every feature registers with) and `SiftCoreBootstrap` (the pause-screen dialog).
 
 ## The main menu
 
-Title "SiftVanilla"; the body greets the player and shows their money and shards (`hub.body` in `lang/hub.yml`), then
-one button per entry the player may use, `columns` per row (2), in entry order. Each button's tooltip is the entry's
-description. A button opens that feature's own screen, which offers Back to the menu where it makes sense; only Spawn
-shows nothing of its own (it starts the teleport, so its button closes the menu at once).
+Title "SiftVanilla"; one line with the player's money (green) and shards (purple) (`hub.body` in `lang/hub.yml`), then
+one short button per entry the player may use, `columns` per row (2), in entry order: the entry's icon and its label in
+the entry's colour (`buttons.<id>` in `features/hub.yml`, the dialog style's group buttons). What the button opens is
+in its tooltip (the entry's description), never in a paragraph above. A button opens that feature's own screen, which
+offers Back to the menu where it makes sense; only Spawn shows nothing of its own (it starts the teleport, so its
+button closes the menu at once).
 
 Entries come from the features that are enabled; an entry with a permission shows only to players who have it
 (`HubRegistry#visibleTo`). The entries SiftCore registers:
@@ -59,8 +61,10 @@ A feature that is turned off registers no entry, so its button is simply not the
 
 `SiftCoreBootstrap` runs before the server loads its registries. It registers one dialog, `siftcore:hub`, and adds
 it to the `pause_screen_additions` and `quick_actions` dialog tags, so the pause screen shows a SiftVanilla button
-and the quick actions key opens it. That dialog lists the ids of `pause-menu.entries` (2 columns), each button with
-its label and tooltip from `lang/hub.yml` (`hub.entries.<id>.label` / `.description`). A button only sends
+and the quick actions key opens it. That dialog is buttons only (`hub.pause-menu.body` is empty; a line shows above
+the buttons only when the owner writes one): the ids of `pause-menu.entries` (2 columns), each button with the
+entry's icon and its label in the entry's colour (`buttons.<id>` in `features/hub.yml`, icons from `icons.yml`), and
+its tooltip, all from `lang/hub.yml` (`hub.entries.<id>.label` / `.description`). A button only sends
 `siftcore:hub/<id>`; the dialog router (`Dialogs`, static routes) opens the entry's real screen at runtime, checking
 the permission there. An id whose feature is off, or whose permission the player lacks, opens the main menu instead.
 The pause dialog stays on screen until the chosen screen replaces it.
@@ -71,11 +75,13 @@ The pause dialog is built from the files at startup, before the plugin enables (
 spawners, crates, kits, teams, friends, homes, rtp, spawn, stats, settings, report. `lang/hub.yml` also has labels for
 claims, tpa, bounties, shards and prices, which can be added to the list.
 
-A server whose `pause-menu.entries` nobody edited follows new shipped defaults by itself: SiftCore remembers what each
-file shipped (`data/shipped/`) and replaces an entry the server still has exactly as an earlier version shipped it
+A server whose `pause-menu.entries` nobody edited follows new shipped defaults by itself: the plugin remembers what
+each file shipped (`data/shipped/`) and replaces an entry the server still has exactly as an earlier version shipped it
 (an edited list is never touched); new keys are always added (`data/shipped-keys/`). That update happens while the
-plugin enables, after the bootstrapper already built the pause screen, so a new entry (or label) shows from the restart
-after the one that updated the file (undo log row 30).
+plugin enables, after the bootstrapper built the pause screen, so the bootstrapper reads `features/hub.yml`,
+`lang/hub.yml` and `icons.yml` as they will be once updated (`MenuButtons#effective`: the server's file, plus the
+jar's keys it never had, plus the jar's value for every entry still exactly as `data/shipped/` has it). A new default
+(an entry, a label, a colour) therefore shows after the first restart with the new jar.
 
 ## Server links
 
@@ -89,6 +95,7 @@ a `label` and an `http` or `https` `url`; an invalid address is a config problem
 | Key | Default | Meaning |
 |---|---|---|
 | `columns` | 2 | Buttons per row in the main menu (1-4) |
+| `buttons.<id>.icon` / `.color` | an icon and a colour per shipped entry | The look of an entry's button in the main menu and the pause-screen menu: an `icons.yml` name in front of the label and the label's colour ("#RRGGBB"); an entry left out is white with no icon. The shards entry is the shard purple `#915DFF` |
 | `pause-menu.enabled` | true | The SiftVanilla button in the pause screen and the quick actions key (restart) |
 | `pause-menu.entries` | the 17 ids above | Buttons of the pause-screen menu, by hub entry id (restart) |
 | `server-links.<id>.label` / `.url` | Rules, Discord, Store | Links shown in the pause screen's Server Links (reload) |
@@ -108,12 +115,17 @@ from the menu, and add the label to `lang/hub.yml` under `hub.entries.<id>` if t
 
 ## Self-test
 
-`pause menu entries exist` (every id in `pause-menu.entries` has an entry: fails when a listed feature is off) and
-`pause menu dialog is registered and tagged` (`siftcore:hub` is in the dialog registry and in both tags).
+`pause menu entries exist` (every id in `pause-menu.entries` has an entry: fails when a listed feature is off),
+`menu button icons resolve` (every icon named in `buttons` is a known sprite) and `pause menu dialog is registered and
+tagged` (`siftcore:hub` is in the dialog registry and in both tags).
 
 ## Tests
 
-Unit: `PauseMenuResourcesTest` (every shipped pause-menu id has a label and a description in `lang/hub.yml`). End to
-end: `menu` in `Scenarios` (the menu opens with the balance, Money and Back, and the pause route
-`siftcore:hub/money` opens the Money page); other features' scenarios click their entries
-(`siftcore:hub/auction`, `siftcore:hub/money` in `MoneyFormatScenarios`). The pause screen itself needs a real client.
+Unit: `PauseMenuResourcesTest` (every shipped pause-menu id has a label and a description in `lang/hub.yml`),
+`MenuButtonsTest` (a label with its icon and colour, the effective file the bootstrapper reads: new keys added, unedited
+shipped values updated, edited ones kept). End to end: `menu` in `Scenarios` (the menu opens with the balance, Money
+and Back, and the pause route `siftcore:hub/money` opens the Money page), `menu-style` in `CoreScenarios` (one line
+with money and shards above the buttons, shards purple, each button in its entry's colour with a tooltip, no
+paragraph; the pause-screen dialog as registered: buttons only, coloured, with tooltips); other features' scenarios
+click their entries (`siftcore:hub/auction`, `siftcore:hub/money` in `MoneyFormatScenarios`). The pause screen itself
+needs a real client.

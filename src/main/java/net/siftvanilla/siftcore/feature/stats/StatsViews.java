@@ -123,7 +123,7 @@ final class StatsViews {
     void sendPlaytime(CommandSender sender, UUID target) {
         Player viewer = sender instanceof Player player ? player : null;
         withStats(target, viewer, stats -> {
-            Arg time = Arg.time("time", Duration.ofSeconds(stats.playtime()));
+            Arg time = Arg.text("time", Durations.format(Duration.ofSeconds(stats.playtime())));
             if (viewer != null && viewer.getUniqueId().equals(target)) {
                 this.services.messenger().chat(sender, StatsMessages.PLAYTIME_SELF, time);
             } else {

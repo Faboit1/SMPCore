@@ -273,7 +273,7 @@ Rank limits (homes, auction listings, team size and similar) are numeric nodes s
 | `siftcore.admin.nick` | operators | Set and clear other players' nicknames with /nick &lt;player&gt; |
 | `siftcore.admin.orders` | operators | Cancel any order, staff actions and /orders admin |
 | `siftcore.admin.registry` | operators | List permissions and placeholders and write the reference docs (/sift permissions, placeholders, docs) |
-| `siftcore.admin.reload` | operators | Reload SiftCore's files |
+| `siftcore.admin.reload` | operators | Reload the server's gameplay files (/sift reload) |
 | `siftcore.admin.rtp` | operators | Send other players to a random spot with /rtp &lt;region&gt; &lt;player&gt; (free, no cooldown) |
 | `siftcore.admin.scoreboard` | operators | Refresh, inspect and preview sidebars with /sidebar refresh, status and preview |
 | `siftcore.admin.selftest` | operators | Run the self-test |

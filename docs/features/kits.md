@@ -69,16 +69,19 @@ Audit log actions: `kits.claim` (every claim, with the kit and the claim referen
 
 ## Screens
 
-- **Kits dialog** (`/kits`, the main menu's Kits button with order 80): a line per kit with its status ("Daily: in
-  3h 20m"), a button per kit (its tooltip is the description and status), a Claim button for what is ready ("Claim
-  Daily" when one kit is ready, "Claim 3 ready kits" when several are), "Collect waiting items" when kit items wait in
-  the claim box, and "Perks" when the player has any. Kits the
-  player can't claim are hidden, or listed as locked with `locked-kits: show`. From the main menu the footer goes back
-  to it.
-- **A kit's dialog**: its description, how often it can be claimed, its status, every item (with its icon, enchantment
-  glint and full tooltip on hover), the crate keys it gives, and Claim while it is ready. A refusal (in combat, the
-  cooldown started meanwhile, another plugin cancelled it) shows the dialog again with the reason.
-- **Perks dialog**: a button per perk the player has; it opens the perk (or wears the hat).
+- **Kits dialog** (`/kits`, the main menu's Kits button with order 80), buttons only in two columns: a button per
+  kit reading "Daily: ready" (ready in green, "in 3h 20m" with the time in the accent colour, claimed and locked in
+  red); its tooltip is the description, how often it can be claimed and "Click to see what it gives". Then a green
+  Claim button for what is ready ("Claim Daily" when one kit is ready, "Claim 3 ready kits" when several are),
+  "Collect waiting items" when kit items wait in the claim box, and "Perks" when the player has any, each explained in
+  its tooltip. Kits the player can't claim are hidden, or listed as locked with `locked-kits: show`. From the main menu
+  the footer goes back to it.
+- **A kit's dialog**: its description and one status line, every item (with its icon, enchantment glint and full
+  tooltip on hover), the crate keys it gives, and a green Claim while it is ready (how often it can be claimed is in
+  its tooltip). A refusal (in combat, the cooldown started meanwhile, another plugin cancelled it) shows the dialog
+  again with the reason.
+- **Perks dialog**: a button per perk the player has (its command in the tooltip); it opens the perk (or wears the
+  hat). Kits and perks cost nothing.
 - **Messages**: a claim says "You claimed the Daily kit." on the action bar; items that didn't fit add a chat line
   with a click to `/kits`; a kit with crate keys adds "The Event kit gave you 1 Basic key." with a click to `/crates`.
 - **Reminders** (`reminders: true`, and each player's Kit reminders and When to remind about kits settings): on join

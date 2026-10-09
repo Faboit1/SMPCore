@@ -72,7 +72,7 @@ public final class AdminFeature implements Feature, Listener {
         this.logger.addHandler(this.problems);
         var perms = services.permissions();
         perms.declare("siftcore.admin", "Use /sift", false);
-        perms.declare(RELOAD, "Reload SiftCore's files", false);
+        perms.declare(RELOAD, "Reload the server's gameplay files (/sift reload)", false);
         perms.declare("siftcore.admin.debug", "Toggle debug logging", false);
         perms.declare("siftcore.admin.metrics", "See internal metrics", false);
         perms.declare("siftcore.admin.selftest", "Run the self-test", false);
@@ -154,7 +154,7 @@ public final class AdminFeature implements Feature, Listener {
     @Override
     public List<SiftCommand> commands() {
         String perm = "siftcore.admin";
-        return List.of(new SimpleCommand("sift", List.of("siftcore"), "SiftCore administration", perm, label -> {
+        return List.of(new SimpleCommand("sift", List.of("siftcore"), "Server administration: reload, self-test, metrics", perm, label -> {
             LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(label)
                 .requires(CommandSupport.permission(perm))
                 .executes(ctx -> version(ctx.getSource().getSender()))

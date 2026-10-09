@@ -4,21 +4,21 @@
 # (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 
 homes:
-  set: "<primary>Home <name> set. <secondary>You have <count> of <limit>."
-  moved: "<primary>Home <name> moved here."
-  limit: "<primary>You have <count> of <limit> homes. Delete one or move an existing one."
+  set: "<primary>Home <accent><name></accent> set. <secondary>You have <accent><count></accent> of <accent><limit></accent>."
+  moved: "<primary>Home <accent><name></accent> moved here."
+  limit: "<primary>You have <accent><count></accent> of <accent><limit></accent> homes. Delete one or move an existing one."
   invalid-name: "<primary>Home names are 1 to 16 letters, numbers, _ or -."
   world-disabled: "<primary>You can't set homes in this world."
-  home-world-disabled: "<primary>Home <name> is in a world where homes are turned off."
+  home-world-disabled: "<primary>Home <accent><name></accent> is in a world where homes are turned off."
   in-spawn: "<primary>You can't set a home at spawn."
-  in-combat: "<primary>You can't set a home in combat. <time> left."
+  in-combat: "<primary>You can't set a home in combat. <accent><time></accent> left."
   loading: "<primary>Your homes are still loading. Try again in a moment."
-  not-found: "<primary>You have no home called <name>."
+  not-found: "<primary>You have no home called <accent><name></accent>."
   none: "<primary>You have no homes yet. Set one with /sethome."
-  gone: "<primary>Home <name> no longer exists."
-  world-missing: "<primary>The world of home <name> isn't available."
-  teleported: "<primary>Welcome to <name>."
-  deleted: "<primary>Home <name> deleted."
+  gone: "<primary>Home <accent><name></accent> no longer exists."
+  world-missing: "<primary>The world of home <accent><name></accent> isn't available."
+  teleported: "<primary>Welcome to <accent><name></accent>."
+  deleted: "<primary>Home <accent><name></accent> deleted."
   unlimited: "unlimited"
   unsafe:
     title: "Unsafe home"
@@ -35,16 +35,16 @@ homes:
     home: "<primary><name>"
     where: "<secondary><world> <accent><x>, <y>, <z>"
     where-hidden: "<secondary><world>"
-    teleport-tooltip: "<primary>Click to teleport to <name>."
+    teleport-tooltip: "<primary>Click to teleport to <accent><name></accent>."
     delete: "<error>Delete"
-    delete-tooltip: "<primary>Delete <name>. <secondary>Asks first."
-    set-here: "Set a home here"
+    delete-tooltip: "<primary>Delete <accent><name></accent>. <secondary>Asks first."
+    set-here: "<on>Set a home here"
     set-here-tooltip: "<primary>Name a new home where you stand."
   delete:
     title: "Delete home"
     body:
       - "<primary>Delete home <accent><name></accent>?"
-      - "<secondary><world> <x>, <y>, <z>"
+      - "<secondary><world> <accent><x>, <y>, <z>"
     body-hidden:
       - "<primary>Delete home <accent><name></accent>?"
       - "<secondary><world>"
@@ -53,11 +53,11 @@ homes:
   overwrite:
     title: "Move home"
     body: "<primary>Move home <accent><name></accent> to where you stand?"
-    from: "<secondary>Now: <world> <x>, <y>, <z>"
-    to: "<secondary>New: <world> <x>, <y>, <z>"
+    from: "<secondary>Now: <world> <accent><x>, <y>, <z>"
+    to: "<secondary>New: <world> <accent><x>, <y>, <z>"
     from-hidden: "<secondary>Now: <world>"
     to-hidden: "<secondary>New: <world>"
-    button: "Move it here"
+    button: "<on>Move it here"
   # The settings in Settings, Teleports & homes: a label, and what it does (shown when hovering its button).
   settings:
     confirm-overwrite: "Confirm moving a home"
@@ -70,7 +70,7 @@ homes:
   form:
     title: "Set a home"
     name: "Name"
-    submit: "Set home"
+    submit: "<on>Set home"
     submit-tooltip: "<primary>Sets the home where you stand. <secondary>Names are 1 to 16 letters, numbers, _ or -."
   other:
     title: "Homes of <name>"

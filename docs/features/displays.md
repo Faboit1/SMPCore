@@ -14,7 +14,7 @@ it do not see the command.
 
 | Command | What it does |
 |---|---|
-| `/displays` or `/displays list` | Players: a dialog listing every display (template, position, state) with a "Go to" button for each placed one. Console: the same list in chat. |
+| `/displays` or `/displays list` | Players: a dialog with a button per display, "Go to <name>" for a placed one (it teleports there) or "<name> (not placed)" (its tooltip says how to place it); the template, position and state are in the tooltip, nothing above the buttons. Console: the same list in chat. |
 | `/displays create <name> <template>` | Creates a display where the admin stands. A fixed display faces the admin (snapped to 45 degrees). |
 | `/displays create <name> <template> <world> <x> <y> <z>` | Same at typed coordinates (works from the console). |
 | `/displays move <name>` | Moves a display (also one from displays.yml) to where the admin stands. |

@@ -87,6 +87,7 @@ final class TeleportScenarios {
         list.add(of("homes-settings", TeleportScenarios::homesSettings));
         list.add(of("teleport-display", TeleportScenarios::teleportDisplay));
         list.add(of("rtp-settings", TeleportScenarios::rtpSettings));
+        list.add(of("rtp-free", TeleportScenarios::rtpFree));
         return list;
     }
 
@@ -856,7 +857,14 @@ final class TeleportScenarios {
         e2e.expect("1".equals(placeholder(e2e, hostName, "tpa_requests")), "tpa_requests is 1");
         e2e.expect(host.openChatDialog("wants to teleport to you"), "the chat message opens a dialog: " + host.chatDialogs());
         Bot.SeenDialog answer = e2e.dialog(host, "Teleport request");
-        e2e.expect(answer.bodyText().contains(askerName + " wants to teleport to you."), "who asks: " + answer.body());
+        e2e.expect(answer.body().size() == 1 && answer.bodyText().contains(askerName + " wants to teleport to you."),
+            "one line, who asks: " + answer.body());
+        e2e.expect("#55FF55".equals(answer.button("Accept").valueColor()) && "#FF5555".equals(answer.button("Deny").valueColor()),
+            "Accept green, Deny red: " + answer.button("Accept").valueColor() + " " + answer.button("Deny").valueColor());
+        e2e.expect(answer.button("Accept").tooltip().contains(askerName + " teleports to you.")
+            && answer.button("Accept").tooltip().contains("Requests expire after"), "what Accept does, on hover: "
+            + answer.button("Accept").tooltip());
+        e2e.expect(answer.button("Deny").tooltip() != null, "Deny explained on hover");
         long start = System.currentTimeMillis();
         e2e.click(host, "Accept");
         e2e.eventually(() -> asker.actionBarContains(hostName + " accepted your request"), "accepted: " + asker.actionBar());
@@ -1016,7 +1024,6 @@ final class TeleportScenarios {
 
     private static final String RING = "e2e-ring";
 
-    /** Test regions: a ring around the spawn, a small nether ring, and a ring where no chunk exists. */
     /** The rtp config with the test regions put first under {@code regions:}, wherever that section is in the file. */
     private static String withTestRegions(String original, Location spawn) {
         String marker = "\nregions:\n";
@@ -1028,6 +1035,10 @@ final class TeleportScenarios {
         return original.substring(0, insert) + testRegions(spawn).substring(1) + original.substring(insert);
     }
 
+    /**
+     * Test regions: a ring around the spawn costing $1,000, a free small nether ring, and a ring where no chunk exists
+     * costing $500 (explicit costs, so the paid paths stay tested while every shipped region is free).
+     */
     private static String testRegions(Location spawn) {
         return String.format(Locale.ROOT, """
 
@@ -1612,6 +1623,64 @@ final class TeleportScenarios {
             e2e.eventually(() -> bot.actionBarContains("Welcome to Nether test.") && !near(location(e2e, name), before, 2), 40_000,
                 "a new spot in the nether: " + location(e2e, name));
             setting(e2e, bot, "hide-coordinates", "off");
+        } finally {
+            Files.writeString(config, original);
+            e2e.console("sift reload");
+        }
+    }
+
+    /**
+     * Every shipped region is free: the picker names no money, "Confirm paid random teleports" is not offered, and a free
+     * region (the test ring set to cost 0) starts without a question and lands without a money line or a charge. Once a
+     * region costs money again the question is offered.
+     */
+    static void rtpFree(E2E e2e) throws Exception {
+        String name = e2e.name("FreeRoam");
+        Bot bot = e2e.bot(name);
+        Location spawn = spawn(e2e);
+        Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/rtp.yml");
+        String original = Files.readString(config);
+        try {
+            e2e.step("the shipped places: buttons only, no money anywhere");
+            e2e.console("eco set " + name + " 5000");
+            e2e.eventually(() -> e2e.money(name) == 5_000, "funded");
+            bot.clearLogs();
+            bot.command("rtp");
+            Bot.SeenDialog picker = e2e.dialog(bot, "Random teleport");
+            e2e.expect(picker.body().isEmpty(), "nothing above the buttons: " + picker.body());
+            for (String place : List.of("Overworld", "Nether", "End")) {
+                Bot.Button button = picker.button(place);
+                e2e.expect(button != null && button.tooltip() != null && button.tooltip().contains("blocks out")
+                    && !button.tooltip().contains("$") && !button.tooltip().contains("Costs"), "a free place: " + place + " "
+                    + (button == null ? picker.buttons() : button.tooltip()));
+            }
+            e2e.expect(picker.buttons().stream().noneMatch(button -> button.label().contains("$")), "no price on a button: "
+                + picker.buttons());
+            e2e.click(bot, "Close");
+
+            e2e.step("with nothing to pay, the price question is not a setting");
+            Bot.SeenDialog page = SettingsSteps.openGroup(e2e, bot, "teleport", TELEPORT_PAGE);
+            e2e.expect(!SettingsSteps.read(e2e, page).containsKey("rtp_confirm_cost"),
+                "no Confirm paid random teleports: " + page.buttons().stream().map(Bot.Button::label).toList());
+
+            e2e.step("a free region typed: no question, no money line, nothing charged");
+            Files.writeString(config, withTestRegions(original, spawn).replace("cost: 1000", "cost: 0"));
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(reload.stream().anyMatch(line -> line.startsWith("Reloaded")), "the test regions load: " + reload);
+            generate(e2e, spawn.getWorld(), spawn.getBlockX(), spawn.getBlockZ(), 120);
+            bot.clearLogs();
+            bot.command("rtp " + RING);
+            e2e.eventually(() -> bot.actionBarContains("Teleporting in"), "the warmup at once: " + bot.actionBar());
+            e2e.expect(bot.dialogs().stream().noneMatch(dialog -> dialog.title().contains("Confirm")), "no question: " + bot.dialogs());
+            e2e.eventually(() -> bot.actionBarContains("Welcome to Test ring at "), 40_000, "landed: " + bot.actionBar());
+            e2e.expect(!bot.anyFeedbackContains("Paid ") && !bot.actionBarContains("$"), "no money line: " + bot.actionBar() + " "
+                + bot.chat());
+            e2e.expect(e2e.money(name) == 5_000, "nothing charged: " + e2e.money(name));
+
+            e2e.step("a region that costs money again offers the price question");
+            Bot.SeenDialog paid = SettingsSteps.openGroup(e2e, bot, "teleport", TELEPORT_PAGE);
+            e2e.expect(SettingsSteps.read(e2e, paid).containsKey("rtp_confirm_cost"),
+                "Confirm paid random teleports with the $500 far ring: " + paid.buttons().stream().map(Bot.Button::label).toList());
         } finally {
             Files.writeString(config, original);
             e2e.console("sift reload");

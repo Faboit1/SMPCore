@@ -17,10 +17,10 @@ The feature implements `core.link.StatsRecorder`; `StatsFeature#recorder()` retu
 
 | Command | Permission (default) | What it does |
 |---|---|---|
-| `/stats` | `siftcore.command.stats` (everyone) | Your stats in a dialog, with buttons to every leaderboard |
+| `/stats` | `siftcore.command.stats` (everyone) | Your stats in a dialog: one button per stat ("Kills: 4", the value coloured) that opens that stat's leaderboard |
 | `/stats <player>` | `siftcore.command.stats.others` (everyone) | Someone else's stats (online or offline); their balance shows as `hidden` unless their `balance-privacy` allows you (staff with `siftcore.admin.eco` always see it). From the console: printed in chat, with the balance |
-| `/top` (`/leaderboard`, `/leaderboards`) | `siftcore.command.top` (everyone) | Leaderboard picker. From the console: the list of boards |
-| `/top <board> [page]` | `siftcore.command.top` | One page of a board in a dialog with previous/next. From the console: printed in chat |
+| `/top` (`/leaderboard`, `/leaderboards`) | `siftcore.command.top` (everyone) | Leaderboard picker, a button per board (your place in its tooltip). From the console: the list of boards |
+| `/top <board> [page]` | `siftcore.command.top` | The whole board in one scrolling dialog (no pages; the page is ignored in game). From the console: that page printed in chat |
 | `/playtime` | `siftcore.command.playtime` (everyone) | Your active playtime, as a chat line |
 | `/playtime <player>` | `siftcore.command.playtime.others` (everyone) | Someone else's playtime (console too) |
 | `/sift stats add <player> <stat> <value>` | `siftcore.admin` + `siftcore.admin.stats` (op) | Adds to a counter and stores it at once (audited as `stats.add`) |
@@ -33,6 +33,21 @@ Staff stats: `kills`, `deaths`, `mobs`, `blocks`, `earned` (an amount like `1.5k
 `2h30m`). The streak is not a staff stat; `reset` clears it.
 
 The main menu has a **Stats** entry (hub id `stats`, order 70), which is also the `stats` pause-menu entry.
+
+## Dialogs
+
+In the dialog style (`StatsPages`, built from plain values and unit tested):
+
+- **Stats.** Nothing above the buttons: one button per stat, "Kills: 4", "KDR: 1.50", "Streak: 1 (best 3)",
+  "Money earned: $11,000", "Balance: hidden" (numbers and times in the accent colour, money green). For players who may
+  see the leaderboards (`siftcore.command.top`) a stat's button opens that stat's leaderboard, whose Back returns to
+  the stats; its tooltip says the player's place on it. Without the permission the buttons only show the values.
+- **Leaderboard.** One or two short lines (your place and value, or that you are not listed; the KDR rule when it says
+  something; "Top 100, updated 30s ago"), then every listed player as a button, "3. Alex 120" (yours in the accent
+  colour). No pages: the dialog scrolls through the whole board, at most `leaderboards.size` (100) places, and the
+  "Top <n>" line names that cap. For viewers who may see other players' stats (`siftcore.command.stats.others`) a
+  player's button opens their stats, whose Back returns to the board.
+- **Picker.** A button per board in two columns, the board's title and the viewer's place in the tooltip.
 
 ## Placeholders
 
@@ -92,7 +107,7 @@ always show the balance.
 | `keep-offline` | `5m` | How long an offline player's loaded stats stay cached after use |
 | `leaderboards.refresh` | `60s` | Leaderboard rebuild period (10s-1h) |
 | `leaderboards.size` | `100` | Places kept per board (10-100) |
-| `leaderboards.page-size` | `10` | Lines per `/top` page |
+| `leaderboards.page-size` | `10` | Lines per `/top` page typed in the console (players see the whole board in one dialog) |
 | `leaderboards.kdr-min-kills` | `25` | Kills needed to appear on the KDR board |
 | `blocks-mined.count-instant-blocks` | `false` | Count blocks that break instantly (grass, flowers, crops, torches) |
 | `blocks-mined.ignore-placed-for` | `15m` | A recently placed block does not count when mined (0s turns it off) |

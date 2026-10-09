@@ -17,20 +17,20 @@ scoreboard:
     lines:
       balance: "<primary><icon:money> <secondary>Money <money>{balance}"
       shards: "<primary><icon:shard> <shards>Shards {shards}"
-      kills: "<primary><icon:kill> <secondary>Kills <primary>{kills}"
-      deaths: "<primary><icon:death> <secondary>Deaths <primary>{deaths}"
-      kdr: "<primary><icon:kdr> <secondary>KDR <primary>{stats_kdr}"
-      streak: "<primary><icon:streak> <secondary>Streak <primary>{streak}"
-      playtime: "<primary><icon:playtime> <secondary>Playtime <primary>{playtime}"
+      kills: "<primary><icon:kill> <secondary>Kills <accent>{kills}"
+      deaths: "<primary><icon:death> <secondary>Deaths <accent>{deaths}"
+      kdr: "<primary><icon:kdr> <secondary>KDR <accent>{stats_kdr}"
+      streak: "<primary><icon:streak> <secondary>Streak <accent>{streak}"
+      playtime: "<primary><icon:playtime> <secondary>Playtime <accent>{playtime}"
       team: "<primary><icon:team> <secondary>Team <primary>{team}"
       rank: "<primary><icon:rank> <secondary>Rank <primary>{rank}"
-      keyall: "<primary><icon:key> <secondary>Keyall <primary>{keyall_countdown}"
+      keyall: "<primary><icon:key> <secondary>Keyall <accent>{keyall_countdown}"
       # Only while a sell booster runs (/booster).
-      booster: "<primary><icon:star> <secondary>Booster <primary>+{booster_percent}% <secondary>{booster_time_left}"
+      booster: "<primary><icon:star> <secondary>Booster <accent>+{booster_percent}% <secondary>{booster_time_left}"
       bounty: "<primary><icon:bounty> <secondary>Bounty <money>{bounty_total}"
-      combat: "<primary><icon:warning> <secondary>Combat <primary>{combat}"
-      online: "<primary><icon:online> <secondary>Online <primary>{online}"
-      ping: "<primary><icon:ping> <secondary>Ping <primary>{ping}ms"
+      combat: "<primary><icon:warning> <secondary>Combat <accent>{combat}"
+      online: "<primary><icon:online> <secondary>Online <accent>{online}"
+      ping: "<primary><icon:ping> <secondary>Ping <accent>{ping}ms"
       website: "<secondary>siftvanilla.com"
 
   tab:
@@ -38,7 +38,7 @@ scoreboard:
     header:
       - ""
       - "<primary>SiftVanilla"
-      - "<secondary>{online} online"
+      - "<accent>{online}<secondary> online"
       - ""
     footer:
       - ""

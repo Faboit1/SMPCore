@@ -15,6 +15,7 @@ import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.event.RandomTeleportEvent;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
@@ -133,7 +134,7 @@ final class RtpService {
         }
         Duration left = cooldownLeft(player.getUniqueId(), region.id());
         if (!left.isZero() && !player.hasPermission(BYPASS_COOLDOWN)) {
-            messenger.send(player, RtpMessages.COOLDOWN, name, Arg.time("time", left));
+            messenger.send(player, RtpMessages.COOLDOWN, name, Arg.text("time", Durations.format(left)));
             return false;
         }
         if (region.cost() > 0) {
@@ -356,14 +357,14 @@ final class RtpService {
             if (hidden) {
                 this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID_HIDDEN, region, amount);
             } else {
-                this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID, region, Arg.number("x", spot.getBlockX()),
-                    Arg.number("z", spot.getBlockZ()), amount);
+                this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID, region, Arg.text("x", Lang.number(spot.getBlockX())),
+                    Arg.text("z", Lang.number(spot.getBlockZ())), amount);
             }
         } else if (hidden) {
             this.services.teleports().arrival(player, RtpMessages.LANDED_HIDDEN, region);
         } else {
-            this.services.teleports().arrival(player, RtpMessages.LANDED, region, Arg.number("x", spot.getBlockX()),
-                Arg.number("z", spot.getBlockZ()));
+            this.services.teleports().arrival(player, RtpMessages.LANDED, region, Arg.text("x", Lang.number(spot.getBlockX())),
+                Arg.text("z", Lang.number(spot.getBlockZ())));
         }
     }
 

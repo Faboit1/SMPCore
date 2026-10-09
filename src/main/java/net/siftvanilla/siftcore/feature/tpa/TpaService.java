@@ -133,7 +133,7 @@ final class TpaService {
         if (!this.links.combat().tagged(id)) {
             return false;
         }
-        messenger().send(player, TpaMessages.IN_COMBAT, Arg.time("time", this.links.combat().remaining(id)));
+        messenger().send(player, TpaMessages.IN_COMBAT, Arg.text("time", Durations.format(this.links.combat().remaining(id))));
         return true;
     }
 
@@ -196,7 +196,7 @@ final class TpaService {
         MessageKey sent = kind == Kind.TO_TARGET
             ? (afk ? TpaMessages.SENT_AFK : TpaMessages.SENT)
             : (afk ? TpaMessages.SENT_HERE_AFK : TpaMessages.SENT_HERE);
-        messenger().send(sender, sent, Arg.text("name", target.getName()), Arg.time("time", s.expireAfter()));
+        messenger().send(sender, sent, Arg.text("name", target.getName()), Arg.text("time", Durations.format(s.expireAfter())));
         String senderName = sender.getName();
         messenger().send(target, kind == Kind.TO_TARGET ? TpaMessages.INCOMING : TpaMessages.INCOMING_HERE,
             Arg.text("name", senderName), Arg.component("answer", answerLink(target, request, senderName)));
@@ -470,7 +470,7 @@ final class TpaService {
         if (cancelled.size() == 1) {
             messenger().send(sender, TpaMessages.CANCELLED, Arg.text("name", name(cancelled.getFirst().target())));
         } else {
-            messenger().send(sender, TpaMessages.CANCELLED_ALL, Arg.number("count", cancelled.size()));
+            messenger().send(sender, TpaMessages.CANCELLED_ALL, Arg.text("count", Lang.number(cancelled.size())));
         }
         for (Request request : cancelled) {
             Player target = Bukkit.getPlayer(request.target());

@@ -136,7 +136,7 @@ final class KitDialogs {
             header.add(lang.get(KitsMessages.KIT_DESCRIPTION, Arg.text("description", kit.description())));
         }
         header.add(state);
-        body.add(Body.text(Component.join(net.kyori.adventure.text.JoinConfiguration.newlines(), header)));
+        body.add(Body.text(Templates.lines(header)));
         for (KitItem item : kit.items()) {
             ItemStack stack = this.kits.items().build(item);
             int shown = Math.min(stack.getAmount(), Math.min(99, stack.getMaxStackSize()));

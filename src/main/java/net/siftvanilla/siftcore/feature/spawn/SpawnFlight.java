@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import net.siftvanilla.siftcore.api.event.CombatTagEvent;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.CommandSupport;
@@ -17,6 +18,7 @@ import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -128,7 +130,8 @@ final class SpawnFlight implements Listener {
             return;
         }
         if (this.combat.tagged(player.getUniqueId())) {
-            this.services.messenger().send(player, SpawnMessages.FLY_IN_COMBAT, Arg.time("time", this.combat.remaining(player.getUniqueId())));
+            this.services.messenger().send(player, SpawnMessages.FLY_IN_COMBAT,
+                Arg.text("time", Durations.format(this.combat.remaining(player.getUniqueId()))));
             return;
         }
         if (!this.area.contains(player.getLocation())) {
@@ -144,7 +147,7 @@ final class SpawnFlight implements Listener {
     }
 
     private Arg height() {
-        return Arg.number("height", this.settings.get().fly().maxHeight());
+        return Arg.text("height", Lang.number(this.settings.get().fly().maxHeight()));
     }
 
     private void start(Player player) {

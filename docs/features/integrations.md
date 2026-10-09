@@ -275,11 +275,14 @@ A chargeback usually also gets a temporary ban from the store's own command list
 
 ## Purchases (`/purchases`)
 
-A read-only dialog of the player's own store deliveries, newest first, six per page with Previous and Next: what it
-gave (a rank and its length, a booster, money, shards or keys), the day (UTC) and how long ago, the reference
-(shortened to its first 8 and last 7 characters when longer than 16) and what became of it: delivered, being
-delivered (a rank waiting for LuckPerms), being taken back, taken back (with the reason), or for a booster whether it
-runs now (time left) or waits (place in line). What it gave is the purchase as bought (a booster bought for +15%
+A read-only dialog of the player's own store deliveries, newest first, in the dialog style (`PurchasesView`): one
+short line ("Purchases: 7, newest first", or "Your newest 100 purchases" past the cap), then one button per purchase
+saying what it gave (a rank and its length, a booster, money in green, shards in purple, or keys). Its tooltip has the
+day (UTC) and how long ago, what became of it (delivered in green, being delivered, being taken back or taken back
+with the reason in red, or for a booster whether it runs now with the time left or waits with its place in line),
+the order id (the store reference, shortened to its first 8 and last 7 characters when longer than 16) and "Missing
+something? Ask staff with the order id." No pages: the newest 100 show and the dialog scrolls (the console prints up
+to 200). What it gave is the purchase as bought (a booster bought for +15%
 says +15% even while `sell.max-percent` caps what it pays). The list is read from the store's in-memory book (up to 200 entries),
 never from another player: `/purchases <player>` needs `siftcore.admin.store`, and a player without it who tries
 gets their own page. Staff can pass a UUID for buyers who never joined. From the console it prints the same lines.

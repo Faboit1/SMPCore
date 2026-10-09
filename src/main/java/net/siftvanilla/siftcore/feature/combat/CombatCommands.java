@@ -78,7 +78,7 @@ final class CombatCommands {
         if (left.isZero()) {
             messenger().send(player, CombatMessages.STATUS_CLEAR);
         } else {
-            messenger().send(player, CombatMessages.STATUS_TAGGED, Arg.time("time", roundUp(left)));
+            messenger().send(player, CombatMessages.STATUS_TAGGED, Arg.text("time", Durations.format(roundUp(left))));
         }
         return CommandSupport.OK;
     }

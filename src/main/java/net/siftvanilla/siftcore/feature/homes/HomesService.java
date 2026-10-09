@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.player.Limits;
@@ -79,7 +80,7 @@ final class HomesService {
     }
 
     private Arg limitArg(int limit) {
-        return limit == Limits.UNLIMITED ? Arg.text("limit", this.services.lang().plain(HomesMessages.UNLIMITED)) : Arg.number("limit", limit);
+        return HomesViews.limit(this.services.lang(), limit);
     }
 
     private void tell(Player player, Result result) {
@@ -121,10 +122,9 @@ final class HomesService {
             lines.add(lang.get(HomesMessages.OVERWRITE_FROM_HIDDEN, Arg.text("world", existing.world())));
             lines.add(lang.get(HomesMessages.OVERWRITE_TO_HIDDEN, Arg.text("world", world)));
         } else {
-            lines.add(lang.get(HomesMessages.OVERWRITE_FROM, Arg.text("world", existing.world()), Arg.number("x", existing.blockX()),
-                Arg.number("y", existing.blockY()), Arg.number("z", existing.blockZ())));
-            lines.add(lang.get(HomesMessages.OVERWRITE_TO, Arg.text("world", world), Arg.number("x", here.getBlockX()),
-                Arg.number("y", here.getBlockY()), Arg.number("z", here.getBlockZ())));
+            lines.add(lang.get(HomesMessages.OVERWRITE_FROM, HomesViews.at(existing.world(), existing.blockX(), existing.blockY(),
+                existing.blockZ())));
+            lines.add(lang.get(HomesMessages.OVERWRITE_TO, HomesViews.at(world, here.getBlockX(), here.getBlockY(), here.getBlockZ())));
         }
         View confirm = this.services.templates().confirm(lang.get(HomesMessages.OVERWRITE_TITLE), lines,
             lang.get(HomesMessages.OVERWRITE_BUTTON), lang.get(CoreMessages.UI_CANCEL), onYes, onNo);
@@ -143,7 +143,8 @@ final class HomesService {
      */
     private Result trySet(Player player, String input, boolean confirmed) {
         if (this.combat.tagged(player.getUniqueId())) {
-            return new Result(false, HomesMessages.IN_COMBAT, Arg.time("time", this.combat.remaining(player.getUniqueId())));
+            return new Result(false, HomesMessages.IN_COMBAT,
+                Arg.text("time", Durations.format(this.combat.remaining(player.getUniqueId()))));
         }
         Optional<String> name = HomeNames.normalize(input);
         if (name.isEmpty()) {
@@ -165,9 +166,10 @@ final class HomesService {
         int limit = limit(player);
         HomeStore.SetResult result = this.store.set(player.getUniqueId(), Home.at(name.get(), here, System.currentTimeMillis()), limit);
         return switch (result.outcome()) {
-            case CREATED -> new Result(true, HomesMessages.SET, Arg.text("name", name.get()), Arg.number("count", result.count()), limitArg(limit));
+            case CREATED -> new Result(true, HomesMessages.SET, Arg.text("name", name.get()), Arg.text("count", Lang.number(result.count())),
+                limitArg(limit));
             case MOVED -> new Result(true, HomesMessages.MOVED, Arg.text("name", name.get()));
-            case LIMIT -> new Result(false, HomesMessages.LIMIT, Arg.number("count", result.count()), limitArg(limit));
+            case LIMIT -> new Result(false, HomesMessages.LIMIT, Arg.text("count", Lang.number(result.count())), limitArg(limit));
             case NOT_LOADED -> new Result(false, HomesMessages.LOADING);
         };
     }
@@ -339,8 +341,7 @@ final class HomesService {
         Lang lang = this.services.lang();
         List<Component> body = hidesCoordinates(player)
             ? lang.lines(HomesMessages.DELETE_BODY_HIDDEN, Arg.text("name", home.name()), Arg.text("world", home.world()))
-            : lang.lines(HomesMessages.DELETE_BODY, Arg.text("name", home.name()), Arg.text("world", home.world()),
-                Arg.number("x", home.blockX()), Arg.number("y", home.blockY()), Arg.number("z", home.blockZ()));
+            : lang.lines(HomesMessages.DELETE_BODY, HomesViews.with(Arg.text("name", home.name()), HomesViews.at(home)));
         View confirm = this.services.templates().confirm(lang.get(HomesMessages.DELETE_TITLE), body,
             lang.get(HomesMessages.DELETE_BUTTON), lang.get(CoreMessages.UI_CANCEL),
             yes -> {
@@ -463,8 +464,7 @@ final class HomesService {
     private void confirmOtherDelete(Player staff, UUID target, String targetName, Home home) {
         Lang lang = this.services.lang();
         this.services.dialogs().show(staff, this.services.templates().confirm(lang.get(HomesMessages.DELETE_TITLE),
-            lang.lines(HomesMessages.DELETE_BODY, Arg.text("name", home.name()), Arg.text("world", home.world()),
-                Arg.number("x", home.blockX()), Arg.number("y", home.blockY()), Arg.number("z", home.blockZ())),
+            lang.lines(HomesMessages.DELETE_BODY, HomesViews.with(Arg.text("name", home.name()), HomesViews.at(home))),
             lang.get(HomesMessages.DELETE_BUTTON), lang.get(CoreMessages.UI_CANCEL),
             yes -> deleteOther(yes.player(), target, targetName, home.name(), () -> openOther(yes.player(), target, targetName)),
             no -> openOther(no.player(), target, targetName)));

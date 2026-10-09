@@ -52,8 +52,11 @@ who you asked) or online players you can see (`/tpa`, `/tpahere`); selectors are
    ("<name> isn't taking requests to come to you. Ask with /tpa instead."). Staff with the bypass pass both. Then the
    request cooldown and the cancellable `api.event.TeleportRequestEvent`.
 2. A `/tpa` the target auto-accepts ("Auto-accept /tpa from", see below) skips the request: the sender's warmup starts
-   at once. Otherwise the target gets a chat line with a clickable `Click to answer`: a `ClickEvent.showDialog`
-   carrying an accept/deny dialog made for that target (`Dialogs#inline`). Typing `/tpaccept` works the same. With
+   at once. Otherwise the target gets a chat line with a clickable `Click to answer` (in the accent colour): a
+   `ClickEvent.showDialog` carrying an accept/deny dialog made for that target (`Dialogs#inline`). The dialog is one
+   line ("Alex wants to teleport to you.") and a green Accept and a red Deny; what each answer does, and when requests
+   expire, are on the buttons' tooltips. With several requests waiting, `/tpaccept` and `/tpdeny` open "Accept a
+   request" or "Deny a request": one button per sender (which way in its tooltip) and, for denying, Deny all. Typing `/tpaccept` works the same. With
    "Requests open a pop-up" on, the same window also opens by itself, on the target's thread, unless they are in
    combat, AFK or busy in a window, and only while the request still waits. "Busy in a window" is what the server
    can see: a window it opened (a chest, a SiftCore menu, an anvil) is always seen; the player's own inventory is

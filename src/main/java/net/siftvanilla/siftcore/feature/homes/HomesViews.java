@@ -62,12 +62,32 @@ final class HomesViews {
 
     /** Where a home is: world and block position, or the world only while coordinates are hidden. */
     static Component where(Lang lang, Home home, boolean hidden) {
-        Arg world = Arg.text("world", home.world());
         if (hidden) {
-            return lang.get(HomesMessages.LIST_WHERE_HIDDEN, world);
+            return lang.get(HomesMessages.LIST_WHERE_HIDDEN, Arg.text("world", home.world()));
         }
-        return lang.get(HomesMessages.LIST_WHERE, world, Arg.number("x", home.blockX()), Arg.number("y", home.blockY()),
-            Arg.number("z", home.blockZ()));
+        return lang.get(HomesMessages.LIST_WHERE, at(home));
+    }
+
+    /** A home's world and block position as placeholders: {@code world}, {@code x}, {@code y} and {@code z}. */
+    static Arg[] at(Home home) {
+        return at(home.world(), home.blockX(), home.blockY(), home.blockZ());
+    }
+
+    /**
+     * A world and a block position as placeholders: {@code world}, {@code x}, {@code y} and {@code z}. The numbers are
+     * text, so the lang file colours them ({@code <accent><x>, <y>, <z>}).
+     */
+    static Arg[] at(String world, int x, int y, int z) {
+        return new Arg[] {Arg.text("world", world), Arg.text("x", Lang.number(x)), Arg.text("y", Lang.number(y)),
+            Arg.text("z", Lang.number(z))};
+    }
+
+    /** {@code first} followed by {@code rest}. */
+    static Arg[] with(Arg first, Arg... rest) {
+        Arg[] all = new Arg[rest.length + 1];
+        all[0] = first;
+        System.arraycopy(rest, 0, all, 1, rest.length);
+        return all;
     }
 
     /** The home limit as a value: a number, or "unlimited". */

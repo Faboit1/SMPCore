@@ -93,8 +93,8 @@ stats:
     title: "Leaderboards"
 
   playtime:
-    self: "<primary>You have played for <time>."
-    other: "<primary><name> has played for <time>."
+    self: "<primary>You have played for <accent><time></accent>."
+    other: "<primary><name> has played for <accent><time></accent>."
 
   # Stat names in staff messages.
   names:
@@ -117,7 +117,7 @@ stats:
     refresh-failed: "<primary>The leaderboards could not be rebuilt. The previous ones stay; the console has the details."
 
   # A player moved up a leaderboard (Leaderboard climb alerts setting). <board> is the board's button label.
-  climbed: "<primary>You climbed to number <rank> on the <board> leaderboard."
+  climbed: "<primary>You climbed to number <accent><rank></accent> on the <board> leaderboard."
 
   # Labels and descriptions of the stats settings (/settings).
   settings:

@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.combat;
 import java.time.Duration;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
@@ -63,7 +64,7 @@ final class TimerDisplay {
     /** Shows the timer with {@code secondsLeft} to a player, in the style they chose. */
     void show(Player player, long secondsLeft, Duration configured) {
         AlertStyle style = this.settings.get(player.getUniqueId(), CombatFeature.TIMER_DISPLAY);
-        Arg time = Arg.time("time", Duration.ofSeconds(secondsLeft));
+        Arg time = Arg.text("time", Durations.format(Duration.ofSeconds(secondsLeft)));
         if (actionBar(style)) {
             this.messenger.send(player, CombatMessages.TAG_ACTION_BAR, time);
         }

@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.event.CombatTagEvent;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
@@ -114,7 +115,7 @@ final class CombatTagger {
      */
     private void started(Player player, Duration duration, CombatSettings s, Arg opponent) {
         AlertStyle style = this.prefs.get(player.getUniqueId(), CombatFeature.TAG_ALERT);
-        Arg time = Arg.time("time", duration);
+        Arg time = Arg.text("time", Durations.format(duration));
         boolean title = style == AlertStyle.TITLE;
         if (opponent == null) {
             this.messenger.alert(player, style, false, title ? CombatMessages.TAG_STARTED_STAFF_TITLE : CombatMessages.TAG_STARTED_STAFF,

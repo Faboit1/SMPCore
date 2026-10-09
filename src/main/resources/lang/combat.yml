@@ -5,15 +5,15 @@
 
 combat:
   tag:
-    action-bar: "<primary>In combat <time>"
+    action-bar: "<primary>In combat <accent><time>"
     # The combat timer on the boss bar, for players who picked it (Combat timer setting).
-    boss-bar: "<primary>In combat <time>"
+    boss-bar: "<primary>In combat <accent><time>"
     ended: "<primary>You are no longer in combat."
     ended-title: "<primary>Out of combat"
     # When a hit puts a player in combat (not when it starts the timer again). Entering combat alert setting.
-    started: "<primary>You are in combat with <name>! <secondary>Don't log out for <time>."
+    started: "<primary>You are in combat with <name>! <secondary>Don't log out for <accent><time></accent>."
     started-title: "<error>In combat with <name>"
-    started-staff: "<primary>Staff put you in combat. <secondary>Don't log out for <time>."
+    started-staff: "<primary>Staff put you in combat. <secondary>Don't log out for <accent><time></accent>."
     started-staff-title: "<error>In combat"
   # The killer's own result after a player kill (Kill confirmation setting).
   kill:
@@ -24,10 +24,10 @@ combat:
     not-counted-plain: "<primary>Your kill on <name> didn't count."
     not-counted-title: "<primary>Kill didn't count"
   blocked:
-    command: "<primary>You can't use that in combat. <time> left."
-    ender-pearl: "<primary>You can't throw ender pearls in combat. <time> left."
-    elytra: "<primary>You can't fly in combat. <time> left."
-    spawn: "<primary>You can't go into spawn in combat. <time> left."
+    command: "<primary>You can't use that in combat. <accent><time></accent> left."
+    ender-pearl: "<primary>You can't throw ender pearls in combat. <accent><time></accent> left."
+    elytra: "<primary>You can't fly in combat. <accent><time></accent> left."
+    spawn: "<primary>You can't go into spawn in combat. <accent><time></accent> left."
   logout:
     announce: "<primary><name> <secondary>logged out in combat."
     announce-killed: "<primary><name> <secondary>logged out in combat. <primary><killer> <secondary>gets the kill."
@@ -44,7 +44,7 @@ combat:
     reached: "<primary><name> <secondary>is on a kill streak of <accent><count></accent>."
     ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <accent><count></accent>."
   status:
-    tagged: "<primary>You are in combat for <time>."
+    tagged: "<primary>You are in combat for <accent><time></accent>."
     clear: "<primary>You are not in combat."
   admin:
     status-tagged: "<primary><name> is in combat for <time>. <secondary>Last hit by <attacker>."

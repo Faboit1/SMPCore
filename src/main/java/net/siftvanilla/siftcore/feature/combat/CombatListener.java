@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
@@ -206,7 +207,7 @@ final class CombatListener implements Listener {
     }
 
     private void refuse(Player player, MessageKey key, Duration left) {
-        this.messenger.send(player, key, Arg.time("time", Duration.ofSeconds(TagTicker.secondsLeft(left.toMillis(), 0))));
+        this.messenger.send(player, key, Arg.text("time", Durations.format(Duration.ofSeconds(TagTicker.secondsLeft(left.toMillis(), 0)))));
     }
 
     /**
