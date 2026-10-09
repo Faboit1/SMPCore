@@ -100,6 +100,7 @@ lp group prospector permission set siftcore.perk.craft true
 lp group prospector permission set siftcore.perk.trash true
 lp group prospector permission set siftcore.perk.hat true
 lp group prospector permission set siftcore.tags.prospector true
+lp group prospector permission set siftcore.settings.hide-rank true
 
 lp creategroup baron
 lp group baron setweight 20
