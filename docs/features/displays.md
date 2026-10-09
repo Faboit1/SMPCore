@@ -40,6 +40,29 @@ teleport service (no warmup, refused while combat-tagged).
 Right-clicking a leaderboard needs no permission of its own: its command runs as the player, with the player's
 permissions.
 
+## Player setting
+
+| Id | Kind | Group (place) | Offered | What it does |
+|---|---|---|---|---|
+| `show-spawn-holograms` | toggle, on | Display (5th) | while at least one display is placed with a template | Spawn holograms: show the floating leaderboards and info boards at spawn. Off hides every display and its click box from that player (screenshots, slow PCs); applied at once |
+
+Hiding uses `Player#hideEntity(plugin, entity)` on both entities of each display, so the player's client is never sent
+them (nothing to render, nothing to click). The hides follow the entities:
+
+- turning it off or on (the change hook, on the player's thread) hides or shows every live display, each on the
+  region thread that owns it (directly when that is the player's own thread);
+- a joining player who turned it off has every display hidden in `PlayerJoinEvent`: displays in the joining player's
+  region at once, before the server starts tracking them, so they never flash; displays elsewhere on their own region
+  thread, long before the player can walk there;
+- a display entity that is spawned (startup, chunk load, move, a click box added) is hidden from every online player
+  who turned it off inside the spawn call, before it enters the world.
+
+Why the display's region thread: hiding takes the player out of the entity's tracker and showing adds them back,
+and the tracker belongs to the region that ticks the entity (verified in the Canvas 962 `CraftPlayer` and
+`ChunkMap$TrackedEntity`: both go through `removePlayer`/`updatePlayer`, guarded only by a tick-thread check). Players
+near a display are in its region, so for them it is also their own thread. The server forgets the hides when an
+entity is removed (`CraftPlayer#onEntityRemove`) or the player leaves, and nothing is stored besides the setting.
+
 ## Config (`features/displays.yml`)
 
 - `templates`: name to a list of lines. Lines use the lang tags (`<primary>`, `<secondary>`, `<money>` for money
@@ -139,11 +162,19 @@ spawned again, so a later enable cannot create duplicates.
 
 - Unit (`src/test/java/.../feature/displays`): template compiling and validation, placeholder substitution with
   missing, failing and hostile values, change detection (also concurrent), settings validation including the shipped
-  file, how the file and in-game positions merge, positions and facing, click box geometry.
+  file, how the file and in-game positions merge, positions and facing, click box geometry, the hologram switch's
+  group, order and offering and who the displays are hidden from (`HologramSettingTest`).
 - End-to-end (`tools/e2e`, `DisplaysScenarios`): `displays-text` (a client near a new board receives the text
   display with the configured metadata), `displays-click` (right-clicking a leaderboard opens /baltop, with the
   cooldown; a top-kills board renders stats values and opens /top kills), `displays-admin` (list dialog teleport,
-  move, delete with confirmation and a replayed click, no access without the permission).
+  move, delete with confirmation and a replayed click, no access without the permission), `displays-hide` (Spawn
+  holograms off in the Display settings removes the text display and the click box from that client at once while
+  another player keeps them, a board placed meanwhile and a rejoin bring none, `/settings display
+  show-spawn-holograms on` brings every board and the click box back and deletes the row), `display-settings` (the
+  Display group as a whole: cosmetics' `show-kill-effects`, which this package places, is the 6th Display setting and
+  listed after the sidebar and hologram switches; `/settings display show-kill-effects off` stores it; with
+  `kill-effects.enabled: false` in features/cosmetics.yml it leaves the group and can't be changed while the stored
+  choice is kept; on again deletes the row).
 
 Not verifiable without a real client: how the text actually looks (font rendering, shadow, sprites inside text
 displays, full-bright at night) and how well the estimated click box matches the rendered text.

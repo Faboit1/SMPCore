@@ -6,12 +6,17 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.TextStyle;
 import org.bukkit.Bukkit;
@@ -21,11 +26,21 @@ import org.bukkit.event.HandlerList;
 /**
  * Leaderboards and info boards at spawn, made of text displays: no hologram plugin. Templates and looks come
  * from {@code features/displays.yml}, positions set in-game from the {@code displays} table, and the text from
- * SiftCore placeholders that are the same for everyone. Right-clicking a leaderboard opens the full list.
+ * SiftCore placeholders that are the same for everyone. Right-clicking a leaderboard opens the full list. Players
+ * who turn {@link #HOLOGRAMS} off don't receive the display entities at all.
  */
 public final class DisplaysFeature implements Feature {
 
     public static final String PERMISSION = "siftcore.admin.displays";
+
+    /**
+     * Spawn holograms: off hides every display (and its click box) from the player with {@code Player#hideEntity},
+     * for screenshots and slow PCs. Display group of the settings.
+     */
+    public static final Toggle HOLOGRAMS = new Toggle("show-spawn-holograms", true, DisplaysMessages.SETTING_LABEL,
+        DisplaysMessages.SETTING_DESCRIPTION, null);
+    /** Its place in the Display group (the catalog's fifth display setting). */
+    static final int HOLOGRAMS_ORDER = 5;
 
     private final Services services;
     private final Logger logger;
@@ -45,8 +60,11 @@ public final class DisplaysFeature implements Feature {
         services.lang().register(DisplaysMessages.class);
         services.permissions().declare(PERMISSION, "Place, move and delete leaderboards and info boards with /displays", false);
         this.placements = new Placements(new PlacementStore(services.database()), this.logger, this::rebuild);
+        PlayerSettings playerSettings = services.settings();
         this.entities = new DisplayEntities(services.scheduler(), services.lang().style(), services.placeholders(),
-            services.messenger(), services.cooldowns(), this.settings, this.logger, new NamespacedKey(services.plugin(), "display"));
+            services.messenger(), services.cooldowns(), this.settings, this.logger, new NamespacedKey(services.plugin(), "display"),
+            services.plugin(), player -> playerSettings.get(player, HOLOGRAMS));
+        registerSettings(playerSettings, this::anyShown, (player, before, now) -> this.entities.viewerChanged(player, now));
         this.commands = new DisplaysCommands(services, this);
     }
 
@@ -67,6 +85,25 @@ public final class DisplaysFeature implements Feature {
         this.checks.arm();
         reportBrokenPlacements();
         this.services.scheduler().globalLater(this::reportMissingPlaceholders, 1L);
+    }
+
+    /**
+     * Registers the hologram switch in the Display group: applied at once on every display ({@code changed} runs on
+     * the player's thread), and offered only while a display stands in the world to hide ({@code anyShown}).
+     */
+    static void registerSettings(PlayerSettings settings, BooleanSupplier anyShown, SettingOptions.ChangeHook<Boolean> changed) {
+        settings.register(SettingCategories.DISPLAY, HOLOGRAMS, SettingOptions.<Boolean>builder().order(HOLOGRAMS_ORDER)
+            .onChange(changed).availableWhen(anyShown).build());
+    }
+
+    /** Whether any display is placed with a template (otherwise the hologram switch would do nothing). */
+    private boolean anyShown() {
+        for (DisplayDef def : this.entities.displays().values()) {
+            if (def.showable()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Rebuilds the displays from the current file and positions (after a reload or an in-game change). */

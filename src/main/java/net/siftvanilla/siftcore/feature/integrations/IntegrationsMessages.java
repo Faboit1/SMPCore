@@ -159,6 +159,10 @@ public final class IntegrationsMessages {
     // ------------------------------------------------------------------ Bedrock forms
     public static final MessageKey FORM_ACTION = MessageKey.ui("integrations.forms.action");
 
+    // ------------------------------------------------------------------ the rank switch (Privacy settings)
+    public static final MessageKey SETTING_SHOW_RANK = MessageKey.ui("integrations.settings.show-my-rank");
+    public static final MessageKey SETTING_SHOW_RANK_DESCRIPTION = MessageKey.ui("integrations.settings.show-my-rank-description");
+
     private IntegrationsMessages() {
     }
 }

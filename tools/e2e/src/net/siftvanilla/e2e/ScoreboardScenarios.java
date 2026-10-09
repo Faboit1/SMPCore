@@ -15,6 +15,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.contents.PlainTextContents;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.SetResult;
+import net.siftvanilla.siftcore.feature.integrations.IntegrationsFeature;
+import net.siftvanilla.siftcore.feature.scoreboard.ScoreboardFeature;
+import net.siftvanilla.siftcore.feature.scoreboard.SidebarLayout;
 import net.siftvanilla.siftcore.feature.stats.StatsFeature;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -62,6 +67,9 @@ final class ScoreboardScenarios {
         list.add(of("scoreboard-reload", ScoreboardScenarios::reload));
         list.add(of("scoreboard-persist", ScoreboardScenarios::persist));
         list.add(of("scoreboard-yield", ScoreboardScenarios::yieldTo));
+        list.add(of("scoreboard-layout", ScoreboardScenarios::layout));
+        list.add(of("scoreboard-locked", ScoreboardScenarios::locked));
+        list.add(of("scoreboard-hide-rank", ScoreboardScenarios::hideRank));
         return list;
     }
 
@@ -649,5 +657,233 @@ final class ScoreboardScenarios {
         });
         e2e.eventually(() -> bot.displayed("sidebar") != null && "SiftVanilla".equals(bot.displayed("sidebar").displayName().getString())
             && bot.sidebarLines().contains("siftvanilla.net"), "the shipped text is back: " + bot.sidebarLines());
+    }
+
+    // ------------------------------------------------------------------ the player's settings
+
+    /** The fight stats layout as shipped in features/scoreboard.yml. */
+    private static final String COMBAT_LAYOUT = "    combat:\n      - blank\n      - kills\n      - deaths\n      - kdr\n      - streak\n"
+        + "      - bounty\n      - combat\n      - blank\n      - website";
+
+    private static String stored(E2E e2e, UUID player, String setting) {
+        try {
+            return storedSetting(e2e, player, setting);
+        } catch (Exception e) {
+            return "unreadable: " + e;
+        }
+    }
+
+    /**
+     * Sidebar lines (sidebar-layout): the Display group offers everything, a money view and fight stats; a pick in the
+     * dialog redraws the sidebar at once, the API does too, a layout the server empties disappears from the choice
+     * and its players see everything, and the full sidebar again deletes the row.
+     */
+    static void layout(E2E e2e) throws Exception {
+        String name = e2e.name("SbLayout");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        awaitSidebar(e2e, bot);
+        e2e.eventually(() -> bot.sidebarLines().size() == 8, "the full sidebar: " + bot.sidebarLines());
+
+        e2e.step("the Display group offers the three layouts and starts on everything");
+        AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
+        Bot.SeenDialog display = bot.dialog();
+        e2e.expect("choice".equals(display.inputs().get("sidebar_layout")), "the layout is a choice: " + display.inputs());
+        e2e.expect(List.of("full", "compact", "combat").equals(display.options().get("sidebar_layout")),
+            "three layouts: " + display.options().get("sidebar_layout"));
+        e2e.expect("full".equals(display.choiceValue("sidebar_layout")), "everything by default: " + display.choiceValue("sidebar_layout"));
+        e2e.expect(String.join(" ", display.optionLabels().get("sidebar_layout")).contains("Fight stats"),
+            "the options are named: " + display.optionLabels().get("sidebar_layout"));
+        e2e.expect(display.bodyText().contains("Sidebar lines"), "its label: " + display.body());
+        List<String> keys = List.copyOf(display.inputs().keySet());
+        e2e.expect(keys.indexOf("scoreboard") >= 0 && keys.indexOf("scoreboard") < keys.indexOf("sidebar_layout"),
+            "the switch comes before the layout: " + keys);
+
+        e2e.step("picking the money view in the dialog redraws the sidebar at once");
+        Map<String, Object> values = display.values();
+        values.put("sidebar_layout", "compact");
+        bot.clearMessages();
+        e2e.click(bot, "Save", values);
+        e2e.eventually(() -> bot.anyFeedbackContains("Sidebar lines"), "the dialog confirms: " + bot.actionBar() + " " + bot.chat());
+        e2e.eventually(() -> line(bot, "Kills") == null && line(bot, "Money") != null && bot.sidebarLines().size() == 5,
+            "only money, shards and the address: " + bot.sidebarLines());
+        e2e.expect(bot.sidebarLines().get(1).endsWith("Money $0") && bot.sidebarLines().get(2).endsWith("Shards 0")
+            && "siftvanilla.net".equals(bot.sidebarLines().get(4)), "the money view: " + bot.sidebarLines());
+        e2e.eventually(() -> "compact".equals(stored(e2e, id, "sidebar-layout")), "the pick is stored: " + stored(e2e, id, "sidebar-layout"));
+
+        e2e.step("/sidebar preview shows the lines of the layout the player picked");
+        String preview = String.join("\n", output(e2e, "sidebar preview " + name));
+        e2e.expect(preview.contains("Money") && !preview.contains("Kills"), "the preview follows the layout:\n" + preview);
+
+        e2e.step("fight stats with the settings command (/settings display sidebar-layout combat) redraw it at once too");
+        bot.clearLogs();
+        bot.command("settings display sidebar-layout combat");
+        e2e.eventually(() -> "combat".equals(stored(e2e, id, "sidebar-layout")),
+            "/settings display sidebar-layout combat stores it (chat " + bot.chat() + ", action bar " + bot.actionBar() + ")");
+        e2e.eventually(() -> bot.anyFeedbackContains("Sidebar lines"), "the command confirms: " + bot.actionBar() + " " + bot.chat());
+        e2e.eventually(() -> line(bot, "Money") == null && line(bot, "Kills") != null && line(bot, "Deaths") != null
+            && line(bot, "KDR") != null && line(bot, "Streak") != null, "kills, deaths, KDR and streak: " + bot.sidebarLines());
+        e2e.expect(line(bot, "Combat") == null, "the combat line still only shows in combat: " + bot.sidebarLines());
+
+        e2e.step("a layout the server empties is no longer offered and its players see everything");
+        withFile(e2e, "features/scoreboard.yml", Map.of(COMBAT_LAYOUT, "    combat: []"), x -> {
+            e2e.eventually(() -> line(bot, "Money") != null && line(bot, "Kills") != null && bot.sidebarLines().size() == 8,
+                "the full sidebar while fight stats are gone: " + bot.sidebarLines());
+            AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
+            Bot.SeenDialog without = bot.dialog();
+            e2e.expect(List.of("full", "compact").equals(without.options().get("sidebar_layout")),
+                "fight stats are not offered: " + without.options().get("sidebar_layout"));
+            e2e.expect("full".equals(without.choiceValue("sidebar_layout")), "the dialog shows what they see: " + without.choiceValue("sidebar_layout"));
+            e2e.expect("combat".equals(stored(e2e, id, "sidebar-layout")), "their pick is kept for later");
+        });
+        e2e.eventually(() -> line(bot, "Money") == null && line(bot, "Kills") != null, "fight stats are back: " + bot.sidebarLines());
+
+        e2e.step("the full sidebar again deletes the row");
+        SetResult full = e2e.services().settings().set(id, ScoreboardFeature.LAYOUT, SidebarLayout.FULL, Change.api("e2e"));
+        e2e.expect(full == SetResult.CHANGED, "changed: " + full);
+        e2e.eventually(() -> bot.sidebarLines().size() == 8 && bot.sidebarLines().get(1).endsWith("Money $0"), "everything: " + bot.sidebarLines());
+        e2e.eventually(() -> stored(e2e, id, "sidebar-layout") == null, "no row for the default");
+    }
+
+    /**
+     * /sidebar goes through the settings: while features/settings.yml locks or hides the switch it says the server
+     * sets it and changes nothing; the dialog shows the lock as text.
+     */
+    static void locked(E2E e2e) throws Exception {
+        String name = e2e.name("SbLocked");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        awaitSidebar(e2e, bot);
+
+        e2e.step("a server lock keeps the sidebar: /sidebar says so and changes nothing");
+        withFile(e2e, "features/settings.yml", Map.of("hidden: []", "hidden: []\nlocked:\n  scoreboard: true"), x -> {
+            bot.clearLogs();
+            bot.command("sidebar off");
+            e2e.eventually(() -> bot.anyFeedbackContains("Your sidebar is set by the server"), "the refusal: " + bot.actionBar() + " " + bot.chat());
+            bot.clearLogs();
+            bot.command("sidebar");
+            e2e.eventually(() -> bot.anyFeedbackContains("Your sidebar is set by the server"), "a bare /sidebar too: " + bot.actionBar());
+            bot.clearLogs();
+            bot.command("sidebar on");
+            e2e.eventually(() -> bot.anyFeedbackContains("already shown"), "on is what the lock says: " + bot.actionBar());
+            e2e.sleep(1_500);
+            e2e.expect(bot.displayed("sidebar") != null, "the sidebar stays");
+            e2e.expect(stored(e2e, id, "scoreboard") == null, "nothing was stored");
+            AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
+            Bot.SeenDialog page = bot.dialog();
+            e2e.expect(!page.inputs().containsKey("scoreboard"), "no switch for a locked setting: " + page.inputs());
+            e2e.expect(page.bodyText().contains("Sidebar") && page.bodyText().contains("set by the server"),
+                "it is shown as set by the server: " + page.body());
+        });
+
+        e2e.step("a switch the server hides is the server's too");
+        withFile(e2e, "features/settings.yml", Map.of("hidden: []", "hidden: [scoreboard]"), x -> {
+            bot.clearLogs();
+            bot.command("sidebar off");
+            e2e.eventually(() -> bot.anyFeedbackContains("Your sidebar is set by the server"), "the refusal: " + bot.actionBar());
+            e2e.sleep(1_000);
+            e2e.expect(bot.displayed("sidebar") != null, "the sidebar stays");
+        });
+
+        e2e.step("without the lock /sidebar works again");
+        bot.clearLogs();
+        bot.command("sidebar off");
+        e2e.eventually(() -> bot.actionBarContains("Sidebar hidden"), "hidden: " + bot.actionBar());
+        e2e.eventually(() -> bot.displayed("sidebar") == null, "the sidebar is gone at once");
+        bot.command("sidebar on");
+        awaitSidebar(e2e, bot);
+        e2e.eventually(() -> stored(e2e, id, "scoreboard") == null, "on again is the default: no row");
+    }
+
+    /**
+     * Show my rank off (defined by the integrations feature) makes a ranked player look like an ordinary member on
+     * every board: no label in front of the name or in the tab list, the members' team and their tab position. It only
+     * applies while the switch is offered (LuckPerms connected): without LuckPerms a stored "off" hides nothing, since
+     * the player would have no switch to undo it.
+     */
+    static void hideRank(E2E e2e) throws Exception {
+        String alexName = e2e.name("SbHideA");
+        String blakeName = e2e.name("SbHideB");
+        Bot alex = e2e.bot(alexName);
+        Bot blake = e2e.bot(blakeName);
+        UUID alexId = e2e.uuid(alexName);
+        UUID blakeId = e2e.uuid(blakeName);
+        e2e.eventually(() -> blake.teamOf(alexName) != null && blake.teamOf(blakeName) != null, "both are in teams on Blake's board");
+
+        e2e.step("a Baron with the hide-rank node shows the Baron label first");
+        PermissionAttachment[] attachment = new PermissionAttachment[1];
+        e2e.onPlayer(alexName, () -> {
+            attachment[0] = e2e.player(alexName).addAttachment(harness(), "group.baron", true);
+            attachment[0].setPermission("siftcore.settings.hide-rank", true);
+            return null;
+        });
+        try {
+            output(e2e, "sidebar refresh");
+            e2e.eventually(() -> blake.teamOf(alexName) != null && "Baron ".equals(blake.teamOf(alexName).prefix().getString())
+                && blake.listName(alexId) != null && ("Baron " + alexName).equals(blake.listName(alexId).getString()),
+                "Baron in front of Alex: " + blake.teamOf(alexName) + " / " + blake.listName(alexId));
+            e2e.expect(blake.listOrder(alexId) > blake.listOrder(blakeId), "listed above a member");
+
+            var entry = e2e.services().settings().registry().entry(IntegrationsFeature.SHOW_MY_RANK.id());
+            Plugin luckPerms = Bukkit.getPluginManager().getPlugin("LuckPerms");
+            if (luckPerms == null || !luckPerms.isEnabled()) {
+                e2e.step("without LuckPerms the switch is not offered, so a stored off hides nothing on the scoreboard");
+                e2e.expect(!entry.offered(), "not offered without LuckPerms");
+                SetResult off = e2e.services().settings().set(alexId, IntegrationsFeature.SHOW_MY_RANK, false, Change.api("e2e"));
+                e2e.expect(off == SetResult.CHANGED, "stored anyway (as another plugin would): " + off);
+                output(e2e, "sidebar refresh");
+                e2e.sleep(1_500);
+                e2e.expect(blake.teamOf(alexName) != null && "Baron ".equals(blake.teamOf(alexName).prefix().getString())
+                    && ("Baron " + alexName).equals(blake.listName(alexId).getString()),
+                    "the Baron label stays: " + blake.teamOf(alexName) + " / " + blake.listName(alexId));
+                e2e.expect(blake.listOrder(alexId) > blake.listOrder(blakeId), "still listed above a member");
+                SetResult on = e2e.services().settings().set(alexId, IntegrationsFeature.SHOW_MY_RANK, true, Change.api("e2e"));
+                e2e.expect(on == SetResult.CHANGED, "changed back: " + on);
+                e2e.eventually(() -> stored(e2e, alexId, "show-my-rank") == null, "no row for the default");
+                return;
+            }
+            e2e.expect(entry.offered(), "offered while LuckPerms is connected");
+
+            e2e.step("Show my rank off: Alex looks like a member everywhere, without a refresh");
+            SetResult off = e2e.services().settings().set(alexId, IntegrationsFeature.SHOW_MY_RANK, false, Change.api("e2e"));
+            e2e.expect(off == SetResult.CHANGED, "changed: " + off);
+            e2e.eventually(() -> blake.teamOf(alexName) != null && blake.teamOf(alexName).prefix().getString().isEmpty()
+                && blake.teamOf(alexName).name().equals(blake.teamOf(blakeName).name()), "the members' team: " + blake.teamOf(alexName));
+            e2e.eventually(() -> blake.listName(alexId) != null && alexName.equals(blake.listName(alexId).getString()),
+                "a plain tab name: " + blake.listName(alexId));
+            e2e.eventually(() -> blake.listOrder(alexId) == blake.listOrder(blakeId),
+                "the members' tab position: " + blake.listOrder(alexId) + " vs " + blake.listOrder(blakeId));
+            e2e.expect(alex.teamOf(alexName) != null && alex.teamOf(alexName).prefix().getString().isEmpty(), "Alex's own board agrees");
+            e2e.expect("false".equals(stored(e2e, alexId, "show-my-rank")), "the choice is stored");
+
+            e2e.step("without the node the rank shows again (the choice stays stored)");
+            e2e.onPlayer(alexName, () -> {
+                attachment[0].unsetPermission("siftcore.settings.hide-rank");
+                return null;
+            });
+            output(e2e, "sidebar refresh");
+            e2e.eventually(() -> blake.teamOf(alexName) != null && "Baron ".equals(blake.teamOf(alexName).prefix().getString()),
+                "Baron again: " + blake.teamOf(alexName));
+            e2e.expect("false".equals(stored(e2e, alexId, "show-my-rank")), "still stored for when the node comes back");
+
+            e2e.step("with the node back the stored choice applies; on again shows the rank and deletes the row");
+            e2e.onPlayer(alexName, () -> {
+                attachment[0].setPermission("siftcore.settings.hide-rank", true);
+                return null;
+            });
+            output(e2e, "sidebar refresh");
+            e2e.eventually(() -> blake.teamOf(alexName) != null && blake.teamOf(alexName).prefix().getString().isEmpty(),
+                "hidden again: " + blake.teamOf(alexName));
+            SetResult on = e2e.services().settings().set(alexId, IntegrationsFeature.SHOW_MY_RANK, true, Change.api("e2e"));
+            e2e.expect(on == SetResult.CHANGED, "changed: " + on);
+            e2e.eventually(() -> blake.teamOf(alexName) != null && "Baron ".equals(blake.teamOf(alexName).prefix().getString())
+                && ("Baron " + alexName).equals(blake.listName(alexId).getString()), "Baron again: " + blake.listName(alexId));
+            e2e.eventually(() -> stored(e2e, alexId, "show-my-rank") == null, "no row for the default");
+        } finally {
+            e2e.onPlayer(alexName, () -> {
+                e2e.player(alexName).removeAttachment(attachment[0]);
+                return null;
+            });
+        }
     }
 }

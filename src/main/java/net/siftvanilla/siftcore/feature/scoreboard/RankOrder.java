@@ -80,6 +80,16 @@ public record RankOrder(List<Rank> ranks) {
         return new PlayerRank(rank.group(), label.isEmpty() ? rank.label() : label, index);
     }
 
+    /**
+     * How a player who turned {@code show-my-rank} off is shown: exactly like a member of the {@code default} group
+     * (its listed label, team and tab list order), or unranked when {@code default} is not listed. So nothing in the
+     * tab list, nametags or team order tells them apart from an ordinary player.
+     */
+    public PlayerRank hidden() {
+        int index = indexOf("default");
+        return index < 0 ? PlayerRank.NONE : new PlayerRank("default", this.ranks.get(index).label(), index);
+    }
+
     private int indexOf(String group) {
         for (int i = 0; i < this.ranks.size(); i++) {
             if (this.ranks.get(i).group().equals(group)) {

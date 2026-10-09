@@ -24,6 +24,11 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.link.ServerBoosters;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -39,6 +44,7 @@ import net.siftvanilla.siftcore.ui.dialog.FormBridge;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 
@@ -52,8 +58,31 @@ import org.bukkit.plugin.ServicePriority;
  * Each plugin hook is connected in {@link #enable()} only when its plugin is enabled and its setting is on, and is
  * connected or disconnected again when {@code /sift reload} changes the setting. The classes that touch an optional
  * plugin's API are only loaded after that check, so SiftCore runs the same without any of them.
+ * <p>
+ * Players with {@code siftcore.settings.hide-rank} can turn {@link #SHOW_MY_RANK} off (Privacy settings): their rank
+ * label is then left out wherever it comes from {@link #ranks()} (chat, chat cards, join lines, friend profiles, the
+ * rank placeholders, the public API), and the scoreboard leaves it out of the tab list, nametags and sidebar.
  */
 public final class IntegrationsFeature implements Feature {
+
+    /**
+     * Show my rank: off hides the player's rank tag everywhere SiftCore shows it (and in the placeholders other plugins
+     * such as TAB read). Cosmetic only: perks and limits read LuckPerms groups and permissions. Offered while LuckPerms
+     * is connected, to players with {@link SharedSettings#HIDE_RANK_NODE}; read by {@link SwitchableRanks} and by the
+     * scoreboard (both in the display settings package).
+     */
+    public static final Toggle SHOW_MY_RANK = new Toggle("show-my-rank", true, IntegrationsMessages.SETTING_SHOW_RANK,
+        IntegrationsMessages.SETTING_SHOW_RANK_DESCRIPTION, SharedSettings.HIDE_RANK_NODE);
+    /** Its place in the Privacy group (after the shared privacy settings and the big-order switch). */
+    static final int SHOW_MY_RANK_ORDER = 5;
+    /**
+     * The rank placeholders and their descriptions (the registry text behind {@code /sift placeholders} and the
+     * generated docs/placeholders.md). All three read as unranked with {@link #SHOW_MY_RANK} off.
+     */
+    static final Map<String, String> RANK_PLACEHOLDERS = Map.of(
+        "rank", "Your rank as plain text (LuckPerms; empty for the default group or with Show my rank off)",
+        "rank_group", "Your primary LuckPerms group in lowercase (default without LuckPerms or with Show my rank off)",
+        "rank_color", "Your rank's colour as #RRGGBB (the first colour of a gradient), empty without one or with Show my rank off");
 
     /** How a hook stands, for {@code /sift integrations} and the self-test. */
     enum HookState {
@@ -70,7 +99,7 @@ public final class IntegrationsFeature implements Feature {
     private final CombatTags combat;
     private final EconomyApi economy;
     private final Logger logger;
-    private final SwitchableRanks ranks = new SwitchableRanks();
+    private final SwitchableRanks ranks;
     private final StoreService store;
     private final BackupService backups;
     private final AdminTools tools;
@@ -98,6 +127,8 @@ public final class IntegrationsFeature implements Feature {
         this.settings = services.configs().register("features/integrations.yml",
             reader -> IntegrationsSettings.parse(reader, services.core().get().money()), problems);
         services.lang().register(IntegrationsMessages.class);
+        this.ranks = new SwitchableRanks(this::rankShown);
+        registerSettings(services.settings(), this.ranks::connected);
         AdminTools.declare(services.permissions());
         StoreCommands.declare(services.permissions());
         PurchasesView.declare(services.permissions());
@@ -133,6 +164,24 @@ public final class IntegrationsFeature implements Feature {
      */
     public Ranks ranks() {
         return this.ranks;
+    }
+
+    /**
+     * Registers Show my rank in the Privacy group: offered while rank labels come from LuckPerms ({@code connected}),
+     * never exposed as a placeholder (a privacy setting).
+     */
+    static void registerSettings(PlayerSettings settings, java.util.function.BooleanSupplier connected) {
+        settings.register(SettingCategories.PRIVACY, SHOW_MY_RANK, SettingOptions.<Boolean>builder().order(SHOW_MY_RANK_ORDER)
+            .availableWhen(connected).placeholder(false).build());
+    }
+
+    /**
+     * Whether a player shows their rank tag: {@link #SHOW_MY_RANK} with their permission applied for online players
+     * (without the permission they read the default, so losing it shows the rank again). Any thread.
+     */
+    private boolean rankShown(java.util.UUID player) {
+        Player online = Bukkit.getPlayer(player);
+        return online != null ? this.services.settings().get(online, SHOW_MY_RANK) : this.services.settings().get(player, SHOW_MY_RANK);
     }
 
     /** The installed Bedrock form bridge, or null without Floodgate. */
@@ -284,14 +333,15 @@ public final class IntegrationsFeature implements Feature {
 
     private void registerPlaceholders() {
         var placeholders = this.services.placeholders();
-        placeholders.register("rank", "Your rank as plain text (LuckPerms; empty for the default group)",
+        // A player who turned Show my rank off reads as unranked in all three, so a tab list plugin can't give it away.
+        placeholders.register("rank", RANK_PLACEHOLDERS.get("rank"),
             player -> player == null ? "" : this.ranks.label(player.getUniqueId()));
-        placeholders.register("rank_group", "Your primary LuckPerms group in lowercase (default without LuckPerms)",
-            player -> player == null ? "default" : this.ranks.group(player.getUniqueId()));
-        placeholders.register("rank_color", "Your rank's colour as #RRGGBB (the first colour of a gradient), empty without one",
+        placeholders.register("rank_group", RANK_PLACEHOLDERS.get("rank_group"),
+            player -> player == null ? "default" : this.ranks.shownGroup(player.getUniqueId()));
+        placeholders.register("rank_color", RANK_PLACEHOLDERS.get("rank_color"),
             player -> {
                 LuckPermsHook hook = this.luckPerms;
-                return player == null || hook == null ? "" : hook.colorHex(player.getUniqueId());
+                return player == null || hook == null || !this.ranks.shown(player.getUniqueId()) ? "" : hook.colorHex(player.getUniqueId());
             });
     }
 

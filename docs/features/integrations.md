@@ -38,9 +38,9 @@ This feature adds three placeholders:
 
 | Placeholder | Shows |
 |---|---|
-| `%siftcore_rank%` | the rank label as plain text, empty for the default group or without LuckPerms |
-| `%siftcore_rank_group%` | the primary LuckPerms group in lowercase, `default` without LuckPerms |
-| `%siftcore_rank_color%` | the rank's colour as `#RRGGBB` (a gradient's first colour), empty without one |
+| `%siftcore_rank%` | the rank label as plain text, empty for the default group, without LuckPerms or with Show my rank off |
+| `%siftcore_rank_group%` | the primary LuckPerms group in lowercase, `default` without LuckPerms or with Show my rank off |
+| `%siftcore_rank_color%` | the rank's colour as `#RRGGBB` (a gradient's first colour), empty without one or with Show my rank off |
 
 ## LuckPerms
 
@@ -71,6 +71,53 @@ cache too. LuckPerms only holds online players, so offline players have no label
 
 **Store ranks** use the same hook (see Store delivery). Without LuckPerms, rank deliveries are refused cleanly
 ("LuckPerms is not installed, so ranks can't be granted") and nothing is recorded.
+
+### Show my rank
+
+`show-my-rank` (toggle, on by default) is a Privacy setting (5th in the group, after `hide-coordinates`,
+`seen-privacy`, `balance-privacy` and `order-announce-mine`) for players with `siftcore.settings.hide-rank`
+(nobody by default: give it to the rank groups, `/lp group prospector permission set siftcore.settings.hide-rank`).
+It is offered while LuckPerms is connected (rank labels come from it), is never a placeholder (`placeholder(false)`)
+and is read every time a rank is shown, so a change applies at once. While it is not offered (LuckPerms missing, turned
+off with `luckperms.enabled: false` and `/sift reload`, or failing to connect) a choice stored earlier is kept but
+applies nowhere: chat and the placeholders have no rank to hide, and the scoreboard, which can still draw ranks from
+`group.<name>` permissions and its own labels, reads the switch only while it is offered (`Boards.RankPrivacy`), so
+nobody is left hidden without a switch to undo it. It applies again once LuckPerms is back.
+
+Off hides the player's rank tag:
+
+| Where | How |
+|---|---|
+| Public chat (`<rank> <tag> <name>`), chat cards, rank join and leave lines, friend profiles, `RankView#label` of the public API | `ranks().label(uuid)` and `component(player)` are empty for them (`SwitchableRanks`), so every feature that shows ranks through the shared `Ranks` follows without code of its own |
+| `%siftcore_rank%`, `%siftcore_rank_group%`, `%siftcore_rank_color%` | empty, `default` and empty: a tab list plugin such as TAB that builds names from these shows them as an ordinary member |
+| Tab list names and order, nametags, the sidebar's `{rank}` (SiftCore's scoreboard) | the scoreboard shows them exactly like a `default` member (see scoreboard.md) |
+
+It is cosmetic only: `ranks().group(uuid)` and `RankView#group` stay the real group, and perks, friend limits, store
+ranks and permissions read LuckPerms directly. Without the node a player reads the default, so a player who loses
+the node shows their rank again. Offline players have no label anyway (LuckPerms only holds online players). The
+label friends see on the profile of a friend who is offline (or vanished) is the one the friends feature stored while
+they were online: it is written at join and then every 60 seconds (`RankLimits`), so it is empty within a minute of
+turning the switch off. Turning it off and logging out within that minute leaves the old label on that profile until
+the next login. (Refreshing the stored label at quit or on the setting's change event belongs to the friends
+feature.)
+
+Not covered: TAB (or another plugin) configured with LuckPerms' own placeholders (`%luckperms_prefix%`) shows the
+rank anyway; point it at `%siftcore_rank%` for the switch to work there.
+
+**Cosmetic chat tags stay.** The chat tag from `/tags` (cosmetics) is not a rank: it is a perk the player picked and
+can remove themselves at any time (`/tags`, "No tag"). The setting's text names the rank tag, so hiding a purchased
+tag as a side effect would surprise players; `show-my-rank` leaves `/tags` alone.
+
+Tests: `ShowMyRankTest` (group, order, permission, no placeholder, offered only while LuckPerms is connected; the
+label hidden, the group kept, the placeholder group `default`) and the `show-my-rank` e2e scenario with LuckPerms: a
+player in a weighted `Knight` group with the node sees the switch on in the Privacy page, turns it off there, and at
+once chat, the three placeholders, the public API and the scoreboard's tab name show no rank while
+`ranks().group` stays the group; without the node the rank shows again and the choice is kept; with it again the
+choice applies; with `luckperms.enabled: false` and `/sift reload` the switch is not offered and the scoreboard shows
+the rank it reads from `group.prospector` again (the stored choice is kept, not applied), and once the hook is back
+the choice hides the rank again everywhere; on again deletes the row. `ShowMyRankTest` also checks that the
+descriptions of all three rank placeholders (the registry text behind `/sift placeholders` and the generated
+docs/placeholders.md) say they read as unranked with Show my rank off.
 
 ## Bedrock players (Floodgate)
 
@@ -322,7 +369,7 @@ becomes a custom form whose submit and close press the right buttons, a list a s
 
 - Chat takes `integrations.ranks()` in `FeatureCatalog` (the integrations feature is constructed before it); the
   scoreboard and any later feature that shows ranks should do the same. The object never changes, so passing it at
-  construction is enough.
+  construction is enough, and it applies Show my rank for them.
 - Store deliveries name crates by id; buyers see `3 legendary keys`.
 - The feature id is `integrations`; its lang and config files are new, so an existing server gets them on the next
   start.

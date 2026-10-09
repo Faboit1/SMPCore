@@ -172,10 +172,14 @@ clickable and answer `That comes with the Baron rank. Ranks are at /store.`
 | Toggle | Group (place) | Default | Offered | Meaning |
 |---|---|---|---|---|
 | `show-chat-colors` | Chat (11th, after chat's own ten) | on | `enabled: true` | See the colours other players chose for their messages (off: their messages are plain; your own always shows yours) |
-| `show-kill-effects` | Display | on | always | See particles and sounds of kill effects nearby (32 blocks). Off also keeps the lightning effect from striking its bolt anywhere within your view distance |
+| `show-kill-effects` | Display (6th, after the catalog's five display settings) | on | `enabled: true`, `kill-effects.enabled: true` and at least one effect in `kill-effects.effects` | See particles and sounds of kill effects nearby (32 blocks). Off also keeps the lightning effect from striking its bolt anywhere within your view distance. Read where each effect plays, so it applies to the next kill |
 
-The chat colour switch is not shown while the cosmetics feature is off, so it never does nothing. The kill effect
-switch belongs to the Display group, whose package places it.
+Neither switch is shown while what it hides can't happen (the cosmetics feature off, or no kill effects), so neither
+ever does nothing; a choice stored earlier is kept for when they come back. The kill effect switch is placed by the
+display settings package (`CosmeticsFeature.registerKillEffects`, `KillEffectsSettingTest`).
+
+Show my rank (Privacy, integrations feature) does not hide the cosmetic chat tag: a tag from `/tags` is a perk the
+player picked and can take off themselves ("No tag"), not their rank (see integrations.md, "Show my rank").
 
 ## Commands and permissions
 

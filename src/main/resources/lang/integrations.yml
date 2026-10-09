@@ -150,3 +150,8 @@ integrations:
 
   forms:
     action: "Action"
+
+  # The switch in /settings (Privacy group), for players with siftcore.settings.hide-rank.
+  settings:
+    show-my-rank: "Show my rank"
+    show-my-rank-description: "Show your rank tag next to your name in chat, the tab list, nametags and placeholders."

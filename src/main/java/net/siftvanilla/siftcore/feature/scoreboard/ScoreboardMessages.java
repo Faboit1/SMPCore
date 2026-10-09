@@ -69,12 +69,19 @@ public final class ScoreboardMessages {
 
     public static final MessageKey TOGGLE_LABEL = MessageKey.ui("scoreboard.toggle.label");
     public static final MessageKey TOGGLE_DESCRIPTION = MessageKey.ui("scoreboard.toggle.description");
+    public static final MessageKey LAYOUT_LABEL = MessageKey.ui("scoreboard.layout.label");
+    public static final MessageKey LAYOUT_DESCRIPTION = MessageKey.ui("scoreboard.layout.description");
+    public static final MessageKey LAYOUT_FULL = MessageKey.ui("scoreboard.layout.full");
+    public static final MessageKey LAYOUT_COMPACT = MessageKey.ui("scoreboard.layout.compact");
+    public static final MessageKey LAYOUT_COMBAT = MessageKey.ui("scoreboard.layout.combat");
     public static final MessageKey SHOWN = MessageKey.success("scoreboard.shown");
     public static final MessageKey HIDDEN = MessageKey.success("scoreboard.hidden");
     public static final MessageKey ALREADY_SHOWN = MessageKey.info("scoreboard.already-shown");
     public static final MessageKey ALREADY_HIDDEN = MessageKey.info("scoreboard.already-hidden");
     public static final MessageKey OFF_ON_SERVER = MessageKey.error("scoreboard.off-on-server");
     public static final MessageKey YIELDED = MessageKey.error("scoreboard.yielded", "plugin");
+    /** /sidebar while the server locks or hides the switch (features/settings.yml). */
+    public static final MessageKey FIXED = MessageKey.error("scoreboard.fixed");
 
     // ------------------------------------------------------------------ parts (for the staff status)
 

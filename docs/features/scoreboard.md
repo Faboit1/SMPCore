@@ -2,7 +2,7 @@
 
 The sidebar on the right of the screen, the tab list (header, footer, names and order) and rank labels above heads.
 Package `feature/scoreboard`, config `features/scoreboard.yml`, text `lang/scoreboard.yml`. No tables: the only
-stored state is each player's `scoreboard` setting (the core `settings` table).
+stored state is each player's `scoreboard` and `sidebar-layout` settings (the core `settings` table).
 
 | Part | What players see |
 |---|---|
@@ -19,19 +19,40 @@ It is connected to:
 | `CombatTags` (core, shared with combat) | `{combat}`: seconds of combat left; the optional combat line only shows in combat |
 | `VanishStatus` (staff, `StaffFeature#vanish()`) | `{online}` leaves vanished staff out; vanished staff are in no nametag team |
 | `AfkStatus` (afk, `AfkFeature#status()`) and `AfkStatusChangeEvent` | The AFK marker in the tab list, set at once when a player goes AFK or comes back |
-| `core.integration.Ranks` (`Ranks.NONE` until the integrations feature is wired) | Rank labels and primary groups; until then ranks come from the LuckPerms group permissions (below) |
-| The settings dialog (settings feature) | The `scoreboard` switch in its own Display group (`/settings display`, `ScoreboardFeature.DISPLAY`); a change there applies at the next refresh |
+| `core.integration.Ranks` (`IntegrationsFeature#ranks()`, `Ranks.NONE` until LuckPerms is connected) | Rank labels and primary groups; without LuckPerms ranks come from the group permissions (below) |
+| The settings (`PlayerSettings`, shared Display group) | The `scoreboard` switch and the `sidebar-layout` choice (below), both applied at once; `show-my-rank` (Privacy, defined by the integrations feature) for the rank shown in the tab list, nametags and `{rank}` |
 | `Placeholders` (core registry) | Every other `{name}`: any feature's placeholder (`{balance}`, `{shards}`, `{keyall_countdown}`, `{bounty_total}`, `{team_online}`, `{stats_kdr}` ...) |
 
 ## Commands and permissions
 
 | Command | Permission (default) | What it does |
 |---|---|---|
-| `/sidebar` (`/sb`) | `siftcore.command.sidebar` (everyone) | Hides the sidebar, or shows it again. Applied at once and remembered across sessions (the `scoreboard` setting, also in the settings menu) |
+| `/sidebar` (`/sb`) | `siftcore.command.sidebar` (everyone) | Hides the sidebar, or shows it again. Applied at once and remembered across sessions (the `scoreboard` setting, also in the settings menu). Goes through the settings: while `features/settings.yml` locks or hides the switch it answers "Your sidebar is set by the server." and changes nothing. It is the feature's own switch flip (`Change.feature()`, like `/msgtoggle`), which a `SettingChangeEvent` listener can't cancel, so there is no "couldn't be changed" answer |
 | `/sidebar on`, `/sidebar off` | same | Shows or hides it explicitly ("already shown/hidden" when nothing changes) |
 | `/sidebar refresh` | `siftcore.admin.scoreboard` (op) | Reads every rank again and resends every sidebar, the tab list and the nametag teams now (after rank changes in LuckPerms). Console too |
 | `/sidebar status` | same | Players, sidebars shown, hidden by the player, nametag teams, boards waiting for their player, how long the last refresh took, and which parts other plugins show. Console too |
-| `/sidebar preview <player>` | same | The lines that player's sidebar shows right now, as chat lines (console too); says when they hid it |
+| `/sidebar preview <player>` | same | The lines that player's sidebar shows right now in the layout they picked, as chat lines (console too); says when they hid it |
+
+## Player settings
+
+| Id | Kind | Group (place) | Offered | What it does |
+|---|---|---|---|---|
+| `scoreboard` | toggle, on | Display (1st) | while SiftCore draws the sidebar: `sidebar.enabled: true` and no `sidebar.yield-to` plugin (TAB) runs | Sidebar: show your money and stats on the right of the screen. Applied at once (the change hook redraws that player's sidebar on the global thread); `/sidebar` sets the same switch |
+| `sidebar-layout` | choice `full` (Everything) / `compact` (Money) / `combat` (Fight stats), default `full` | Display (3rd) | like `scoreboard`, and while a layout besides the full sidebar has lines; each option only while its `sidebar.layouts.<id>` list has lines | Which lines your sidebar shows. Applied at once: a board remembers the layout it was built for and is rebuilt (objective resent) for another one. A player whose layout the server emptied reads `full` |
+
+`show-my-rank` (Privacy, `siftcore.settings.hide-rank`) is defined by the integrations feature
+([integrations.md](integrations.md#show-my-rank)). The scoreboard applies it itself: a player who turned it off is
+shown exactly like a member of the `default` group (`RankOrder#hidden`: its listed label, which is empty on the live
+server, its nametag team and its tab list order), so neither the label, the team order nor the tab position gives
+the rank away; `{rank}` is empty and the `rank` line is left out. The choice is read lock-free on the global thread
+at every refresh; when it changes, that player's rank is read again on their thread at once (permissions included),
+otherwise ranks are read every `ranks.refresh`. Without the node a player reads the default (shown), so losing the
+node shows the rank again at the next rank read. The choice only applies while the settings offer the switch
+(LuckPerms connected, the same condition as chat and the placeholders): without the LuckPerms hook the scoreboard
+still draws ranks from `group.<name>` permissions and the labels in `ranks.order`, but a choice stored earlier is
+ignored, because the player has no switch to undo it; it applies again once LuckPerms is back. The scoreboard looks
+the setting up in the settings registry by its id (`ScoreboardFeature.SHOW_MY_RANK_ID`) instead of importing the
+integrations feature's constant; `RankPrivacyTest` keeps the two ids equal.
 
 `/scoreboard` is not used: it is the vanilla command and stays available to operators. Vanilla `/team` and
 `/scoreboard objectives` still work on the main scoreboard, but players look at their own board, so changes there
@@ -67,7 +88,9 @@ provides shows `-` (the self-test reports it). A value is cut at 48 characters a
 |---|---|---|
 | `sidebar.enabled` | `true` | Sidebar for everyone; `false` removes it (tab list and nametags keep working) |
 | `sidebar.refresh` | `1s` | Refresh period of the lines (250ms-1m) |
-| `sidebar.lines` | blank, balance, shards, booster, kills, deaths, playtime, team, blank, website | Lines top to bottom (at most 15): line names from `lang/scoreboard.yml` or `blank` |
+| `sidebar.lines` | blank, balance, shards, booster, kills, deaths, playtime, team, blank, website | Lines top to bottom (at most 15): line names from `lang/scoreboard.yml` or `blank`. The full sidebar, which everyone sees by default |
+| `sidebar.layouts.compact` | blank, balance, shards, booster, blank, website | The short money view players can pick (`sidebar-layout`); same rules as `lines`; `[]` takes it out of the settings |
+| `sidebar.layouts.combat` | blank, kills, deaths, kdr, streak, bounty, combat, blank, website | The fight stats players can pick; `[]` takes it out of the settings |
 | `tab.enabled` | `true` | Header and footer; `false` clears them |
 | `tab.refresh` | `5s` | Header and footer refresh period (1s-5m) |
 | `tab.names` | `true` | "Rank Name" in the tab list, higher ranks first; `false` restores plain names |
@@ -85,7 +108,8 @@ With both `sidebar.enabled` and `nametags.enabled` off, players are put back on 
 
 Everything applies with `/sift reload`: lines, title and text rebuild every sidebar, ranks are read again, and the
 refresh timer is rescheduled when its period changes. Unknown line names, more than 15 lines, bad durations, group
-names that are not LuckPerms names and labels with formatting are reported precisely and the defaults are kept.
+names that are not LuckPerms names and labels with formatting are reported precisely and the defaults are kept (for a
+layout: that layout's shipped lines). A key under `sidebar.layouts` other than `compact` and `combat` is reported.
 
 ### Other plugins (TAB)
 
@@ -176,7 +200,12 @@ every board. Players get no quit event at shutdown, so nothing else is needed.
   lines (`LineTemplateTest`); line diffing, entries and scores (`SidebarLinesTest`); the nametag model and team diff
   (`NametagTest`); rank resolution and tab order (`RankOrderTest`); the scoreboard's own placeholders
   (`ValuesTest`); the shipped config and text, mistakes in the config, rendering and the writing rules
-  (`ScoreboardResourcesTest`).
+  (`ScoreboardResourcesTest`); the player settings (`ScoreboardPlayerSettingsTest`): the layouts from the config and
+  their mistakes, group, order, instant apply and offering of the switch and the layout, an emptied layout's pickers,
+  the `/sidebar` steps and answers (locks, hidden, not registered), and a hidden rank looking like a member (same team
+  and tab position); how Show my rank is read (`RankPrivacyTest`): a stored "off" hides the rank only while the switch
+  is offered (not with LuckPerms disconnected, and again once it is back), the permission and the server's `hidden`
+  list still decide, and the scoreboard's id is the integrations feature's.
 - End to end (`tools/e2e/.../ScoreboardScenarios.java`, the bot records objective, display slot, score, reset,
   team, tab list header/footer and player info packets):
   - `scoreboard-sidebar`: objective in the sidebar slot, blank number format, plain white title, every line with
@@ -200,4 +229,18 @@ every board. Players get no quit event at shutdown, so nothing else is needed.
   - `scoreboard-yield`: with the harness plugin standing in for TAB in every `yield-to`, the client loses the sidebar
     objective, SiftCore's teams, the tab name and the header; `/sidebar` and the status name the plugin; the
     self-test has no failures; without it everything comes back.
+  - `scoreboard-layout`: the Display group offers full/compact/combat after the switch; Money in the dialog redraws
+    the sidebar at once to money, shards and the address and stores `compact`; `/sidebar preview` follows; fight stats
+    with `/settings display sidebar-layout combat` (the settings command) redraw it at once too; `combat: []` in the
+    config takes the option away and the player sees everything (their pick is kept and comes back with the config);
+    full again deletes the row.
+  - `scoreboard-locked`: with `locked: scoreboard: true` in features/settings.yml, `/sidebar off` and `/sidebar` answer
+    "Your sidebar is set by the server." and change nothing, and the dialog shows the lock as text; the same with
+    `hidden: [scoreboard]`; without them `/sidebar off` works again.
+  - `scoreboard-hide-rank`: a Baron (group permission) with `siftcore.settings.hide-rank` turns Show my rank off
+    through the API. With LuckPerms connected (the switch offered): within a refresh the other client shows them in
+    the members' team without a prefix, with a plain tab name and the members' tab position; without the node the
+    Baron label is back (the choice stays stored); with it again the stored choice applies; on again deletes the row.
+    Without LuckPerms the switch is not offered and the stored off changes nothing: the Baron label, team and tab
+    position stay.
 - Needs a real client to judge: how the icons and colours look in the sidebar, tab list and above heads.

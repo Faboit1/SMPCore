@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
@@ -18,7 +19,9 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.Registry;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.scheduler.Task;
@@ -63,11 +66,47 @@ final class Boards {
         static final TabName RESEND = new TabName("", false, -1, -1);
     }
 
+    /**
+     * The {@code show-my-rank} setting as the scoreboard reads it.
+     *
+     * @param shown  whether a player shows their rank, with their permission applied (on the player's thread, where
+     *               ranks are read)
+     * @param chosen the player's choice alone, read lock-free on the global thread every refresh to notice a change
+     *               at once (the rank is then read again on the player's thread)
+     */
+    record RankPrivacy(Predicate<Player> shown, Predicate<UUID> chosen) {
+
+        /**
+         * Reads the toggle registered under {@code id} (the integrations feature's {@code show-my-rank}), looked up in
+         * the settings registry so the scoreboard needs no other feature's constant. It only applies while the
+         * settings offer it: a choice stored while it was offered (LuckPerms connected) is ignored once it is not, the
+         * same condition under which chat and the rank placeholders stop applying it, because the player then has no
+         * switch to turn it back on. Without the setting everyone shows their rank. Lock-free; any thread.
+         */
+        static RankPrivacy of(PlayerSettings settings, String id) {
+            return new RankPrivacy(player -> {
+                Toggle toggle = offered(settings, id);
+                return toggle == null || settings.get(player, toggle);
+            }, player -> {
+                Toggle toggle = offered(settings, id);
+                return toggle == null || settings.get(player, toggle);
+            });
+        }
+
+        /** The toggle with this id while the settings offer it, else null. */
+        static Toggle offered(PlayerSettings settings, String id) {
+            Registry.Entry<?> entry = settings.registry().entry(id);
+            return entry != null && entry.offered() && entry.setting() instanceof Toggle toggle ? toggle : null;
+        }
+    }
+
     /** One player's own scoreboard. */
     private static final class Board {
         final Scoreboard scoreboard;
         Objective sidebar;
         SidebarLines lines;
+        /** The layout the sidebar was built for: another one rebuilds it. */
+        SidebarLayout layout;
         long linesEpoch = -1;
         Component title;
         List<?>[] lastValues;
@@ -85,7 +124,10 @@ final class Boards {
         final UUID id;
         final String name;
         final long joinedAt;
+        /** The rank as shown: an ordinary member's ({@link RankOrder#hidden()}) for a player who hides theirs. */
         RankOrder.PlayerRank rank;
+        /** The player's show-my-rank choice when the rank was last read (global thread). */
+        boolean rankChoice = true;
         boolean vanished;
         Board board;
         /** The player uses {@link #board} (their thread confirmed it). */
@@ -136,6 +178,8 @@ final class Boards {
     private final Setting<ScoreboardSettings> settings;
     private final PlayerSettings playerSettings;
     private final Toggle toggle;
+    private final Choice<SidebarLayout> layout;
+    private final RankPrivacy rankPrivacy;
     private final Texts texts;
     private final Values values;
     private final Ranks ranks;
@@ -158,12 +202,15 @@ final class Boards {
     private final Map<UUID, Long> joined = new ConcurrentHashMap<>();
     private volatile Status status = Status.EMPTY;
 
-    Boards(Scheduler scheduler, Setting<ScoreboardSettings> settings, PlayerSettings playerSettings, Toggle toggle, Texts texts,
-           Values values, Ranks ranks, AfkStatus afk, VanishStatus vanish, TextStyle style, Logger logger) {
+    Boards(Scheduler scheduler, Setting<ScoreboardSettings> settings, PlayerSettings playerSettings, Toggle toggle,
+           Choice<SidebarLayout> layout, RankPrivacy rankPrivacy, Texts texts, Values values, Ranks ranks, AfkStatus afk,
+           VanishStatus vanish, TextStyle style, Logger logger) {
         this.scheduler = scheduler;
         this.settings = settings;
         this.playerSettings = playerSettings;
         this.toggle = toggle;
+        this.layout = layout;
+        this.rankPrivacy = rankPrivacy;
         this.texts = texts;
         this.values = values;
         this.ranks = ranks;
@@ -204,11 +251,38 @@ final class Boards {
         return this.playerSettings.enabled(player, this.toggle);
     }
 
+    /** The layout the player picked (an option the server no longer offers reads as the default). Any thread. */
+    SidebarLayout layoutOf(UUID player) {
+        return this.playerSettings.get(player, this.layout);
+    }
+
+    /** The player's show-my-rank choice, lock-free. Any thread. */
+    private boolean rankChoice(UUID player) {
+        try {
+            return this.rankPrivacy.chosen().test(player);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
     // ------------------------------------------------------------------ ranks and tab names (player thread)
 
-    /** The player's rank. Reads the player's permissions: call it on the player's thread. */
+    /**
+     * The player's rank as the scoreboard shows it: while they hide it with {@code show-my-rank}, the rank of an
+     * ordinary member ({@link RankOrder#hidden()}), so neither a label, the nametag team nor the tab list order gives
+     * it away. Reads the player's permissions: call it on the player's thread.
+     */
     private RankOrder.PlayerRank rankOf(Player player) {
         RankOrder order = this.settings.get().ranks();
+        boolean shown;
+        try {
+            shown = this.rankPrivacy.shown().test(player);
+        } catch (RuntimeException e) {
+            shown = true;
+        }
+        if (!shown) {
+            return order.hidden();
+        }
         String label;
         String group;
         try {
@@ -245,6 +319,7 @@ final class Boards {
     void join(Player player) {
         long now = System.currentTimeMillis();
         this.joined.put(player.getUniqueId(), now);
+        boolean choice = rankChoice(player.getUniqueId());
         RankOrder.PlayerRank rank = rankOf(player);
         TabName tabName;
         try {
@@ -254,7 +329,7 @@ final class Boards {
             tabName = null;
         }
         TabName applied = tabName;
-        this.scheduler.global(() -> attach(player, rank, applied, now));
+        this.scheduler.global(() -> attach(player, rank, choice, applied, now));
     }
 
     /** A player left (on their thread): drop their board and take them out of everyone's teams. */
@@ -263,7 +338,7 @@ final class Boards {
         this.scheduler.global(() -> detach(player));
     }
 
-    private void attach(Player player, RankOrder.PlayerRank rank, TabName tabName, long joinedAt) {
+    private void attach(Player player, RankOrder.PlayerRank rank, boolean rankChoice, TabName tabName, long joinedAt) {
         if (!player.isOnline()) {
             return;
         }
@@ -274,6 +349,7 @@ final class Boards {
         refreshTexts();
         Viewer viewer = new Viewer(player, rank, tabName == null ? null : new TabName(tabName.label(), tabName.away(), tabName.order(),
             this.texts.epoch()), joinedAt);
+        viewer.rankChoice = rankChoice;
         this.viewers.put(viewer.id, viewer);
         ScoreboardSettings settings = current();
         int online = visibleOnline();
@@ -328,6 +404,14 @@ final class Boards {
             }
             viewer.vanished = this.vanish.vanished(viewer.id);
             updateMembership(viewer, settings);
+            boolean choice = rankChoice(viewer.id);
+            if (choice != viewer.rankChoice) {
+                // Show my rank changed: read this player's rank again now instead of at the next rank refresh.
+                viewer.rankChoice = choice;
+                if (!ranksDue) {
+                    readRank(viewer);
+                }
+            }
         }
         if (ranksDue) {
             readRanks();
@@ -547,12 +631,16 @@ final class Boards {
      */
     private void readRanks() {
         for (Viewer viewer : this.viewers.values()) {
-            Player player = viewer.player;
-            this.scheduler.entity(player, () -> {
-                RankOrder.PlayerRank rank = rankOf(player);
-                this.scheduler.global(() -> rankRead(viewer, rank));
-            }, null);
+            readRank(viewer);
         }
+    }
+
+    private void readRank(Viewer viewer) {
+        Player player = viewer.player;
+        this.scheduler.entity(player, () -> {
+            RankOrder.PlayerRank rank = rankOf(player);
+            this.scheduler.global(() -> rankRead(viewer, rank));
+        }, null);
     }
 
     private void rankRead(Viewer viewer, RankOrder.PlayerRank rank) {
@@ -666,9 +754,11 @@ final class Boards {
             this.sidebars.remove(viewer.id);
             return;
         }
-        List<String> names = settings.lines();
+        SidebarLayout layout = layoutOf(viewer.id);
+        List<String> names = settings.lines(layout);
         long epoch = this.texts.epoch();
-        boolean rebuild = board.sidebar == null || board.lines == null || board.lines.size() != names.size() || board.linesEpoch != epoch;
+        boolean rebuild = board.sidebar == null || board.lines == null || board.lines.size() != names.size() || board.linesEpoch != epoch
+            || board.layout != layout;
         if (rebuild) {
             if (board.sidebar != null) {
                 board.sidebar.unregister();
@@ -680,6 +770,7 @@ final class Boards {
             board.lines = new SidebarLines(names.size());
             board.lastValues = new List<?>[names.size()];
             board.linesEpoch = epoch;
+            board.layout = layout;
             applyLines(board, render(viewer, board, names, online));
             // Displaying it last sends the objective and every line together.
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
@@ -730,14 +821,14 @@ final class Boards {
         }
     }
 
-    /** What a player's sidebar would show right now, top to bottom (for /sidebar preview). */
+    /** What a player's sidebar would show right now in the layout they picked, top to bottom (for /sidebar preview). */
     List<Component> preview(UUID player) {
         Viewer viewer = this.viewers.get(player);
         if (viewer == null) {
             return null;
         }
         refreshTexts();
-        List<Component> lines = render(viewer, null, this.settings.get().lines(), visibleOnline());
+        List<Component> lines = render(viewer, null, this.settings.get().lines(layoutOf(player)), visibleOnline());
         List<Component> shown = new ArrayList<>(lines.size());
         for (Component line : lines) {
             if (line != null) {

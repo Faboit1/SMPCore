@@ -10,8 +10,11 @@ import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.SetResult;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -24,6 +27,11 @@ final class ScoreboardCommands {
 
     static final String USE = "siftcore.command.sidebar";
     static final String ADMIN = "siftcore.admin.scoreboard";
+    /**
+     * How {@code /sidebar} changes the switch: the feature's own flip, like {@code /msgtoggle} (see {@link Change.Cause}),
+     * which a {@code SettingChangeEvent} listener can't cancel.
+     */
+    static final Change CHANGE = Change.feature();
 
     private final Services services;
     private final Setting<ScoreboardSettings> settings;
@@ -54,30 +62,69 @@ final class ScoreboardCommands {
         return this.services.messenger();
     }
 
-    /** Turns the player's sidebar on, off, or to the other state; applied at once. */
+    /** What {@code /sidebar [on|off]} does, worked out before anything changes. */
+    enum Step {
+        /** Another plugin shows the sidebar. */
+        YIELDED,
+        /** features/scoreboard.yml turns the sidebar off. */
+        OFF_ON_SERVER,
+        ALREADY_SHOWN,
+        ALREADY_HIDDEN,
+        /** Change the switch to the wanted state. */
+        CHANGE
+    }
+
+    /**
+     * The step for a {@code /sidebar} with {@code wanted} (null flips it) while the player's switch reads {@code now}.
+     * Pure.
+     */
+    static Step step(boolean configured, boolean yielded, boolean now, Boolean wanted) {
+        if (configured && yielded) {
+            return Step.YIELDED;
+        }
+        if (!configured) {
+            return Step.OFF_ON_SERVER;
+        }
+        if (wanted != null && wanted == now) {
+            return now ? Step.ALREADY_SHOWN : Step.ALREADY_HIDDEN;
+        }
+        return Step.CHANGE;
+    }
+
+    /**
+     * What the player is told after asking for {@code on}: shown or hidden when the switch now is what they asked for,
+     * else that the server sets it (locked or hidden in features/settings.yml, or not offered). {@code /sidebar} is a
+     * feature's own switch flip ({@link #CHANGE}), which listeners can't cancel, so those are the only outcomes. Pure.
+     */
+    static MessageKey outcome(SetResult result, boolean on) {
+        if (result.succeeded()) {
+            return on ? ScoreboardMessages.SHOWN : ScoreboardMessages.HIDDEN;
+        }
+        return ScoreboardMessages.FIXED;
+    }
+
+    /**
+     * Turns the player's sidebar on, off, or to the other state through the settings (so a server lock or a hidden
+     * switch is respected); the switch's change hook redraws the sidebar at once.
+     */
     private int switchSidebar(CommandContext<CommandSourceStack> ctx, Boolean wanted) {
         Player player = this.services.commands().player(ctx);
         if (player == null) {
             return CommandSupport.OK;
         }
         ScoreboardSettings.Yielded yielded = this.boards.yielded();
-        if (yielded.sidebar() != null && this.settings.get().sidebarEnabled()) {
-            messenger().send(player, ScoreboardMessages.YIELDED, Arg.text("plugin", yielded.sidebar()));
-            return CommandSupport.OK;
+        boolean now = this.services.settings().get(player, this.toggle);
+        switch (step(this.settings.get().sidebarEnabled(), yielded.sidebar() != null, now, wanted)) {
+            case YIELDED -> messenger().send(player, ScoreboardMessages.YIELDED, Arg.text("plugin", yielded.sidebar()));
+            case OFF_ON_SERVER -> messenger().send(player, ScoreboardMessages.OFF_ON_SERVER);
+            case ALREADY_SHOWN -> messenger().send(player, ScoreboardMessages.ALREADY_SHOWN);
+            case ALREADY_HIDDEN -> messenger().send(player, ScoreboardMessages.ALREADY_HIDDEN);
+            case CHANGE -> {
+                boolean on = wanted == null ? !now : wanted;
+                SetResult result = this.services.settings().set(player, this.toggle, on, CHANGE);
+                messenger().send(player, outcome(result, on));
+            }
         }
-        if (!this.settings.get().sidebarEnabled()) {
-            messenger().send(player, ScoreboardMessages.OFF_ON_SERVER);
-            return CommandSupport.OK;
-        }
-        boolean now = this.services.settings().enabled(player.getUniqueId(), this.toggle);
-        boolean on = wanted == null ? !now : wanted;
-        if (on == now && wanted != null) {
-            messenger().send(player, on ? ScoreboardMessages.ALREADY_SHOWN : ScoreboardMessages.ALREADY_HIDDEN);
-            return CommandSupport.OK;
-        }
-        this.services.settings().set(player.getUniqueId(), this.toggle, on);
-        this.services.scheduler().global(() -> this.boards.refreshPlayer(player.getUniqueId()));
-        messenger().send(player, on ? ScoreboardMessages.SHOWN : ScoreboardMessages.HIDDEN);
         return CommandSupport.OK;
     }
 

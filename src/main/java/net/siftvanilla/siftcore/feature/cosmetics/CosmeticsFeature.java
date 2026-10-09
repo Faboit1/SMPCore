@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.cosmetics;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
@@ -16,6 +17,7 @@ import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.link.TextChecks;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
 import net.siftvanilla.siftcore.core.player.SettingOptions;
@@ -54,6 +56,8 @@ public final class CosmeticsFeature implements Feature {
 
     /** The chat colour switch's place in the Chat group: after chat's ten settings. */
     static final int CHAT_COLORS_ORDER = 11;
+    /** The kill effect switch's place in the Display group: after the catalog's five display settings. */
+    static final int KILL_EFFECTS_ORDER = 6;
 
     private static final Duration SWEEP = Duration.ofMinutes(2);
     private static final UUID SELF_TEST_PLAYER = new UUID(0L, 7L);
@@ -83,16 +87,27 @@ public final class CosmeticsFeature implements Feature {
         // Offered while the server has chat colours: the chat colour switch after chat's own settings.
         services.settings().register(chatCategory == null ? SettingCategories.CHAT : chatCategory, CHAT_COLORS,
             SettingOptions.<Boolean>builder().order(CHAT_COLORS_ORDER).availableWhen(() -> this.settings.get().enabled()).build());
-        if (displayCategory != null) {
-            services.settings().register(displayCategory, KILL_EFFECTS);
-        } else {
-            services.settings().register(KILL_EFFECTS);
-        }
+        registerKillEffects(services.settings(), displayCategory, this.settings::get);
         this.profiles = new Profiles(services.database(), services.plugin().getLogger());
         this.service = new CosmeticsService(services, this.settings, this.profiles, ranks, checks, spawn, CHAT_COLORS, KILL_EFFECTS);
         CosmeticsActions actions = new CosmeticsActions(services, this.service, combat);
         this.dialogs = new CosmeticsDialogs(services, this.service, actions);
         this.commands = new CosmeticsCommands(services, this.service, actions, this.dialogs);
+    }
+
+    /**
+     * Registers the kill effect switch in the Display group (the display settings package places it). It is offered
+     * only while kill effects can play at all: the feature and {@code kill-effects} on, with at least one effect
+     * players can pick. Read where an effect plays ({@link CosmeticsService}), so it applies to the next kill.
+     */
+    static void registerKillEffects(PlayerSettings settings, SettingCategory display, Supplier<CosmeticsSettings> current) {
+        settings.register(display == null ? SettingCategories.DISPLAY : display, KILL_EFFECTS, SettingOptions.<Boolean>builder()
+            .order(KILL_EFFECTS_ORDER).availableWhen(() -> killEffectsPlay(current.get())).build());
+    }
+
+    /** Whether kill effects can play with these settings. */
+    static boolean killEffectsPlay(CosmeticsSettings settings) {
+        return settings.enabled() && settings.killEffects().enabled() && !settings.killEffects().effects().isEmpty();
     }
 
     @Override

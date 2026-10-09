@@ -45,6 +45,10 @@ public final class DisplaysMessages {
     public static final MessageKey DELETE_BUTTON = MessageKey.ui("displays.delete.button");
     public static final MessageKey RESET_BUTTON = MessageKey.ui("displays.delete.reset-button");
 
+    /** The player's switch in /settings (Display group). */
+    public static final MessageKey SETTING_LABEL = MessageKey.ui("displays.setting.label");
+    public static final MessageKey SETTING_DESCRIPTION = MessageKey.ui("displays.setting.description");
+
     private DisplaysMessages() {
     }
 }

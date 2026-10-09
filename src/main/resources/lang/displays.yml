@@ -48,3 +48,7 @@ displays:
       - "<secondary>It is hidden until it is placed again."
     button: "Delete"
     reset-button: "Remove"
+  # The player's switch in /settings (Display group).
+  setting:
+    label: "Spawn holograms"
+    description: "Show the floating leaderboards and info boards at spawn. Hiding them helps screenshots and slow PCs."

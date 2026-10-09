@@ -1,13 +1,22 @@
 package net.siftvanilla.e2e;
 
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.world.entity.Display;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.SetResult;
+import net.siftvanilla.siftcore.feature.cosmetics.CosmeticsFeature;
+import org.bukkit.Bukkit;
 
 /**
  * Spawn leaderboards and info boards: what a client near a display receives (the text display entity and its
@@ -39,6 +48,8 @@ final class DisplaysScenarios {
         list.add(of("displays-text", DisplaysScenarios::text));
         list.add(of("displays-click", DisplaysScenarios::click));
         list.add(of("displays-admin", DisplaysScenarios::admin));
+        list.add(of("displays-hide", DisplaysScenarios::hide));
+        list.add(of("display-settings", DisplaysScenarios::group));
         return list;
     }
 
@@ -263,5 +274,157 @@ final class DisplaysScenarios {
             e2e.console("displays delete " + board + " confirm");
             e2e.console("deop " + name);
         }
+    }
+
+    // ------------------------------------------------------------------ the player's switch
+
+    /**
+     * Spawn holograms off (show-spawn-holograms): a player who turns it off in the Display settings loses every display
+     * and its click box at once while others keep them, gets none placed meanwhile or after rejoining, and sees them
+     * all again when it is back on ({@code /settings display show-spawn-holograms on}).
+     */
+    static void hide(E2E e2e) {
+        String name = e2e.name("Holo");
+        String otherName = e2e.name("HoloSee");
+        String board = board(e2e, "dhide");
+        String second = board(e2e, "dhide2");
+        Bot bot = e2e.bot(name);
+        Bot other = e2e.bot(otherName);
+        UUID id = e2e.uuid(name);
+        e2e.console("tp " + otherName + " " + name);
+        String world = world(e2e, name);
+        double x = bot.x() + 2;
+        double secondX = bot.x() - 2;
+        double y = bot.y();
+        double z = bot.z();
+        try {
+            e2e.step("a leaderboard with a click box arrives for both players");
+            e2e.console("displays create " + board + " richest " + at(world, x, y, z));
+            e2e.eventually(() -> textDisplay(bot, x, z, "Richest players") != null && interaction(bot, x, z) != null,
+                "the text and the click box arrive: " + bot.entities());
+            e2e.eventually(() -> textDisplay(other, x, z, "Richest players") != null, "the other player gets it too: " + other.entities());
+            int text = textDisplay(bot, x, z, "Richest players").id();
+            int box = interaction(bot, x, z).id();
+
+            e2e.step("turning Spawn holograms off in the Display settings removes both entities at once");
+            AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
+            Bot.SeenDialog page = bot.dialog();
+            e2e.expect("toggle".equals(page.inputs().get("show_spawn_holograms")), "the switch: " + page.inputs());
+            e2e.expect(Boolean.TRUE.equals(page.toggleValue("show_spawn_holograms")), "on by default");
+            e2e.expect(page.bodyText().contains("Spawn holograms"), "its label: " + page.body());
+            Map<String, Object> values = page.values();
+            values.put("show_spawn_holograms", false);
+            bot.clearMessages();
+            e2e.click(bot, "Save", values);
+            e2e.eventually(() -> bot.anyFeedbackContains("Spawn holograms turned off"), "confirmed: " + bot.actionBar() + " " + bot.chat());
+            e2e.eventually(() -> !seen(bot, text) && !seen(bot, box), "the text display and the click box are removed for the client");
+            e2e.sleep(1_000);
+            e2e.expect(textDisplay(other, x, z, "Richest players") != null, "the other player keeps it");
+            e2e.expect("false".equals(AfkStaffSettingSteps.stored(e2e, id, "show-spawn-holograms")), "the choice is stored");
+
+            e2e.step("a display placed meanwhile never reaches them");
+            e2e.console("displays create " + second + " welcome " + at(world, secondX, y, z));
+            e2e.eventually(() -> textDisplay(other, secondX, z, "SIFTVANILLA") != null, "the other player gets the new board: " + other.entities());
+            e2e.sleep(1_000);
+            e2e.expect(textDisplay(bot, secondX, z, "SIFTVANILLA") == null, "the player who hides them doesn't: " + bot.entities());
+            e2e.expect(textDisplay(bot, x, z, "Richest players") == null && interaction(bot, x, z) == null, "nor the first one");
+
+            e2e.step("after rejoining they still get none");
+            bot.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(name) == null, name + " left");
+            e2e.sleep(300);
+            Bot again = e2e.bot(name);
+            e2e.console("tp " + name + " " + otherName);
+            e2e.eventually(() -> Math.abs(again.x() - other.x()) < 1 && Math.abs(again.z() - other.z()) < 1, "back next to the boards");
+            e2e.sleep(2_000);
+            e2e.expect(textDisplay(again, x, z, "Richest players") == null && interaction(again, x, z) == null
+                && textDisplay(again, secondX, z, "SIFTVANILLA") == null, "no display after rejoining: " + again.entities());
+
+            e2e.step("on again with the settings command (/settings display show-spawn-holograms on) shows every display at once");
+            again.clearLogs();
+            again.command("settings display show-spawn-holograms on");
+            e2e.eventually(() -> again.anyFeedbackContains("Spawn holograms turned on"), "confirmed: " + again.actionBar() + " " + again.chat());
+            e2e.eventually(() -> textDisplay(again, x, z, "Richest players") != null && interaction(again, x, z) != null
+                && textDisplay(again, secondX, z, "SIFTVANILLA") != null, "both boards and the click box are back: " + again.entities());
+            e2e.eventually(() -> AfkStaffSettingSteps.stored(e2e, id, "show-spawn-holograms") == null, "no row for the default");
+        } finally {
+            e2e.console("displays delete " + board + " confirm");
+            e2e.console("displays delete " + second + " confirm");
+        }
+    }
+
+    // ------------------------------------------------------------------ the Display group
+
+    /** The line in features/cosmetics.yml that turns kill effects on (the shipped text). */
+    private static final String KILL_EFFECTS_ON = "protected spawn area, and players who turned kill effects off in /settings don't see them.\n"
+        + "  enabled: true";
+
+    /** Edits a SiftCore file, reloads, runs the body and always restores the file and reloads again. */
+    private static void withFile(E2E e2e, String file, Map<String, String> replacements, Body body) throws Exception {
+        Path path = Bukkit.getPluginManager().getPlugin("SiftCore").getDataFolder().toPath().resolve(file);
+        String original = Files.readString(path, StandardCharsets.UTF_8);
+        String changed = original;
+        for (Map.Entry<String, String> entry : replacements.entrySet()) {
+            e2e.expect(changed.contains(entry.getKey()), file + " contains '" + entry.getKey() + "'");
+            changed = changed.replace(entry.getKey(), entry.getValue());
+        }
+        Files.writeString(path, changed, StandardCharsets.UTF_8);
+        try {
+            e2e.console("sift reload");
+            body.run(e2e);
+        } finally {
+            Files.writeString(path, original, StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
+    }
+
+    /**
+     * The Display settings group: the kill effect switch (cosmetics' show-kill-effects, placed by the display package)
+     * comes after the sidebar settings and the spawn hologram switch, is changed with {@code /settings display
+     * show-kill-effects off}, and is not offered while features/cosmetics.yml turns kill effects off, so it never does
+     * nothing; the stored choice is kept for when they come back.
+     */
+    static void group(E2E e2e) throws Exception {
+        String name = e2e.name("DispSet");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        var effects = e2e.services().settings().registry().entry(CosmeticsFeature.KILL_EFFECTS.id());
+        e2e.expect(effects != null && "display".equals(effects.category().id()) && effects.options().order() == 6,
+            "show-kill-effects is the 6th Display setting: " + effects);
+        e2e.expect(effects.offered(), "offered while kill effects play");
+
+        e2e.step("the Display group lists the kill effect switch after the display package's own settings");
+        List<String> keys = List.copyOf(AfkStaffSettingSteps.groupInputs(e2e, bot, "display", "Display settings").keySet());
+        e2e.expect(keys.contains("show_kill_effects"), "the switch is listed: " + keys);
+        for (String before : List.of("scoreboard", "feedback_channel", "sidebar_layout", "show_spawn_holograms")) {
+            e2e.expect(!keys.contains(before) || keys.indexOf(before) < keys.indexOf("show_kill_effects"),
+                before + " comes first: " + keys);
+        }
+
+        e2e.step("/settings display show-kill-effects off stores it");
+        bot.clearLogs();
+        bot.command("settings display show-kill-effects off");
+        e2e.eventually(() -> "false".equals(AfkStaffSettingSteps.stored(e2e, id, "show-kill-effects")),
+            "stored off (chat " + bot.chat() + ", action bar " + bot.actionBar() + ")");
+        e2e.eventually(() -> bot.anyFeedbackContains("turned off"), "confirmed: " + bot.actionBar() + " " + bot.chat());
+        e2e.expect(!e2e.services().settings().get(id, CosmeticsFeature.KILL_EFFECTS), "the cosmetics feature reads off");
+
+        e2e.step("with kill effects turned off on the server the switch is not offered and the choice is kept");
+        withFile(e2e, "features/cosmetics.yml", Map.of(KILL_EFFECTS_ON, KILL_EFFECTS_ON.replace("enabled: true", "enabled: false")), x -> {
+            e2e.eventually(() -> !effects.offered(), "not offered without kill effects");
+            List<String> without = List.copyOf(AfkStaffSettingSteps.groupInputs(e2e, bot, "display", "Display settings").keySet());
+            e2e.expect(!without.contains("show_kill_effects"), "not in the Display group: " + without);
+            bot.clearLogs();
+            bot.command("settings display show-kill-effects on");
+            e2e.sleep(1_000);
+            e2e.expect("false".equals(AfkStaffSettingSteps.stored(e2e, id, "show-kill-effects")),
+                "a switch that is not offered can't be changed: " + bot.chat() + " " + bot.actionBar());
+        });
+        e2e.eventually(effects::offered, "offered again once kill effects are back");
+
+        e2e.step("on again deletes the row");
+        SetResult on = e2e.services().settings().set(id, CosmeticsFeature.KILL_EFFECTS, true, Change.api("e2e"));
+        e2e.expect(on == SetResult.CHANGED, "changed: " + on);
+        e2e.eventually(() -> AfkStaffSettingSteps.stored(e2e, id, "show-kill-effects") == null, "no row for the default");
     }
 }

@@ -27,6 +27,27 @@ sidebar:
     - team
     - blank
     - website
+  # Shorter sidebars players can pick instead in /settings (Display > Sidebar lines): "compact" is a short money view,
+  # "combat" the fight stats. The lines above are the full sidebar, which everyone sees by default. Same line names
+  # and rules as above; [] takes a layout out of the settings (players who picked it see the full sidebar).
+  layouts:
+    compact:
+      - blank
+      - balance
+      - shards
+      - booster
+      - blank
+      - website
+    combat:
+      - blank
+      - kills
+      - deaths
+      - kdr
+      - streak
+      - bounty
+      - combat
+      - blank
+      - website
   # Plugins that show the sidebar instead while they run ([] never yields).
   yield-to:
     - TAB

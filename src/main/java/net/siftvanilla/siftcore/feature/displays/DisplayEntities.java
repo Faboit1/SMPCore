@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
@@ -39,10 +40,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.world.EntitiesUnloadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -118,6 +122,9 @@ final class DisplayEntities implements Listener {
     private final Setting<DisplaysSettings> settings;
     private final Logger logger;
     private final NamespacedKey key;
+    private final Plugin plugin;
+    private final Predicate<UUID> showsHolograms;
+    private final HologramViewers viewers = new HologramViewers();
     private final Object lock = new Object();
     /** Last generation handed out per display name; guarded by {@link #lock}. */
     private final Map<String, Integer> generations = new HashMap<>();
@@ -130,8 +137,13 @@ final class DisplayEntities implements Listener {
     private volatile Map<ChunkRef, List<String>> index = Map.of();
     private volatile boolean running;
 
+    /**
+     * @param plugin         the plugin entities are hidden for ({@code Player#hideEntity})
+     * @param showsHolograms whether a player shows the displays (their {@code show-spawn-holograms} switch); any thread
+     */
     DisplayEntities(Scheduler scheduler, TextStyle style, Placeholders placeholders, Messenger messenger, Cooldowns cooldowns,
-                    Setting<DisplaysSettings> settings, Logger logger, NamespacedKey key) {
+                    Setting<DisplaysSettings> settings, Logger logger, NamespacedKey key, Plugin plugin,
+                    Predicate<UUID> showsHolograms) {
         this.scheduler = scheduler;
         this.style = style;
         this.placeholders = placeholders;
@@ -140,6 +152,8 @@ final class DisplayEntities implements Listener {
         this.settings = settings;
         this.logger = logger;
         this.key = key;
+        this.plugin = plugin;
+        this.showsHolograms = showsHolograms;
     }
 
     /** The current displays by name, sorted. */
@@ -412,6 +426,8 @@ final class DisplayEntities implements Listener {
                 entity.getPersistentDataContainer().set(this.key, PersistentDataType.STRING, def.id());
                 style(entity, def);
                 entity.text(shown);
+                // Before it is in the world, so players who turned holograms off are never sent it.
+                hideFromViewers(entity);
             });
         } catch (RuntimeException e) {
             refuse(def, "could not be spawned: " + e.getMessage());
@@ -495,6 +511,8 @@ final class DisplayEntities implements Listener {
             entity.setInteractionWidth(box.width());
             entity.setInteractionHeight(box.height());
             entity.setResponsive(true);
+            // The click box goes with the text: a player who hides the board can't click it either.
+            hideFromViewers(entity);
         });
         if (created.isValid()) {
             spawned.click = created;
@@ -680,6 +698,96 @@ final class DisplayEntities implements Listener {
         }
         if (!ran) {
             this.messenger.send(player, DisplaysMessages.CLICK_UNAVAILABLE);
+        }
+    }
+
+    // ------------------------------------------------------------------ players who hide the holograms
+
+    /**
+     * A player joined (their thread, after their settings loaded): one who turned holograms off has every display
+     * hidden. Displays this thread owns are hidden now, before the player is first tracked, so they never flash;
+     * displays elsewhere are hidden on their own region thread, long before the player can walk there.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        boolean shows;
+        try {
+            shows = this.showsHolograms.test(player.getUniqueId());
+        } catch (RuntimeException e) {
+            shows = true;
+        }
+        this.viewers.set(player.getUniqueId(), shows);
+        if (!shows) {
+            applyViewer(player);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent event) {
+        this.viewers.forget(event.getPlayer().getUniqueId());
+    }
+
+    /** The player changed {@code show-spawn-holograms} (their thread): every display follows at once. */
+    void viewerChanged(Player player, boolean shows) {
+        if (this.viewers.set(player.getUniqueId(), shows)) {
+            applyViewer(player);
+        }
+    }
+
+    /** Brings every live display in line with the player's current choice, each on the thread that owns it. */
+    private void applyViewer(Player player) {
+        for (Spawned current : this.spawned.values()) {
+            Runnable apply = () -> visibility(player, current);
+            try {
+                if (this.scheduler.owns(current.location)) {
+                    apply.run();
+                } else {
+                    this.scheduler.region(current.location, apply);
+                }
+            } catch (RuntimeException e) {
+                this.logger.log(Level.FINE, "Could not update display " + current.id + " for " + player.getName(), e);
+            }
+        }
+    }
+
+    /**
+     * Region thread of the display: hides or shows its entities for the player as they want it now (read again here,
+     * so quick changes settle on the last one). Hiding takes the player out of the entity's tracker, which that region
+     * owns; showing adds them back when they are near enough. Both do nothing when already so.
+     */
+    private void visibility(Player player, Spawned spawned) {
+        if (!player.isOnline()) {
+            return;
+        }
+        boolean hide = this.viewers.hides(player.getUniqueId());
+        for (Entity entity : new Entity[] {spawned.text, spawned.click}) {
+            if (entity == null || !entity.isValid()) {
+                continue;
+            }
+            if (hide) {
+                player.hideEntity(this.plugin, entity);
+            } else {
+                player.showEntity(this.plugin, entity);
+            }
+        }
+    }
+
+    /**
+     * Inside a spawn, before the entity enters the world: hidden from every online player who turned holograms off.
+     * This only records the hide in each player's visibility map (the entity has no tracker yet).
+     */
+    private void hideFromViewers(Entity entity) {
+        for (UUID id : this.viewers.hiding()) {
+            Player player = Bukkit.getPlayer(id);
+            if (player == null) {
+                continue;
+            }
+            try {
+                player.hideEntity(this.plugin, entity);
+            } catch (RuntimeException e) {
+                this.logger.log(Level.FINE, "Could not hide a display from " + player.getName(), e);
+            }
         }
     }
 

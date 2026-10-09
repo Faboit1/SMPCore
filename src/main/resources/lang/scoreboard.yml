@@ -56,7 +56,15 @@ scoreboard:
   # The switch in the settings menu (in the shared Display group).
   toggle:
     label: "Sidebar"
-    description: "Your money and stats on the right of the screen"
+    description: "Show your money and stats on the right of the screen."
+
+  # Which lines the sidebar shows (Display group). The lines of each layout are in features/scoreboard.yml.
+  layout:
+    label: "Sidebar lines"
+    description: "Which lines your sidebar shows: everything, a short money view, or fight stats."
+    full: "Everything"
+    compact: "Money"
+    combat: "Fight stats"
 
   shown: "<primary>Sidebar shown."
   hidden: "<primary>Sidebar hidden. /sidebar shows it again."
@@ -64,6 +72,8 @@ scoreboard:
   already-hidden: "<primary>Your sidebar is already hidden."
   off-on-server: "<primary>The sidebar is turned off on this server."
   yielded: "<primary>The sidebar on this server comes from <plugin>."
+  # /sidebar while the server sets the switch for everyone (features/settings.yml).
+  fixed: "<primary>Your sidebar is set by the server."
 
   # Names of the parts in /sidebar status.
   parts:

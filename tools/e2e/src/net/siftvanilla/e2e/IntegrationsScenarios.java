@@ -60,6 +60,7 @@ final class IntegrationsScenarios {
         list.add(new Named("placeholders-api", IntegrationsScenarios::placeholdersAndApi));
         list.add(new Named("admin-tools", IntegrationsScenarios::adminTools));
         list.add(new Named("bedrock-forms", IntegrationsScenarios::bedrockForms));
+        list.add(new Named("show-my-rank", IntegrationsScenarios::showMyRank));
         return list;
     }
 
@@ -278,6 +279,172 @@ final class IntegrationsScenarios {
         e2e.expect((boolean) registered.invoke(null, "siftvanilla"), "the siftvanilla alias is registered");
         String aliased = (String) set.invoke(null, player, "%siftvanilla_balance% %siftvanilla_shards%");
         e2e.expect("$4,321 0".equals(aliased), "the alias: '" + aliased + "'");
+    }
+
+    // ------------------------------------------------------------------ show my rank
+
+    private static String placeholder(E2E e2e, String player, String name) {
+        return SiftCoreApi.get().placeholders().resolve(e2e.player(player), name).orElse("?");
+    }
+
+    /** The newest chat line the bot got that contains {@code text}, as plain text. */
+    private static String chatLine(E2E e2e, Bot bot, String text) {
+        e2e.eventually(() -> bot.chatContains(text), bot.name + " gets a line with '" + text + "': " + bot.chat());
+        List<String> lines = bot.chat();
+        for (int i = lines.size() - 1; i >= 0; i--) {
+            if (lines.get(i).contains(text)) {
+                return lines.get(i);
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Show my rank (Privacy settings): a ranked player with siftcore.settings.hide-rank turns it off in the dialog and
+     * their rank leaves chat, the rank placeholders and the public API at once while their group stays; without the
+     * node they read the default (shown). Without LuckPerms (or with its hook turned off) the switch is not offered and
+     * a stored choice applies nowhere, the scoreboard included.
+     */
+    static void showMyRank(E2E e2e) throws Exception {
+        String name = e2e.name("Hider");
+        String watcherName = e2e.name("HiderSee");
+        Bot bot = e2e.bot(name);
+        Bot watcher = e2e.bot(watcherName);
+        UUID id = e2e.uuid(name);
+        IntegrationsFeature integrations = e2e.feature(IntegrationsFeature.class);
+        var entry = e2e.services().settings().registry().entry("show-my-rank");
+        e2e.expect(entry != null && entry.category().id().equals("privacy"), "registered in Privacy: " + entry);
+        Plugin luckPerms = Bukkit.getPluginManager().getPlugin("LuckPerms");
+        if (luckPerms == null || !luckPerms.isEnabled()) {
+            e2e.step("without LuckPerms there are no rank labels, so the switch is not offered");
+            e2e.expect(!entry.offered(), "not offered without LuckPerms");
+            return;
+        }
+        String group = "e2erank" + Long.toString(System.nanoTime() % 1_000, 36);
+        e2e.step("a rank group with a label, the player in it and the hide-rank node");
+        e2e.console("lp creategroup " + group);
+        // The heaviest parent is the primary group (LuckPerms' parents-by-weight), like a bought rank above default.
+        e2e.console("lp group " + group + " setweight 100");
+        e2e.console("lp group " + group + " meta set siftcore-rank Knight");
+        e2e.console("lp user " + name + " parent add " + group);
+        e2e.console("lp user " + name + " permission set " + "siftcore.settings.hide-rank true");
+        try {
+            e2e.eventually(() -> "Knight".equals(integrations.ranks().label(id)) && group.equals(integrations.ranks().group(id)),
+                "the label and primary group: '" + integrations.ranks().label(id) + "' " + integrations.ranks().group(id));
+            e2e.eventually(() -> e2e.onPlayer(name, () -> e2e.player(name).hasPermission("siftcore.settings.hide-rank")), "the node arrived");
+            e2e.expect(entry.offered(), "offered while LuckPerms is connected");
+            e2e.expect("Knight".equals(placeholder(e2e, name, "rank")), "%siftcore_rank%: " + placeholder(e2e, name, "rank"));
+            e2e.expect(group.equals(placeholder(e2e, name, "rank_group")), "%siftcore_rank_group%: " + placeholder(e2e, name, "rank_group"));
+            watcher.clearLogs();
+            e2e.sleep(1_400);
+            bot.chat("hello with a rank");
+            String ranked = chatLine(e2e, watcher, "hello with a rank");
+            e2e.expect(ranked.contains("Knight"), "the chat line shows the rank: " + ranked);
+            e2e.consoleOutput("sidebar refresh");
+            e2e.eventually(() -> watcher.listName(id) != null && ("Knight " + name).equals(watcher.listName(id).getString()),
+                "the tab list shows the rank: " + watcher.listName(id));
+
+            e2e.step("Show my rank sits in the Privacy settings, on by default");
+            AfkStaffSettingSteps.openGroup(e2e, bot, "privacy", "Privacy settings");
+            Bot.SeenDialog page = bot.dialog();
+            e2e.expect("toggle".equals(page.inputs().get("show_my_rank")), "the switch: " + page.inputs());
+            e2e.expect(Boolean.TRUE.equals(page.toggleValue("show_my_rank")), "on by default");
+            e2e.expect(page.bodyText().contains("Show my rank"), "its label: " + page.body());
+
+            e2e.step("turning it off hides the rank in chat, the placeholders and the API at once; the group stays");
+            Map<String, Object> values = page.values();
+            values.put("show_my_rank", false);
+            bot.clearMessages();
+            e2e.click(bot, "Save", values);
+            e2e.eventually(() -> bot.anyFeedbackContains("Show my rank turned off"), "confirmed: " + bot.actionBar() + " " + bot.chat());
+            e2e.eventually(() -> integrations.ranks().label(id).isEmpty(), "no label: '" + integrations.ranks().label(id) + "'");
+            e2e.expect(placeholder(e2e, name, "rank").isEmpty(), "%siftcore_rank% is empty: " + placeholder(e2e, name, "rank"));
+            e2e.expect("default".equals(placeholder(e2e, name, "rank_group")), "%siftcore_rank_group% reads as a member: "
+                + placeholder(e2e, name, "rank_group"));
+            e2e.expect(placeholder(e2e, name, "rank_color").isEmpty(), "%siftcore_rank_color% is empty");
+            e2e.expect(SiftCoreApi.get().ranks().label(id).isEmpty(), "the public API has no label either");
+            e2e.expect(group.equals(integrations.ranks().group(id)), "the real group stays for code: " + integrations.ranks().group(id));
+            e2e.expect("false".equals(AfkStaffSettingSteps.stored(e2e, id, "show-my-rank")), "the choice is stored");
+            watcher.clearLogs();
+            e2e.sleep(1_400);
+            bot.chat("hello without a rank");
+            String plain = chatLine(e2e, watcher, "hello without a rank");
+            e2e.expect(!plain.contains("Knight"), "the chat line has no rank: " + plain);
+            e2e.eventually(() -> watcher.listName(id) != null && name.equals(watcher.listName(id).getString()),
+                "the scoreboard's tab name has no rank either: " + watcher.listName(id));
+
+            e2e.step("without the node the switch is gone and the rank shows again");
+            e2e.console("lp user " + name + " permission unset siftcore.settings.hide-rank");
+            e2e.eventually(() -> !e2e.onPlayer(name, () -> e2e.player(name).hasPermission("siftcore.settings.hide-rank")), "the node is gone");
+            e2e.eventually(() -> "Knight".equals(integrations.ranks().label(id)), "the label is back: '" + integrations.ranks().label(id) + "'");
+            e2e.expect(!e2e.onPlayer(name, () -> e2e.services().settings().visible(entry, e2e.player(name)::hasPermission)),
+                "the switch is not offered to them");
+            e2e.expect("false".equals(AfkStaffSettingSteps.stored(e2e, id, "show-my-rank")), "their choice is kept for when the node comes back");
+
+            e2e.step("with the node back the stored choice applies again");
+            e2e.console("lp user " + name + " permission set siftcore.settings.hide-rank true");
+            e2e.eventually(() -> integrations.ranks().label(id).isEmpty(), "hidden again with the node");
+
+            e2e.step("with the LuckPerms hook turned off the switch is gone, and the scoreboard shows the rank it reads from "
+                + "group permissions again instead of keeping the stored choice nobody can undo");
+            e2e.console("lp creategroup prospector");
+            e2e.console("lp user " + name + " parent add prospector");
+            e2e.eventually(() -> e2e.onPlayer(name, () -> e2e.player(name).hasPermission("group.prospector")), "in the prospector group");
+            e2e.consoleOutput("sidebar refresh");
+            e2e.eventually(() -> watcher.listName(id) != null && name.equals(watcher.listName(id).getString()),
+                "still hidden while the switch is offered: " + watcher.listName(id));
+            withFile(e2e, "features/integrations.yml", Map.of(LUCKPERMS_ON, LUCKPERMS_ON.replace("enabled: true", "enabled: false")), () -> {
+                e2e.eventually(() -> !entry.offered(), "not offered while the LuckPerms hook is off");
+                e2e.expect(integrations.ranks().label(id).isEmpty(), "chat has no rank labels at all without the hook");
+                e2e.consoleOutput("sidebar refresh");
+                e2e.eventually(() -> watcher.listName(id) != null && ("Prospector " + name).equals(watcher.listName(id).getString()),
+                    "the scoreboard's rank from group.prospector shows, the stored off is not applied: " + watcher.listName(id));
+                e2e.expect("false".equals(AfkStaffSettingSteps.stored(e2e, id, "show-my-rank")), "the choice itself is kept");
+            });
+            e2e.eventually(entry::offered, "offered again with the hook back");
+            e2e.eventually(() -> integrations.ranks().label(id).isEmpty(), "and the kept choice hides the rank again");
+            e2e.consoleOutput("sidebar refresh");
+            e2e.eventually(() -> watcher.listName(id) != null && name.equals(watcher.listName(id).getString()),
+                "the scoreboard hides it again too: " + watcher.listName(id));
+
+            e2e.step("on again deletes the row");
+            AfkStaffSettingSteps.set(e2e, name, IntegrationsFeature.SHOW_MY_RANK, true);
+            e2e.eventually(() -> "Knight".equals(integrations.ranks().label(id)), "shown again");
+            e2e.eventually(() -> AfkStaffSettingSteps.stored(e2e, id, "show-my-rank") == null, "no row for the default");
+        } finally {
+            e2e.console("lp user " + name + " permission unset siftcore.settings.hide-rank");
+            e2e.console("lp user " + name + " parent remove " + group);
+            e2e.console("lp user " + name + " parent remove prospector");
+            e2e.console("lp deletegroup " + group);
+        }
+    }
+
+    /** The lines in features/integrations.yml that turn the LuckPerms hook on (the shipped text). */
+    private static final String LUCKPERMS_ON = "Store rank delivery also needs LuckPerms.\n  enabled: true";
+
+    @FunctionalInterface
+    private interface Step {
+        void run() throws Exception;
+    }
+
+    /** Edits a SiftCore file, reloads, runs the step and always restores the file and reloads again. */
+    private static void withFile(E2E e2e, String file, Map<String, String> replacements, Step step) throws Exception {
+        Path path = Bukkit.getPluginManager().getPlugin("SiftCore").getDataFolder().toPath().resolve(file);
+        String original = Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
+        String changed = original;
+        for (Map.Entry<String, String> entry : replacements.entrySet()) {
+            e2e.expect(changed.contains(entry.getKey()), file + " contains '" + entry.getKey() + "'");
+            changed = changed.replace(entry.getKey(), entry.getValue());
+        }
+        Files.writeString(path, changed, java.nio.charset.StandardCharsets.UTF_8);
+        try {
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(String.join(" ", reload).contains("Reloaded"), "the changed " + file + " reloads: " + reload);
+            step.run();
+        } finally {
+            Files.writeString(path, original, java.nio.charset.StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
     }
 
     // ------------------------------------------------------------------ admin tools
