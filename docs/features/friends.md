@@ -226,9 +226,11 @@ There is no "appear offline": the tab list and `/seen` show you anyway. `announc
 ## Limits and anti-abuse
 
 - Friend limit: `Limits.highest(player, "siftcore.friends.limit", limits.default)`, capped by `limits.hard-cap`. It
-  is read on the player's thread at join and every minute while online, and stored with the rank label in
+  is read on the player's thread at join, every minute while online and as they quit, and stored with the rank label in
   `friend_profiles` when it changed, so checks while the player is offline are exact. A lower limit never removes
-  friends; it only stops new ones.
+  friends; it only stops new ones. The stored label is what friends see on the profile of an offline player: it also
+  follows `show-my-rank` at once (on the player's `SettingChangeEvent`) and is stored again at quit, so turning the rank
+  off never leaves the old label on show.
 - Favourites: at most `limits.favourites` ("Your favourites are full (10)."). `0` turns favourites off: no
   Favourite button, no "Favourites only" join alerts, "Favourites are turned off on this server." from the command,
   and stored favourite flags are ignored (list order, alert sounds).

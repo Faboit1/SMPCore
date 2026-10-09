@@ -395,7 +395,8 @@ final class TeamMenus {
             submission -> {
                 String name = submission.values().text("player");
                 Player target = Bukkit.getPlayerExact(name);
-                if (target == null || !submission.player().canSee(target) || this.presence.hidden(target.getUniqueId())) {
+                if (target == null || !this.services.commands().canSee(submission.player(), target)
+                    || this.presence.hidden(target.getUniqueId())) {
                     submission.error(this.lang.get(CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", name)));
                     return;
                 }

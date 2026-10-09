@@ -60,7 +60,7 @@ public final class SettingsFeature implements Feature {
         this.dialogs = new SettingsDialogs(services, this.config);
         this.commands = new SettingsCommands(services, this.dialogs);
         this.placeholders = new SettingsPlaceholders(services.settings(), services.lang());
-        this.api = new SettingsApi(services.settings(), services.lang(), services.database(), services.audit(),
+        this.api = new SettingsApi(services.settings(), services.lang(), services.audit(),
             () -> this.config.get().categories(), services.plugin().getLogger());
         admin.addPart(new SettingsAdmin(services).part());
         // Overrides apply to settings that register later too: the registry resolves them on every registration.

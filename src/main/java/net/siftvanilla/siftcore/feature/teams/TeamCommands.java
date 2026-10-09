@@ -593,7 +593,7 @@ final class TeamCommands {
             if (!target.getName().toLowerCase(Locale.ROOT).startsWith(remaining) || this.presence.hidden(id)) {
                 continue;
             }
-            if (sender instanceof Player player && (player.getUniqueId().equals(id) || !player.canSee(target)
+            if (sender instanceof Player player && (player.getUniqueId().equals(id) || !this.services.commands().canSee(player, target)
                 || !this.actions.takesInvitesFrom(id, player.getUniqueId()))) {
                 continue;
             }

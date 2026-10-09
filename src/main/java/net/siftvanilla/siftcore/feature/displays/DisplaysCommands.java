@@ -285,7 +285,7 @@ final class DisplaysCommands {
                     return;
                 }
                 deleteNow(clicker, id);
-            }, null);
+            }, null).closing();
         this.services.dialogs().show(player, view);
     }
 
@@ -328,7 +328,9 @@ final class DisplaysCommands {
                 lines.add(line(def));
                 if (def.position() != null && Bukkit.getWorld(def.position().world()) != null) {
                     String id = def.id();
-                    buttons.add(Button.of(lang.get(DisplaysMessages.LIST_GO, Arg.text("id", id)), submission -> go(submission.player(), id)).width(150));
+                    // Go teleports and shows nothing next: with Close the only other button, the list closes on the click.
+                    buttons.add(Button.of(lang.get(DisplaysMessages.LIST_GO, Arg.text("id", id)), submission -> go(submission.player(), id))
+                        .width(150).closes());
                 }
             }
             this.services.dialogs().show(player, this.services.templates().list(lang.get(DisplaysMessages.LIST_TITLE), lines, buttons, 2, null));

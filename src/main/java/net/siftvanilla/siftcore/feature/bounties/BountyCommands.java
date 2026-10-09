@@ -77,7 +77,7 @@ final class BountyCommands {
             Set<String> suggested = new HashSet<>();
             for (Player online : Bukkit.getOnlinePlayers()) {
                 String lower = online.getName().toLowerCase(Locale.ROOT);
-                if (lower.startsWith(remaining) && (!(sender instanceof Player viewer) || viewer.canSee(online))
+                if (lower.startsWith(remaining) && this.services.commands().canSee(sender, online)
                     && suggested.size() < SUGGESTIONS && suggested.add(lower)) {
                     builder.suggest(online.getName());
                 }

@@ -209,8 +209,8 @@ public final class ExtrasFeature implements Feature, Listener {
         if (known.isEmpty()) {
             return;
         }
-        Player online = Bukkit.getPlayer(uuid);
-        boolean visible = online != null && (!(sender instanceof Player viewer) || viewer.canSee(online));
+        // Online only when the sender may know it (vanished staff read as offline, as everywhere else).
+        boolean visible = this.services.commands().visibleOnline(sender, uuid) != null;
         long now = System.currentTimeMillis();
         if (visible) {
             this.services.messenger().chat(sender, ExtrasMessages.SEEN_ONLINE, Arg.text("name", known.get().name()),

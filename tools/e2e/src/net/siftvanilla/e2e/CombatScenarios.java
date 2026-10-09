@@ -1146,6 +1146,7 @@ final class CombatScenarios {
         s.command("bounty " + targetName + " 20k");
         Bot.SeenDialog confirm = e2e.dialog(s, "Confirm bounty");
         e2e.expect(confirm.bodyText().contains("Put $20,000 on " + targetName + "?"), "the amount: " + confirm.body());
+        e2e.expect("close".equals(confirm.after()), "from /bounty both answers finish, so it closes at once: " + confirm.after());
         e2e.click(s, "Place bounty");
         e2e.eventually(() -> bounty(e2e, targetName) == 80_000, "placed after confirming");
         set(e2e, sponsorName, BountiesFeature.CONFIRM_ABOVE, ConfirmAbove.SERVER);

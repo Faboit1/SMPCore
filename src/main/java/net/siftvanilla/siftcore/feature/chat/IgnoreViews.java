@@ -56,7 +56,7 @@ final class IgnoreViews {
         // Staff the player can't see (vanished) are treated like offline staff: the entry is stored and simply has no
         // effect, so the answer never tells that they are online.
         Player online = Bukkit.getPlayer(target);
-        if (online != null && player.canSee(online) && online.hasPermission(ChatNodes.UNIGNORABLE)) {
+        if (online != null && this.services.commands().canSee(player, online) && online.hasPermission(ChatNodes.UNIGNORABLE)) {
             this.services.messenger().send(player, ChatMessages.IGNORE_STAFF, Arg.text("name", name));
             return false;
         }

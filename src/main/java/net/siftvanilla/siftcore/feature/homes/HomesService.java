@@ -300,7 +300,7 @@ final class HomesService {
                 lang.get(HomesMessages.UNSAFE_QUESTION)),
             lang.get(HomesMessages.UNSAFE_GO), lang.get(CoreMessages.UI_CANCEL),
             yes -> teleport(yes.player(), home.name(), false),
-            null));
+            null).closing());
     }
 
     private Result usable(Home home) {
@@ -343,7 +343,7 @@ final class HomesService {
             ? lang.lines(HomesMessages.DELETE_BODY_HIDDEN, Arg.text("name", home.name()), Arg.text("world", home.world()))
             : lang.lines(HomesMessages.DELETE_BODY, Arg.text("name", home.name()), Arg.text("world", home.world()),
                 Arg.number("x", home.blockX()), Arg.number("y", home.blockY()), Arg.number("z", home.blockZ()));
-        this.services.dialogs().show(player, this.services.templates().confirm(lang.get(HomesMessages.DELETE_TITLE), body,
+        View confirm = this.services.templates().confirm(lang.get(HomesMessages.DELETE_TITLE), body,
             lang.get(HomesMessages.DELETE_BUTTON), lang.get(CoreMessages.UI_CANCEL),
             yes -> {
                 delete(yes.player(), home.name());
@@ -355,7 +355,9 @@ final class HomesService {
                 if (after != null) {
                     after.run();
                 }
-            }));
+            });
+        // From /delhome both answers finish; from the list both lead back to it.
+        this.services.dialogs().show(player, after == null ? confirm.closing() : confirm);
     }
 
     // ------------------------------------------------------------------ dialogs
@@ -494,7 +496,7 @@ final class HomesService {
                         this.services.audit().record(s.player().getUniqueId().toString(), "homes.teleport", target.toString(),
                             staffTeleportDetails(home));
                     }
-                })).width(150));
+                })).width(150).closes());
             buttons.add(Button.of(lang.get(HomesMessages.LIST_DELETE), lang.get(HomesMessages.LIST_DELETE_TOOLTIP, Arg.text("name", home.name())),
                 s -> confirmOtherDelete(s.player(), target, targetName, home)).width(150));
         }

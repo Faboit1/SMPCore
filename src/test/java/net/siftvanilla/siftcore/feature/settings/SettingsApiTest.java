@@ -42,7 +42,7 @@ class SettingsApiTest {
     void open() throws Exception {
         this.db = new SettingsDb(this.dir);
         this.audit = new AuditLog(this.db.database);
-        this.api = new SettingsApi(this.db.settings, this.db.lang, this.db.database, this.audit, () -> Map.copyOf(this.overrides),
+        this.api = new SettingsApi(this.db.settings, this.db.lang, this.audit, () -> Map.copyOf(this.overrides),
             SettingsDb.LOGGER);
     }
 

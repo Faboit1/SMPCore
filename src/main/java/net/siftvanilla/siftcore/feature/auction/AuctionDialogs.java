@@ -66,7 +66,7 @@ final class AuctionDialogs {
     }
 
     private Button closeButton(Runnable back) {
-        return Button.of(lang().get(back != null ? CoreMessages.UI_BACK : CoreMessages.UI_CANCEL), s -> finish(s, back));
+        return Button.of(lang().get(back != null ? CoreMessages.UI_BACK : CoreMessages.UI_CANCEL), s -> finish(s, back)).closes();
     }
 
     private static Arg time(long millis) {
@@ -151,7 +151,7 @@ final class AuctionDialogs {
             no -> {
                 this.services.messenger().send(no.player(), AuctionMessages.SELL_CANCELLED);
                 finish(no, back);
-            });
+            }).closing();
     }
 
     /**
@@ -204,7 +204,7 @@ final class AuctionDialogs {
                 }
                 finish(yes, back);
             },
-            no -> finish(no, back)));
+            no -> finish(no, back)).closing());
     }
 
     /** Confirmation for taking down one's own listing. */
@@ -221,7 +221,7 @@ final class AuctionDialogs {
                 }
                 finish(yes, back);
             },
-            no -> finish(no, back)));
+            no -> finish(no, back)).closing());
     }
 
     /** Staff confirmation for removing someone's listing. */
@@ -239,7 +239,7 @@ final class AuctionDialogs {
                 }
                 finish(yes, back);
             },
-            no -> finish(no, back)));
+            no -> finish(no, back)).closing());
     }
 
     // ------------------------------------------------------------------ history
@@ -267,7 +267,7 @@ final class AuctionDialogs {
                 body.add(Body.item(AuctionItems.revealed(entry.item()), description));
             }
             Button footer = Button.of(lang.get(back != null ? CoreMessages.UI_BACK : CoreMessages.UI_CLOSE), s -> finish(s, back))
-                .width(Templates.WIDE);
+                .width(Templates.WIDE).closes();
             this.services.dialogs().show(player, new View(View.Kind.LIST, lang.get(AuctionMessages.HISTORY_TITLE), body, List.of(),
                 List.of(), footer, 1, true));
         });

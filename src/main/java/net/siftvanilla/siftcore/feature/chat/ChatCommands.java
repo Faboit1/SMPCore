@@ -181,7 +181,7 @@ final class ChatCommands {
             Set<String> suggested = new HashSet<>();
             for (Player online : Bukkit.getOnlinePlayers()) {
                 String lower = online.getName().toLowerCase(Locale.ROOT);
-                if (lower.startsWith(remaining) && (!(sender instanceof Player viewer) || viewer.canSee(online)) && suggested.add(lower)) {
+                if (lower.startsWith(remaining) && this.services.commands().canSee(sender, online) && suggested.add(lower)) {
                     builder.suggest(online.getName());
                 }
             }

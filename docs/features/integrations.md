@@ -96,13 +96,15 @@ It is cosmetic only: `ranks().group(uuid)` and `RankView#group` stay the real gr
 ranks and permissions read LuckPerms directly. Without the node a player reads the default, so a player who loses
 the node shows their rank again. Offline players have no label anyway (LuckPerms only holds online players). The
 label friends see on the profile of a friend who is offline (or vanished) is the one the friends feature stored while
-they were online: it is written at join and then every 60 seconds (`RankLimits`), so it is empty within a minute of
-turning the switch off. Turning it off and logging out within that minute leaves the old label on that profile until
-the next login. (Refreshing the stored label at quit or on the setting's change event belongs to the friends
-feature.)
+they were online (`RankLimits`): it is written at join, every 60 seconds, at once when the switch changes (the
+friends feature's `SettingChangeEvent` listener) and again at quit, so turning the switch off never leaves the old
+label on that profile (see friends.md).
 
 Not covered: TAB (or another plugin) configured with LuckPerms' own placeholders (`%luckperms_prefix%`) shows the
-rank anyway; point it at `%siftcore_rank%` for the switch to work there.
+rank anyway; point it at `%siftcore_rank%` for the switch to work there. The TAB setup used on the live server
+(`plugins/TAB/groups.yml`: `%luckperms-prefix%` for everyone, fixed nametag prefixes for prospector, baron and
+tycoon) is such a setup, so there the switch hides the rank in chat, on profiles and in the placeholders, but not in
+TAB's tab list and nametags.
 
 **Cosmetic chat tags stay.** The chat tag from `/tags` (cosmetics) is not a rank: it is a perk the player picked and
 can remove themselves at any time (`/tags`, "No tag"). The setting's text names the rank tag, so hiding a purchased
@@ -111,8 +113,9 @@ tag as a side effect would surprise players; `show-my-rank` leaves `/tags` alone
 Tests: `ShowMyRankTest` (group, order, permission, no placeholder, offered only while LuckPerms is connected; the
 label hidden, the group kept, the placeholder group `default`) and the `show-my-rank` e2e scenario with LuckPerms: a
 player in a weighted `Knight` group with the node sees the switch on in the Privacy page, turns it off there, and at
-once chat, the three placeholders, the public API and the scoreboard's tab name show no rank while
-`ranks().group` stays the group; without the node the rank shows again and the choice is kept; with it again the
+once chat, the three placeholders, the public API and the scoreboard's tab name show no rank while `ranks().group`
+stays the group (on a server where the scoreboard leaves the tab list to TAB, as live, the tab name checks are
+skipped: TAB builds those names); without the node the rank shows again and the choice is kept; with it again the
 choice applies; with `luckperms.enabled: false` and `/sift reload` the switch is not offered and the scoreboard shows
 the rank it reads from `group.prospector` again (the stored choice is kept, not applied), and once the hook is back
 the choice hides the rank again everywhere; on again deletes the row. `ShowMyRankTest` also checks that the

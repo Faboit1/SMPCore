@@ -303,7 +303,9 @@ final class IntegrationsScenarios {
      * Show my rank (Privacy settings): a ranked player with siftcore.settings.hide-rank turns it off in the dialog and
      * their rank leaves chat, the rank placeholders and the public API at once while their group stays; without the
      * node they read the default (shown). Without LuckPerms (or with its hook turned off) the switch is not offered and
-     * a stored choice applies nowhere, the scoreboard included.
+     * a stored choice applies nowhere, the scoreboard included. On a server where SiftCore leaves the tab list to another
+     * plugin (TAB, as live) that plugin builds the tab names, so the scoreboard's tab name checks are skipped; what such a
+     * plugin can read from SiftCore (the rank placeholders) is checked either way.
      */
     static void showMyRank(E2E e2e) throws Exception {
         String name = e2e.name("Hider");
@@ -340,9 +342,12 @@ final class IntegrationsScenarios {
             bot.chat("hello with a rank");
             String ranked = chatLine(e2e, watcher, "hello with a rank");
             e2e.expect(ranked.contains("Knight"), "the chat line shows the rank: " + ranked);
+            String tabOwner = tabListOwner(e2e);
+            if (tabOwner != null) {
+                e2e.step("the tab list is left to " + tabOwner + ", which builds the names: the scoreboard's tab name checks are skipped");
+            }
             e2e.consoleOutput("sidebar refresh");
-            e2e.eventually(() -> watcher.listName(id) != null && ("Knight " + name).equals(watcher.listName(id).getString()),
-                "the tab list shows the rank: " + watcher.listName(id));
+            tabName(e2e, watcher, id, tabOwner, "Knight " + name, "the tab list shows the rank");
 
             e2e.step("Show my rank sits in the Privacy settings, on by default");
             AfkStaffSettingSteps.openGroup(e2e, bot, "privacy", "Privacy settings");
@@ -370,8 +375,7 @@ final class IntegrationsScenarios {
             bot.chat("hello without a rank");
             String plain = chatLine(e2e, watcher, "hello without a rank");
             e2e.expect(!plain.contains("Knight"), "the chat line has no rank: " + plain);
-            e2e.eventually(() -> watcher.listName(id) != null && name.equals(watcher.listName(id).getString()),
-                "the scoreboard's tab name has no rank either: " + watcher.listName(id));
+            tabName(e2e, watcher, id, tabOwner, name, "the scoreboard's tab name has no rank either");
 
             e2e.step("without the node the switch is gone and the rank shows again");
             e2e.console("lp user " + name + " permission unset siftcore.settings.hide-rank");
@@ -391,21 +395,19 @@ final class IntegrationsScenarios {
             e2e.console("lp user " + name + " parent add prospector");
             e2e.eventually(() -> e2e.onPlayer(name, () -> e2e.player(name).hasPermission("group.prospector")), "in the prospector group");
             e2e.consoleOutput("sidebar refresh");
-            e2e.eventually(() -> watcher.listName(id) != null && name.equals(watcher.listName(id).getString()),
-                "still hidden while the switch is offered: " + watcher.listName(id));
+            tabName(e2e, watcher, id, tabOwner, name, "still hidden while the switch is offered");
             withFile(e2e, "features/integrations.yml", Map.of(LUCKPERMS_ON, LUCKPERMS_ON.replace("enabled: true", "enabled: false")), () -> {
                 e2e.eventually(() -> !entry.offered(), "not offered while the LuckPerms hook is off");
                 e2e.expect(integrations.ranks().label(id).isEmpty(), "chat has no rank labels at all without the hook");
                 e2e.consoleOutput("sidebar refresh");
-                e2e.eventually(() -> watcher.listName(id) != null && ("Prospector " + name).equals(watcher.listName(id).getString()),
-                    "the scoreboard's rank from group.prospector shows, the stored off is not applied: " + watcher.listName(id));
+                tabName(e2e, watcher, id, tabOwner, "Prospector " + name,
+                    "the scoreboard's rank from group.prospector shows, the stored off is not applied");
                 e2e.expect("false".equals(AfkStaffSettingSteps.stored(e2e, id, "show-my-rank")), "the choice itself is kept");
             });
             e2e.eventually(entry::offered, "offered again with the hook back");
             e2e.eventually(() -> integrations.ranks().label(id).isEmpty(), "and the kept choice hides the rank again");
             e2e.consoleOutput("sidebar refresh");
-            e2e.eventually(() -> watcher.listName(id) != null && name.equals(watcher.listName(id).getString()),
-                "the scoreboard hides it again too: " + watcher.listName(id));
+            tabName(e2e, watcher, id, tabOwner, name, "the scoreboard hides it again too");
 
             e2e.step("on again deletes the row");
             AfkStaffSettingSteps.set(e2e, name, IntegrationsFeature.SHOW_MY_RANK, true);
@@ -417,6 +419,31 @@ final class IntegrationsScenarios {
             e2e.console("lp user " + name + " parent remove prospector");
             e2e.console("lp deletegroup " + group);
         }
+    }
+
+    /** The plugin SiftCore's scoreboard left the tab list to ({@code /sidebar status}), or null when it shows it itself. */
+    static String tabListOwner(E2E e2e) {
+        java.util.regex.Pattern owner = java.util.regex.Pattern.compile("tab list \\(([^)]+)\\)");
+        for (String line : e2e.consoleOutput("sidebar status")) {
+            java.util.regex.Matcher found = owner.matcher(line);
+            if (found.find()) {
+                return found.group(1);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Waits for the watcher's tab name of a player to read {@code expected} while SiftCore's scoreboard shows the tab
+     * list; nothing to check when another plugin has it ({@code owner}, TAB as live): that plugin builds the names, from
+     * its own config.
+     */
+    private static void tabName(E2E e2e, Bot watcher, UUID id, String owner, String expected, String what) {
+        if (owner != null) {
+            return;
+        }
+        e2e.eventually(() -> watcher.listName(id) != null && expected.equals(watcher.listName(id).getString()),
+            what + ": " + watcher.listName(id));
     }
 
     /** The lines in features/integrations.yml that turn the LuckPerms hook on (the shipped text). */

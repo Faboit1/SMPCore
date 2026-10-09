@@ -93,6 +93,7 @@ final class FriendsScenarios {
         list.add(of("friends-second-login", FriendsScenarios::secondLogin));
         list.add(of("friends-command-cooldown", FriendsScenarios::commandCooldown));
         list.add(of("friends-settings", FriendsScenarios::settings));
+        list.add(of("friends-rank-label", FriendsScenarios::rankLabel));
         return list;
     }
 
@@ -1252,6 +1253,84 @@ final class FriendsScenarios {
         Bot.SeenDialog profile = open(e2e, back, "profile " + jan, jan);
         e2e.expect(profile.button("Unfavourite") != null, "the favourite survived: " + profile.buttons());
         e2e.expect(profile.bodyText().contains("Your note: met at spawn"), "the note survived: " + profile.body());
+    }
+
+    /** The rank label stored for a player's offline profile ({@code friend_profiles}), read after every queued write. */
+    private static String storedRankLabel(E2E e2e, UUID player) {
+        try {
+            return e2e.services().database().write(c -> {
+                try (java.sql.PreparedStatement ps = c.prepareStatement("SELECT rank_label FROM friend_profiles WHERE uuid = ?")) {
+                    ps.setString(1, player.toString());
+                    try (java.sql.ResultSet rs = ps.executeQuery()) {
+                        return rs.next() ? rs.getString(1) : null;
+                    }
+                }
+            }).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new E2E.Failure("reading the rank label failed: " + e);
+        }
+    }
+
+    /**
+     * The rank a friend's offline profile shows follows Show my rank: turning it off stores no label at once (not at the
+     * next minute's refresh), so the profile shows no rank once the player left; and the label is stored again as they
+     * quit, so a rank that changed in their last minute online is the one their friends see. Needs LuckPerms.
+     */
+    static void rankLabel(E2E e2e) throws Exception {
+        org.bukkit.plugin.Plugin luckPerms = Bukkit.getPluginManager().getPlugin("LuckPerms");
+        if (luckPerms == null || !luckPerms.isEnabled()) {
+            e2e.step("without LuckPerms there are no rank labels to store");
+            return;
+        }
+        String ranked = e2e.name("Ranked");
+        String friend = e2e.name("RankSee");
+        Bot r = join(e2e, ranked);
+        Bot f = join(e2e, friend);
+        UUID id = e2e.uuid(ranked);
+        befriend(e2e, ranked, friend);
+        var ranks = e2e.feature(net.siftvanilla.siftcore.feature.integrations.IntegrationsFeature.class).ranks();
+        var showMyRank = net.siftvanilla.siftcore.feature.integrations.IntegrationsFeature.SHOW_MY_RANK;
+        String group = "e2elabel" + Long.toString(System.nanoTime() % 1_000, 36);
+        e2e.console("lp creategroup " + group);
+        e2e.console("lp group " + group + " setweight 100");
+        e2e.console("lp group " + group + " meta set siftcore-rank Knight");
+        e2e.console("lp user " + ranked + " parent add " + group);
+        e2e.console("lp user " + ranked + " permission set siftcore.settings.hide-rank true");
+        try {
+            e2e.step("a ranked player whose friends' profile view stores Knight");
+            e2e.eventually(() -> "Knight".equals(ranks.label(id)), "the label: '" + ranks.label(id) + "'");
+            e2e.eventually(() -> e2e.onPlayer(ranked, () -> e2e.player(ranked).hasPermission("siftcore.settings.hide-rank")),
+                "the hide-rank node arrived");
+            // Each change of the setting stores the label again right away.
+            AfkStaffSettingSteps.set(e2e, ranked, showMyRank, false);
+            AfkStaffSettingSteps.set(e2e, ranked, showMyRank, true);
+            e2e.eventually(() -> "Knight".equals(storedRankLabel(e2e, id)), "stored after the change: " + storedRankLabel(e2e, id));
+
+            e2e.step("Show my rank off: no label is stored at once, and the offline profile shows no rank");
+            AfkStaffSettingSteps.set(e2e, ranked, showMyRank, false);
+            e2e.eventually(() -> storedRankLabel(e2e, id) == null, "the label went with the change: " + storedRankLabel(e2e, id));
+            quit(e2e, r);
+            // The quit stores the label again, with the player's settings still loaded: still none.
+            e2e.sleep(500);
+            e2e.expect(storedRankLabel(e2e, id) == null, "the quit kept it hidden: " + storedRankLabel(e2e, id));
+            Bot.SeenDialog hidden = open(e2e, f, "profile " + ranked, ranked);
+            e2e.expect(!hidden.bodyText().contains("Rank:"), "no rank on the offline profile: " + hidden.body());
+
+            e2e.step("Show my rank on and a new rank label just before quitting: the quit stores it");
+            r = join(e2e, ranked);
+            AfkStaffSettingSteps.set(e2e, ranked, showMyRank, true);
+            e2e.eventually(() -> "Knight".equals(storedRankLabel(e2e, id)), "stored again: " + storedRankLabel(e2e, id));
+            e2e.console("lp group " + group + " meta set siftcore-rank Lord");
+            e2e.eventually(() -> "Lord".equals(ranks.label(id)), "the new label: '" + ranks.label(id) + "'");
+            quit(e2e, r);
+            e2e.eventually(() -> "Lord".equals(storedRankLabel(e2e, id)), "stored as they quit: " + storedRankLabel(e2e, id));
+            Bot.SeenDialog shown = open(e2e, f, "profile " + ranked, ranked);
+            e2e.expect(shown.bodyText().contains("Rank: Lord"), "the offline profile shows the new rank: " + shown.body());
+        } finally {
+            e2e.console("lp user " + ranked + " permission unset siftcore.settings.hide-rank");
+            e2e.console("lp user " + ranked + " parent remove " + group);
+            e2e.console("lp deletegroup " + group);
+        }
     }
 
     /**

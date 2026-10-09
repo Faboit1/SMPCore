@@ -227,7 +227,7 @@ final class OrderDialogs {
             body.add(Body.item(item.display(draft.quantity()), null));
         }
         body.add(text(lines));
-        return this.services.templates().confirmWithBody(lang.get(OrdersMessages.CONFIRM_TITLE), body,
+        View confirm = this.services.templates().confirmWithBody(lang.get(OrdersMessages.CONFIRM_TITLE), body,
             label(OrdersMessages.CONFIRM_BUTTON), lang.get(CoreMessages.UI_BACK),
             yes -> {
                 OrderService.Problem problem = this.service.create(yes.player(), draft);
@@ -247,6 +247,8 @@ final class OrderDialogs {
                     finish(no, after);
                 }
             });
+        // Without a form to go back to, both answers finish here: the client closes it at once.
+        return edit == null ? confirm.closing() : confirm;
     }
 
     /** "Order again": the confirmation of a new order with the same item, quantity and price, after every check. */

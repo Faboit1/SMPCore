@@ -22,7 +22,6 @@ import net.siftvanilla.siftcore.core.player.Registry;
 import net.siftvanilla.siftcore.core.player.SetResult;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
 import net.siftvanilla.siftcore.core.text.Lang;
-import net.siftvanilla.siftcore.storage.Database;
 
 /**
  * The public {@link SettingsView}: plain strings over the settings registry, so other plugins never see core types.
@@ -31,7 +30,8 @@ import net.siftvanilla.siftcore.storage.Database;
  * Groups and settings come in the dialog's order with the dialog's icons (the server's {@code categories} overrides
  * applied). Changes and resets are written to the audit log ({@code settings.set} and {@code settings.reset}, actor
  * {@code api} or {@code api:<actor>}, details {@code id: old -> new}); the value before is read before the change is
- * queued, from the database for a player who is not loaded, so the row names what they really had.
+ * queued, from the database for a player who is not loaded, so the row names what they really had. The rows are
+ * written in the order of the calls.
  */
 final class SettingsApi implements SettingsView {
 
@@ -41,22 +41,22 @@ final class SettingsApi implements SettingsView {
 
     private final PlayerSettings settings;
     private final Lang lang;
-    private final Database database;
     private final AuditLog audit;
     private final Supplier<Map<String, SettingsConfig.CategoryOverride>> overrides;
     private final Logger logger;
+    private final InOrder audits;
 
     /**
      * @param overrides the server's group overrides as they are now ({@code categories} in {@code features/settings.yml})
      */
-    SettingsApi(PlayerSettings settings, Lang lang, Database database, AuditLog audit,
-                Supplier<Map<String, SettingsConfig.CategoryOverride>> overrides, Logger logger) {
+    SettingsApi(PlayerSettings settings, Lang lang, AuditLog audit, Supplier<Map<String, SettingsConfig.CategoryOverride>> overrides,
+                Logger logger) {
         this.settings = settings;
         this.lang = lang;
-        this.database = database;
         this.audit = audit;
         this.overrides = overrides;
         this.logger = logger;
+        this.audits = new InOrder(logger);
     }
 
     @Override
@@ -150,7 +150,6 @@ final class SettingsApi implements SettingsView {
         }
         T now = parsed.value();
         CompletableFuture<T> before = this.settings.lookup(player, setting);
-        LegacyRows.forget(this.database, player, entry);
         SetResult result = this.settings.set(player, setting, now, Change.api(actor));
         if (result == SetResult.CHANGED) {
             whenRead(before, old -> {
@@ -179,8 +178,7 @@ final class SettingsApi implements SettingsView {
         boolean loaded = this.settings.loaded(player);
         boolean changed = !loaded || this.settings.changed(player, setting);
         CompletableFuture<T> before = this.settings.lookup(player, setting);
-        LegacyRows.forget(this.database, player, entry);
-        // Also removes a leftover row that holds the default.
+        // Also removes a leftover row that holds the default (and, for a player who is not loaded, rows under old ids).
         this.settings.reset(player, List.of(setting), Change.reset(API));
         if (!changed) {
             return Result.UNCHANGED;
@@ -194,9 +192,14 @@ final class SettingsApi implements SettingsView {
         return Result.CHANGED;
     }
 
-    /** Runs {@code then} with the value before a change once it is read (logged when the read fails). */
+    /**
+     * Runs {@code then} with the value before a change once it is read (logged when the read fails), after the steps of
+     * earlier calls: the reads of a player who is not loaded complete on any of the database's callback threads, and
+     * the audit rows must still land in the order of the changes.
+     */
     private <T> void whenRead(CompletableFuture<T> before, Consumer<T> then) {
-        before.whenComplete((old, error) -> {
+        // Already started: the change was queued right after this read, so the read must not wait for earlier steps.
+        this.audits.then(() -> before, (old, error) -> {
             if (error != null) {
                 this.logger.log(Level.WARNING, "Could not read a setting's previous value for the audit log", error);
             } else {

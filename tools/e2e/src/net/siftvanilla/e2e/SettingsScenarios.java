@@ -305,17 +305,37 @@ final class SettingsScenarios {
     }
 
     /**
-     * Runs a command as a console-like sender (every permission) and returns what it was told, one plain-text entry per
-     * message. The list keeps filling: staff tools answer after a database read, so wait on it with
-     * {@link E2E#eventually}.
+     * Runs commands as a console-like sender (every permission), one after another in the same tick, and returns what
+     * they were told, one plain-text entry per message. The list keeps filling: staff tools answer after a database
+     * read, so wait on it with {@link E2E#eventually}.
      */
-    private static List<String> capture(E2E e2e, String command) {
+    private static List<String> capture(E2E e2e, String... commands) {
+        return capture(e2e, 0, commands);
+    }
+
+    /**
+     * {@link #capture(E2E, String...)} on a slow database: the database writer is first held for {@code holdMillis}, so
+     * every read and write the commands queue waits behind it and they run back to back (0: not held).
+     */
+    private static List<String> capture(E2E e2e, long holdMillis, String... commands) {
         List<String> lines = new CopyOnWriteArrayList<>();
         CompletableFuture<Void> done = new CompletableFuture<>();
         Bukkit.getGlobalRegionScheduler().execute(harness(), () -> {
             try {
-                Bukkit.dispatchCommand(Bukkit.createCommandSender(message -> lines.add(
-                    PlainTextComponentSerializer.plainText().serialize(message))), command);
+                if (holdMillis > 0) {
+                    e2e.services().database().write(connection -> {
+                        try {
+                            Thread.sleep(holdMillis);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return null;
+                    });
+                }
+                var sender = Bukkit.createCommandSender(message -> lines.add(PlainTextComponentSerializer.plainText().serialize(message)));
+                for (String command : commands) {
+                    Bukkit.dispatchCommand(sender, command);
+                }
                 done.complete(null);
             } catch (Throwable t) {
                 done.completeExceptionally(t);
@@ -324,7 +344,7 @@ final class SettingsScenarios {
         try {
             done.get(10, TimeUnit.SECONDS);
         } catch (Exception e) {
-            throw new E2E.Failure("command '" + command + "' failed: " + e.getCause());
+            throw new E2E.Failure("commands " + List.of(commands) + " failed: " + e.getCause());
         }
         return lines;
     }
@@ -959,7 +979,8 @@ final class SettingsScenarios {
 
     /**
      * {@code /sift settings}: listing a player's changes, one setting's details, changing an online player's setting
-     * (and its instant hook), an offline player's (read when they rejoin), resets, refusals, and the audit log.
+     * (and its instant hook), an offline player's (read when they rejoin; two commands in the same tick see each
+     * other), resets, refusals, and the audit log.
      */
     static void admin(E2E e2e) throws Exception {
         String name = e2e.name("Managed");
@@ -1028,6 +1049,32 @@ final class SettingsScenarios {
         expectStored(e2e, id, "sound-volume", "80");
         staffSays(e2e, "sift settings " + name, "- sound-volume: 80 (default 100)");
         staffSays(e2e, "sift settings " + name + " sound-volume", "80 (default 100, from their choice)");
+
+        e2e.step("two commands for the offline player in the same tick (a console script, on a slow database) see each other's change");
+        List<String> twice = capture(e2e, 300, "sift settings " + name + " sound-volume 50", "sift settings " + name + " sound-volume 80");
+        e2e.eventually(() -> twice.size() >= 2, "both answered: " + twice);
+        e2e.expect(twice.size() == 2 && twice.get(0).contains("Set sound-volume of " + name + " to 50 (was 80).")
+            && twice.get(1).contains("Set sound-volume of " + name + " to 80 (was 50)."),
+            "the second compares with the first one's value, not the one before it: " + twice);
+        expectStored(e2e, id, "sound-volume", "80");
+        e2e.eventually(() -> {
+            try {
+                List<String> rows = audit(e2e, id).stream().map(AuditLog.Entry::details).toList();
+                int first = rows.indexOf("sound-volume: 80 -> 50");
+                int second = rows.indexOf("sound-volume: 50 -> 80");
+                return first >= 0 && second >= 0 && second < first;
+            } catch (Exception e) {
+                return false;
+            }
+        }, "both changes are audited with the value before each, in order");
+        List<String> setThenReset = capture(e2e, 300, "sift settings " + name + " sound-volume 40", "sift settings " + name + " reset sound-volume");
+        e2e.eventually(() -> setThenReset.size() >= 2, "both answered: " + setThenReset);
+        e2e.expect(setThenReset.size() == 2 && setThenReset.get(0).contains("Set sound-volume of " + name + " to 40 (was 80).")
+            && setThenReset.get(1).contains("Reset 1 settings of " + name + "."),
+            "the reset finds the row the change just wrote: " + setThenReset);
+        expectStored(e2e, id, "sound-volume", null);
+        staffSays(e2e, "sift settings " + name + " sound-volume 80", "Set sound-volume of " + name + " to 80 (was 100).");
+        expectStored(e2e, id, "sound-volume", "80");
         Bot back = e2e.bot(name);
         e2e.expect(settings.get(id, SharedSettings.SOUND_VOLUME) == 80L, "read on rejoin: " + settings.get(id, SharedSettings.SOUND_VOLUME));
         e2e.expect(open(e2e, back, "settings sound", "Sounds settings").range("sound_volume").initial() == 80f, "the dialog shows it");

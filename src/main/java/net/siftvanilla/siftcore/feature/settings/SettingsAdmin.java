@@ -11,12 +11,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
-import java.util.logging.Level;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.player.Change;
@@ -24,7 +21,6 @@ import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.player.PlayerSetting;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.Registry;
-import net.siftvanilla.siftcore.core.player.SetResult;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -48,7 +44,9 @@ import org.bukkit.entity.Player;
  * Every setting is reachable, also ones that need a permission or are not listed in the dialog. Reads go to the
  * database after every queued write; changes go through the registry ({@link Change.Cause#ADMIN}: reported to
  * {@code SettingChangeEvent} listeners, not cancellable) and are written to the audit log. A row under a setting's old
- * id ({@link LegacyRows}) counts as the setting's stored value, and a change or reset removes it first.
+ * id ({@link LegacyRows}) counts as the setting's stored value, and a change or reset removes it with the change.
+ * Changes, resets and the lists apply in the order staff type them ({@link StaffChanges}): each reads after the ones
+ * before queued their writes.
  */
 final class SettingsAdmin {
 
@@ -59,12 +57,16 @@ final class SettingsAdmin {
     private final Lang lang;
     private final Messenger messenger;
     private final CommandSupport support;
+    /** Changes, resets and reads, run in the order they were typed, whatever thread their database read completes on. */
+    private final StaffChanges changes;
 
     SettingsAdmin(Services services) {
         this.services = services;
         this.lang = services.lang();
         this.messenger = services.messenger();
         this.support = services.commands();
+        this.changes = new StaffChanges(services.settings(), this.lang, this.messenger, services.audit(), services.plugin().getLogger(),
+            services.directory()::name, Bukkit::getPlayer);
     }
 
     private PlayerSettings settings() {
@@ -110,14 +112,8 @@ final class SettingsAdmin {
         return this.services.directory().name(player);
     }
 
-    private static String actor(CommandSender sender) {
-        return sender instanceof Player player ? player.getUniqueId().toString() : "console";
-    }
-
-    /** Reports a failed read or write to the sender and the log. */
     private void failed(CommandSender sender, Throwable error) {
-        this.services.plugin().getLogger().log(Level.WARNING, "A /sift settings read or write failed", error);
-        this.messenger.chat(sender, SettingsMessages.ADMIN_FAILED, Arg.text("reason", String.valueOf(error.getMessage())));
+        this.changes.failed(sender, error);
     }
 
     // ------------------------------------------------------------------ list
@@ -125,7 +121,7 @@ final class SettingsAdmin {
     /** What a player changed (stored rows that differ from the default), and the other values stored for them. */
     void list(CommandSender sender, UUID player) {
         String name = name(player);
-        settings().stored(player).whenComplete((rows, error) -> {
+        this.changes.after(() -> settings().stored(player), (rows, error) -> {
             if (error != null) {
                 failed(sender, error);
                 return;
@@ -205,27 +201,28 @@ final class SettingsAdmin {
     private <T> void detail(CommandSender sender, UUID player, Registry.Entry<T> entry) {
         PlayerSetting<T> setting = entry.setting();
         String name = name(player);
-        settings().stored(player).thenCombine(settings().lookup(player, setting), (rows, value) -> {
-            PlayerSettings settings = settings();
-            String stored = LegacyRows.resolve(rows, settings.registry()).rows().get(entry.id());
-            this.messenger.chat(sender, SettingsMessages.ADMIN_DETAIL, Arg.text("id", entry.id()), Arg.text("name", name),
-                Arg.text("value", setting.encode(value)), Arg.text("default", setting.encode(settings.defaultValue(setting))),
-                Arg.text("source", this.lang.plain(source(entry, stored))));
-            this.messenger.chat(sender, SettingsMessages.ADMIN_DETAIL_GROUP, Arg.text("group", this.lang.plain(entry.category().label())),
-                Arg.text("kind", setting.kind().name().toLowerCase(Locale.ROOT)),
-                Arg.text("values", SettingsCommands.valuesText(this.lang, setting, List.of())));
-            if (setting.permission() != null) {
-                Player online = Bukkit.getPlayer(player);
-                this.messenger.chat(sender, SettingsMessages.ADMIN_DETAIL_PERMISSION, Arg.text("permission", setting.permission()),
-                    Arg.text("has", this.lang.plain(online == null ? SettingsMessages.HAS_OFFLINE
-                        : online.hasPermission(setting.permission()) ? SettingsMessages.HAS_YES : SettingsMessages.HAS_NO)));
-            }
-            return null;
-        }).whenComplete((ignored, error) -> {
-            if (error != null) {
-                failed(sender, error);
-            }
-        });
+        this.changes.after(() -> settings().stored(player).thenCombine(settings().lookup(player, setting), StaffChanges.Detail<T>::new),
+            (read, error) -> {
+                if (error != null) {
+                    failed(sender, error);
+                    return;
+                }
+                PlayerSettings settings = settings();
+                T value = read.value();
+                String stored = LegacyRows.resolve(read.rows(), settings.registry()).rows().get(entry.id());
+                this.messenger.chat(sender, SettingsMessages.ADMIN_DETAIL, Arg.text("id", entry.id()), Arg.text("name", name),
+                    Arg.text("value", setting.encode(value)), Arg.text("default", setting.encode(settings.defaultValue(setting))),
+                    Arg.text("source", this.lang.plain(source(entry, stored))));
+                this.messenger.chat(sender, SettingsMessages.ADMIN_DETAIL_GROUP, Arg.text("group", this.lang.plain(entry.category().label())),
+                    Arg.text("kind", setting.kind().name().toLowerCase(Locale.ROOT)),
+                    Arg.text("values", SettingsCommands.valuesText(this.lang, setting, List.of())));
+                if (setting.permission() != null) {
+                    Player online = Bukkit.getPlayer(player);
+                    this.messenger.chat(sender, SettingsMessages.ADMIN_DETAIL_PERMISSION, Arg.text("permission", setting.permission()),
+                        Arg.text("has", this.lang.plain(online == null ? SettingsMessages.HAS_OFFLINE
+                            : online.hasPermission(setting.permission()) ? SettingsMessages.HAS_YES : SettingsMessages.HAS_NO)));
+                }
+            });
     }
 
     /** Where a player's value of a setting comes from. */
@@ -259,63 +256,11 @@ final class SettingsAdmin {
             reset(sender, player, entry.id());
             return;
         }
-        set(sender, player, entry, input);
-    }
-
-    private <T> void set(CommandSender sender, UUID player, Registry.Entry<T> entry, String input) {
-        PlayerSetting<T> setting = entry.setting();
-        String name = name(player);
-        settings().lookup(player, setting).whenComplete((current, error) -> {
-            if (error != null) {
-                failed(sender, error);
-                return;
-            }
-            List<Choice.Option<T>> every = setting instanceof Choice<T> choice ? choice.options() : List.of();
-            SettingsArgs.Parsed<T> parsed = SettingsArgs.parse(setting, input, current, every, option -> option.text(this.lang));
-            if (!parsed.ok()) {
-                this.messenger.chat(sender, SettingsMessages.ADMIN_INVALID, Arg.text("id", entry.id()),
-                    Arg.text("values", SettingsCommands.valuesText(this.lang, setting, List.of())));
-                return;
-            }
-            T value = parsed.value();
-            String old = setting.encode(current);
-            if (setting.same(current, value)) {
-                this.messenger.chat(sender, SettingsMessages.ADMIN_UNCHANGED, Arg.text("id", entry.id()), Arg.text("name", name),
-                    Arg.text("value", old));
-                return;
-            }
-            PlayerSettings settings = settings();
-            if (!settings.locked(setting) && !settings.hidden(setting)) {
-                // The change goes through (only a lock or the server hiding it refuses a staff change): first remove a
-                // row under an old id, which would otherwise move over the change at the player's next login.
-                LegacyRows.forget(this.services.database(), player, entry);
-            }
-            SetResult result = settings.set(player, setting, value, Change.admin(sender.getName()));
-            switch (result) {
-                case CHANGED -> {
-                    String now = setting.encode(value);
-                    this.services.audit().record(actor(sender), "settings.set", player.toString(), entry.id() + ": " + old + " -> " + now);
-                    this.messenger.chat(sender, SettingsMessages.ADMIN_SET, Arg.text("id", entry.id()), Arg.text("name", name),
-                        Arg.text("value", now), Arg.text("old", old));
-                    Player online = Bukkit.getPlayer(player);
-                    if (setting.permission() != null && online != null && !online.hasPermission(setting.permission())) {
-                        this.messenger.chat(sender, SettingsMessages.ADMIN_NO_PERMISSION, Arg.text("name", name),
-                            Arg.text("permission", setting.permission()));
-                    }
-                }
-                case UNCHANGED -> this.messenger.chat(sender, SettingsMessages.ADMIN_UNCHANGED, Arg.text("id", entry.id()),
-                    Arg.text("name", name), Arg.text("value", old));
-                case LOCKED -> refused(sender, entry, SettingsMessages.REASON_LOCKED);
-                case NOT_ALLOWED -> refused(sender, entry, SettingsMessages.REASON_HIDDEN);
-                case CANCELLED -> refused(sender, entry, SettingsMessages.REASON_CANCELLED);
-                case INVALID, UNKNOWN -> this.messenger.chat(sender, SettingsMessages.ADMIN_INVALID, Arg.text("id", entry.id()),
-                    Arg.text("values", SettingsCommands.valuesText(this.lang, setting, List.of())));
-            }
-        });
+        this.changes.set(sender, player, entry, input);
     }
 
     private void refused(CommandSender sender, Registry.Entry<?> entry, net.siftvanilla.siftcore.core.text.MessageKey reason) {
-        this.messenger.chat(sender, SettingsMessages.ADMIN_REFUSED, Arg.text("id", entry.id()), Arg.text("reason", this.lang.plain(reason)));
+        this.changes.refused(sender, entry, reason);
     }
 
     /**
@@ -344,61 +289,7 @@ final class SettingsAdmin {
                 return;
             }
         }
-        String name = name(player);
-        settings().stored(player).whenComplete((rows, error) -> {
-            if (error != null) {
-                failed(sender, error);
-                return;
-            }
-            PlayerSettings settings = settings();
-            ResetPlan plan = plan(targets, LegacyRows.resolve(rows, settings.registry()).rows().keySet(), settings::locked);
-            if (!plan.reset().isEmpty()) {
-                List<PlayerSetting<?>> reset = new ArrayList<>(plan.reset().size());
-                for (Registry.Entry<?> entry : plan.reset()) {
-                    // A row under an old id goes first, so the next login can't move it over the reset.
-                    LegacyRows.forget(this.services.database(), player, entry);
-                    reset.add(entry.setting());
-                }
-                settings.reset(player, reset, Change.admin(sender.getName()));
-                this.services.audit().record(actor(sender), "settings.reset", player.toString(), String.join(", ", plan.ids()));
-            }
-            if (plan.locked().isEmpty()) {
-                this.messenger.chat(sender, SettingsMessages.ADMIN_RESET, Arg.number("count", plan.reset().size()), Arg.text("name", name));
-            } else {
-                this.messenger.chat(sender, SettingsMessages.ADMIN_RESET_LOCKED, Arg.number("count", plan.reset().size()),
-                    Arg.text("name", name), Arg.number("locked", plan.locked().size()), Arg.text("ids", String.join(", ", plan.locked())));
-            }
-        });
-    }
-
-    /**
-     * What a staff reset does.
-     *
-     * @param reset  the settings it puts back (they have a stored row, under their id or an old one)
-     * @param locked the ids of settings with a stored row that the server locked, left alone
-     */
-    record ResetPlan(List<Registry.Entry<?>> reset, List<String> locked) {
-        List<String> ids() {
-            return this.reset.stream().map(Registry.Entry::id).toList();
-        }
-    }
-
-    /** Splits the targeted settings with a stored row ({@code stored}: ids, old-id rows already read as theirs). */
-    static ResetPlan plan(List<Registry.Entry<?>> targets, Set<String> stored,
-                          Predicate<PlayerSetting<?>> locked) {
-        List<Registry.Entry<?>> reset = new ArrayList<>();
-        List<String> skipped = new ArrayList<>();
-        for (Registry.Entry<?> entry : targets) {
-            if (!stored.contains(entry.id())) {
-                continue;
-            }
-            if (locked.test(entry.setting())) {
-                skipped.add(entry.id());
-            } else {
-                reset.add(entry);
-            }
-        }
-        return new ResetPlan(List.copyOf(reset), List.copyOf(skipped));
+        this.changes.reset(sender, player, targets);
     }
 
     // ------------------------------------------------------------------ catalog

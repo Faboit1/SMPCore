@@ -18,8 +18,9 @@ setting; no schema change). Every setting is listed at the end ([Settings catalo
 
 A toggle can become a choice under the same id: `Choice.Builder.legacyValue("true", "chat")` makes old rows (and config
 entries) read as that option. A setting can take over a retired id: `SettingOptions.legacy("old-id", value -> ...)`
-moves the old rows when a player loads. While the old id is still registered as a setting of its own, the new one is
-not offered and nothing moves (two controls for one thing would contradict each other).
+moves the old rows when a player loads, and a change or reset written for a player who is not loaded deletes them with
+it. While the old id is still registered as a setting of its own, the new one is not offered and nothing moves (two
+controls for one thing would contradict each other).
 
 ## Groups
 
@@ -208,8 +209,14 @@ on the player's thread.
 
 A row stored under a setting's old id (`SettingOptions.legacy`, like `tpa-friends` for `friends-tpa` once TPA reads
 the choice) is that setting's value until the player logs in and core moves it: the list shows it under the new id,
-the detail names it as their choice, and a reset includes it. A change or reset by staff (or through the API)
-deletes the old row first, so the next login can't move it back over the change.
+the detail names it as their choice, and a reset includes it. Core deletes the old row in the same write as any change
+or reset for a player who is not loaded (by staff, the API or a feature), so the next login can't move it back over
+the change; a login whose read was already queued keeps the change too. Staff changes, resets and lookups, and the
+API's audit rows, are applied in the order they were made, also for offline players whose previous values are read
+from the database: each staff command reads only after the commands before it queued their writes (`StaffChanges`
+over `InOrder`; `InOrderTest`, `SettingsAdminTest` and the `settings-admin` e2e scenario, which holds the database
+writer so both commands' work queues back to back), so two commands for the same offline player in one tick (a
+console script) see each other, and a reset right after a change finds the changed row.
 
 ## Placeholders
 

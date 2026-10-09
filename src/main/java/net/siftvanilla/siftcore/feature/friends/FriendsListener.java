@@ -6,6 +6,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import net.siftvanilla.siftcore.api.event.SettingChangeEvent;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.scheduler.Task;
@@ -37,6 +38,11 @@ final class FriendsListener implements Listener {
 
     /** Card cooldown key in the core cooldowns. */
     static final String CARD_COOLDOWN = "friends:card";
+    /**
+     * The integrations feature's {@code show-my-rank} setting (read by id: features never import each other's
+     * settings). The rank label stored for profiles follows it, see {@link #onSettingChange}.
+     */
+    static final String SHOW_MY_RANK = "show-my-rank";
 
     private final Services services;
     private final Setting<FriendsSettings> settings;
@@ -170,6 +176,9 @@ final class FriendsListener implements Listener {
         this.joinedAt.remove(id);
         this.started.remove(id);
         this.presence.left(player);
+        // The label offline profiles show is the one stored last: store it as it is now (show-my-rank changed within
+        // the last minute, or the rank), while the player's settings are still loaded.
+        this.limits.refresh(player);
         long leftAt = this.graph.leave(id);
         if (leftAt > 0) {
             Task eviction = this.services.scheduler().asyncLater(() -> {
@@ -182,6 +191,22 @@ final class FriendsListener implements Listener {
             if (previous != null) {
                 previous.cancel();
             }
+        }
+    }
+
+    /**
+     * A player turned {@code show-my-rank} on or off: their stored rank label (what friends see on their profile while
+     * they are offline) follows at once, on their thread after the change is stored, instead of at the next minute's
+     * refresh. Offline players' labels follow at their next join.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onSettingChange(SettingChangeEvent event) {
+        if (!SHOW_MY_RANK.equals(event.setting()) || event.isCancelled() && event.cancellable()) {
+            return;
+        }
+        Player player = event.player();
+        if (player != null) {
+            this.services.scheduler().entity(player, () -> this.limits.refresh(player), null);
         }
     }
 

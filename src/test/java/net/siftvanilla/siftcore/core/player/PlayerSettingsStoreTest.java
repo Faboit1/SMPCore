@@ -275,6 +275,73 @@ class PlayerSettingsStoreTest {
         assertEquals(AlertStyle.OFF, s.get(kai, moved));
     }
 
+    /** A store where {@code moved} took over the rows of {@code old-alerts} (true: chat, false: off). */
+    private PlayerSettings legacyStore(net.siftvanilla.siftcore.storage.Database database, Choice<AlertStyle> moved) {
+        PlayerSettings s = new PlayerSettings(database, null, LOGGER);
+        s.register(SettingCategories.CHAT, moved, SettingOptions.<AlertStyle>builder()
+            .legacy("old-alerts", v -> Boolean.TRUE.equals(Toggle.parse(v)) ? "chat" : Boolean.FALSE.equals(Toggle.parse(v)) ? "off" : null)
+            .build());
+        return s;
+    }
+
+    @Test
+    void offlineChangesAndResetsDeleteTheOldIdsRowsSoNothingMovesBackOverThem() throws Exception {
+        Choice<AlertStyle> moved = Choices.alert("moved", AlertStyle.OFF, AlertStyle.OFF, AlertStyle.CHAT, AlertStyle.ACTIONBAR)
+            .text(LABEL, DESCRIPTION).build();
+        PlayerSettings s = legacyStore(this.database, moved);
+        insert(ALEX, "old-alerts", "true");
+        insert(ALEX, "auction-sort", "price");
+        assertEquals(SetResult.CHANGED, s.set(ALEX, moved, AlertStyle.ACTIONBAR, Change.admin("Mod")));
+        assertEquals(Map.of("moved", "actionbar", "auction-sort", "price"), rows(ALEX), "the old row went with the change");
+        s.load(ALEX).get(5, TimeUnit.SECONDS);
+        assertEquals(AlertStyle.ACTIONBAR, s.get(ALEX, moved), "the change stands at the next login");
+        s.forget(ALEX);
+
+        insert(SAM, "old-alerts", "true");
+        assertEquals(SetResult.CHANGED, s.set(SAM, moved, AlertStyle.OFF, Change.admin("Mod")), "back to the default");
+        assertEquals(Map.of(), rows(SAM), "neither the default nor the old row has a row");
+        s.load(SAM).get(5, TimeUnit.SECONDS);
+        assertEquals(AlertStyle.OFF, s.get(SAM, moved), "the old chat value did not move over the default");
+        s.forget(SAM);
+
+        UUID kai = UUID.randomUUID();
+        insert(kai, "old-alerts", "true");
+        assertEquals(0, s.reset(kai, List.of(moved), Change.admin("Mod")), "not loaded: no reports");
+        assertEquals(Map.of(), rows(kai), "a reset deletes the old row too");
+        assertEquals(AlertStyle.OFF, s.lookup(kai, moved).get(5, TimeUnit.SECONDS));
+        s.load(kai).get(5, TimeUnit.SECONDS);
+        assertEquals(AlertStyle.OFF, s.get(kai, moved), "the reset stands at the next login");
+
+        // While the old id is still a setting of its own, its rows are its own: an offline change leaves them alone.
+        PlayerSettings both = legacyStore(this.database, moved);
+        both.register(new Toggle("old-alerts", false, LABEL, DESCRIPTION, null));
+        UUID lee = UUID.randomUUID();
+        insert(lee, "old-alerts", "true");
+        assertEquals(SetResult.CHANGED, both.set(lee, moved, AlertStyle.CHAT, Change.admin("Mod")));
+        assertEquals(Map.of("old-alerts", "true", "moved", "chat"), rows(lee));
+    }
+
+    @Test
+    void anOldRowDeletedByAnOfflineWriteQueuedBehindTheLoginReadDoesNotMoveOverIt() throws Exception {
+        Choice<AlertStyle> moved = Choices.alert("moved", AlertStyle.OFF, AlertStyle.OFF, AlertStyle.CHAT, AlertStyle.ACTIONBAR)
+            .text(LABEL, DESCRIPTION).build();
+        GatedDatabase gated = new GatedDatabase(this.database);
+        PlayerSettings s = legacyStore(gated, moved);
+        insert(ALEX, "old-alerts", "true");
+        java.util.concurrent.CompletableFuture<Void> load = s.load(ALEX);
+        // Staff change the setting while the login read waits: the login reads the old row and moves it after this write.
+        assertEquals(SetResult.CHANGED, s.set(ALEX, moved, AlertStyle.ACTIONBAR, Change.admin("Mod")));
+        gated.open();
+        load.get(5, TimeUnit.SECONDS);
+        gated.flush();
+        assertEquals(Map.of("moved", "actionbar"), rows(ALEX), "the move kept the staff change");
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), () -> {
+            while (s.get(ALEX, moved) != AlertStyle.ACTIONBAR) {
+                Thread.onSpinWait();
+            }
+        }, "the loaded value follows the change: " + s.get(ALEX, moved));
+    }
+
     @Test
     void nothingMovesWhileTheOldSettingIsStillRegistered() throws Exception {
         PlayerSettings s = new PlayerSettings(this.database, null, LOGGER);

@@ -767,7 +767,10 @@ final class FriendViews {
         if (action == ProfileButtons.Action.MESSAGE) {
             return button(label, submission -> openMessageForm(submission.player(), target, name, nav));
         }
-        return button(label, submission -> this.buttons.run(submission.player(), action, target, name));
+        Button run = button(label, submission -> this.buttons.run(submission.player(), action, target, name));
+        // Teleport and Invite send a request and show nothing next, so the profile closes at once; Pay and Stats open
+        // their own screens in its place.
+        return action == ProfileButtons.Action.TELEPORT || action == ProfileButtons.Action.INVITE ? run.closes() : run;
     }
 
     /** The message form of a profile: the text goes to {@code /msg}, which does the delivery and its own checks. */

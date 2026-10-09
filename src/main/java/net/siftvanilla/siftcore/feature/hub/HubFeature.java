@@ -29,6 +29,9 @@ import org.bukkit.entity.Player;
  */
 public final class HubFeature implements Feature {
 
+    /** The pause-menu id of the spawn entry, the one entry that shows no screen of its own (it starts a teleport). */
+    private static final String SPAWN = "spawn";
+
     private final Services services;
     private final Setting<HubSettings> settings;
     private final List<ServerLinks.ServerLink> addedLinks = new ArrayList<>();
@@ -92,8 +95,10 @@ public final class HubFeature implements Feature {
             if (entry.id().equals("menu")) {
                 continue;
             }
-            buttons.add(Button.of(lang.get(entry.label()), lang.get(entry.description()), submission -> entry.open().accept(submission.player()))
-                .width(150));
+            Button button = Button.of(lang.get(entry.label()), lang.get(entry.description()),
+                submission -> entry.open().accept(submission.player())).width(150);
+            // Every entry opens its own screen except Spawn, which starts the teleport and shows nothing next.
+            buttons.add(SPAWN.equals(entry.id()) ? button.closes() : button);
         }
         var body = lang.lines(HubMessages.BODY,
             Arg.text("name", player.getName()),

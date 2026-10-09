@@ -41,7 +41,7 @@ final class ReportCommands {
                 }
                 return CommandSupport.OK;
             })
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player")
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player")
                 .executes(ctx -> {
                     Player player = this.support.player(ctx);
                     if (player != null) {

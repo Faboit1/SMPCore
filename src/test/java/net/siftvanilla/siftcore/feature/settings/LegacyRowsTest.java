@@ -5,20 +5,21 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
+import net.siftvanilla.siftcore.core.player.Change;
 import net.siftvanilla.siftcore.core.player.Registry;
+import net.siftvanilla.siftcore.core.player.SetResult;
 import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AutoAccept;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Rows under a setting's old id, as the staff tools and the API read and remove them for players who are not loaded. */
+/** Rows under a setting's old id, as the staff tools and the API read them for players who are not loaded. */
 class LegacyRowsTest {
 
     private static final MessageKey LABEL = MessageKey.ui("test.label");
@@ -42,7 +43,6 @@ class LegacyRowsTest {
         LegacyRows.Resolved resolved = LegacyRows.resolve(Map.of("chat-old", "yes", "auction-sort", "price"), registry);
         assertEquals(Map.of("chat-new", "true", "auction-sort", "price"), resolved.rows(), "the old row is the setting's, UI state stays");
         assertEquals(Map.of("chat-new", "chat-old"), resolved.moved());
-        assertEquals(List.of("chat-old"), LegacyRows.oldIds(registry.entry("chat-new")));
 
         LegacyRows.Resolved own = LegacyRows.resolve(Map.of("chat-old", "yes", "chat-new", "false"), registry);
         assertEquals(Map.of("chat-old", "yes", "chat-new", "false"), own.rows(), "a row of its own wins; the old row is left as it is");
@@ -58,7 +58,6 @@ class LegacyRowsTest {
         Registry registry = registry(true);
         assertTrue(registry.entry("chat-new").superseded());
         assertEquals(Map.of("chat-old", "yes"), LegacyRows.resolve(Map.of("chat-old", "yes"), registry).rows());
-        assertEquals(List.of(), LegacyRows.oldIds(registry.entry("chat-new")), "nothing to remove for a superseded setting");
     }
 
     @Test
@@ -70,11 +69,12 @@ class LegacyRowsTest {
             UUID gone = UUID.randomUUID();
             db.insert(gone, "tpa-friends", "true");
             db.insert(gone, "auction-sort", "price");
-            LegacyRows.forget(db.database, gone, registry.entry("friends-tpa")).get(5, TimeUnit.SECONDS);
-            assertNull(db.row(gone, "tpa-friends"), "the old row is gone");
+            assertEquals(SetResult.CHANGED, db.settings.set(gone, SharedSettings.FRIENDS_TPA, AutoAccept.NOBODY, Change.admin("Mod")));
+            assertNull(db.row(gone, "tpa-friends"), "core deleted the old row with the change");
+            assertNull(db.row(gone, "friends-tpa"), "the default needs no row");
             assertEquals("price", db.row(gone, "auction-sort"), "other rows stay");
-            assertTrue(LegacyRows.forget(db.database, gone, registry.entry(SharedSettings.SOUND_VOLUME.id())).isDone(),
-                "a setting without old ids writes nothing");
+            db.join(gone);
+            assertEquals(AutoAccept.NOBODY, db.settings.get(gone, SharedSettings.FRIENDS_TPA), "nothing moved back over the change");
         }
     }
 }

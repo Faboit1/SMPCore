@@ -141,7 +141,10 @@ final class TeamActions {
         return outcome;
     }
 
-    /** The invite answer dialog (also embedded in the invite chat message). */
+    /**
+     * The invite answer dialog (also embedded in the invite chat message). Join and Decline both finish it, so the
+     * client closes it at once on either.
+     */
     View inviteView(Player viewer, Team team, String inviterName) {
         Invites.Invite invite = this.service.invites().get(viewer.getUniqueId(), team.id(), this.service.now());
         Duration left = invite == null ? this.settings.get().inviteExpiry()
@@ -168,7 +171,7 @@ final class TeamActions {
                 if (!outcome.ok()) {
                     this.feedback.send(submission.player(), outcome.problem(), outcome.team(), team.name());
                 }
-            });
+            }).closing();
     }
 
     TeamService.Outcome accept(Player player, long teamId) {

@@ -143,8 +143,7 @@ final class FeatureCatalog {
         teams.homeWorlds(homes.disabledWorlds());
         features.add(homes);
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
-        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), friends.lookup(), chat.ignores(),
-            this.combatTags));
+        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), chat.ignores(), this.combatTags));
         features.add(new ExtrasFeature(this.services, this.problems, staff.vanish(), cosmetics.cosmetics()));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(new ScoreboardFeature(this.services, this.problems, stats.recorder(), teams.lookup(), afk.status(), integrations.ranks(),

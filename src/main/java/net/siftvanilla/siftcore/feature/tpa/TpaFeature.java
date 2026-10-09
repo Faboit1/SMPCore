@@ -20,7 +20,6 @@ import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
-import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
@@ -86,14 +85,11 @@ public final class TpaFeature implements Feature, Listener {
     /**
      * @param vanish  vanished staff can't be asked (staff module)
      * @param afk     the sender is told when the target is AFK (AFK module)
-     * @param friends not read: friendships, favourites and teams for the "who can" settings and auto-accept come from
-     *                {@code services.relations()}, which the composition root binds to this same lookup. Kept so the
-     *                composition root's call stays as it is
      * @param ignores players who ignore the sender never get the request (chat module)
      * @param combat  combat-tagged players can't send or accept requests (command, chat dialog or menu form)
      */
-    public TpaFeature(Services services, List<ConfigProblem> problems, VanishStatus vanish, AfkStatus afk, FriendLookup friends,
-                      IgnoreLookup ignores, CombatStatus combat) {
+    public TpaFeature(Services services, List<ConfigProblem> problems, VanishStatus vanish, AfkStatus afk, IgnoreLookup ignores,
+                      CombatStatus combat) {
         this.services = services;
         this.settings = services.configs().register("features/tpa.yml", TpaSettings::parse, problems);
         services.lang().register(TpaMessages.class);

@@ -92,7 +92,7 @@ public final class AfkFeature implements Feature {
         ZoneStore store = new ZoneStore(services.plugin().getDataFolder().toPath().resolve("data/afk-zone.yml"),
             services.scheduler().asyncExecutor(), services.plugin().getLogger());
         this.service = new AfkService(services, this.settings, combat, spawnArea, vanish, store);
-        this.commands = new AfkCommands(services, this.service, this.settings, vanish);
+        this.commands = new AfkCommands(services, this.service, this.settings);
     }
 
     /**

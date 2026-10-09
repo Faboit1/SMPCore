@@ -432,18 +432,11 @@ final class FriendCommands {
     // ------------------------------------------------------------------ suggestions
 
     /**
-     * Whether the sender may see this online player among the online suggestions: not vanished, and visible to them.
-     * {@code canSee} is only asked on the sender's own thread; suggestions computed elsewhere rely on the vanish
-     * status alone.
+     * Whether the sender may see this online player among the online suggestions: not vanished, and visible to them
+     * ({@link net.siftvanilla.siftcore.core.command.CommandSupport#canSee}, safe on the threads suggestions run on).
      */
     private boolean suggestable(CommandSender sender, Player online) {
-        if (this.service.links().vanish().vanished(online.getUniqueId())) {
-            return false;
-        }
-        if (sender instanceof Player viewer && this.services.scheduler().owns(viewer)) {
-            return viewer.canSee(online);
-        }
-        return true;
+        return !this.service.links().vanish().vanished(online.getUniqueId()) && this.services.commands().canSee(sender, online);
     }
 
     /**

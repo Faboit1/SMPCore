@@ -79,7 +79,7 @@ final class ToolCommands {
                 }
                 return CommandSupport.OK;
             })
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player")
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player")
                 .requires(CommandSupport.permission(StaffNodes.VANISH_OTHERS))
                 .executes(ctx -> {
                     Optional<UUID> target = this.support.known(ctx, "player");
@@ -125,7 +125,7 @@ final class ToolCommands {
     private SiftCommand freezeCommand() {
         return new SimpleCommand("freeze", List.of(), "Freezes or unfreezes a player", StaffNodes.FREEZE, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.FREEZE))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player").executes(ctx -> {
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player").executes(ctx -> {
                 CommandSender sender = ctx.getSource().getSender();
                 Optional<UUID> target = this.support.known(ctx, "player");
                 if (target.isEmpty()) {
@@ -234,7 +234,7 @@ final class ToolCommands {
         return new SimpleCommand("alts", List.of(), "Lists accounts that share a player's address", StaffNodes.ALTS,
             label -> Commands.literal(label)
                 .requires(CommandSupport.permission(StaffNodes.ALTS))
-                .then(StaffArgs.knownPlayer(this.services.directory(), "player").executes(ctx -> {
+                .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player").executes(ctx -> {
                     this.support.known(ctx, "player").ifPresent(uuid -> this.lookups.alts(ctx.getSource().getSender(), uuid));
                     return CommandSupport.OK;
                 })));
@@ -244,7 +244,7 @@ final class ToolCommands {
         return new SimpleCommand("whois", List.of(), "Shows everything about a player", StaffNodes.WHOIS,
             label -> Commands.literal(label)
                 .requires(CommandSupport.permission(StaffNodes.WHOIS))
-                .then(StaffArgs.knownPlayer(this.services.directory(), "player").executes(ctx -> {
+                .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player").executes(ctx -> {
                     this.support.known(ctx, "player").ifPresent(uuid -> this.lookups.whois(ctx.getSource().getSender(), uuid));
                     return CommandSupport.OK;
                 })));

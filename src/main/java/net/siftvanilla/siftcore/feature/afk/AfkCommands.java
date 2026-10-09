@@ -19,7 +19,6 @@ import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
-import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import net.siftvanilla.siftcore.feature.afk.ZoneBox.Corner;
@@ -36,14 +35,12 @@ final class AfkCommands {
     private final Services services;
     private final AfkService service;
     private final Setting<AfkSettings> settings;
-    private final VanishStatus vanish;
     private final CommandSupport support;
 
-    AfkCommands(Services services, AfkService service, Setting<AfkSettings> settings, VanishStatus vanish) {
+    AfkCommands(Services services, AfkService service, Setting<AfkSettings> settings) {
         this.services = services;
         this.service = service;
         this.settings = settings;
-        this.vanish = vanish;
         this.support = services.commands();
     }
 
@@ -101,12 +98,9 @@ final class AfkCommands {
         return CommandSupport.OK;
     }
 
-    /** Vanished staff are left out unless the viewer can see them (the console sees everyone). */
+    /** Vanished staff are left out unless the viewer sees vanished staff (the console sees everyone). */
     private boolean visible(CommandSender sender, Player player) {
-        if (!this.vanish.vanished(player.getUniqueId())) {
-            return true;
-        }
-        return !(sender instanceof Player viewer) || viewer.canSee(player);
+        return this.services.commands().canSee(sender, player);
     }
 
     // ------------------------------------------------------------------ /afkzone

@@ -157,7 +157,7 @@ final class KitDialogs {
         List<Button> buttons = new ArrayList<>();
         for (Perk perk : this.perks.available(player)) {
             buttons.add(Button.of(lang.get(KitsMessages.name(perk)), lang.get(KitsMessages.PERK_COMMAND, Arg.text("command", perk.id())),
-                s -> this.perks.use(s.player(), perk)).width(150));
+                s -> this.perks.use(s.player(), perk)).width(150).closes());
         }
         this.services.dialogs().show(player, this.services.templates().list(lang.get(KitsMessages.PERKS_TITLE),
             List.of(lang.get(KitsMessages.PERKS_BODY)), buttons, 2, s -> list(s.player(), listBack)));

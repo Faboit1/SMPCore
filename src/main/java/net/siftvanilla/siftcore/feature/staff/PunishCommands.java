@@ -70,7 +70,7 @@ final class PunishCommands {
     private SiftCommand ban() {
         return new SimpleCommand("ban", List.of(), "Bans a player permanently", StaffNodes.BAN, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.BAN))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player")
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player")
                 .executes(ctx -> ban(ctx, null, ""))
                 .then(Commands.argument("reason", StringArgumentType.greedyString())
                     .executes(ctx -> ban(ctx, null, StringArgumentType.getString(ctx, "reason"))))));
@@ -79,7 +79,7 @@ final class PunishCommands {
     private SiftCommand tempban() {
         return new SimpleCommand("tempban", List.of(), "Bans a player for a while", StaffNodes.TEMPBAN, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.TEMPBAN))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player")
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player")
                 .executes(ctx -> {
                     this.messenger.send(ctx.getSource().getSender(), StaffMessages.DURATION_MISSING);
                     return CommandSupport.OK;
@@ -91,7 +91,7 @@ final class PunishCommands {
     private SiftCommand unban() {
         return new SimpleCommand("unban", List.of("pardon"), "Lifts a player's ban", StaffNodes.UNBAN, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.UNBAN))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player").executes(this::unban)));
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player").executes(this::unban)));
     }
 
     private SiftCommand kick() {
@@ -106,7 +106,7 @@ final class PunishCommands {
     private SiftCommand warn() {
         return new SimpleCommand("warn", List.of(), "Warns a player", StaffNodes.WARN, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.WARN))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player")
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player")
                 .then(Commands.argument("reason", StringArgumentType.greedyString())
                     .executes(ctx -> warn(ctx, StringArgumentType.getString(ctx, "reason"))))));
     }
@@ -114,7 +114,7 @@ final class PunishCommands {
     private SiftCommand mute() {
         return new SimpleCommand("mute", List.of(), "Mutes a player, for a while or for good", StaffNodes.MUTE, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.MUTE))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player")
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player")
                 .executes(ctx -> mute(ctx, ""))
                 .then(Commands.argument(TIME_AND_REASON, StringArgumentType.greedyString())
                     .executes(ctx -> mute(ctx, StringArgumentType.getString(ctx, TIME_AND_REASON))))));
@@ -123,13 +123,13 @@ final class PunishCommands {
     private SiftCommand unmute() {
         return new SimpleCommand("unmute", List.of(), "Lifts a player's mute", StaffNodes.MUTE, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.MUTE))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player").executes(this::unmute)));
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player").executes(this::unmute)));
     }
 
     private SiftCommand historyCommand() {
         return new SimpleCommand("history", List.of(), "Shows a player's punishments", StaffNodes.HISTORY, label -> Commands.literal(label)
             .requires(CommandSupport.permission(StaffNodes.HISTORY))
-            .then(StaffArgs.knownPlayer(this.services.directory(), "player").executes(ctx -> {
+            .then(StaffArgs.knownPlayer(this.services.commands(), this.services.directory(), "player").executes(ctx -> {
                 Optional<UUID> target = this.support.known(ctx, "player");
                 target.ifPresent(uuid -> {
                     CommandSender sender = ctx.getSource().getSender();
@@ -205,7 +205,7 @@ final class PunishCommands {
             s -> {
                 s.close();
                 this.messenger.send(s.player(), StaffMessages.BAN_CANCELLED, nameArg);
-            }));
+            }).closing());
     }
 
     private void ban(CommandSender sender, UUID uuid, String name, DurationInput.Parsed parsed) {

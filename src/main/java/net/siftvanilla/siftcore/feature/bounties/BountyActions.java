@@ -165,7 +165,7 @@ final class BountyActions {
 
     private void confirm(Player sponsor, UUID target, long amount, Consumer<Player> done) {
         BountiesSettings s = this.settings.get();
-        View view = this.services.templates().confirm(
+        View asked = this.services.templates().confirm(
             lang().get(BountiesMessages.CONFIRM_TITLE),
             lang().lines(BountiesMessages.CONFIRM_BODY,
                 Arg.money("amount", amount),
@@ -180,6 +180,10 @@ final class BountyActions {
                 submission.close();
                 this.services.messenger().send(submission.player(), BountiesMessages.PLACE_CANCELLED);
             });
+        // Cancel finishes it. So does Confirm from /bounty, where nothing follows a placement; from the form the
+        // details follow, so Confirm keeps the dialog on screen until they replace it.
+        View view = done == null ? asked.closing() : new View(asked.kind(), asked.title(), asked.body(), asked.inputs(),
+            List.of(asked.buttons().get(0), asked.buttons().get(1).closes()), asked.exit(), asked.columns(), asked.escapable());
         this.services.dialogs().show(sponsor, view);
     }
 

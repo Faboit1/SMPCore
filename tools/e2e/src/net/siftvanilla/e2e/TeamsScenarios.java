@@ -286,6 +286,7 @@ final class TeamsScenarios {
         Bot.SeenDialog answer = guest.dialog();
         e2e.expect(answer.title().contains("Team invite") && answer.bodyText().contains(team), "invite dialog: " + answer.body());
         e2e.expect(answer.button("Join") != null && answer.button("Decline") != null, "join and decline: " + answer.buttons());
+        e2e.expect("close".equals(answer.after()), "Join and Decline both finish, so the client closes it at once: " + answer.after());
 
         e2e.step("another player cannot use the invite's buttons");
         thief.rawClick(answer.button("Join").actionId(), new CompoundTag());

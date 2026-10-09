@@ -412,10 +412,8 @@ public final class PlayerSettings {
         Registry.Entry<T> entry = typed(this.state.registry(), setting);
         List<String> ids = new ArrayList<>();
         ids.add(setting.id());
-        if (entry != null && !entry.superseded()) {
-            for (SettingOptions.Legacy legacy : entry.options().legacy()) {
-                ids.add(legacy.oldId());
-            }
+        if (entry != null) {
+            ids.addAll(oldIds(entry));
         }
         // Read in the writer's order (after every write queued so far), so a change made just before the player left is
         // seen: the read pool alone could run ahead of a write that is not committed yet.
@@ -466,8 +464,10 @@ public final class PlayerSettings {
 
     /**
      * Changes a player's setting without permission checks (features, staff, the API). Works for players who are not
-     * loaded too: the row is written (or deleted when the value is the default) and the change applies when they join;
-     * the listener then sees no old value and nothing reports {@link SetResult#UNCHANGED}. A locked setting refuses
+     * loaded too: the row is written (or deleted when the value is the default), rows under the setting's old ids
+     * ({@link SettingOptions#legacy}) are deleted with it so the next login can't move them over the change, and the
+     * change applies when they join; the listener then sees no old value and nothing reports
+     * {@link SetResult#UNCHANGED}. A locked setting refuses
      * ({@link SetResult#LOCKED}), and so does one the server hides ({@link SetResult#NOT_ALLOWED}: its value is the
      * server's, see {@link #hidden}).
      */
@@ -560,8 +560,8 @@ public final class PlayerSettings {
      * Puts settings back to the default (deletes their rows), reporting one {@link Change.Cause#RESET} change per
      * setting whose value really changes (whatever cause {@code change} names, only its actor is kept: a reset can't be
      * cancelled). Locked settings are skipped. Listeners hear about the changes before anything is removed, outside
-     * any lock. Returns how many settings changed; for a player who is not loaded the rows are deleted without
-     * reports and 0 is returned.
+     * any lock. Returns how many settings changed; for a player who is not loaded the rows (and those under the
+     * settings' old ids) are deleted without reports and 0 is returned.
      */
     public int reset(UUID player, Collection<? extends PlayerSetting<?>> settings, Change change) {
         Change reset = change.cause() == Change.Cause.RESET ? change : Change.reset(change.actor());
@@ -578,7 +578,12 @@ public final class PlayerSettings {
         }
         Map<String, String> map = this.values.get(player);
         if (map == null) {
-            List<String> ids = entries.stream().map(Registry.Entry::id).toList();
+            // Rows under the settings' old ids go too, or the next login would move them over the reset.
+            List<String> ids = new ArrayList<>();
+            for (Registry.Entry<?> entry : entries) {
+                ids.add(entry.id());
+                ids.addAll(oldIds(entry));
+            }
             Map<String, String> removed = new HashMap<>();
             ids.forEach(id -> removed.put(id, null));
             CompletableFuture<Void> deleted;
@@ -759,7 +764,9 @@ public final class PlayerSettings {
         if (installed[0] && !moves.isEmpty()) {
             this.database.write(c -> {
                 for (Migration move : moves) {
-                    if (move.value() != null && !keep.contains(move.id())) {
+                    // A write for the player while they were not loaded, queued between the login read and this move,
+                    // already stored its value and deleted the old row: that value stands.
+                    if (move.value() != null && !keep.contains(move.id()) && exists(c, player, move.oldId())) {
                         upsert(c, player, move.id(), move.value());
                     }
                     delete(c, player, move.oldId());
@@ -771,6 +778,21 @@ public final class PlayerSettings {
                 }
             });
         }
+    }
+
+    /**
+     * The old ids whose rows still stand in for a setting until its player loads ({@link SettingOptions#legacy}); none
+     * while the setting is superseded (an old id that is still registered is a setting of its own).
+     */
+    static List<String> oldIds(Registry.Entry<?> entry) {
+        if (entry.superseded() || entry.options().legacy().isEmpty()) {
+            return List.of();
+        }
+        List<String> ids = new ArrayList<>(entry.options().legacy().size());
+        for (SettingOptions.Legacy legacy : entry.options().legacy()) {
+            ids.add(legacy.oldId());
+        }
+        return ids;
     }
 
     private <T> String encodedFallback(Registry.Entry<T> entry, State current) {
@@ -1016,12 +1038,15 @@ public final class PlayerSettings {
             putCached(player, map, setting.id(), encoded);
             hook(entry, player, old, value);
         } else {
+            // Rows under the setting's old ids go in the same write, or the next login would move them over this value.
+            List<String> oldIds = oldIds(entry);
             CompletableFuture<Void> written;
             synchronized (this.offlineWrites) {
-                written = write(player, setting.id(), encoded);
+                written = write(player, setting.id(), encoded, oldIds);
             }
             // A login may have read the rows before this write committed: bring its cache up to date.
             Map<String, String> committed = new HashMap<>();
+            oldIds.forEach(id -> committed.put(id, null));
             committed.put(setting.id(), encoded);
             written.thenRun(() -> applyCommitted(player, committed));
         }
@@ -1069,11 +1094,19 @@ public final class PlayerSettings {
     }
 
     private CompletableFuture<Void> write(UUID player, String id, String value) {
+        return write(player, id, value, List.of());
+    }
+
+    /** Stores one value (null deletes the row) and deletes the rows of {@code alsoDelete}, in one write. */
+    private CompletableFuture<Void> write(UUID player, String id, String value, List<String> alsoDelete) {
         return this.database.<Void>write(c -> {
             if (value == null) {
                 delete(c, player, id);
             } else {
                 upsert(c, player, id, value);
+            }
+            for (String old : alsoDelete) {
+                delete(c, player, old);
             }
             return null;
         }).whenComplete((ignored, error) -> {
@@ -1103,6 +1136,16 @@ public final class PlayerSettings {
             ps.setString(2, id);
             ps.setString(3, value);
             ps.executeUpdate();
+        }
+    }
+
+    private static boolean exists(java.sql.Connection c, UUID player, String id) throws java.sql.SQLException {
+        try (PreparedStatement ps = c.prepareStatement("SELECT 1 FROM settings WHERE uuid = ? AND setting = ?")) {
+            ps.setString(1, player.toString());
+            ps.setString(2, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
         }
     }
 

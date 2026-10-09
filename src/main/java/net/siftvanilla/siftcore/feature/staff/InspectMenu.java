@@ -174,6 +174,6 @@ final class InspectMenu extends Menu {
             submission -> {
                 submission.close();
                 this.inspector.reopen(this.viewer, this.target, this.kind);
-            }));
+            }).closing());
     }
 }
