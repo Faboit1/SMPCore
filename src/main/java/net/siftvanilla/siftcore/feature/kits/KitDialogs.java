@@ -89,24 +89,27 @@ final class KitDialogs {
         this.services.dialogs().show(player, templates.grid(lang.get(KitsMessages.LIST_TITLE), lines, buttons, back));
     }
 
-    /** A kit's tooltip: its description (when it has one), how often it can be claimed, then {@code last}. */
+    /** A kit's tooltip in the list: its description (when it has one), how often it can be claimed, then {@code last}. */
     private Component about(Kit kit, Component last) {
         Lang lang = lang();
         List<Component> lines = new ArrayList<>(3);
         if (kit.description() != null) {
             lines.add(lang.get(KitsMessages.KIT_DESCRIPTION, Arg.text("description", kit.description())));
         }
-        lines.add(kit.cooldown().once() ? lang.get(KitsMessages.KIT_ONCE)
-            : lang.get(KitsMessages.KIT_EVERY, Arg.text("time", Durations.format(kit.cooldown().every()))));
-        if (last != null) {
-            lines.add(last);
-        }
+        lines.add(every(kit));
+        lines.add(last);
         return Templates.lines(lines);
     }
 
+    /** "One claim per player" or "Claim it every 1d". */
+    private Component every(Kit kit) {
+        return kit.cooldown().once() ? lang().get(KitsMessages.KIT_ONCE)
+            : lang().get(KitsMessages.KIT_EVERY, Arg.text("time", Durations.format(kit.cooldown().every())));
+    }
+
     /**
-     * A kit's dialog: one status line, what it gives (the items and any keys), and Claim, whose tooltip says what the
-     * kit is. Claiming a kit that isn't ready shows why in red.
+     * A kit's dialog: its description and one status line, what it gives (the items and any keys), and Claim while it
+     * is ready, whose tooltip says how often it can be claimed. A claim that is refused shows why in red.
      */
     void kit(Player player, String id, Button.Handler listBack) {
         Kit kit = this.kits.settings().kit(id);
@@ -128,7 +131,12 @@ final class KitDialogs {
             };
         }
         List<Body> body = new ArrayList<>();
-        body.add(Body.text(state));
+        List<Component> header = new ArrayList<>(2);
+        if (kit.description() != null) {
+            header.add(lang.get(KitsMessages.KIT_DESCRIPTION, Arg.text("description", kit.description())));
+        }
+        header.add(state);
+        body.add(Body.text(Component.join(net.kyori.adventure.text.JoinConfiguration.newlines(), header)));
         for (KitItem item : kit.items()) {
             ItemStack stack = this.kits.items().build(item);
             int shown = Math.min(stack.getAmount(), Math.min(99, stack.getMaxStackSize()));
@@ -142,9 +150,8 @@ final class KitDialogs {
             body.add(Body.text(lang.get(KitsMessages.KIT_KEYS, Arg.component("keys", this.kits.text().keys(kit.keys())))));
         }
         List<Button> buttons = new ArrayList<>(1);
-        if (permitted) {
-            boolean readyNow = status.ready();
-            buttons.add(Button.of(lang.get(readyNow ? KitsMessages.KIT_CLAIM : KitsMessages.KIT_CLAIM_LATER), about(kit, null), s -> {
+        if (permitted && status.ready()) {
+            buttons.add(Button.of(lang.get(KitsMessages.KIT_CLAIM), every(kit), s -> {
                 KitService.Refusal refusal = this.kits.claim(s.player(), kit);
                 if (refusal != null) {
                     s.error(lang.get(refusal.key(), refusal.argArray()));

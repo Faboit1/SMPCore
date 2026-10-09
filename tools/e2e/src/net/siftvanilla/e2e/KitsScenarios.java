@@ -275,15 +275,19 @@ final class KitsScenarios {
         e2e.step("/kits lists the kits a player has, with their status; rank kits are hidden");
         command(e2e, bot, "kits");
         Bot.SeenDialog list = e2e.dialog(bot, "Kits");
-        e2e.expect(list.bodyText().contains("Starter: ready") && list.bodyText().contains("Daily: ready"), "both ready: " + list.body());
-        e2e.expect(!list.bodyText().contains("Prospector") && list.button("Prospector") == null, "rank kits are hidden: " + list.body());
+        e2e.expect(list.body().isEmpty(), "buttons only, nothing above them: " + list.body());
+        e2e.expect(list.button("Starter: ready") != null && list.button("Daily: ready") != null, "a button per kit with its status: " + list.buttons());
+        e2e.expect("#55FF55".equals(list.button("Starter: ready").valueColor()), "ready in green: " + list.button("Starter: ready").valueColor());
+        e2e.expect(list.button("Starter").tooltip().contains("Stone tools, leather armor and bread")
+            && list.button("Starter").tooltip().contains("One claim per player"), "what the kit is, in its tooltip: " + list.button("Starter").tooltip());
+        e2e.expect(list.button("Prospector") == null, "rank kits are hidden: " + list.buttons());
         e2e.expect(list.button("Claim 2 ready kits") != null, "a claim-all button for two ready kits: " + list.buttons());
 
         e2e.step("a kit's dialog shows what it gives and claims it");
         e2e.click(bot, "Starter");
         Bot.SeenDialog kit = e2e.dialog(bot, "Starter kit");
-        e2e.expect(kit.bodyText().contains("Stone tools, leather armor and bread") && kit.bodyText().contains("One claim per player")
-            && kit.bodyText().contains("Ready to claim"), "description, cooldown and status: " + kit.body());
+        e2e.expect(kit.bodyText().contains("Stone tools, leather armor and bread") && kit.button("Claim").tooltip().contains("One claim per player")
+            && kit.bodyText().contains("Ready to claim"), "description, status and the cooldown on Claim: " + kit.body());
         e2e.expect(kit.bodyText().contains("Stone Pickaxe") && kit.bodyText().contains("Leather Tunic") && kit.bodyText().contains("Bread"),
             "the items are listed: " + kit.body());
         e2e.click(bot, "Claim");
@@ -301,7 +305,8 @@ final class KitsScenarios {
         e2e.expect("1".equals(placeholder(e2e, name, "kits_ready")), "one kit ready: " + placeholder(e2e, name, "kits_ready"));
         command(e2e, bot, "kits");
         Bot.SeenDialog after = e2e.dialog(bot, "Kits");
-        e2e.eventually(() -> bot.dialog().bodyText().contains("Starter: claimed"), "starter claimed in the list: " + bot.dialog().body());
+        e2e.eventually(() -> bot.dialog().button("Starter: claimed") != null, "starter claimed in the list: " + bot.dialog().buttons());
+        e2e.expect("#FF5555".equals(bot.dialog().button("Starter: claimed").valueColor()), "claimed in red");
         e2e.expect(bot.dialog().button("ready kits") == null && bot.dialog().button("Claim Daily") != null,
             "with one ready kit the list claims it directly: " + bot.dialog().buttons());
         e2e.click(bot, "Starter");
@@ -355,8 +360,8 @@ final class KitsScenarios {
         e2e.step("nothing is ready any more");
         command(e2e, bot, "kits");
         Bot.SeenDialog after = e2e.dialog(bot, "Kits");
-        e2e.expect(after.button("ready kits") == null && after.bodyText().contains("Baron: in ") && after.bodyText().contains("Starter: claimed"),
-            "all claimed: " + after.body());
+        e2e.expect(after.button("ready kits") == null && after.button("Baron: in ") != null && after.button("Starter: claimed") != null,
+            "all claimed: " + after.buttons());
         e2e.expect("0".equals(placeholder(e2e, name, "kits_ready")), "kits_ready is 0");
         ledgerHealthy(e2e);
     }
@@ -431,11 +436,11 @@ final class KitsScenarios {
         grant(e2e, name, "siftcore.kit.prospector");
         command(e2e, bot, "kits");
         Bot.SeenDialog list = e2e.dialog(bot, "Kits");
-        e2e.expect(list.bodyText().contains("Prospector: ready") && !list.bodyText().contains("Tycoon") && !list.bodyText().contains("Baron"),
-            "prospector listed, higher ranks hidden: " + list.body());
+        e2e.expect(list.button("Prospector: ready") != null && list.button("Tycoon") == null && list.button("Baron") == null,
+            "prospector listed, higher ranks hidden: " + list.buttons());
         e2e.click(bot, "Prospector");
         Bot.SeenDialog kit = e2e.dialog(bot, "Prospector kit");
-        e2e.expect(kit.bodyText().contains("Claim it every 1d") && kit.bodyText().contains("Torch") && kit.bodyText().contains("Oak Log")
+        e2e.expect(kit.button("Claim").tooltip().contains("Claim it every 1d") && kit.bodyText().contains("Torch") && kit.bodyText().contains("Oak Log")
             && !kit.bodyText().contains("Also gives"), "cooldown and supplies shown, no keys: " + kit.body());
         e2e.click(bot, "Claim");
         e2e.eventually(() -> count(e2e, name, Material.TORCH) == 32 && count(e2e, name, Material.OAK_LOG) == 32
@@ -469,7 +474,7 @@ final class KitsScenarios {
         bot.clearLogs();
         command(e2e, bot, "kits");
         Bot.SeenDialog list = e2e.dialog(bot, "Kits");
-        e2e.expect(list.bodyText().contains("Some kit items are waiting for room") && list.button("Collect waiting items") != null,
+        e2e.expect(list.button("Collect waiting items") != null && list.button("Collect waiting items").tooltip().contains("Some kit items are waiting for room"),
             "collect offered: " + list.body() + " " + list.buttons());
         e2e.click(bot, "Collect waiting items");
         waitFor(e2e, () -> bot.actionBarContains("Make room in your inventory first."), () -> "no room: " + bot.actionBar() + " / " + bot.actionBar() + " / " + bot.chat());
@@ -730,6 +735,8 @@ final class KitsScenarios {
         Bot.SeenDialog perks = e2e.dialog(bot, "Perks");
         e2e.expect(perks.button("Ender chest") != null && perks.button("Crafting table") != null && perks.button("Trash") != null
             && perks.button("Hat") != null && perks.button("Anvil") == null, "only the granted perks: " + perks.buttons());
+        e2e.expect(perks.body().isEmpty() && perks.button("Crafting table").tooltip().contains("/craft"),
+            "no line above the perks, each command in its tooltip: " + perks.body() + " " + perks.button("Crafting table").tooltip());
         bot.clickButton("Crafting table", Map.of());
         awaitScreen(e2e, bot, "minecraft:crafting", null);
         bot.closeScreen();
@@ -882,8 +889,8 @@ final class KitsScenarios {
             clear(e2e, name);
             command(e2e, bot, "kits");
             Bot.SeenDialog list = e2e.dialog(bot, "Kits");
-            e2e.expect(list.bodyText().contains("Quick: ready") && list.bodyText().contains("Prospector: locked"),
-                "the new kit and locked rank kits: " + list.body());
+            e2e.expect(list.button("Quick: ready") != null && list.button("Prospector: locked") != null,
+                "the new kit and locked rank kits: " + list.buttons());
             e2e.click(bot, "Tycoon");
             Bot.SeenDialog tycoon = e2e.dialog(bot, "Tycoon kit");
             e2e.expect(tycoon.bodyText().contains("You haven't unlocked this kit.") && tycoon.button("Claim") == null

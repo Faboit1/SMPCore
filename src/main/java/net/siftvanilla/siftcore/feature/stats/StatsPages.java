@@ -110,15 +110,16 @@ final class StatsPages {
     static View boardView(Lang lang, Templates templates, Board board, Leaderboard snapshot, UUID viewer, int kdrMinKills, long now,
                           Function<Leaderboard.Entry, Arg> value, Function<Leaderboard.Entry, Button.Handler> open,
                           Button.Handler stay, Button.Handler back) {
-        List<Component> lines = new ArrayList<>(2);
+        List<Component> lines = new ArrayList<>(3);
         Leaderboard.Entry own = snapshot.entryOf(viewer).orElse(null);
         if (own != null) {
             lines.add(lang.get(StatsMessages.TOP_YOU, Arg.text("rank", Lang.number(own.rank())), value.apply(own)));
-        } else if (board == Board.KDR && kdrMinKills > 1) {
-            // Only players with kills are ranked anyway, so a rule of 0 or 1 says nothing new.
-            lines.add(lang.get(StatsMessages.TOP_KDR_RULE, Arg.text("kills", Lang.number(kdrMinKills))));
         } else if (snapshot.size() > 0) {
             lines.add(lang.get(StatsMessages.TOP_NOT_LISTED));
+        }
+        if (board == Board.KDR && kdrMinKills > 1) {
+            // Only players with kills are ranked anyway, so a rule of 0 or 1 says nothing new.
+            lines.add(lang.get(StatsMessages.TOP_KDR_RULE, Arg.text("kills", Lang.number(kdrMinKills))));
         }
         if (snapshot.builtAt() == 0) {
             lines.add(lang.get(StatsMessages.TOP_NOT_READY));

@@ -1092,35 +1092,42 @@ final class BoostersScenarios {
             e2e.sleep(600);
             bot.command("purchases");
             Bot.SeenDialog dialog = e2e.dialog(bot, "Your purchases");
-            String body = dialog.bodyText();
-            e2e.expect(body.contains("2 purchases, page 1 of 1"), "two purchases: " + dialog.body());
-            e2e.expect(body.contains("a +5% sell booster for 30m") && body.contains("running now"), "the booster runs: " + dialog.body());
-            e2e.expect(body.contains("$2,500") && body.contains("taken back (refund)"), "the money was taken back: " + dialog.body());
-            e2e.expect(body.contains(ref.substring(0, 8)), "the reference (shortened): " + dialog.body());
-            e2e.expect(!body.contains("$999"), "nobody else's purchases: " + dialog.body());
-            e2e.expect(dialog.button("Next page") == null, "one page only");
+            e2e.expect(dialog.bodyText().contains("Purchases: 2, newest first"), "one status line: " + dialog.body());
+            Bot.Button booster = dialog.button("a +5% sell booster for 30m");
+            e2e.expect(booster != null && booster.tooltip().contains("running now"), "a button per purchase, the booster runs: "
+                + dialog.buttons());
+            Bot.Button money = dialog.button("$2,500");
+            e2e.expect(money != null && money.tooltip().contains("taken back (refund)"), "the money was taken back: "
+                + (money == null ? dialog.buttons() : money.tooltip()));
+            e2e.expect("#1AFF1A".equals(money.valueColor()), "money in green: " + money.valueColor());
+            e2e.expect(money.tooltip().contains("Order id: " + ref.substring(0, 8)) && money.tooltip().contains("Ask staff with the order id"),
+                "the reference (shortened) and what to do: " + money.tooltip());
+            e2e.expect(dialog.buttons().stream().noneMatch(button -> button.label().contains("$999")), "nobody else's purchases: "
+                + dialog.buttons());
+            e2e.expect(dialog.button("Next page") == null && dialog.buttons().size() == 3, "two purchases and Close: " + dialog.buttons());
 
             e2e.step("revoking the booster shows up too");
             reply(e2e, "sift store revoke " + ref + "-b refund", "The running booster was ended");
             e2e.sleep(600);
             bot.command("purchases");
-            e2e.eventually(() -> bot.dialog() != null && bot.dialog().bodyText().contains("taken back (refund, booster ended early)"),
-                "the booster was taken back: " + (bot.dialog() == null ? "none" : bot.dialog().body()));
+            e2e.eventually(() -> bot.dialog() != null && bot.dialog().button("sell booster") != null
+                    && bot.dialog().button("sell booster").tooltip().contains("taken back (refund, booster ended early)"),
+                "the booster was taken back: " + (bot.dialog() == null ? "none" : bot.dialog().buttons()));
 
-            e2e.step("more than a page has Next and Previous");
+            e2e.step("every purchase in one list, no pages; shards in purple");
             for (int i = 1; i <= 5; i++) {
                 reply(e2e, "sift store shards " + name + " " + i + " " + ref + "-s" + i, "Delivered");
             }
             e2e.sleep(600);
             bot.clearLogs();
             bot.command("purchases");
-            e2e.eventually(() -> bot.dialog() != null && bot.dialog().bodyText().contains("7 purchases, page 1 of 2"),
-                "seven purchases on two pages: " + (bot.dialog() == null ? "none" : bot.dialog().body()));
-            e2e.click(bot, "Next page");
-            e2e.eventually(() -> bot.dialog() != null && bot.dialog().bodyText().contains("page 2 of 2") && bot.dialog().button("Previous page") != null,
-                "page two: " + (bot.dialog() == null ? "none" : bot.dialog().body()));
-            e2e.click(bot, "Previous page");
-            e2e.eventually(() -> bot.dialog() != null && bot.dialog().bodyText().contains("page 1 of 2"), "back to page one");
+            e2e.eventually(() -> bot.dialog() != null && bot.dialog().bodyText().contains("Purchases: 7, newest first"),
+                "seven purchases: " + (bot.dialog() == null ? "none" : bot.dialog().body()));
+            Bot.SeenDialog all = bot.dialog();
+            e2e.expect(all.buttons().size() == 8 && all.button("Next page") == null && all.button("Previous page") == null,
+                "all seven and Close, nothing paged: " + all.buttons());
+            e2e.expect(all.button("5 shards") != null && "#915DFF".equals(all.button("5 shards").valueColor()),
+                "shards in purple: " + all.buttons());
 
             e2e.step("players can't look at someone else's purchases");
             int dialogs = bot.dialogs().size();

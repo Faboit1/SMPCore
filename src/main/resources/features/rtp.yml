@@ -20,6 +20,12 @@ spots-per-chunk: 8
 # Landing spots keep at least this many blocks from the world border.
 border-margin: 32
 
+# The colour of each place's button in the picker, by region id ("#RRGGBB"). A place left out is white.
+colors:
+  overworld: "#86EFAC"
+  nether: "#FF8A65"
+  end: "#F5F0A8"
+
 # Each region is a ring around a centre in one world. Players land between min-radius and max-radius blocks from
 # the centre. Rings must fit inside the world border (features/spawn.yml) minus border-margin; /sift reload
 # refuses a ring that doesn't and says by how much.
@@ -64,9 +70,3 @@ regions:
     # The outer end islands start about 1000 blocks out; the main island and the void around it are skipped.
     min-radius: 1000
     max-radius: 2800
-
-# The colour of each place's button in the picker, by region id ("#RRGGBB"). A place left out is white.
-colors:
-  overworld: "#86EFAC"
-  nether: "#FF8A65"
-  end: "#F5F0A8"

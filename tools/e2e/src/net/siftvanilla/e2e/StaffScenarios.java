@@ -515,7 +515,8 @@ final class StaffScenarios {
         suspect.command("tpaccept " + ALLY);
         // A /tpahere asks once more before pulling the player off (tpaccept-confirm-here, on by default).
         Bot.SeenDialog pulled = e2e.dialog(suspect, "Teleport request");
-        e2e.expect(pulled.bodyText().contains("Accepting teleports you to " + ALLY), "asked once more: " + pulled.body());
+        e2e.expect(pulled.bodyText().contains(ALLY + " wants you to teleport to them.") && pulled.button("Accept").tooltip().contains("You teleport to " + ALLY),
+            "asked once more: " + pulled.body());
         e2e.click(suspect, "Accept");
         e2e.eventually(() -> suspect.chatContains("Accepted " + ALLY + "'s request.") || suspect.actionBarContains("Accepted " + ALLY),
             "the request waited: " + suspect.chat() + " " + suspect.actionBar());

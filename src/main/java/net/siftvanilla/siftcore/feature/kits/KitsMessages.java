@@ -39,8 +39,6 @@ public final class KitsMessages {
     public static final MessageKey KIT_ITEM_MANY = MessageKey.ui("kits.kit.item-many", "name", "amount");
     public static final MessageKey KIT_KEYS = MessageKey.ui("kits.kit.keys", "keys");
     public static final MessageKey KIT_CLAIM = MessageKey.ui("kits.kit.claim");
-    /** The Claim button while the kit isn't ready (clicking it says why). */
-    public static final MessageKey KIT_CLAIM_LATER = MessageKey.ui("kits.kit.claim-later");
 
     public static final MessageKey KEYS_ONE = MessageKey.ui("kits.keys.one", "crate");
     public static final MessageKey KEYS_MANY = MessageKey.ui("kits.keys.many", "count", "crate");

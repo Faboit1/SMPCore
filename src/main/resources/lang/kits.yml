@@ -35,7 +35,7 @@ kits:
 
   kit:
     title: "<name> kit"
-    description: "<primary><description>"
+    description: "<secondary><description>"
     once: "<secondary>One claim per player"
     every: "<secondary>Claim it every <accent><time>"
     # The one status line above what the kit gives.
@@ -48,8 +48,6 @@ kits:
     item-many: "<primary><name> <secondary>x<accent><amount>"
     keys: "<secondary><icon:key> Also gives <primary><keys>"
     claim: "<on>Claim"
-    # The Claim button while the kit isn't ready yet: clicking it says why.
-    claim-later: "Claim"
   # Crate keys a kit gives: "1 Basic key", "2 Rare keys".
   keys:
     one: "1 <crate> key"
@@ -99,7 +97,7 @@ kits:
     auto-equip: "Auto-equip kit armour"
     auto-equip-description: "Put armour from claimed kits straight into empty armour slots. Worn armour is never replaced."
     trash-protect: "Trash protection"
-    trash-protect-description: "Give back valuable items you put in /trash instead of deleting them: gear (enchanted, named, shulker boxes, spawners, trial keys), gear and other valuable items, or nothing."
+    trash-protect-description: "Give back valuable items you put in /trash instead of deleting them: gear (enchanted or named items, shulker boxes, spawners, trial keys), gear and other valuables, or nothing."
     trash-mode: "Trash bin mode"
     trash-mode-description: "Delete items when the bin closes, or only when you click Delete (closing gives them back)."
     options:
