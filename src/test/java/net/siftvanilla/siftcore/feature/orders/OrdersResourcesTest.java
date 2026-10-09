@@ -49,7 +49,7 @@ class OrdersResourcesTest {
         assertEquals(1, settings.minPrice());
         assertEquals(100_000, settings.maxQuantity());
         assertEquals(100_000_000_000L, settings.maxTotal());
-        assertEquals(200, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "no tax unless the owner sets one");
         assertTrue(settings.blockInCombat());
         assertTrue(settings.joinReminder());
         assertFalse(settings.refuseSameIp());
@@ -101,7 +101,7 @@ class OrdersResourcesTest {
         assertEquals(Duration.ofSeconds(30), settings.expiryCheck());
         assertEquals(3, settings.defaultLimit());
         assertEquals(100_000, settings.maxQuantity());
-        assertEquals(200, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "a broken tax falls back to none");
         assertEquals(0.0, settings.maxVsWorth(), "a ceiling under the worth is turned off");
         assertEquals(Duration.ZERO, settings.historyKeep());
         assertTrue(settings.booksEnabled());

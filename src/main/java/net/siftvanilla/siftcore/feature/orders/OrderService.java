@@ -632,8 +632,13 @@ final class OrderService {
                 return;
             }
             this.handovers.take(token);
-            this.services.messenger().send(seller, OrdersMessages.DELIVER_DONE, Arg.number("amount", units),
-                item("item", order.key()), Arg.money("payout", paid - tax), Arg.money("tax", tax));
+            if (tax > 0) {
+                this.services.messenger().send(seller, OrdersMessages.DELIVER_DONE_TAXED, Arg.number("amount", units),
+                    item("item", order.key()), Arg.money("payout", paid - tax), Arg.money("tax", tax));
+            } else {
+                this.services.messenger().send(seller, OrdersMessages.DELIVER_DONE, Arg.number("amount", units),
+                    item("item", order.key()), Arg.money("payout", paid));
+            }
             arrived(new OwnerNotices.Arrival(order.owner(), sellerName, source == FillSource.SELL,
                 List.of(new OwnerNotices.Part(order, units, paid, complete))));
             refreshAll();

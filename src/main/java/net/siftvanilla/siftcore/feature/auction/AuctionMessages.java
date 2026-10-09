@@ -56,13 +56,15 @@ public final class AuctionMessages {
 
     // ---------------------------------------------------------------- selling
     public static final MessageKey SELL_FORM_TITLE = MessageKey.ui("auction.sell.form-title");
-    public static final MessageKey SELL_FORM_BODY = MessageKey.ui("auction.sell.form-body", "amount", "item");
     public static final MessageKey SELL_FORM_PRICE = MessageKey.ui("auction.sell.form-price");
     public static final MessageKey SELL_FORM_AMOUNT = MessageKey.ui("auction.sell.form-amount");
     public static final MessageKey SELL_FORM_BUTTON = MessageKey.ui("auction.sell.form-button");
+    public static final MessageKey SELL_FORM_BUTTON_TOOLTIP = MessageKey.ui("auction.sell.form-button-tooltip");
     public static final MessageKey SELL_CONFIRM_TITLE = MessageKey.ui("auction.sell.confirm-title");
-    public static final MessageKey SELL_CONFIRM_BODY = MessageKey.ui("auction.sell.confirm-body", "amount", "item", "price",
-        "tax", "rate", "earn", "time");
+    public static final MessageKey SELL_CONFIRM_BODY = MessageKey.ui("auction.sell.confirm-body", "amount", "item", "price");
+    /** The tax line of the listing confirmation, only while the auction house takes a tax. */
+    public static final MessageKey SELL_CONFIRM_TAX = MessageKey.ui("auction.sell.confirm-tax", "tax", "rate", "earn");
+    public static final MessageKey SELL_CONFIRM_TOOLTIP = MessageKey.ui("auction.sell.confirm-button-tooltip", "time");
     public static final MessageKey SELL_CONFIRM_SLOTS = MessageKey.ui("auction.sell.confirm-slots", "used", "limit");
     public static final MessageKey SELL_WARNING_SELL = MessageKey.ui("auction.sell.warning-sell", "worth");
     public static final MessageKey SELL_WARNING_MARKET = MessageKey.ui("auction.sell.warning-market", "price", "yours");
@@ -84,8 +86,9 @@ public final class AuctionMessages {
     // ---------------------------------------------------------------- buying
     public static final MessageKey BUY_TITLE = MessageKey.ui("auction.buy.confirm-title");
     public static final MessageKey BUY_BODY = MessageKey.ui("auction.buy.confirm-body", "amount", "item", "price", "seller",
-        "time", "balance");
+        "balance");
     public static final MessageKey BUY_BUTTON = MessageKey.ui("auction.buy.confirm-button");
+    public static final MessageKey BUY_BUTTON_TOOLTIP = MessageKey.ui("auction.buy.confirm-button-tooltip", "time");
     public static final MessageKey BUY_DONE = MessageKey.chat("auction.buy.done", "amount", "item", "seller", "price");
     public static final MessageKey BUY_DONE_CLAIM_BOX = MessageKey.chat("auction.buy.done-claim-box", "amount", "item", "seller", "price");
     public static final MessageKey BUY_GONE = MessageKey.error("auction.buy.gone");
@@ -95,18 +98,22 @@ public final class AuctionMessages {
     public static final MessageKey BUY_PENDING = MessageKey.error("auction.buy.pending");
     public static final MessageKey BUY_SELLER_FULL = MessageKey.error("auction.buy.seller-full");
     public static final MessageKey BUY_CANCELLED = MessageKey.info("auction.buy.cancelled");
-    public static final MessageKey SOLD = MessageKey.notify("auction.sold", "buyer", "amount", "item", "price", "earned");
+    public static final MessageKey SOLD = MessageKey.notify("auction.sold", "buyer", "amount", "item", "price");
+    /** {@link #SOLD} for a sale that was taxed: what the seller got after the tax. */
+    public static final MessageKey SOLD_TAXED = MessageKey.notify("auction.sold-taxed", "buyer", "amount", "item", "price", "earned");
 
     // ---------------------------------------------------------------- taking listings down
     public static final MessageKey CANCEL_TITLE = MessageKey.ui("auction.cancel.confirm-title");
     public static final MessageKey CANCEL_BODY = MessageKey.ui("auction.cancel.confirm-body", "amount", "item", "price");
     public static final MessageKey CANCEL_BUTTON = MessageKey.ui("auction.cancel.confirm-button");
+    public static final MessageKey CANCEL_BUTTON_TOOLTIP = MessageKey.ui("auction.cancel.confirm-button-tooltip");
     public static final MessageKey CANCEL_KEEP = MessageKey.ui("auction.cancel.keep-button");
     public static final MessageKey CANCEL_DONE = MessageKey.success("auction.cancel.done");
     public static final MessageKey CANCEL_DONE_CLAIM_BOX = MessageKey.success("auction.cancel.done-claim-box");
     public static final MessageKey REMOVE_TITLE = MessageKey.ui("auction.remove.confirm-title");
     public static final MessageKey REMOVE_BODY = MessageKey.ui("auction.remove.confirm-body", "seller", "amount", "item", "price");
     public static final MessageKey REMOVE_BUTTON = MessageKey.ui("auction.remove.confirm-button");
+    public static final MessageKey REMOVE_BUTTON_TOOLTIP = MessageKey.ui("auction.remove.confirm-button-tooltip");
     public static final MessageKey EXPIRED_ONE = MessageKey.chat("auction.expired.one", "amount", "item");
     public static final MessageKey EXPIRED_MANY = MessageKey.chat("auction.expired.many", "count");
 
@@ -120,7 +127,7 @@ public final class AuctionMessages {
     // ---------------------------------------------------------------- misc
     public static final MessageKey IN_COMBAT = MessageKey.error("auction.in-combat", "time");
     public static final MessageKey HISTORY_TITLE = MessageKey.ui("auction.history.title");
-    public static final MessageKey HISTORY_HEADER = MessageKey.ui("auction.history.header");
+    public static final MessageKey HISTORY_HEADER = MessageKey.ui("auction.history.header", "count");
     public static final MessageKey HISTORY_SOLD = MessageKey.ui("auction.history.sold", "amount", "item", "name", "price", "ago");
     public static final MessageKey HISTORY_BOUGHT = MessageKey.ui("auction.history.bought", "amount", "item", "name", "price", "ago");
     public static final MessageKey HISTORY_EMPTY = MessageKey.ui("auction.history.empty");
@@ -136,8 +143,11 @@ public final class AuctionMessages {
     public static final MessageKey SETTING_HIDE_OWN_DESCRIPTION = MessageKey.ui("auction.settings.hide-own-description");
 
     // ---------------------------------------------------------------- join summary
-    public static final MessageKey AWAY_SOLD_ONE = MessageKey.chat("auction.away.sold-one", "name", "amount", "item", "price", "earned");
+    public static final MessageKey AWAY_SOLD_ONE = MessageKey.chat("auction.away.sold-one", "name", "amount", "item", "price");
+    public static final MessageKey AWAY_SOLD_ONE_TAXED = MessageKey.chat("auction.away.sold-one-taxed", "name", "amount", "item", "price",
+        "earned");
     public static final MessageKey AWAY_SOLD_MANY = MessageKey.chat("auction.away.sold-many", "count", "earned");
+    public static final MessageKey AWAY_SOLD_MANY_TAXED = MessageKey.chat("auction.away.sold-many-taxed", "count", "earned");
     public static final MessageKey AWAY_SOLD_LINE = MessageKey.ui("auction.away.sold-line", "amount", "item", "name", "price");
     public static final MessageKey AWAY_SOLD_MORE = MessageKey.ui("auction.away.sold-more", "count");
 

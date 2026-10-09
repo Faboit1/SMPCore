@@ -41,25 +41,22 @@ boosters:
     title: "<primary>+<percent>% sell booster <secondary>from <primary><name> <secondary>- <primary><time> <secondary>left"
     title-server: "<primary>+<percent>% sell booster <secondary>- <primary><time> <secondary>left"
 
-  # /booster
+  # /booster: what runs now and what comes next, and the Booster bar switch (its tooltip explains boosters).
   dialog:
     title: "Sell booster"
     active: "<icon:star> <primary>+<percent>% <secondary>on everything sold to the server, for everyone online"
-    left: "<secondary>Time left <primary><time> <secondary>of <primary><length>"
+    left: "<secondary>Time left <accent><time></accent> of <accent><length>"
     from: "<secondary>From <primary><name>"
     from-server: "<secondary>From the server"
     none: "<primary>No sell booster is running right now."
-    explain: "<secondary>A booster raises what the server pays for everything sold, for everyone online. Boosters come from the store and community goals and run one after another."
     queue-header: "<secondary>Next in line"
     queue-line: "<secondary><position>. <primary>+<percent>% <secondary>for <primary><time> <secondary>from <primary><name>"
     queue-line-server: "<secondary><position>. <primary>+<percent>% <secondary>for <primary><time> <secondary>from the server"
     queue-more: "<secondary>and <count> more"
     queue-empty: "<secondary>Nothing is waiting in line."
-    hide-bar: "Hide the booster bar"
-    show-bar: "Show the booster bar"
-    bar-hidden: "<primary>The booster bar is hidden. <secondary>Show it again here or in /settings."
-    bar-shown: "<primary>The booster bar is shown while a booster runs."
-    # The server locked or hid the Booster bar setting (features/settings.yml) while the dialog was open.
+    # The tooltip of the Booster bar switch.
+    bar-tooltip: "<primary>Show the bar at the top of your screen while a sell booster runs.<newline><secondary>A booster raises what the server pays for everything sold, for everyone online. Boosters run one after another."
+    # In red on the dialog when the server locked or hid the Booster bar setting while the dialog was open.
     bar-fixed: "<primary>The booster bar is set by the server."
 
   hub:

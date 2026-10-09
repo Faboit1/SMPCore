@@ -101,7 +101,7 @@ record OrdersSettings(
             maxTotal = Math.max(minPrice, 100_000_000_000L);
         }
 
-        double taxPercent = r.decimal("tax", 0, 50, 2.0);
+        double taxPercent = r.decimal("tax", 0, 50, 0.0);
         boolean blockInCombat = r.bool("block-in-combat", true);
         boolean joinReminder = r.bool("join-reminder", true);
         boolean refuseSameIp = r.bool("refuse-same-ip", false);

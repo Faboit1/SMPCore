@@ -28,6 +28,7 @@ final class OrdersMessages {
     static final MessageKey CATEGORY_SPAWNERS = MessageKey.ui("orders.category.spawners");
     static final MessageKey CATEGORY_MISC = MessageKey.ui("orders.category.misc");
     static final MessageKey ENTRY_PRICE = MessageKey.ui("orders.menu.entry-price", "price");
+    /** What a seller keeps per item, only while deliveries are taxed. */
     static final MessageKey ENTRY_NET = MessageKey.ui("orders.menu.entry-net", "net", "tax");
     static final MessageKey ENTRY_DELIVERED = MessageKey.ui("orders.menu.entry-delivered", "filled", "quantity");
     static final MessageKey ENTRY_OWNER = MessageKey.ui("orders.menu.entry-owner", "owner");
@@ -87,14 +88,17 @@ final class OrdersMessages {
     static final MessageKey DELIVER_RULE = MessageKey.ui("orders.deliver.rule", "item");
     static final MessageKey DELIVER_RULE_BOOK = MessageKey.ui("orders.deliver.rule-book", "item");
     static final MessageKey DELIVER_BUTTON = MessageKey.ui("orders.deliver.button");
-    static final MessageKey DELIVER_BUTTON_LORE = MessageKey.ui("orders.deliver.button-lore", "amount", "remaining", "inner", "payout", "tax");
+    static final MessageKey DELIVER_BUTTON_LORE = MessageKey.ui("orders.deliver.button-lore", "amount", "remaining", "inner", "payout");
+    static final MessageKey DELIVER_BUTTON_LORE_TAXED = MessageKey.ui("orders.deliver.button-lore-taxed", "amount", "remaining", "inner",
+        "payout", "tax");
     static final MessageKey DELIVER_BUTTON_EMPTY = MessageKey.ui("orders.deliver.button-empty", "item", "remaining");
     static final MessageKey DELIVER_NOT_ACCEPTED = MessageKey.ui("orders.deliver.not-accepted", "count");
     static final MessageKey DELIVER_FILL = MessageKey.ui("orders.deliver.fill");
     static final MessageKey DELIVER_FILL_LORE = MessageKey.ui("orders.deliver.fill-lore", "item");
     static final MessageKey DELIVER_FILL_NOTHING = MessageKey.error("orders.deliver.fill-nothing", "item");
     static final MessageKey DELIVER_RESTORED = MessageKey.chat("orders.deliver.restored");
-    static final MessageKey DELIVER_DONE = MessageKey.chat("orders.deliver.done", "amount", "item", "payout", "tax");
+    static final MessageKey DELIVER_DONE = MessageKey.chat("orders.deliver.done", "amount", "item", "payout");
+    static final MessageKey DELIVER_DONE_TAXED = MessageKey.chat("orders.deliver.done-taxed", "amount", "item", "payout", "tax");
     static final MessageKey DELIVER_NOTHING = MessageKey.error("orders.deliver.nothing", "item");
     static final MessageKey DELIVER_GONE = MessageKey.error("orders.deliver.gone");
     static final MessageKey DELIVER_OWN = MessageKey.error("orders.deliver.own");
@@ -111,11 +115,14 @@ final class OrdersMessages {
     static final MessageKey QUICK_TITLE = MessageKey.ui("orders.quick.title", "item");
     static final MessageKey QUICK_CARRY = MessageKey.ui("orders.quick.carry", "count", "item", "inner");
     static final MessageKey QUICK_WANTED = MessageKey.ui("orders.quick.wanted", "remaining");
-    static final MessageKey QUICK_PAYOUT = MessageKey.ui("orders.quick.payout", "payout", "tax");
+    /** Quick deliver's tax line, only while deliveries are taxed. */
+    static final MessageKey QUICK_TAX = MessageKey.ui("orders.quick.tax", "tax");
     static final MessageKey QUICK_SERVER_MORE = MessageKey.ui("orders.quick.server-more", "price");
     static final MessageKey QUICK_NOTHING = MessageKey.ui("orders.quick.nothing", "item");
     static final MessageKey QUICK_BUTTON = MessageKey.ui("orders.quick.button", "units", "payout");
+    static final MessageKey QUICK_BUTTON_TOOLTIP = MessageKey.ui("orders.quick.button-tooltip");
     static final MessageKey QUICK_MENU = MessageKey.ui("orders.quick.menu");
+    static final MessageKey QUICK_MENU_TOOLTIP = MessageKey.ui("orders.quick.menu-tooltip");
     static final MessageKey QUICK_CHANGED = MessageKey.ui("orders.quick.changed");
 
     // ------------------------------------------------------------------ the buyer is told
@@ -167,8 +174,10 @@ final class OrdersMessages {
 
     // ------------------------------------------------------------------ placing an order
     static final MessageKey CREATE_TITLE = MessageKey.ui("orders.create.title");
-    static final MessageKey CREATE_BODY = MessageKey.ui("orders.create.body", "count", "limit");
-    static final MessageKey CREATE_BODY_UNLIMITED = MessageKey.ui("orders.create.body-unlimited", "count");
+    /** The new-order form's Next tooltip, with how many orders the player has up. */
+    static final MessageKey CREATE_NEXT_TOOLTIP = MessageKey.ui("orders.create.next-tooltip", "count", "limit");
+    static final MessageKey CREATE_NEXT_TOOLTIP_UNLIMITED = MessageKey.ui("orders.create.next-tooltip-unlimited", "count");
+    static final MessageKey CREATE_CHOOSE_TOOLTIP = MessageKey.ui("orders.create.choose-tooltip");
     static final MessageKey CREATE_CHOSEN = MessageKey.ui("orders.create.chosen", "item");
     static final MessageKey CREATE_ITEM = MessageKey.ui("orders.create.item");
     static final MessageKey CREATE_QUANTITY = MessageKey.ui("orders.create.quantity", "max");
@@ -176,7 +185,8 @@ final class OrdersMessages {
     static final MessageKey CREATE_NEXT = MessageKey.ui("orders.create.next");
     static final MessageKey CREATE_CHOOSE = MessageKey.ui("orders.create.choose");
     static final MessageKey CONFIRM_TITLE = MessageKey.ui("orders.create.confirm-title");
-    static final MessageKey CONFIRM_BODY = MessageKey.ui("orders.create.confirm-body", "quantity", "item", "price", "total", "time");
+    static final MessageKey CONFIRM_BODY = MessageKey.ui("orders.create.confirm-body", "quantity", "item", "price", "total");
+    static final MessageKey CONFIRM_BUTTON_TOOLTIP = MessageKey.ui("orders.create.confirm-button-tooltip", "time");
     static final MessageKey CONFIRM_WORTH = MessageKey.ui("orders.create.confirm-worth", "worth", "item");
     static final MessageKey CONFIRM_SELL_MORE = MessageKey.ui("orders.create.confirm-sell-more");
     static final MessageKey CONFIRM_BUTTON = MessageKey.ui("orders.create.confirm-button");
@@ -203,13 +213,14 @@ final class OrdersMessages {
     static final MessageKey PICKER_FAMILY = MessageKey.ui("orders.picker.family");
     static final MessageKey PICKER_HINT = MessageKey.ui("orders.picker.hint");
     static final MessageKey ENCHANT_TITLE = MessageKey.ui("orders.picker.enchant-title");
-    static final MessageKey ENCHANT_BODY = MessageKey.ui("orders.picker.enchant-body");
+    /** The tooltip of each button of the variant lists: what an order for it takes. */
+    static final MessageKey ENCHANT_TOOLTIP = MessageKey.ui("orders.picker.enchant-tooltip");
     static final MessageKey LEVEL_TITLE = MessageKey.ui("orders.picker.level-title");
-    static final MessageKey LEVEL_BODY = MessageKey.ui("orders.picker.level-body", "item");
+    static final MessageKey LEVEL_TOOLTIP = MessageKey.ui("orders.picker.level-tooltip");
     static final MessageKey POTION_TITLE = MessageKey.ui("orders.picker.potion-title");
-    static final MessageKey POTION_BODY = MessageKey.ui("orders.picker.potion-body");
+    static final MessageKey POTION_TOOLTIP = MessageKey.ui("orders.picker.potion-tooltip");
     static final MessageKey SPAWNER_TITLE = MessageKey.ui("orders.picker.spawner-title");
-    static final MessageKey SPAWNER_BODY = MessageKey.ui("orders.picker.spawner-body");
+    static final MessageKey SPAWNER_TOOLTIP = MessageKey.ui("orders.picker.spawner-tooltip");
 
     // ------------------------------------------------------------------ the owner's dialog
     static final MessageKey OWN_TITLE = MessageKey.ui("orders.own.title");
@@ -217,17 +228,27 @@ final class OrdersMessages {
     static final MessageKey OWN_BODY_ENDED = MessageKey.ui("orders.own.body-ended", "quantity", "item", "price", "filled", "waiting", "state");
     static final MessageKey OWN_UNAVAILABLE = MessageKey.ui("orders.own.unavailable");
     static final MessageKey OWN_COLLECT = MessageKey.ui("orders.own.collect");
+    static final MessageKey OWN_COLLECT_TOOLTIP = MessageKey.ui("orders.own.collect-tooltip");
     static final MessageKey OWN_COLLECT_STACK = MessageKey.ui("orders.own.collect-stack");
+    static final MessageKey OWN_COLLECT_STACK_TOOLTIP = MessageKey.ui("orders.own.collect-stack-tooltip");
     static final MessageKey OWN_TO_CLAIM_BOX = MessageKey.ui("orders.own.to-claim-box");
+    static final MessageKey OWN_TO_CLAIM_BOX_TOOLTIP = MessageKey.ui("orders.own.to-claim-box-tooltip");
     static final MessageKey OWN_RAISE = MessageKey.ui("orders.own.raise");
+    static final MessageKey OWN_RAISE_TOOLTIP = MessageKey.ui("orders.own.raise-tooltip");
     static final MessageKey OWN_ADD = MessageKey.ui("orders.own.add");
+    static final MessageKey OWN_ADD_TOOLTIP = MessageKey.ui("orders.own.add-tooltip");
     static final MessageKey OWN_EXTEND = MessageKey.ui("orders.own.extend");
+    static final MessageKey OWN_EXTEND_TOOLTIP = MessageKey.ui("orders.own.extend-tooltip", "time");
     static final MessageKey OWN_CANCEL = MessageKey.ui("orders.own.cancel");
+    static final MessageKey OWN_CANCEL_TOOLTIP = MessageKey.ui("orders.own.cancel-tooltip");
     static final MessageKey OWN_AGAIN = MessageKey.ui("orders.own.again");
+    static final MessageKey OWN_AGAIN_TOOLTIP = MessageKey.ui("orders.own.again-tooltip");
     static final MessageKey OWN_DETAILS = MessageKey.ui("orders.own.details");
+    static final MessageKey OWN_DETAILS_TOOLTIP = MessageKey.ui("orders.own.details-tooltip");
     static final MessageKey CANCEL_TITLE = MessageKey.ui("orders.cancel.title");
     static final MessageKey CANCEL_BODY = MessageKey.ui("orders.cancel.body", "quantity", "item", "refund");
     static final MessageKey CANCEL_YES = MessageKey.ui("orders.cancel.yes");
+    static final MessageKey CANCEL_YES_TOOLTIP = MessageKey.ui("orders.cancel.yes-tooltip");
     static final MessageKey CANCEL_NO = MessageKey.ui("orders.cancel.no");
     static final MessageKey CANCEL_DONE = MessageKey.chat("orders.cancel.done", "quantity", "item", "refund");
     static final MessageKey CANCEL_GONE = MessageKey.error("orders.cancel.gone");
@@ -241,13 +262,14 @@ final class OrdersMessages {
     static final MessageKey COLLECT_UNAVAILABLE = MessageKey.error("orders.collect.unavailable");
     static final MessageKey DETAILS_TITLE = MessageKey.ui("orders.details.title");
     static final MessageKey DETAILS_BODY = MessageKey.ui("orders.details.body", "id", "ago", "paid", "collected");
-    static final MessageKey DETAILS_HEADER = MessageKey.ui("orders.details.header");
+    static final MessageKey DETAILS_HEADER = MessageKey.ui("orders.details.header", "count");
     static final MessageKey DETAILS_LINE = MessageKey.ui("orders.details.line", "name", "amount", "paid", "ago");
     static final MessageKey DETAILS_NONE = MessageKey.ui("orders.details.none");
 
     // ------------------------------------------------------------------ changing an order
     static final MessageKey EDIT_TITLE = MessageKey.ui("orders.edit.title");
     static final MessageKey EDIT_BODY = MessageKey.ui("orders.edit.body", "quantity", "item", "price", "filled");
+    static final MessageKey EDIT_NEXT_TOOLTIP = MessageKey.ui("orders.edit.next-tooltip");
     static final MessageKey EDIT_PRICE = MessageKey.ui("orders.edit.price");
     static final MessageKey EDIT_ADD = MessageKey.ui("orders.edit.add", "max");
     static final MessageKey EDIT_CONFIRM_BODY = MessageKey.ui("orders.edit.confirm-body", "extra", "quantity", "item", "price");
@@ -266,6 +288,7 @@ final class OrdersMessages {
     static final MessageKey STAFF_BODY = MessageKey.ui("orders.staff.body", "owner", "item", "filled", "quantity", "held", "ago", "time",
         "state");
     static final MessageKey STAFF_CANCEL = MessageKey.ui("orders.staff.cancel");
+    static final MessageKey STAFF_CANCEL_TOOLTIP = MessageKey.ui("orders.staff.cancel-tooltip");
     static final MessageKey STAFF_OPEN = MessageKey.ui("orders.staff.open", "name");
     static final MessageKey STAFF_REASON_TITLE = MessageKey.ui("orders.staff.reason-title", "id");
     static final MessageKey STAFF_REASON = MessageKey.ui("orders.staff.reason");

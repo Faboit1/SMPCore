@@ -559,6 +559,7 @@ class AuctionEngineTest {
         AuctionEngine.SalesSince<String> one = this.engine.salesSince(SELLER, since, joined, 1).get(10, TimeUnit.SECONDS);
         assertEquals(3, one.count(), "the sale at the moment itself, the sale after the join and the purchase don't count");
         assertEquals((200 - 10) + (1_000 - 50) + (300 - 15), one.earned(), "what the seller got after tax");
+        assertEquals(10 + 50 + 15, one.taxed(), "the tax taken from those sales");
         assertEquals(List.of("third"), one.latest().stream().map(AuctionEngine.HistoryEntry::item).toList());
         assertEquals(BUYER, one.latest().getFirst().counterparty());
         assertTrue(one.latest().getFirst().sale());
@@ -576,6 +577,7 @@ class AuctionEngineTest {
         AuctionEngine.SalesSince<String> none = this.engine.salesSince(SELLER, this.clock.get(), this.clock.get(), 5).get(10, TimeUnit.SECONDS);
         assertEquals(0, none.count());
         assertEquals(0, none.earned());
+        assertEquals(0, none.taxed());
         assertTrue(none.latest().isEmpty());
         assertEquals(0, this.engine.salesSince(BUYER, 0, this.clock.get(), 5).get(10, TimeUnit.SECONDS).count(), "buyers sold nothing");
         assertLedgerHealthy();

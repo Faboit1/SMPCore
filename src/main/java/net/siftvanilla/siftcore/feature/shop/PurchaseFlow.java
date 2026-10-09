@@ -138,17 +138,15 @@ final class PurchaseFlow {
         List<Body> body = new ArrayList<>();
         body.add(Body.item(unit, null));
         body.add(Body.text(Component.join(JoinConfiguration.newlines(), lang.lines(ShopMessages.BUY_BODY,
-            Arg.money("price", entry.price()), Arg.money("balance", balance), Arg.number("max", entry.max())))));
-        List<Component> extra = new ArrayList<>(2);
+            Arg.money("price", entry.price()), Arg.money("balance", balance)))));
+        // What the buy button needs to say beyond its label: the limit per purchase, the sell-back price, how many they have.
+        List<Component> buyTooltip = new ArrayList<>(lang.lines(ShopMessages.BUY_TOOLTIP, Arg.text("max", Lang.number(entry.max()))));
         if (!entry.spawner()) {
             long sellBack = this.sell.sellBack(player, entry.item());
             if (sellBack > 0) {
-                extra.addAll(lang.lines(ShopMessages.BUY_SELLS_BACK, Arg.money("price", sellBack)));
+                buyTooltip.addAll(lang.lines(ShopMessages.BUY_SELLS_BACK, Arg.money("price", sellBack)));
             }
-            extra.addAll(lang.lines(ShopMessages.BUY_YOU_HAVE, Arg.number("count", this.sell.carried(player, entry.item()))));
-        }
-        if (!extra.isEmpty()) {
-            body.add(Body.text(Component.join(JoinConfiguration.newlines(), extra)));
+            buyTooltip.addAll(lang.lines(ShopMessages.BUY_YOU_HAVE, Arg.text("count", Lang.number(this.sell.carried(player, entry.item())))));
         }
         if (note != null) {
             body.add(Body.text(note));
@@ -162,15 +160,17 @@ final class PurchaseFlow {
         long price = entry.price();
         // Buys at once below the confirmation threshold: the amount agreed to, with every digit.
         Button buy = Button.of(lang.get(ShopMessages.BUY_BUTTON, Arg.text("amount", Lang.number(amount)),
-            Arg.exact("total", total)), s -> onBuy(s, ref, price, amount, back)).width(150);
+            Arg.exact("total", total)), Templates.lines(buyTooltip), s -> onBuy(s, ref, price, amount, back)).width(150);
         Button backButton = Button.of(lang.get(CoreMessages.UI_BACK), s -> {
             s.close();
             back.run();
         }).width(150);
         List<Button> buttons = new ArrayList<>(4);
         if (entry.max() > 1) {
-            buttons.add(Button.of(lang.get(ShopMessages.BUY_MAX), s -> onQuick(s, ref, price, false, back)).width(150));
-            buttons.add(Button.of(lang.get(ShopMessages.BUY_FILL), s -> onQuick(s, ref, price, true, back)).width(150));
+            buttons.add(Button.of(lang.get(ShopMessages.BUY_MAX), lang.get(ShopMessages.BUY_MAX_TOOLTIP),
+                s -> onQuick(s, ref, price, false, back)).width(150));
+            buttons.add(Button.of(lang.get(ShopMessages.BUY_FILL), lang.get(ShopMessages.BUY_FILL_TOOLTIP),
+                s -> onQuick(s, ref, price, true, back)).width(150));
         }
         buttons.add(buy);
         buttons.add(backButton);

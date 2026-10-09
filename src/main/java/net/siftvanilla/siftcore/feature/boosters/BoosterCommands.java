@@ -23,10 +23,13 @@ import net.siftvanilla.siftcore.core.player.Change;
 import net.siftvanilla.siftcore.core.player.SetResult;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.FormValues;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
+import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -115,26 +118,33 @@ final class BoosterCommands {
 
     /** The booster dialog. {@code back} runs on Back (from a menu); null shows Close. */
     void open(Player player, Button.Handler back) {
+        open(player, back, null);
+    }
+
+    /** The booster dialog with a red line under it when {@code error} is set. */
+    private void open(Player player, Button.Handler back, Component error) {
         Lang lang = this.services.lang();
         List<Component> lines = lines(player.getUniqueId());
         var prefs = this.services.settings();
         boolean shown = prefs.get(player, this.bar);
         List<Button> buttons = new ArrayList<>(1);
-        // The switch, unless the server fixed the setting for everyone (features/settings.yml locked or hidden).
+        // The switch ("Booster bar: ON"), unless the server fixed the setting for everyone (locked or hidden). A click
+        // flips it and shows the dialog again with the new state; a refusal shows in red there.
         if (this.settings.get().bar().enabled() && !prefs.locked(this.bar) && !prefs.hidden(this.bar)) {
-            buttons.add(Button.of(lang.get(shown ? BoostersMessages.HIDE_BAR : BoostersMessages.SHOW_BAR), s -> {
-                boolean now = !prefs.get(s.player(), this.bar);
-                SetResult result = prefs.set(s.player(), this.bar, now, Change.feature());
-                switch (result) {
-                    case CHANGED, UNCHANGED -> this.services.messenger().send(s.player(),
-                        now ? BoostersMessages.BAR_SHOWN : BoostersMessages.BAR_HIDDEN);
-                    default -> this.services.messenger().send(s.player(), BoostersMessages.BAR_FIXED);
-                }
-                this.refresh.accept(s.player());
-                open(s.player(), back);
-            }).width(Templates.WIDE));
+            buttons.add(this.services.templates().switchButton(lang.get(BoostersMessages.TOGGLE_LABEL), shown,
+                lang.get(BoostersMessages.BAR_TOOLTIP), s -> {
+                    SetResult result = prefs.set(s.player(), this.bar, !prefs.get(s.player(), this.bar), Change.feature());
+                    this.refresh.accept(s.player());
+                    if (result.succeeded()) {
+                        open(s.player(), back);
+                    } else {
+                        this.services.messenger().feedback(s.player(), Feedback.ERROR);
+                        open(s.player(), back, lang.get(BoostersMessages.BAR_FIXED));
+                    }
+                }).width(Templates.LONG));
         }
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(BoostersMessages.TITLE), lines, buttons, 1, back));
+        View view = this.services.templates().list(lang.get(BoostersMessages.TITLE), lines, buttons, 1, back);
+        this.services.dialogs().show(player, error == null ? view : view.withError(error, FormValues.EMPTY));
     }
 
     /** {@code /booster} from the console: the same lines in chat. */
@@ -153,11 +163,10 @@ final class BoosterCommands {
         Booster active = view.active();
         if (active == null) {
             lines.addAll(lang.lines(BoostersMessages.NONE));
-            lines.addAll(lang.lines(BoostersMessages.EXPLAIN));
         } else {
             lines.addAll(lang.lines(BoostersMessages.ACTIVE, Arg.number("percent", this.service.percent())));
-            lines.addAll(lang.lines(BoostersMessages.LEFT, Arg.time("time", this.service.left()),
-                Arg.time("length", active.duration())));
+            lines.addAll(lang.lines(BoostersMessages.LEFT, Arg.text("time", Durations.format(this.service.left())),
+                Arg.text("length", Durations.format(active.duration()))));
             lines.addAll(active.owner() == null ? lang.lines(BoostersMessages.FROM_SERVER)
                 : lang.lines(BoostersMessages.FROM, Arg.text("name", this.names.name(active.owner()))));
         }

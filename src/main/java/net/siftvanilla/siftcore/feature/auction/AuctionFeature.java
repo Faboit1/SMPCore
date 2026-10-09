@@ -288,12 +288,18 @@ public final class AuctionFeature implements Feature, Listener {
         List<Component> lines = new ArrayList<>();
         if (sales.count() == 1 && sales.latest().size() == 1) {
             AuctionEngine.HistoryEntry<ItemStack> sale = sales.latest().getFirst();
-            lines.add(lang.get(AuctionMessages.AWAY_SOLD_ONE, Arg.text("name", buyerName(sale)), Arg.number("amount", sale.amount()),
-                Arg.text("item", AuctionItems.plainName(sale.item())), this.service.price("price", sale.price()),
-                this.service.price("earned", sale.price() - sale.tax())));
+            Arg name = Arg.text("name", buyerName(sale));
+            Arg amount = Arg.number("amount", sale.amount());
+            Arg item = Arg.text("item", AuctionItems.plainName(sale.item()));
+            // Tax is only mentioned for a sale that was taxed.
+            lines.add(sale.tax() > 0
+                ? lang.get(AuctionMessages.AWAY_SOLD_ONE_TAXED, name, amount, item, this.service.price("price", sale.price()),
+                    this.service.price("earned", sale.price() - sale.tax()))
+                : lang.get(AuctionMessages.AWAY_SOLD_ONE, name, amount, item, this.service.price("price", sale.price())));
             return lines;
         }
-        lines.add(lang.get(AuctionMessages.AWAY_SOLD_MANY, Arg.number("count", sales.count()), this.service.price("earned", sales.earned())));
+        lines.add(lang.get(sales.taxed() > 0 ? AuctionMessages.AWAY_SOLD_MANY_TAXED : AuctionMessages.AWAY_SOLD_MANY,
+            Arg.number("count", sales.count()), this.service.price("earned", sales.earned())));
         for (AuctionEngine.HistoryEntry<ItemStack> sale : sales.latest()) {
             lines.add(lang.get(AuctionMessages.AWAY_SOLD_LINE, Arg.number("amount", sale.amount()),
                 Arg.text("item", AuctionItems.plainName(sale.item())), Arg.text("name", buyerName(sale)),

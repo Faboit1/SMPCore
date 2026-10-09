@@ -51,7 +51,7 @@ class AuctionResourcesTest {
         assertEquals(Duration.ofHours(48), settings.duration());
         assertEquals(3, settings.defaultSlots());
         assertEquals(new AuctionMath.PriceRules(1, 10_000_000_000L, 1, 0), settings.price());
-        assertEquals(500, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "no tax unless the owner sets one");
         assertTrue(settings.blacklist().matches("minecraft:barrier"));
         assertTrue(settings.blacklist().matches("minecraft:command_block"));
         assertTrue(settings.blacklist().matches("minecraft:creeper_spawn_egg"));
@@ -104,7 +104,7 @@ class AuctionResourcesTest {
         assertEquals(Duration.ofHours(48), settings.duration());
         assertEquals(3, settings.defaultSlots());
         assertEquals(new AuctionMath.PriceRules(1, 10_000_000_000L, 1, 0), settings.price());
-        assertEquals(500, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "a broken tax falls back to none");
         assertEquals(AuctionSettings.DEFAULT_BLACKLIST, settings.blacklist().entries());
         assertEquals(SortOrder.NEWEST, settings.defaultSort());
     }

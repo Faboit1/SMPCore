@@ -35,6 +35,7 @@ import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.FormValues;
 import net.siftvanilla.siftcore.ui.dialog.Submission;
+import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -296,26 +297,28 @@ final class SellService {
      */
     private View confirmView(Player player, SaleRequest request, SaleDraft draft, Component error, Runnable back, boolean stay) {
         Lang lang = this.services.lang();
-        List<Component> lines = new ArrayList<>();
-        lines.addAll(lang.lines(SellMessages.CONFIRM_BODY, Arg.number("count", draft.count()), Arg.money("total", draft.total())));
+        // The question with the total; what is in the total (bonuses, booster, orders, boxes, what is kept) is in the
+        // Sell button's tooltip.
+        List<Component> lines = lang.lines(SellMessages.CONFIRM_BODY, Arg.number("count", draft.count()), Arg.money("total", draft.total()));
+        List<Component> tooltip = new ArrayList<>(lang.lines(SellMessages.CONFIRM_SELL_TOOLTIP));
         BigDecimal shared = draft.sharedBonus();
         if (shared != null && shared.compareTo(BigDecimal.ONE) > 0) {
-            lines.addAll(lang.lines(SellMessages.CONFIRM_BONUS, Arg.text("multiplier", Multipliers.format(shared.doubleValue()))));
+            tooltip.addAll(lang.lines(SellMessages.CONFIRM_BONUS, Arg.text("multiplier", Multipliers.format(shared.doubleValue()))));
         } else if (shared == null && draft.topBonus().compareTo(BigDecimal.ONE) > 0) {
-            lines.addAll(lang.lines(SellMessages.CONFIRM_BONUSES));
+            tooltip.addAll(lang.lines(SellMessages.CONFIRM_BONUSES));
         }
         if (draft.boosted()) {
-            lines.addAll(lang.lines(SellMessages.CONFIRM_BOOSTER, Arg.number("percent", draft.boost())));
+            tooltip.addAll(lang.lines(SellMessages.CONFIRM_BOOSTER, Arg.text("percent", Long.toString(draft.boost()))));
         }
         if (!draft.takes().isEmpty()) {
-            lines.addAll(lang.lines(SellMessages.CONFIRM_ORDERS, Arg.money("orders", draft.ordersNet()),
-                Arg.number("count", draft.orderCount())));
+            tooltip.addAll(lang.lines(SellMessages.CONFIRM_ORDERS, Arg.money("orders", draft.ordersNet()),
+                Arg.text("count", Lang.number(draft.orderCount()))));
         }
         if (draft.innerCount() > 0) {
-            lines.addAll(lang.lines(SellMessages.CONFIRM_INNER, Arg.number("count", draft.innerCount())));
+            tooltip.addAll(lang.lines(SellMessages.CONFIRM_INNER, Arg.text("count", Lang.number(draft.innerCount()))));
         }
         if (draft.kept() > 0 && request.scope() == SaleRequest.Scope.ALL) {
-            lines.addAll(lang.lines(SellMessages.CONFIRM_KEPT, Arg.number("count", draft.kept())));
+            tooltip.addAll(lang.lines(SellMessages.CONFIRM_KEPT, Arg.text("count", Lang.number(draft.kept()))));
         }
         List<Body> body = new ArrayList<>();
         body.add(Body.text(Component.join(JoinConfiguration.newlines(), lines)));
@@ -329,9 +332,9 @@ final class SellService {
         // Sell stays on screen until the server answers: when the total changed in between the confirmation comes back
         // with the new total. Choose items finishes here (the sell menu opens).
         // The amount the player agrees to: every digit, like the body above, whatever money format they chose.
-        Button sell = Button.of(lang.get(SellMessages.CONFIRM_SELL, Arg.exact("total", draft.total())),
+        Button sell = Button.of(lang.get(SellMessages.CONFIRM_SELL, Arg.exact("total", draft.total())), Templates.lines(tooltip),
             s -> onConfirm(s.player(), request, draft, s, back, returns)).width(150);
-        Button choose = Button.of(lang.get(SellMessages.CONFIRM_CHOOSE), s -> {
+        Button choose = Button.of(lang.get(SellMessages.CONFIRM_CHOOSE), lang.get(SellMessages.CONFIRM_CHOOSE_TOOLTIP), s -> {
             s.close();
             this.chooseItems.accept(s.player(), request);
         }).width(150).closes();
@@ -746,7 +749,10 @@ final class SellService {
                     Arg.text("item", ItemKeys.name(take.key())), Arg.text("owner", name == null ? "?" : name),
                     Arg.money("value", OrderMarket.net(take, tax))));
             }
-            card.add(lang.get(SellMessages.RECEIPT_TAX, Arg.money("tax", draft.ordersTax())));
+            // Buy orders without a tax: no tax line.
+            if (draft.ordersTax() > 0) {
+                card.add(lang.get(SellMessages.RECEIPT_TAX, Arg.money("tax", draft.ordersTax())));
+            }
             if (draft.serverTotal() > 0) {
                 card.add(lang.get(SellMessages.RECEIPT_REST, Arg.money("value", draft.serverTotal())));
             }

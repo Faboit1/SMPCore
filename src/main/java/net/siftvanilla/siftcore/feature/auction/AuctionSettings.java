@@ -68,7 +68,8 @@ public record AuctionSettings(
             rules = new AuctionMath.PriceRules(minimum, maximum, minimumPerItem, maximumPerItem);
         }
 
-        int tax = r.custom("tax", AuctionMath::parsePercent, "a percentage from 0 to 100 like 5 or 2.5", 500);
+        // No tax unless the owner sets one: sellers get the whole price.
+        int tax = r.custom("tax", AuctionMath::parsePercent, "a percentage from 0 to 100 like 5 or 2.5", 0);
 
         ConfigReader blacklistSection = r.section("blacklist");
         List<String> entries = blacklistSection.stringList("items", DEFAULT_BLACKLIST);

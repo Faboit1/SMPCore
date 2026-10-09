@@ -390,9 +390,16 @@ final class AuctionService {
             return;
         }
         AlertStyle style = this.services.settings().get(listing.seller(), AuctionFeature.SALE_ALERTS);
-        this.services.messenger().alert(seller, style, AuctionMessages.SOLD, Arg.text("buyer", buyer.getName()),
-            Arg.number("amount", listing.amount()), Arg.text("item", AuctionItems.plainName(listing.item())),
-            price("price", listing.price()), price("earned", listing.price() - tax));
+        Arg buyerName = Arg.text("buyer", buyer.getName());
+        Arg amount = Arg.number("amount", listing.amount());
+        Arg item = Arg.text("item", AuctionItems.plainName(listing.item()));
+        // Without a tax the seller got the price, so the line says nothing about tax.
+        if (tax > 0) {
+            this.services.messenger().alert(seller, style, AuctionMessages.SOLD_TAXED, buyerName, amount, item,
+                price("price", listing.price()), price("earned", listing.price() - tax));
+        } else {
+            this.services.messenger().alert(seller, style, AuctionMessages.SOLD, buyerName, amount, item, price("price", listing.price()));
+        }
     }
 
     private Problem refusal(Refusal refusal) {

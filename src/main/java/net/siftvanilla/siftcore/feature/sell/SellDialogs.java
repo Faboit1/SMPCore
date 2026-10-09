@@ -62,7 +62,11 @@ final class SellDialogs {
 
     // ------------------------------------------------------------------ item details
 
-    /** The details of one item: prices, bonus, mastery, shop, orders, and what can be done with it. */
+    /**
+     * The details of one item: what it sells for (with the player's bonus and mastery), then a button for each thing
+     * that can be done with it: sell what they carry, buy it in the shop, order it. The best buy order is in the Sell and
+     * Order it tooltips.
+     */
     void details(Player player, String key, Runnable back) {
         Lang lang = this.services.lang();
         Material material = Material.matchMaterial(key);
@@ -81,27 +85,22 @@ final class SellDialogs {
                     Arg.money("price", price), Arg.component("booster", rates.boost() > 0
                         ? lang.get(SellMessages.BOOSTER_NOTE, Arg.number("percent", rates.boost())) : Component.empty())));
             } else if (rates.boost() > 0) {
-                lines.addAll(lang.lines(SellMessages.DETAILS_BOOSTED, Arg.number("percent", rates.boost()), Arg.money("price", price)));
+                lines.addAll(lang.lines(SellMessages.DETAILS_BOOSTED, Arg.text("percent", Long.toString(rates.boost())),
+                    Arg.money("price", price)));
             }
             Mastery rules = this.settings.get().mastery();
             if (rules.enabled()) {
                 lines.addAll(lang.lines(SellMessages.DETAILS_MASTERY,
                     Arg.text("category", this.worth.categories().name(entry.category())),
-                    Arg.number("level", rates.level(entry.category())), Arg.number("max", rules.maxLevel())));
+                    Arg.text("level", Lang.number(rates.level(entry.category()))), Arg.text("max", Lang.number(rules.maxLevel()))));
             }
         } else {
             lines.addAll(lang.lines(SellMessages.DETAILS_NOT_SOLD));
         }
         OptionalLong shopPrice = this.shop.get().price(key);
-        shopPrice.ifPresent(price -> lines.addAll(lang.lines(SellMessages.DETAILS_SHOP, Arg.money("price", price))));
         OrderMarket.Bid best = this.bids.best(player.getUniqueId(), key);
-        if (best != null) {
-            lines.addAll(lang.lines(SellMessages.DETAILS_ORDER, Arg.money("price", best.priceEach())));
-        }
+        List<Component> bestLine = best == null ? List.of() : lang.lines(SellMessages.DETAILS_ORDER, Arg.money("price", best.priceEach()));
         long carried = this.sales.builder().carried(player, this.settings.get()).getOrDefault(key, 0L);
-        if (carried > 0) {
-            lines.addAll(lang.lines(SellMessages.DETAILS_CARRY, Arg.number("count", carried)));
-        }
         List<Body> body = new ArrayList<>();
         body.add(Body.item(ItemStack.of(material), null));
         body.add(Body.text(Component.join(JoinConfiguration.newlines(), lines)));
@@ -111,9 +110,11 @@ final class SellDialogs {
             SaleBuilder.Result preview = this.sales.preview(player, player.getInventory(), SaleRequest.type(key));
             if (preview.draft() != null) {
                 SaleDraft draft = preview.draft();
+                List<Component> tooltip = new ArrayList<>(lang.lines(SellMessages.DETAILS_SELL_TOOLTIP));
+                tooltip.addAll(bestLine);
                 // Sells at once below the confirmation threshold: the amount agreed to, with every digit.
                 buttons.add(Button.of(lang.get(SellMessages.DETAILS_SELL, Arg.text("count", Lang.number(draft.count())),
-                    Arg.exact("total", draft.total())), s -> {
+                    Arg.exact("total", draft.total())), Templates.lines(tooltip), s -> {
                         // A confirmation replaces this dialog; a sale or refusal without one closes it.
                         if (this.sales.sellType(s.player(), key, false, () -> details(s.player(), key, back)) != SellService.Outcome.ASKED) {
                             s.close();
@@ -123,7 +124,7 @@ final class SellDialogs {
         }
         if (shopPrice.isPresent()) {
             long price = shopPrice.getAsLong();
-            buttons.add(Button.of(lang.get(SellMessages.DETAILS_BUY, Arg.money("price", price)),
+            buttons.add(Button.of(lang.get(SellMessages.DETAILS_BUY, Arg.money("price", price)), lang.get(SellMessages.DETAILS_BUY_TOOLTIP),
                 s -> {
                     if (!this.shop.get().open(s.player(), key, () -> details(s.player(), key, back))) {
                         s.close();
@@ -132,7 +133,9 @@ final class SellDialogs {
         }
         OrderMarket market = this.bids.market();
         if (market.available()) {
-            buttons.add(Button.of(lang.get(SellMessages.DETAILS_ORDER_IT), s -> {
+            List<Component> tooltip = new ArrayList<>(lang.lines(SellMessages.DETAILS_ORDER_IT_TOOLTIP));
+            tooltip.addAll(bestLine);
+            buttons.add(Button.of(lang.get(SellMessages.DETAILS_ORDER_IT), Templates.lines(tooltip), s -> {
                 if (!market.openOrderForm(s.player(), key, () -> details(s.player(), key, back))) {
                     s.close();
                 }
@@ -153,8 +156,9 @@ final class SellDialogs {
     }
 
     /**
-     * The mastery list with {@code back} as its footer (Back), or Close when null. The sell menu passes a Back that
-     * returns to it: closing would close the menu under the dialog and give its grid back.
+     * The mastery list: one button per category, "Mining: level 2 of 5", whose tooltip shows the rate, what was sold and
+     * every level (nothing above the buttons). {@code back} is its footer (Back), or Close when null. The sell menu passes
+     * a Back that returns to it: closing would close the menu under the dialog and give its grid back.
      */
     void mastery(Player player, Button.Handler back) {
         Mastery rules = this.settings.get().mastery();
@@ -165,34 +169,50 @@ final class SellDialogs {
         }
         WorthService.Rates rates = this.worth.rates(player);
         SellCategories categories = this.worth.categories();
-        List<Component> lines = new ArrayList<>();
         List<Button> buttons = new ArrayList<>();
         for (SellCategories.Category category : categories.categories().values()) {
-            lines.add(masteryLine(rates, rules, category));
             String id = category.id();
-            buttons.add(Button.of(Component.text(category.name()), s -> masteryDetail(s.player(), id, back)).width(150));
+            int level = rates.level(id);
+            Component value = level >= rules.maxLevel() ? lang.get(SellMessages.MASTERY_LEVEL_MAX)
+                : lang.get(SellMessages.MASTERY_LEVEL, Arg.text("level", Lang.number(level)), Arg.text("max", Lang.number(rules.maxLevel())));
+            buttons.add(this.services.templates().choiceButton(Component.text(category.name()), value,
+                Templates.lines(masteryTooltip(rates, rules, category)), s -> masteryDetail(s.player(), id, back)));
         }
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(SellMessages.MASTERY_TITLE), lines,
-            buttons, 2, back));
+        this.services.dialogs().show(player, this.services.templates().column(lang.get(SellMessages.MASTERY_TITLE), buttons, back));
     }
 
-    private Component masteryLine(WorthService.Rates rates, Mastery rules, SellCategories.Category category) {
+    /** A category button's tooltip: the rate and what was sold, every level (done, next, later), and what a click does. */
+    private List<Component> masteryTooltip(WorthService.Rates rates, Mastery rules, SellCategories.Category category) {
         Lang lang = this.services.lang();
-        int level = rates.level(category.id());
-        long sold = rates.sold(category.id());
-        String multiplier = Multipliers.format(rates.own(category.id()).doubleValue());
-        if (level >= rules.maxLevel()) {
-            return lang.get(SellMessages.MASTERY_LINE_MAX, Arg.text("name", category.name()), Arg.text("multiplier", multiplier),
-                Arg.money("sold", sold));
+        String id = category.id();
+        List<Component> lines = new ArrayList<>(lang.lines(SellMessages.MASTERY_TOOLTIP_RATE, Arg.text("name", category.name()),
+            Arg.text("multiplier", Multipliers.format(rates.own(id).doubleValue())), Arg.money("sold", rates.sold(id))));
+        lines.addAll(ladder(rates.level(id), rates.sold(id), rules));
+        lines.addAll(lang.lines(SellMessages.MASTERY_TOOLTIP_CLICK));
+        return lines;
+    }
+
+    /** The level ladder, highest first: levels reached, the next one with what is left, and the later ones. */
+    private List<Component> ladder(int level, long sold, Mastery rules) {
+        Lang lang = this.services.lang();
+        List<Component> lines = new ArrayList<>();
+        for (int step = rules.maxLevel(); step >= 1; step--) {
+            long threshold = rules.threshold(step);
+            if (step <= level) {
+                lines.addAll(lang.lines(SellMessages.MASTERY_LADDER_DONE, Arg.number("level", step), Arg.money("threshold", threshold)));
+            } else if (step == level + 1) {
+                lines.addAll(lang.lines(SellMessages.MASTERY_LADDER_NEXT, Arg.number("level", step), Arg.money("threshold", threshold),
+                    Arg.money("left", Math.max(0, threshold - sold))));
+            } else {
+                lines.addAll(lang.lines(SellMessages.MASTERY_LADDER_LATER, Arg.number("level", step), Arg.money("threshold", threshold)));
+            }
         }
-        return lang.get(SellMessages.MASTERY_LINE, Arg.text("name", category.name()), Arg.number("level", level),
-            Arg.number("max", rules.maxLevel()), Arg.text("multiplier", multiplier), Arg.money("sold", sold),
-            Arg.money("next", rules.threshold(level + 1)), Arg.number("next-level", level + 1));
+        return lines;
     }
 
     /**
-     * One category: the level ladder, the rate, selling everything of it and its prices. Its Back returns to the list,
-     * which keeps {@code back} (see {@link #mastery(Player, Button.Handler)}).
+     * One category: its rate and progress, selling everything of it and its prices. Its Back returns to the list, which
+     * keeps {@code back} (see {@link #mastery(Player, Button.Handler)}).
      */
     void masteryDetail(Player player, String id, Button.Handler back) {
         Mastery rules = this.settings.get().mastery();
@@ -210,24 +230,18 @@ final class SellDialogs {
             Arg.text("multiplier", Multipliers.format(rates.own(id).doubleValue())),
             Arg.text("rank", Multipliers.format(rates.rank().doubleValue())),
             Arg.text("bonus", Multipliers.format(rates.bonus(id).doubleValue()))));
-        for (int step = rules.maxLevel(); step >= 1; step--) {
-            long threshold = rules.threshold(step);
-            if (step <= level) {
-                lines.addAll(lang.lines(SellMessages.MASTERY_LADDER_DONE, Arg.number("level", step), Arg.money("threshold", threshold)));
-            } else if (step == level + 1) {
-                lines.addAll(lang.lines(SellMessages.MASTERY_LADDER_NEXT, Arg.number("level", step), Arg.money("threshold", threshold),
-                    Arg.money("left", Math.max(0, threshold - sold))));
-            } else {
-                lines.addAll(lang.lines(SellMessages.MASTERY_LADDER_LATER, Arg.number("level", step), Arg.money("threshold", threshold)));
-            }
-        }
+        lines.addAll(level >= rules.maxLevel()
+            ? lang.lines(SellMessages.MASTERY_PROGRESS_MAX, Arg.money("sold", sold))
+            : lang.lines(SellMessages.MASTERY_PROGRESS, Arg.text("level", Lang.number(level)), Arg.text("max", Lang.number(rules.maxLevel())),
+                Arg.money("left", Math.max(0, rules.threshold(level + 1) - sold)), Arg.text("next-level", Lang.number(level + 1))));
+        Arg name = Arg.text("name", category.name());
         List<Button> buttons = new ArrayList<>();
         SaleBuilder.Result preview = this.sales.preview(player, player.getInventory(), SaleRequest.category(id));
         if (preview.draft() != null) {
             SaleDraft draft = preview.draft();
             // Sells at once (asking again only when the sale changed): the amount agreed to, with every digit.
-            buttons.add(Button.of(lang.get(SellMessages.MASTERY_SELL, Arg.text("name", category.name()),
-                Arg.text("count", Lang.number(draft.count())), Arg.exact("total", draft.total())),
+            buttons.add(Button.of(lang.get(SellMessages.MASTERY_SELL, name, Arg.text("count", Lang.number(draft.count())),
+                Arg.exact("total", draft.total())), lang.get(SellMessages.MASTERY_SELL_TOOLTIP, name),
                 s -> {
                     // Sells exactly what the button showed (asks again when that changed), then shows the new progress.
                     // Nothing is closed first: a sell menu under the dialog keeps its grid out of the sale.
@@ -240,7 +254,7 @@ final class SellDialogs {
         }
         // The price list replaces the dialog (and a sell menu under it, whose grid goes back to the inventory); its Back
         // returns here, and from here Back leads on to where the mastery dialogs came from.
-        buttons.add(Button.of(lang.get(SellMessages.MASTERY_PRICES),
+        buttons.add(Button.of(lang.get(SellMessages.MASTERY_PRICES), lang.get(SellMessages.MASTERY_PRICES_TOOLTIP, name),
             s -> this.browser.open(s.player(), id, null, () -> masteryDetail(s.player(), id, back))).width(Templates.WIDE));
         this.services.dialogs().show(player, this.services.templates().list(
             lang.get(SellMessages.MASTERY_DETAIL_TITLE, Arg.text("name", category.name())), lines, buttons, 1,

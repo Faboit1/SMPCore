@@ -35,14 +35,16 @@ shop:
   search:
     title: "Shop search"
     filter-all: "All categories"
+  # The buy window: the price and your balance; the buttons' tooltips say the rest.
   buy:
     title: "Buy <item>"
     body:
       - "<primary><price> <secondary>each"
       - "<secondary>You have <balance>"
-      - "<secondary>Up to <primary><max> <secondary>per purchase"
+    button-tooltip: "<primary>Buy them now.<newline><secondary>Up to <accent><max></accent> per purchase."
+    # Added to the Buy tooltip.
     sells-back: "<secondary>Sells back for <price> each"
-    you-have: "<secondary>You have <count>"
+    you-have: "<secondary>You carry <accent><count>"
     amount: "Amount"
     exact: "Or type an amount"
     # The buy button always says what it buys.
@@ -54,7 +56,9 @@ shop:
     too-expensive: "<primary>That's more than one purchase can cost. Buy fewer."
     # Quick amount buttons; pressing one shows the new total before anything is bought.
     max-button: "Max you can afford"
+    max-tooltip: "<primary>Set the amount to the most you can pay for.<newline><secondary>Nothing is bought until you press Buy."
     fill-button: "Fill your inventory"
+    fill-tooltip: "<primary>Set the amount to what fits in your inventory.<newline><secondary>Nothing is bought until you press Buy."
     cant-afford: "<primary>You can't afford one. They cost <price> each."
     no-room: "<primary>Your inventory has no room for more."
   confirm:

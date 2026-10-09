@@ -1,9 +1,11 @@
 package net.siftvanilla.siftcore.feature.economy;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.event.PlayerPayEvent;
@@ -17,6 +19,8 @@ import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.economy.LedgerTx;
+import net.siftvanilla.siftcore.ui.dialog.Body;
+import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
@@ -205,21 +209,19 @@ public final class PayService {
         Arg amountArg = Arg.component("amount", Component.text(this.services.money().get().formatExact(amount),
             lang.style().palette().money()));
         Arg nameArg = Arg.text("name", name(target));
-        View view = this.services.templates().confirm(
-            lang.get(EconomyMessages.PAY_CONFIRM_TITLE),
-            left == Long.MAX_VALUE
-                ? lang.lines(EconomyMessages.PAY_CONFIRM_BODY_UNLIMITED, nameArg, amountArg)
-                : lang.lines(EconomyMessages.PAY_CONFIRM_BODY, nameArg, amountArg, Arg.money("left", left - amount)),
-            lang.get(EconomyMessages.PAY_CONFIRM_BUTTON),
-            lang.get(CoreMessages.UI_CANCEL),
-            submission -> {
-                submission.close();
-                execute(submission.player(), target, amount, limit, choice);
-            },
-            submission -> {
-                submission.close();
-                this.services.messenger().send(submission.player(), EconomyMessages.PAY_CANCELLED);
-            });
+        List<Component> body = left == Long.MAX_VALUE
+            ? lang.lines(EconomyMessages.PAY_CONFIRM_BODY_UNLIMITED, nameArg, amountArg)
+            : lang.lines(EconomyMessages.PAY_CONFIRM_BODY, nameArg, amountArg, Arg.money("left", left - amount));
+        Button pay = Button.of(lang.get(EconomyMessages.PAY_CONFIRM_BUTTON), lang.get(EconomyMessages.PAY_CONFIRM_TOOLTIP), submission -> {
+            submission.close();
+            execute(submission.player(), target, amount, limit, choice);
+        }).width(150);
+        Button cancel = Button.of(lang.get(CoreMessages.UI_CANCEL), submission -> {
+            submission.close();
+            this.services.messenger().send(submission.player(), EconomyMessages.PAY_CANCELLED);
+        }).width(150);
+        View view = new View(View.Kind.CONFIRM, lang.get(EconomyMessages.PAY_CONFIRM_TITLE),
+            List.of(Body.text(Component.join(JoinConfiguration.newlines(), body))), List.of(), List.of(pay, cancel), null, 2, true);
         // Both buttons finish here (the result is a chat or action bar line), so the dialog goes at once on a click.
         this.services.dialogs().show(payer, view.closing());
     }
