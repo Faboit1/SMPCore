@@ -16,6 +16,21 @@ public final class SpawnMessages {
     public static final MessageKey USE_DENIED = MessageKey.error("spawn.protection.use");
     public static final MessageKey PVP_DENIED = MessageKey.error("spawn.protection.pvp");
 
+    public static final MessageKey FLY_ON = MessageKey.success("spawn.fly.on");
+    public static final MessageKey FLY_OFF = MessageKey.success("spawn.fly.off");
+    public static final MessageKey FLY_OFF_LEFT = MessageKey.info("spawn.fly.off-left");
+    public static final MessageKey FLY_OFF_LEFT_FALLING = MessageKey.info("spawn.fly.off-left-falling");
+    public static final MessageKey FLY_OFF_COMBAT = MessageKey.error("spawn.fly.off-combat");
+    public static final MessageKey FLY_OFF_OTHER = MessageKey.info("spawn.fly.off-other");
+    public static final MessageKey FLY_OUTSIDE = MessageKey.error("spawn.fly.outside");
+    public static final MessageKey FLY_IN_COMBAT = MessageKey.error("spawn.fly.in-combat", "time");
+    public static final MessageKey FLY_GAME_MODE = MessageKey.info("spawn.fly.game-mode");
+    public static final MessageKey FLY_DISABLED = MessageKey.error("spawn.fly.disabled");
+    /** Flying above fly.max-height: flight drops them (it stays allowed lower down). */
+    public static final MessageKey FLY_CEILING = MessageKey.info("spawn.fly.ceiling", "height");
+    /** /fly above fly.max-height. */
+    public static final MessageKey FLY_TOO_HIGH = MessageKey.error("spawn.fly.too-high", "height");
+
     public static final MessageKey WELCOME_TITLE = MessageKey.title("spawn.welcome.title");
     public static final MessageKey WELCOME_SUBTITLE = MessageKey.ui("spawn.welcome.subtitle", "name");
     public static final MessageKey WELCOME_CHAT = MessageKey.chat("spawn.welcome.chat");

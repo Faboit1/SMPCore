@@ -130,8 +130,7 @@ final class SpawnerDialogs {
         SpawnersSettings s = this.service.settings();
         ManagedSpawner.State state = this.service.state(spawner);
         MobDef def = s.mob(spawner.mob);
-        double multiplier = this.worth.multiplier(player);
-        SpawnerService.Sale sale = this.service.price(state.items(), multiplier);
+        SpawnerService.Sale sale = this.service.price(state.items(), this.worth.rate(player));
         long value = sale == null ? 0 : sale.total();
         double rate = def == null ? 0 : def.itemsPerHour(s.interval().toMillis() / 1000.0) * state.stack();
         List<Component> lines = new ArrayList<>(lang.lines(SpawnersMessages.DETAILS_BODY,

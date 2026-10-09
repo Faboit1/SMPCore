@@ -147,7 +147,7 @@ class ScoreboardResourcesTest {
         assertFalse(texts.refresh(), "unchanged text starts no new epoch");
         assertEquals("SiftVanilla", TextStyle.plain(texts.title()));
         Map<String, String> values = Map.of("balance", "$1,500", "shards", "250", "kills", "12", "deaths", "3", "playtime", "2h 5m",
-            "team", "Alpha");
+            "team", "Alpha", "booster_percent", "10", "booster_time_left", "29m 41s");
         List<String> rendered = new ArrayList<>();
         for (String name : ScoreboardSettings.DEFAULT_LINES) {
             LineTemplate line = texts.line(name);
@@ -160,12 +160,14 @@ class ScoreboardResourcesTest {
         assertEquals("", rendered.get(0));
         assertTrue(rendered.get(1).startsWith("[") && rendered.get(1).endsWith(" Money $1,500"), rendered.get(1));
         assertTrue(rendered.get(2).endsWith(" Shards 250"), rendered.get(2));
-        assertTrue(rendered.get(3).endsWith(" Kills 12"), rendered.get(3));
-        assertTrue(rendered.get(4).endsWith(" Deaths 3"), rendered.get(4));
-        assertTrue(rendered.get(5).endsWith(" Playtime 2h 5m"), rendered.get(5));
-        assertTrue(rendered.get(6).endsWith(" Team Alpha"), rendered.get(6));
-        assertEquals("", rendered.get(7));
-        assertEquals("siftvanilla.net", rendered.get(8));
+        assertTrue(rendered.get(3).endsWith(" Booster +10% 29m 41s"), rendered.get(3));
+        assertTrue(LineTemplate.hidden(List.of("0", "")), "the booster line is left out while no booster runs");
+        assertTrue(rendered.get(4).endsWith(" Kills 12"), rendered.get(4));
+        assertTrue(rendered.get(5).endsWith(" Deaths 3"), rendered.get(5));
+        assertTrue(rendered.get(6).endsWith(" Playtime 2h 5m"), rendered.get(6));
+        assertTrue(rendered.get(7).endsWith(" Team Alpha"), rendered.get(7));
+        assertEquals("", rendered.get(8));
+        assertEquals("siftvanilla.net", rendered.get(9));
         for (String name : ScoreboardMessages.LINES.keySet()) {
             assertNotNull(texts.line(name), name);
             assertTrue(TextStyle.plain(texts.line(name).source()).length() > 3, name);

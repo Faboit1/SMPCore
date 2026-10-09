@@ -14,6 +14,7 @@ import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
+import net.siftvanilla.siftcore.feature.boosters.BoostersFeature;
 import net.siftvanilla.siftcore.feature.bounties.BountiesFeature;
 import net.siftvanilla.siftcore.feature.chat.ChatFeature;
 import net.siftvanilla.siftcore.feature.combat.CombatFeature;
@@ -72,15 +73,17 @@ final class FeatureCatalog {
         // A frozen player can't teleport or use any menu: the shared teleports and the dialog router ask the staff feature.
         this.services.teleports().freezes(staff.freezes());
         this.services.dialogs().freezes(staff.freezes());
-        SpawnFeature spawn = new SpawnFeature(this.services, this.problems);
+        SpawnFeature spawn = new SpawnFeature(this.services, this.problems, this.combatTags);
         AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
         StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin, staff.vanish());
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish(), spawn.area());
+        // Boosters raise sell prices and arrive as store deliveries, so they come before both.
+        BoostersFeature boosters = new BoostersFeature(this.services, this.problems, admin, ScoreboardFeature.DISPLAY);
         // Ranks are needed by chat and friends, store deliveries need crate keys, and crates are built later:
         // late-bound keys break the cycle.
         AtomicReference<CrateKeys> crateKeys = new AtomicReference<>(CrateKeys.NONE);
         IntegrationsFeature integrations = new IntegrationsFeature(this.services, this.problems, admin, this.combatTags,
-            CrateKeys.late(crateKeys::get), economy.economy());
+            CrateKeys.late(crateKeys::get), economy.economy(), boosters.boosters());
         // Chat shows nicknames, tags and chat colours, while cosmetics checks nicknames with chat's word filter:
         // late-bound cosmetics break the cycle.
         AtomicReference<Cosmetics> cosmeticsLink = new AtomicReference<>(Cosmetics.NONE);
@@ -97,7 +100,7 @@ final class FeatureCatalog {
         // Selling routes items into buy orders, but orders are built after sell (they price with sell.worth()):
         // a late-bound market breaks the cycle.
         AtomicReference<OrderMarket> orderMarket = new AtomicReference<>(OrderMarket.NONE);
-        SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, orderMarket::get);
+        SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, orderMarket::get, boosters.boosters());
         worth.set(sell.worth());
         SpawnersFeature spawners = new SpawnersFeature(this.services, this.problems, sell.worth(), teams.lookup(), staff.vanish(), afk.status(),
             this.combatTags);
@@ -121,6 +124,7 @@ final class FeatureCatalog {
         features.add(cosmetics);
         features.add(new SettingsFeature(this.services, this.problems, admin));
         features.add(stats);
+        features.add(boosters);
         features.add(sell);
         features.add(spawners);
         features.add(crates);

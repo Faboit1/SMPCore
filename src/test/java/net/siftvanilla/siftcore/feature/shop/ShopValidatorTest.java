@@ -51,6 +51,19 @@ class ShopValidatorTest {
     }
 
     @Test
+    void theLargestBoosterIsPricedIn() {
+        // Without boosters a $441 diamond is safe at 1x; with boosters up to +25% the server can pay $500 for one, so
+        // the shop must ask more than 400 x 1.25 x 1.1 = $550.
+        Pricing plain = pricing(Map.of("diamond", 400L), List.of(), 1.0);
+        assertNull(check("diamond", 441, plain));
+        Pricing boosted = plain.withBoost(25);
+        String problem = check("diamond", 441, boosted);
+        assertNotNull(problem);
+        assertTrue(problem.contains("+25% sell booster") && problem.contains("at least 551"), problem);
+        assertNull(check("diamond", 551, boosted));
+    }
+
+    @Test
     void buyingAndSellingBackMustLoseMoney() {
         Pricing pricing = pricing(Map.of("diamond", 400L), List.of(), 1.5);
         String problem = check("diamond", 660, pricing);

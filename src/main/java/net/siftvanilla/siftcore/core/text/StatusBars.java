@@ -15,10 +15,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
- * One boss bar per player for lasting status lines (the combat timer, the AFK zone countdown) when the player chose
- * the boss bar style. Several features may want the bar at once: each shows its own {@link Bar} under an owner name
- * and the bar displays the one with the highest priority (the combat timer beats the AFK countdown); hiding an owner
- * brings the next one back. Changes run on the player's thread; the methods may be called from any thread.
+ * One boss bar per player for lasting status lines (the combat timer, the AFK zone countdown, when the player chose
+ * the boss bar style; a running sell booster for everyone). Several features may want the bar at once: each shows its
+ * own {@link Bar} under an owner name and the bar displays the one with the highest priority (the combat timer beats
+ * the AFK countdown, both beat the booster); hiding an owner brings the next one back. Changes run on the player's thread; the methods may be called from any thread.
  */
 public final class StatusBars implements Listener {
 
@@ -26,6 +26,8 @@ public final class StatusBars implements Listener {
     public static final int PRIORITY_COMBAT = 100;
     /** Countdowns that wait while the player does nothing (the AFK zone). */
     public static final int PRIORITY_IDLE = 10;
+    /** Server-wide news every player sees (a running sell booster): any status about the player takes the bar first. */
+    public static final int PRIORITY_SERVER = 1;
 
     /**
      * What one owner wants the bar to show.

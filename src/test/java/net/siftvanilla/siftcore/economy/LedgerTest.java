@@ -138,6 +138,43 @@ class LedgerTest {
     }
 
     @Test
+    void afterCommitRunsOnlyForAStoredTransactionAndBeforeCommittedCompletes() throws Exception {
+        UUID a = player();
+        AtomicInteger stored = new AtomicInteger();
+        TransactionResult ok = this.ledger.execute(LedgerTx.builder()
+            .source(a, Currency.MONEY, 10, "test_mint", null)
+            .afterCommit(stored::incrementAndGet)
+            .afterCommit(() -> {
+                throw new IllegalStateException("a failing callback is logged, not fatal");
+            })
+            .afterCommit(stored::incrementAndGet)
+            .build());
+        ok.committed().get(10, TimeUnit.SECONDS);
+        assertEquals(2, stored.get(), "every callback ran, before committed() completed, despite the one that threw");
+
+        AtomicInteger reverted = new AtomicInteger();
+        TransactionResult failed = this.ledger.execute(LedgerTx.builder()
+            .source(a, Currency.MONEY, 10, "test_mint", null)
+            .afterCommit(reverted::incrementAndGet)
+            .write(c -> {
+                throw new SQLException("disk on fire");
+            })
+            .build());
+        assertThrows(Exception.class, () -> failed.committed().get(10, TimeUnit.SECONDS));
+        assertEquals(0, reverted.get(), "never for a reverted transaction");
+
+        AtomicInteger rejected = new AtomicInteger();
+        TransactionResult refused = this.ledger.execute(LedgerTx.builder()
+            .source(a, Currency.MONEY, 10, "test_mint", null)
+            .check(() -> "no")
+            .afterCommit(rejected::incrementAndGet)
+            .build());
+        assertFalse(refused.success());
+        this.database.flush();
+        assertEquals(0, rejected.get(), "never for a refused transaction");
+    }
+
+    @Test
     void balanceLimitIsEnforced() {
         Ledger small = new Ledger(this.database, Logger.getLogger("ledger-test"), 1_000);
         UUID a = player();

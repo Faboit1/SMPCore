@@ -7,9 +7,13 @@ import java.util.Set;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 
-/** Parsed {@code features/integrations.yml}. */
+/**
+ * Parsed {@code features/integrations.yml}.
+ *
+ * @param joinFull whether players with {@code siftcore.join.full} (or {@code .staff}) may join a full server
+ */
 record IntegrationsSettings(boolean placeholderApi, boolean floodgate, LuckPerms luckPerms, Backups backups, int auditPageSize,
-                            int listPageSize, Store store) {
+                            int listPageSize, Store store, boolean joinFull) {
 
     /** Rank labels from LuckPerms. */
     record LuckPerms(boolean enabled, String labelMeta, String colorMeta, String gradientMeta, Set<String> hiddenGroups) {
@@ -91,6 +95,7 @@ record IntegrationsSettings(boolean placeholderApi, boolean floodgate, LuckPerms
                 minRank,
                 maxRank,
                 store.bool("notify-player", true),
-                store.bool("announce", false)));
+                store.bool("announce", false)),
+            r.section("join-full").bool("enabled", true));
     }
 }

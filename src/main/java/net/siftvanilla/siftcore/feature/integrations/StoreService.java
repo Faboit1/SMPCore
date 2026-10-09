@@ -12,10 +12,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import net.siftvanilla.siftcore.api.economy.Currency;
@@ -23,14 +25,15 @@ import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
 import net.siftvanilla.siftcore.api.event.StoreDeliveryEvent;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.economy.Ledger;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.storage.Database;
 import net.siftvanilla.siftcore.storage.SqlWork;
 
 /**
- * Delivers store purchases (money, shards, crate keys, LuckPerms ranks) exactly once per reference, and takes them
- * back again on a refund or chargeback.
+ * Delivers store purchases (money, shards, crate keys, LuckPerms ranks, server sell boosters) exactly once per
+ * reference, and takes them back again on a refund or chargeback.
  * <p>
  * Every delivered reference is held in memory (loaded at startup) and in {@code store_deliveries}; the memory copy
  * changes only inside economy transactions, under the economy lock, so two deliveries with the same reference can
@@ -45,10 +48,14 @@ import net.siftvanilla.siftcore.storage.SqlWork;
  *       the reference is marked done. A pending reference (crash or LuckPerms failure) is finished by the next
  *       attempt with the same reference or the next start. Rank work of one player runs one step at a time, so two
  *       purchases of the same rank add up.</li>
+ *   <li>Boosters: one transaction (no money moves) stores the reference and puts the booster in line, with its row,
+ *       through {@link ServerBoosters#deliver}; it starts at once when no booster runs, otherwise it waits its turn.</li>
  * </ul>
  * A revoked reference stays recorded (so it is never delivered again). Money and shards are taken back in one ledger
  * transaction with the state change (as much as the player still has); ranks are revoked through a recorded plan,
- * like a delivery; crate keys can't be taken back through the crates contract, so only the record changes.
+ * like a delivery; crate keys can't be taken back through the crates contract, so only the record changes; a booster is
+ * ended when it runs, taken out of line when it waits, and left alone once it is over, in one transaction with the
+ * record.
  * Thread-safe; nothing blocks. Results complete after the change is durably stored.
  */
 final class StoreService {
@@ -59,6 +66,8 @@ final class StoreService {
     static final String REVOKE_KIND = "store_revoke";
     /** Prefix of the crate grant references store keys use. */
     static final String KEY_REF_PREFIX = "store:";
+    /** The account a booster from the server itself (the console, community goals) is recorded under. */
+    static final UUID SERVER = new UUID(0L, 0L);
 
     /** How a request ended. */
     enum Status {
@@ -74,7 +83,8 @@ final class StoreService {
 
     /**
      * @param delivery the recorded delivery (null when nothing was recorded)
-     * @param reason   a machine reason for failures, e.g. {@code too_much} or {@code luckperms_failed}
+     * @param reason   a machine reason for failures, e.g. {@code too_much} or {@code luckperms_failed}; for a booster revoke what
+     *                 happened to the booster ({@code ended}, {@code removed} or {@code over})
      * @param detail   extra text for failures (an exception message), may be null
      * @param taken    for a revoke of money or shards: how much was taken back
      */
@@ -116,6 +126,7 @@ final class StoreService {
     private final Ledger ledger;
     private final Database database;
     private final CrateKeys keys;
+    private final ServerBoosters boosters;
     private final Supplier<RankAccess> ranks;
     private final Supplier<IntegrationsSettings.Store> settings;
     private final Gate gate;
@@ -124,11 +135,12 @@ final class StoreService {
     private final Map<String, Delivery> book = new HashMap<>();
     private final Map<UUID, CompletableFuture<?>> lanes = new ConcurrentHashMap<>();
 
-    StoreService(Ledger ledger, Database database, CrateKeys keys, Supplier<RankAccess> ranks,
+    StoreService(Ledger ledger, Database database, CrateKeys keys, ServerBoosters boosters, Supplier<RankAccess> ranks,
                  Supplier<IntegrationsSettings.Store> settings, Gate gate, LongSupplier clock) {
         this.ledger = ledger;
         this.database = database;
         this.keys = keys;
+        this.boosters = boosters;
         this.ranks = ranks;
         this.settings = settings;
         this.gate = gate;
@@ -296,6 +308,60 @@ final class StoreService {
         return result.committed().thenApply(ignored -> delivery);
     }
 
+    // ------------------------------------------------------------------ boosters
+
+    /**
+     * Starts (or queues) a server-wide sell booster: one transaction stores the reference and puts the booster in line.
+     *
+     * @param player the buyer, or {@link #SERVER} for a booster from the server itself (a community goal)
+     */
+    CompletableFuture<Outcome> booster(UUID player, String kind, int percent, Duration duration, String ref, String actor) {
+        if (StoreRules.refProblem(ref) != null) {
+            return done(Outcome.failed("bad_ref"));
+        }
+        String problem = this.boosters.problem(kind, percent, duration);
+        if (problem != null) {
+            return done(Outcome.failed(switch (problem) {
+                case "unknown_kind" -> "unknown_booster";
+                case "bad_percent" -> "bad_booster_percent";
+                case "bad_duration" -> "bad_booster_duration";
+                default -> "no_boosters";
+            }));
+        }
+        Delivery existing = find(ref);
+        if (existing != null) {
+            return done(Outcome.already(existing));
+        }
+        if (!this.gate.allow(player, StoreDeliveryEvent.Kind.BOOSTER, kind, percent, duration, ref, actor)) {
+            return done(Outcome.failed("cancelled"));
+        }
+        Delivery delivery = Delivery.of(ref, StoreDeliveryEvent.Kind.BOOSTER, player, kind, percent, duration.toSeconds(),
+            Delivery.State.DONE, actor, this.clock.getAsLong(), 0);
+        LedgerTx.Builder tx = LedgerTx.builder()
+            .actor(actorOf(actor))
+            .note("store " + ref)
+            .silent()
+            .check(() -> this.book.containsKey(ref) ? "duplicate" : null)
+            .apply(() -> this.book.put(ref, delivery), () -> this.book.remove(ref, delivery))
+            .write(insert(delivery));
+        this.boosters.deliver(tx, new ServerBoosters.Grant(kind, percent, duration, SERVER.equals(player) ? null : player, ref, actor));
+        TransactionResult result = this.ledger.execute(tx.build());
+        if (!result.success()) {
+            return done(refused(result, ref));
+        }
+        return stored(result, Outcome.delivered(delivery));
+    }
+
+    /** Where the booster delivered under a reference stands: running or waiting, empty once it is over. */
+    Optional<ServerBoosters.Status> boosterStatus(String ref) {
+        return this.boosters.status(ref);
+    }
+
+    /** What a booster bought for {@code percent} pays right now (never more than {@code sell.max-percent}). */
+    int boosterPaid(int percent) {
+        return this.boosters.paid(percent);
+    }
+
     // ------------------------------------------------------------------ ranks
 
     /**
@@ -416,6 +482,7 @@ final class StoreService {
         return switch (delivery.kind()) {
             case MONEY, SHARDS -> revokeCurrency(delivery, why, actor);
             case KEYS -> markRevoked(delivery, delivery.revoked(why + ", keys not taken back"), 0);
+            case BOOSTER -> revokeBooster(delivery, why, actor);
             case RANK -> {
                 RankAccess access = this.ranks.get();
                 if (!access.available()) {
@@ -461,6 +528,44 @@ final class StoreService {
             return done(refused(result, ref));
         }
         return done(Outcome.failed("busy"));
+    }
+
+    /**
+     * Ends the booster when it runs, takes it out of line when it waits, or leaves it when it is over, in one
+     * transaction with the revoked record. The note says which.
+     */
+    private CompletableFuture<Outcome> revokeBooster(Delivery delivery, String why, String actor) {
+        String ref = delivery.ref();
+        Delivery[] revoked = new Delivery[1];
+        LedgerTx.Builder tx = LedgerTx.builder()
+            .actor(actorOf(actor))
+            .note("store revoke " + ref)
+            .silent()
+            .check(() -> {
+                Delivery current = this.book.get(ref);
+                return current != null && current.state() == Delivery.State.DONE ? null : "not_done";
+            });
+        AtomicReference<ServerBoosters.Revoked> what = this.boosters.revoke(tx, ref);
+        tx.apply(() -> {
+            revoked[0] = delivery.revoked(why + switch (what.get()) {
+                case ENDED -> ", booster ended early";
+                case REMOVED -> ", booster taken out of line";
+                case OVER -> ", booster had already ended";
+            });
+            this.book.put(ref, revoked[0]);
+        }, () -> this.book.put(ref, delivery));
+        tx.write(c -> update(revoked[0]).run(c));
+        TransactionResult result = this.ledger.execute(tx.build());
+        if (!result.success()) {
+            if ("not_done".equals(result.reason())) {
+                Delivery current = find(ref);
+                return done(current != null && current.state() == Delivery.State.REVOKED ? Outcome.already(current) : Outcome.failed("busy"));
+            }
+            return done(refused(result, ref));
+        }
+        return result.committed()
+            .thenApply(ignored -> new Outcome(Status.REVOKED, revoked[0], what.get().name().toLowerCase(Locale.ROOT), null, 0))
+            .exceptionally(error -> Outcome.failed("storage", null, message(error)));
     }
 
     private CompletableFuture<Outcome> revokeRank(String ref, String why, String actor, RankAccess access) {

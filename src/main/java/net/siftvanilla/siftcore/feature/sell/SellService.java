@@ -290,11 +290,14 @@ final class SellService {
         Lang lang = this.services.lang();
         List<Component> lines = new ArrayList<>();
         lines.addAll(lang.lines(SellMessages.CONFIRM_BODY, Arg.number("count", draft.count()), Arg.money("total", draft.total())));
-        BigDecimal shared = draft.sharedMultiplier();
+        BigDecimal shared = draft.sharedBonus();
         if (shared != null && shared.compareTo(BigDecimal.ONE) > 0) {
             lines.addAll(lang.lines(SellMessages.CONFIRM_BONUS, Arg.text("multiplier", Multipliers.format(shared.doubleValue()))));
-        } else if (shared == null && draft.topMultiplier().compareTo(BigDecimal.ONE) > 0) {
+        } else if (shared == null && draft.topBonus().compareTo(BigDecimal.ONE) > 0) {
             lines.addAll(lang.lines(SellMessages.CONFIRM_BONUSES));
+        }
+        if (draft.boosted()) {
+            lines.addAll(lang.lines(SellMessages.CONFIRM_BOOSTER, Arg.number("percent", draft.boost())));
         }
         if (!draft.takes().isEmpty()) {
             lines.addAll(lang.lines(SellMessages.CONFIRM_ORDERS, Arg.money("orders", draft.ordersNet()),
@@ -604,7 +607,7 @@ final class SellService {
         after.forEach((category, level) -> {
             int previous = before.getOrDefault(category, 0);
             if (level > previous) {
-                BigDecimal multiplier = rates.multiplier(category);
+                BigDecimal multiplier = rates.own(category);
                 this.services.messenger().send(player, SellMessages.LEVEL_UP, Arg.text("category", categories.name(category)),
                     Arg.number("level", level), Arg.text("multiplier", Multipliers.format(multiplier.doubleValue())));
                 new SellMasteryLevelEvent(player, category, previous, level, multiplier.doubleValue()).callEvent();
@@ -650,6 +653,8 @@ final class SellService {
     private void receipt(Player player, SaleDraft draft) {
         Lang lang = this.services.lang();
         long total = draft.total();
+        Arg booster = Arg.component("booster", draft.boosted()
+            ? lang.get(SellMessages.BOOSTER_NOTE, Arg.number("percent", draft.boost())) : Component.empty());
         // The shared sale receipt setting (core, so selling spawner storage follows it too): chat, hotbar or nothing.
         // The hotbar total is an alert in that style: it stays there whatever the feedback channel, and becomes a chat
         // line while the player is in combat with quiet in combat on.
@@ -658,7 +663,7 @@ final class SellService {
             return;
         }
         if (style != AlertStyle.CHAT) {
-            this.services.messenger().alert(player, style, SellMessages.SOLD_ACTION_BAR, Arg.money("total", total));
+            this.services.messenger().alert(player, style, SellMessages.SOLD_ACTION_BAR, Arg.money("total", total), booster);
             return;
         }
         Map<String, Long> units = draft.units();
@@ -681,17 +686,21 @@ final class SellService {
         if (lines.size() > RECEIPT_LINES) {
             card.add(lang.get(SellMessages.RECEIPT_MORE, Arg.number("count", lines.size() - RECEIPT_LINES)));
         }
-        BigDecimal shared = draft.sharedMultiplier();
+        BigDecimal shared = draft.sharedBonus();
         if (shared != null && shared.compareTo(BigDecimal.ONE) > 0) {
             card.add(lang.get(SellMessages.RECEIPT_BONUS, Arg.text("multiplier", Multipliers.format(shared.doubleValue()))));
         } else if (shared == null) {
             SellCategories categories = this.worth.categories();
             draft.multipliers().forEach((category, value) -> {
-                if (value.compareTo(BigDecimal.ONE) > 0) {
+                BigDecimal own = Boosts.remove(value, draft.boost());
+                if (own.compareTo(BigDecimal.ONE) > 0) {
                     card.add(lang.get(SellMessages.RECEIPT_CATEGORY_BONUS, Arg.text("category", categories.name(category)),
-                        Arg.text("multiplier", Multipliers.format(value.doubleValue()))));
+                        Arg.text("multiplier", Multipliers.format(own.doubleValue()))));
                 }
             });
+        }
+        if (draft.boosted()) {
+            card.add(lang.get(SellMessages.RECEIPT_BOOSTER, Arg.number("percent", draft.boost())));
         }
         if (!draft.takes().isEmpty()) {
             int tax = this.bids.market().taxBasisPoints();
@@ -713,19 +722,19 @@ final class SellService {
         items = items.hoverEvent(HoverEvent.showText(Component.join(JoinConfiguration.newlines(), card)));
         if (!draft.takes().isEmpty()) {
             this.services.messenger().send(player, SellMessages.SOLD_ORDERS, Arg.component("items", items),
-                Arg.money("total", total), Arg.money("orders", draft.ordersNet()));
+                Arg.money("total", total), Arg.money("orders", draft.ordersNet()), booster);
         } else if (shared != null && shared.compareTo(BigDecimal.ONE) > 0) {
             this.services.messenger().send(player, SellMessages.SOLD_BONUS, Arg.component("items", items),
-                Arg.money("total", total), Arg.text("multiplier", Multipliers.format(shared.doubleValue())));
-        } else if (shared == null && draft.topMultiplier().compareTo(BigDecimal.ONE) > 0) {
+                Arg.money("total", total), Arg.text("multiplier", Multipliers.format(shared.doubleValue())), booster);
+        } else if (shared == null && draft.topBonus().compareTo(BigDecimal.ONE) > 0) {
             this.services.messenger().send(player, SellMessages.SOLD_BONUSES, Arg.component("items", items),
-                Arg.money("total", total));
+                Arg.money("total", total), booster);
         } else {
-            this.services.messenger().send(player, SellMessages.SOLD, Arg.component("items", items), Arg.money("total", total));
+            this.services.messenger().send(player, SellMessages.SOLD, Arg.component("items", items), Arg.money("total", total), booster);
         }
         // The extra hotbar total is a pop-up: quiet in combat leaves it out (the receipt is in chat already).
         if (this.settings.get().actionBarTotal() && !this.services.messenger().quietNow(player.getUniqueId())) {
-            this.services.messenger().actionbar(player, lang.get(SellMessages.SOLD_ACTION_BAR, Arg.money("total", total)));
+            this.services.messenger().actionbar(player, lang.get(SellMessages.SOLD_ACTION_BAR, Arg.money("total", total), booster));
         }
     }
 

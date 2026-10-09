@@ -43,10 +43,18 @@ registries:
   # Lines per page of /sift permissions and /sift placeholders in game (the console always gets the full list).
   page-size: 20
 
+join-full:
+  # Players with siftcore.join.full (a rank perk) or siftcore.join.full.staff may join when the server is full. The
+  # server checks "full" before a player's permissions are known, so they are read from LuckPerms while the player
+  # logs in; without LuckPerms nobody gets past a full server this way. Each such join is logged.
+  enabled: true
+
 store:
-  # Store delivery: /sift store money|shards|keys|rank ... <ref>, run by the store (Tebex, CraftingStore and the
-  # like) from the console. Each reference (the store's order or transaction id) is delivered at most once, so a
-  # store that retries a command never pays twice. The limits below stop a mistyped command from giving too much.
+  # Store delivery: /sift store money|shards|keys|rank|booster ... <ref>, run by the store (Tebex, CraftingStore and
+  # the like) from the console. A booster is /sift store booster <player|uuid|console> sell <percent> <length> <ref>
+  # (console: a booster from the server itself, such as a community goal); its limits are in boosters.yml.
+  # Each reference (the store's order or transaction id) is delivered at most once, so a store that retries a command
+  # never pays twice. The limits below stop a mistyped command from giving too much.
   # Most money one command may give.
   max-money: 100m
   # Most shards one command may give.

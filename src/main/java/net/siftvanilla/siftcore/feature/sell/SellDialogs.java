@@ -73,10 +73,14 @@ final class SellDialogs {
         List<Component> lines = new ArrayList<>();
         if (entry != null) {
             lines.addAll(lang.lines(SellMessages.DETAILS_PRICE, Arg.money("price", entry.price())));
-            BigDecimal multiplier = rates.multiplier(entry.category());
-            if (multiplier.compareTo(BigDecimal.ONE) > 0) {
-                lines.addAll(lang.lines(SellMessages.DETAILS_BONUS, Arg.text("multiplier", Multipliers.format(multiplier.doubleValue())),
-                    Arg.money("price", SaleMath.withMultiplier(entry.price(), multiplier))));
+            BigDecimal own = rates.own(entry.category());
+            long price = SaleMath.withMultiplier(entry.price(), rates.multiplier(entry.category()));
+            if (own.compareTo(BigDecimal.ONE) > 0) {
+                lines.addAll(lang.lines(SellMessages.DETAILS_BONUS, Arg.text("multiplier", Multipliers.format(own.doubleValue())),
+                    Arg.money("price", price), Arg.component("booster", rates.boost() > 0
+                        ? lang.get(SellMessages.BOOSTER_NOTE, Arg.number("percent", rates.boost())) : Component.empty())));
+            } else if (rates.boost() > 0) {
+                lines.addAll(lang.lines(SellMessages.DETAILS_BOOSTED, Arg.number("percent", rates.boost()), Arg.money("price", price)));
             }
             Mastery rules = this.settings.get().mastery();
             if (rules.enabled()) {
@@ -174,7 +178,7 @@ final class SellDialogs {
         Lang lang = this.services.lang();
         int level = rates.level(category.id());
         long sold = rates.sold(category.id());
-        String multiplier = Multipliers.format(rates.multiplier(category.id()).doubleValue());
+        String multiplier = Multipliers.format(rates.own(category.id()).doubleValue());
         if (level >= rules.maxLevel()) {
             return lang.get(SellMessages.MASTERY_LINE_MAX, Arg.text("name", category.name()), Arg.text("multiplier", multiplier),
                 Arg.money("sold", sold));
@@ -201,7 +205,7 @@ final class SellDialogs {
         int level = rates.level(id);
         List<Component> lines = new ArrayList<>();
         lines.addAll(lang.lines(SellMessages.MASTERY_DETAIL_RATE, Arg.text("name", category.name()),
-            Arg.text("multiplier", Multipliers.format(rates.multiplier(id).doubleValue())),
+            Arg.text("multiplier", Multipliers.format(rates.own(id).doubleValue())),
             Arg.text("rank", Multipliers.format(rates.rank().doubleValue())),
             Arg.text("bonus", Multipliers.format(rates.bonus(id).doubleValue()))));
         for (int step = rules.maxLevel(); step >= 1; step--) {

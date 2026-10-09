@@ -47,8 +47,8 @@ spawners:
     picked-up-many: "<primary>Picked up <amount> <mob> spawners."
     storage-claim-box: "<primary>Its <count> stored items are waiting in your claim box (/claims)."
     storage-owner-claim-box: "<primary>Its <count> stored items went to <owner>'s claim box."
-    storage-sold: "<primary>Its <count> stored items sold for <total>."
-    storage-sold-owner: "<primary>Its <count> stored items sold for <total>, paid to <owner>."
+    storage-sold: "<primary>Its <count> stored items sold for <total><booster>."
+    storage-sold-owner: "<primary>Its <count> stored items sold for <total><booster>, paid to <owner>."
     owner-notice: "<primary><name> picked up your <mob> spawner stack of <amount>."
     # The same when a vanished staff member picked it up (their name stays hidden).
     owner-notice-staff: "<primary>Staff picked up your <mob> spawner stack of <amount>."
@@ -85,6 +85,8 @@ spawners:
         - "<secondary>Includes your <primary><multiplier>x <secondary>bonus"
         - "<secondary>Items that can't be sold stay here"
       empty: "<secondary>Nothing here sells yet"
+      # Added below while a server sell booster runs.
+      booster: "<secondary>Includes the <primary>+<percent>% <secondary>sell booster"
     xp:
       name: "<primary>Collect XP"
       lore:
@@ -108,9 +110,11 @@ spawners:
   none-left: "<primary>There's none of that left."
 
   sell:
-    # The receipt in chat. Hovering the count lists what was sold.
-    sold: "<primary>You sold <count> items from the <mob> spawner for <total>."
-    sold-bonus: "<primary>You sold <count> items from the <mob> spawner for <total> <secondary>with your <multiplier>x bonus."
+    # The receipt in chat. Hovering the count lists what was sold. <booster> is booster-note below while a server
+    # sell booster raised the price, and nothing otherwise.
+    sold: "<primary>You sold <count> items from the <mob> spawner for <total><booster>."
+    sold-bonus: "<primary>You sold <count> items from the <mob> spawner for <total> <secondary>with your <multiplier>x bonus<booster>."
+    booster-note: "<secondary> incl. +<percent>% booster"
     receipt-line: "<secondary><amount> <item> <primary><value>"
     nothing: "<primary>Nothing in this spawner sells."
     cancelled: "<secondary>Sale cancelled."

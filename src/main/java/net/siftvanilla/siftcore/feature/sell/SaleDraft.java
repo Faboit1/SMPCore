@@ -24,7 +24,7 @@ import org.bukkit.inventory.ItemStack;
  * @param stacks      whole or partial stacks taken from slots
  * @param containers  shulker boxes and bundles whose contents are taken
  * @param server      what the server buys, one line per item
- * @param multipliers the multiplier of each category in {@code server}
+ * @param multipliers the multiplier of each category in {@code server}, with the server booster on top
  * @param serverTotal what the server pays (each category rounded down once)
  * @param takes       units sent to buy orders
  * @param owners      who placed each order taking part
@@ -32,6 +32,8 @@ import org.bukkit.inventory.ItemStack;
  * @param ordersTax   the order tax
  * @param credits     base value added to each category's mastery
  * @param kept        items looked at that stay (can't be sold, don't stack, or no buyer)
+ * @param boost       the server sell booster the server part was priced with, in percent (0 = none); buy orders
+ *                    pay their own price and are never boosted
  */
 record SaleDraft(
     ItemSellEvent.Source source,
@@ -46,7 +48,8 @@ record SaleDraft(
     long ordersGross,
     long ordersTax,
     Map<String, Long> credits,
-    long kept) {
+    long kept,
+    int boost) {
 
     /**
      * Units taken from one slot.
@@ -216,6 +219,22 @@ record SaleDraft(
             }
         }
         return top;
+    }
+
+    /** The player's own bonus when every category shares it (rank and mastery, without the booster), else null. */
+    BigDecimal sharedBonus() {
+        BigDecimal shared = sharedMultiplier();
+        return shared == null ? null : Boosts.remove(shared, this.boost);
+    }
+
+    /** The player's highest own bonus in the sale (without the booster; 1 when none applies). */
+    BigDecimal topBonus() {
+        return Boosts.remove(topMultiplier(), this.boost);
+    }
+
+    /** Whether a server booster raised what the server pays in this sale. */
+    boolean boosted() {
+        return this.boost > 0 && this.serverTotal > 0;
     }
 
     /**

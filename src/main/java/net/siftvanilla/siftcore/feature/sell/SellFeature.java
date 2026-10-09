@@ -28,6 +28,7 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.item.ContainerItems;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
+import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
 import net.siftvanilla.siftcore.core.player.SettingCategories;
@@ -57,7 +58,9 @@ import org.bukkit.persistence.PersistentDataType;
  * {@code /sell mastery} shows the category levels that raise the multiplier, {@code /sell top} the best sellers and
  * {@code /worth} prices and the price list. The table and the rank multipliers are offered to other features as
  * {@link net.siftvanilla.siftcore.core.link.WorthLookup}; buy orders take part in sales through
- * {@link OrderMarket}; items from villager trades are marked so they can never be sold ({@link TradeGuard}).
+ * {@link OrderMarket}; items from villager trades are marked so they can never be sold ({@link TradeGuard}). A
+ * running server sell booster ({@link ServerBoosters}) raises every sale to the server by its percent, applied in
+ * {@link WorthService.Rates}; the shop prices itself against the largest booster allowed.
  */
 public final class SellFeature implements Feature, Listener {
 
@@ -83,6 +86,7 @@ public final class SellFeature implements Feature, Listener {
     private final SellCommands commands;
     private final AtomicReference<ShopOffers> shop = new AtomicReference<>(ShopOffers.NONE);
     private final SellLink link;
+    private final ServerBoosters boosts;
     private final int recipesSeen;
     private final int recipesSkipped;
 
@@ -90,8 +94,10 @@ public final class SellFeature implements Feature, Listener {
      * @param combat what keeps combat-tagged players from selling
      * @param orders the buy-order market, read whenever a sale is worked out ({@link OrderMarket#NONE} without
      *               the orders feature)
+     * @param boosts the server sell boosters ({@link ServerBoosters#NONE} without the boosters feature)
      */
-    public SellFeature(Services services, List<ConfigProblem> problems, CombatStatus combat, Supplier<OrderMarket> orders) {
+    public SellFeature(Services services, List<ConfigProblem> problems, CombatStatus combat, Supplier<OrderMarket> orders,
+                       ServerBoosters boosts) {
         this.services = services;
         this.logger = services.plugin().getLogger();
         ServerItems.Snapshot snapshot = ServerItems.snapshot();
@@ -105,7 +111,8 @@ public final class SellFeature implements Feature, Listener {
             return parsed;
         }, problems);
         this.mastery = new MasteryBook(services.database(), this.logger);
-        this.worth = new WorthService(this.settings, latest, services.scheduler()::owns, this.mastery);
+        this.boosts = boosts;
+        this.worth = new WorthService(this.settings, latest, services.scheduler()::owns, this.mastery, boosts);
         services.lang().register(SellMessages.class);
         Permissions perms = services.permissions();
         perms.declare(SellCommands.SELL, "Open the sell menu with /sell, and /sell mastery, /sell top and /sell history", true);
@@ -209,11 +216,11 @@ public final class SellFeature implements Feature, Listener {
         placeholders.register("sell_multiplier", "Your sell multiplier from sell.yml multipliers (1 when none apply; mastery not included)",
             player -> Multipliers.format(this.worth.cachedMultiplier(player.getUniqueId())));
         placeholders.registerPrefix("sell_multiplier_", "sell_multiplier_<category>",
-            "Your multiplier for a sell category, rank plus mastery, like 1.6", (player, category) -> {
+            "Your multiplier for a sell category, rank plus mastery, like 1.6 (a running sell booster comes on top)", (player, category) -> {
                 if (this.worth.categories().category(category) == null) {
                     return "";
                 }
-                return Multipliers.format(this.worth.cachedRates(player.getUniqueId()).multiplier(category).doubleValue());
+                return Multipliers.format(this.worth.cachedRates(player.getUniqueId()).own(category).doubleValue());
             });
         placeholders.registerPrefix("sell_mastery_", "sell_mastery_<category>", "Your sell mastery level in a category (0-5)",
             (player, category) -> {
@@ -257,7 +264,9 @@ public final class SellFeature implements Feature, Listener {
             + " overrides) in " + settings.categories().ids().size() + " categories, using " + settings.recipes().size()
             + " of " + this.recipesSeen + " recipes (" + this.recipesSkipped + " special recipes skipped). Best multiplier "
             + Multipliers.format(settings.highestMultiplier()) + "x (rank " + Multipliers.format(settings.highestRankMultiplier())
-            + "x plus mastery " + Multipliers.format(settings.mastery().maxBonus().doubleValue()) + ").");
+            + "x plus mastery " + Multipliers.format(settings.mastery().maxBonus().doubleValue()) + ")"
+            + (this.boosts.maxPercent() > 0 ? ", up to " + Multipliers.format(Boosts.guard(settings.highestMultiplier(),
+                this.boosts.maxPercent())) + "x with the largest sell booster (+" + this.boosts.maxPercent() + "%)." : "."));
         String text = WorthFile.render(settings, Instant.now());
         Path file = this.services.plugin().getDataFolder().toPath().resolve(WorthFile.NAME);
         this.services.scheduler().async(() -> {
@@ -363,7 +372,8 @@ public final class SellFeature implements Feature, Listener {
             return gains.isEmpty() ? null : gains.getFirst() + (gains.size() > 1 ? " (+" + (gains.size() - 1) + " more)" : "");
         });
         test.check(id(), "sell categories cover the table", this::checkCategories);
-        test.check(id(), "shop safe with mastery", this::checkShopWithMastery);
+        test.check(id(), "shop safe with mastery and boosters", this::checkShopWithMastery);
+        test.check(id(), "a sell booster raises sales by exactly its percent", this::checkBooster);
         test.check(id(), "shulker rebuild keeps other contents", this::checkShulkerRebuild);
         test.check(id(), "villager trades are marked", this::checkTradeMarker);
     }
@@ -405,18 +415,22 @@ public final class SellFeature implements Feature, Listener {
     }
 
     /**
-     * The shop is checked against the best multiplier anyone can reach (the best rank plus the top mastery bonus),
-     * and no item the shop sells can be sold back for as much as it costs, even at that multiplier.
+     * The shop is checked against the best multiplier anyone can reach (the best rank plus the top mastery bonus,
+     * with the largest sell booster allowed on top), and no item the shop sells can be sold back for as much as it
+     * costs, even at that multiplier.
      */
     private String checkShopWithMastery() {
         SellSettings s = this.settings.get();
-        BigDecimal highest = BigDecimal.valueOf(s.highestRankMultiplier()).add(s.mastery().maxBonus());
-        if (BigDecimal.valueOf(s.highestMultiplier()).compareTo(highest) != 0) {
-            return "the highest multiplier " + s.highestMultiplier() + " is not rank plus the top mastery bonus " + highest;
+        BigDecimal ownBest = BigDecimal.valueOf(s.highestRankMultiplier()).add(s.mastery().maxBonus());
+        if (BigDecimal.valueOf(s.highestMultiplier()).compareTo(ownBest) != 0) {
+            return "the highest multiplier " + s.highestMultiplier() + " is not rank plus the top mastery bonus " + ownBest;
         }
-        if (Math.abs(this.worth.current().highestMultiplier() - s.highestMultiplier()) > 1e-9) {
-            return "the shop validates against " + this.worth.current().highestMultiplier() + " instead of " + s.highestMultiplier();
+        Pricing current = this.worth.current();
+        if (Math.abs(current.highestMultiplier() - s.highestMultiplier()) > 1e-9 || current.highestBoost() != this.boosts.maxPercent()) {
+            return "the shop validates against " + current.highestMultiplier() + "x with +" + current.highestBoost() + "% instead of "
+                + s.highestMultiplier() + "x with +" + this.boosts.maxPercent() + "%";
         }
+        BigDecimal highest = Boosts.apply(ownBest, this.boosts.maxPercent());
         ShopOffers offers = this.shop.get();
         for (Map.Entry<String, WorthTable.Entry> entry : s.table().prices().entrySet()) {
             OptionalLong price = offers.price(entry.getKey());
@@ -430,6 +444,24 @@ public final class SellFeature implements Feature, Listener {
             }
         }
         return null;
+    }
+
+    /**
+     * A booster's percent is added on top of the player's own multiplier for every kind of sale, exactly: a 10% booster
+     * turns $400 at 1.25x into $550, and the running booster never goes past the largest one the shop allows for.
+     */
+    private String checkBooster() {
+        WorthService.Rates rates = new WorthService.Rates(new BigDecimal("1.25"), Map.of(), Mastery.OFF, 10);
+        long paid = SaleMath.withMultiplier(400, rates.multiplier("mining"));
+        if (paid != 550 || SaleMath.withMultiplier(400, rates.flat()) != 550) {
+            return "$400 at 1.25x with a +10% booster should pay $550, got " + paid;
+        }
+        if (Boosts.remove(rates.multiplier("mining"), 10).compareTo(new BigDecimal("1.25")) != 0) {
+            return "the receipt would show a bonus of " + Boosts.remove(rates.multiplier("mining"), 10) + "x instead of 1.25x";
+        }
+        int running = this.worth.boost();
+        return running <= this.boosts.maxPercent() ? null
+            : "the running booster raises prices by " + running + "%, more than the " + this.boosts.maxPercent() + "% the shop allows for";
     }
 
     /** Every sellable item is in a category that exists; listed items are in the category that lists them. */

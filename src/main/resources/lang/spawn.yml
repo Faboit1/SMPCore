@@ -12,6 +12,21 @@ spawn:
     build: "<primary>You can't build at spawn."
     use: "<primary>You can't use that at spawn."
     pvp: "<primary>There is no fighting at spawn."
+  # /fly (flight inside the protected spawn area only).
+  fly:
+    "on": "<primary>Flight on. <secondary>You can fly while you're at spawn."
+    "off": "<primary>Flight off."
+    off-left: "<primary>You left spawn, so flight is off."
+    off-left-falling: "<primary>You left spawn, so flight is off. <secondary>Your landing won't hurt."
+    off-combat: "<primary>You're in combat, so flight is off."
+    off-other: "<primary>Flight is off."
+    outside: "<primary>You can only fly inside the spawn area."
+    in-combat: "<primary>You can't fly in combat. <time> left."
+    game-mode: "<secondary>You can already fly in this game mode."
+    disabled: "<primary>Flying at spawn is turned off on this server."
+    # <height> is fly.max-height: how many blocks above the spawn point flight goes.
+    ceiling: "<primary>You can't fly higher here. <secondary>Flight at spawn goes up to <height> blocks above the spawn point."
+    too-high: "<primary>You're too high to fly here. <secondary>Flight at spawn goes up to <height> blocks above the spawn point."
   welcome:
     title: "Welcome to SiftVanilla"
     subtitle: "<secondary>Have fun, <name>"

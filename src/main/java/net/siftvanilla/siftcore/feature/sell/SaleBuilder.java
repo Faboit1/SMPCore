@@ -20,7 +20,9 @@ import org.bukkit.inventory.PlayerInventory;
 /**
  * Works out a {@link SaleDraft} from an inventory, on the owner's thread. Nothing moves here: it reads the slots,
  * decides which plain items (and which contents of shulker boxes and bundles) the request covers, sends units to buy
- * orders where they pay more, and prices the rest at the player's rank and mastery multipliers.
+ * orders where they pay more, and prices the rest at the player's rank and mastery multipliers with the running server
+ * booster on top ({@link WorthService.Rates#multiplier(String)}). Units go to a buy order only when it pays more than
+ * the boosted server price, and what an order pays is never boosted.
  */
 final class SaleBuilder {
 
@@ -243,7 +245,7 @@ final class SaleBuilder {
                 }
             }
             SaleDraft draft = new SaleDraft(request.source(), inventory, stacks, containers, plan, multipliers, serverTotal,
-                allocation.takes(), takeOwners, gross, taxTotal, settings.mastery().enabled() ? credits : Map.of(), kept);
+                allocation.takes(), takeOwners, gross, taxTotal, settings.mastery().enabled() ? credits : Map.of(), kept, rates.boost());
             draft.total();
             return new Result(draft, null, null);
         } catch (ArithmeticException e) {

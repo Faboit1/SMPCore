@@ -80,6 +80,8 @@ final class SpawnerService {
     static final String STACK_BONUS = "siftcore.spawners.stack";
     static final String SELL_KIND = "spawner_sell";
     private static final int GIVE_XP_CHUNK = 1_000_000;
+    /** The sell rate for an owner who is offline: no rank bonus and no booster (both are only known for online players). */
+    private static final WorthLookup.SellRate NO_RATE = new WorthLookup.SellRate(1.0, 1.0, 0);
 
     /** How a storage action ended. */
     enum Outcome {
@@ -609,9 +611,10 @@ final class SpawnerService {
         if (!allowed(player, spawner) || !outOfCombat(player)) {
             return CompletableFuture.completedFuture(Outcome.FAILED);
         }
-        double multiplier = this.worth.multiplier(player);
+        WorthLookup.SellRate rate = this.worth.rate(player);
+        double multiplier = rate.multiplier();
         Map<String, Long> contents = this.services.ledger().locked(spawner.storage::snapshot);
-        Sale sale = price(contents, multiplier);
+        Sale sale = price(contents, rate);
         if (sale == null) {
             messenger().send(player, SpawnersMessages.SELL_TOO_MUCH);
             return CompletableFuture.completedFuture(Outcome.FAILED);
@@ -676,7 +679,7 @@ final class SpawnerService {
             }
             return CompletableFuture.completedFuture(Outcome.FAILED);
         }
-        receipt(player, spawner.mob, sale, multiplier);
+        receipt(player, spawner.mob, sale, rate.rank());
         return result.committed().handle((ignored, error) -> {
             if (error != null) {
                 // The money and the items went back together; tell the player nothing was sold.
@@ -687,8 +690,11 @@ final class SpawnerService {
         });
     }
 
-    /** A priced sale: item key to amount sold, total paid, and the base value of each line. */
-    record Sale(Map<String, Long> sold, Map<String, Long> values, long total, long count) {
+    /**
+     * A priced sale: item key to amount sold, total paid, the base value of each line, and the server sell booster it
+     * was priced with (percent, 0 = none).
+     */
+    record Sale(Map<String, Long> sold, Map<String, Long> values, long total, long count, int boost) {
 
         Map<Material, Long> byMaterial(SpawnerService service) {
             Map<Material, Long> map = new EnumMap<>(Material.class);
@@ -697,8 +703,12 @@ final class SpawnerService {
         }
     }
 
-    /** Prices storage contents at a multiplier; null when the total is too large for one payment. */
-    Sale price(Map<String, Long> contents, double multiplier) {
+    /**
+     * Prices storage contents at a player's sell rate (their rank multiplier with the running booster on top); null
+     * when the total is too large for one payment.
+     */
+    Sale price(Map<String, Long> contents, WorthLookup.SellRate rate) {
+        double multiplier = rate.multiplier();
         Map<String, Long> sold = new TreeMap<>();
         Map<String, Long> values = new TreeMap<>();
         BigInteger base = BigInteger.ZERO;
@@ -724,7 +734,7 @@ final class SpawnerService {
         if (total.compareTo(BigInteger.valueOf(max)) > 0) {
             return null;
         }
-        return new Sale(sold, values, total.longValue(), count);
+        return new Sale(sold, values, total.longValue(), count, rate.boost());
     }
 
     /** Whether every line of a sale is still worth what it was priced at. */
@@ -740,6 +750,7 @@ final class SpawnerService {
         return true;
     }
 
+    /** The receipt in chat; {@code multiplier} is the player's own bonus (the booster is named separately). */
     private void receipt(Player player, String mob, Sale sale, double multiplier) {
         Lang lang = lang();
         List<Component> card = new ArrayList<>();
@@ -747,13 +758,20 @@ final class SpawnerService {
             Arg.component("item", itemName(material(item))), Arg.money("value", sale.values().getOrDefault(item, 0L)))));
         Component count = Component.text(Lang.number(sale.count()))
             .hoverEvent(HoverEvent.showText(Component.join(JoinConfiguration.newlines(), card)));
+        Arg booster = boosterNote(sale);
         if (multiplier > 1.0) {
             messenger().send(player, SpawnersMessages.SOLD_BONUS, Arg.component("count", count), Arg.text("mob", lowerName(mob)),
-                Arg.money("total", sale.total()), Arg.text("multiplier", multiplier(multiplier)));
+                Arg.money("total", sale.total()), Arg.text("multiplier", multiplier(multiplier)), booster);
         } else {
             messenger().send(player, SpawnersMessages.SOLD, Arg.component("count", count), Arg.text("mob", lowerName(mob)),
-                Arg.money("total", sale.total()));
+                Arg.money("total", sale.total()), booster);
         }
+    }
+
+    /** The receipts' {@code <booster>} part: " incl. +10% booster" when a server sell booster raised the sale. */
+    Arg boosterNote(Sale sale) {
+        return Arg.component("booster", sale.boost() > 0 && sale.total() > 0
+            ? lang().get(SpawnersMessages.BOOSTER_NOTE, Arg.number("percent", sale.boost())) : Component.empty());
     }
 
     static String multiplier(double value) {
@@ -955,7 +973,7 @@ final class SpawnerService {
         Sale sale = null;
         if (s.breakStorage() == SpawnersSettings.BreakStorage.SELL && !state.items().isEmpty()) {
             Player ownerOnline = Bukkit.getPlayer(owner);
-            sale = price(state.items(), ownerOnline == null ? 1.0 : this.worth.multiplier(ownerOnline));
+            sale = price(state.items(), ownerOnline == null ? NO_RATE : this.worth.rate(ownerOnline));
             if (sale != null && sale.total() > 0) {
                 sale.sold().keySet().forEach(forClaimBox::remove);
             } else {
@@ -1044,7 +1062,7 @@ final class SpawnerService {
         String owner = ownerName(spawner.owner);
         if (sold != null) {
             messenger().send(player, own ? SpawnersMessages.STORAGE_SOLD : SpawnersMessages.STORAGE_SOLD_FOR_OWNER,
-                Arg.number("count", sold.count()), Arg.money("total", sold.total()), Arg.text("owner", owner));
+                Arg.number("count", sold.count()), Arg.money("total", sold.total()), Arg.text("owner", owner), boosterNote(sold));
         }
         if (stored > 0) {
             if (own) {

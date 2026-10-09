@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.integrations;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -29,6 +30,7 @@ import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
 import net.siftvanilla.siftcore.api.event.StoreDeliveryEvent;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.economy.Ledger;
 import net.siftvanilla.siftcore.storage.JdbcDatabase;
 import net.siftvanilla.siftcore.storage.Migrations;
@@ -53,6 +55,7 @@ class StoreServiceTest {
     private JdbcDatabase database;
     private Ledger ledger;
     private FakeKeys keys;
+    private FakeBoosters boosters;
     private FakeRanks ranks;
     private AtomicBoolean allow;
     private StoreService store;
@@ -71,10 +74,11 @@ class StoreServiceTest {
         this.ledger.load();
         if (this.keys == null) {
             this.keys = new FakeKeys();
+            this.boosters = new FakeBoosters();
             this.ranks = new FakeRanks();
             this.allow = new AtomicBoolean(true);
         }
-        this.store = new StoreService(this.ledger, this.database, this.keys, () -> this.ranks, () -> LIMITS,
+        this.store = new StoreService(this.ledger, this.database, this.keys, this.boosters, () -> this.ranks, () -> LIMITS,
             (player, kind, item, amount, duration, ref, actor) -> this.allow.get(), System::currentTimeMillis);
         this.store.load();
     }
@@ -477,7 +481,187 @@ class StoreServiceTest {
         assertEquals(-1, StoreService.revokePlan(permanent, new RankAccess.Held(true, null), now), "a permanent purchase leaves timed grants");
     }
 
+    // ------------------------------------------------------------------ boosters
+
+    @Test
+    void aBoosterIsDeliveredOncePerReferenceEvenUnderConcurrentRetries() throws Exception {
+        UUID buyer = UUID.randomUUID();
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        try {
+            List<CompletableFuture<StoreService.Outcome>> attempts = new ArrayList<>();
+            for (int i = 0; i < 64; i++) {
+                attempts.add(CompletableFuture.supplyAsync(() -> this.store.booster(buyer, "sell", 10, Duration.ofMinutes(30), "tbx-boost",
+                    "console"), pool).thenCompose(future -> future));
+            }
+            int delivered = 0;
+            for (CompletableFuture<StoreService.Outcome> attempt : attempts) {
+                StoreService.Outcome outcome = get(attempt);
+                if (outcome.status() == StoreService.Status.DELIVERED) {
+                    delivered++;
+                } else {
+                    assertEquals(StoreService.Status.ALREADY, outcome.status());
+                }
+            }
+            assertEquals(1, delivered, "exactly one of 64 concurrent deliveries starts a booster");
+        } finally {
+            pool.shutdownNow();
+        }
+        assertEquals(1, this.boosters.started.size());
+        assertEquals(new ServerBoosters.Grant("sell", 10, Duration.ofMinutes(30), buyer, "tbx-boost", "console"),
+            this.boosters.started.getFirst());
+        assertEquals(1, rows("tbx-boost"));
+        Delivery delivery = this.store.find("tbx-boost");
+        assertEquals(StoreDeliveryEvent.Kind.BOOSTER, delivery.kind());
+        assertEquals(10, delivery.amount());
+        assertEquals(1800, delivery.duration());
+        restart();
+        assertEquals(StoreService.Status.ALREADY, get(this.store.booster(buyer, "sell", 10, Duration.ofMinutes(30), "tbx-boost", "console")).status());
+        assertEquals(1, this.boosters.started.size(), "a retry after a restart starts nothing");
+    }
+
+    @Test
+    void consoleBoostersHaveNoBuyerAndRefusalsRecordNothing() throws Exception {
+        assertEquals(StoreService.Status.DELIVERED,
+            get(this.store.booster(StoreService.SERVER, "sell", 10, Duration.ofHours(48), "goal-2026-10", "console")).status());
+        assertNull(this.boosters.started.getFirst().owner(), "a community goal booster is from the server itself");
+        assertEquals("bad_booster_percent", get(this.store.booster(UUID.randomUUID(), "sell", 60, Duration.ofMinutes(30), "tbx-x1", "console")).reason());
+        assertEquals("bad_booster_duration", get(this.store.booster(UUID.randomUUID(), "sell", 10, Duration.ofSeconds(5), "tbx-x2", "console")).reason());
+        assertEquals("unknown_booster", get(this.store.booster(UUID.randomUUID(), "xp", 10, Duration.ofMinutes(30), "tbx-x3", "console")).reason());
+        assertEquals("bad_ref", get(this.store.booster(UUID.randomUUID(), "sell", 10, Duration.ofMinutes(30), "bad ref!", "console")).reason());
+        this.allow.set(false);
+        assertEquals("cancelled", get(this.store.booster(UUID.randomUUID(), "sell", 10, Duration.ofMinutes(30), "tbx-x4", "console")).reason());
+        this.allow.set(true);
+        for (String ref : List.of("tbx-x1", "tbx-x2", "tbx-x3", "tbx-x4")) {
+            assertNull(this.store.find(ref), ref + " recorded nothing");
+            assertEquals(0, rows(ref));
+        }
+        assertEquals(1, this.boosters.started.size());
+    }
+
+    @Test
+    void aPaidBoosterAboveTheCurrentLimitIsStillDelivered() throws Exception {
+        UUID buyer = UUID.randomUUID();
+        // max-percent is 25 here: a +40% package (bought before the owner lowered it) and a 20 day one still arrive.
+        assertEquals(StoreService.Status.DELIVERED,
+            get(this.store.booster(buyer, "sell", 40, Duration.ofMinutes(30), "tbx-big", "console")).status());
+        assertEquals(StoreService.Status.DELIVERED,
+            get(this.store.booster(buyer, "sell", 10, Duration.ofDays(20), "tbx-long", "console")).status());
+        assertEquals(2, this.boosters.started.size());
+        assertEquals(40, this.boosters.started.getFirst().percent(), "recorded as bought");
+        assertEquals(25, this.store.boosterStatus("tbx-big").orElseThrow().percent(), "it pays the current limit");
+        assertEquals(1, rows("tbx-big"));
+        assertEquals("bad_booster_percent", get(this.store.booster(buyer, "sell", ServerBoosters.PERCENT_CAP + 1,
+            Duration.ofMinutes(30), "tbx-cap", "console")).reason(), "the hard cap still refuses");
+        assertEquals("bad_booster_duration", get(this.store.booster(buyer, "sell", 10, ServerBoosters.MAX_LENGTH.plusSeconds(1),
+            "tbx-cap2", "console")).reason());
+    }
+
+    @Test
+    void revokingABoosterEndsItOrTakesItOutOfLineOnce() throws Exception {
+        UUID buyer = UUID.randomUUID();
+        get(this.store.booster(buyer, "sell", 10, Duration.ofMinutes(30), "tbx-r1", "console"));
+        get(this.store.booster(buyer, "sell", 15, Duration.ofMinutes(30), "tbx-r2", "console"));
+        assertTrue(this.store.boosterStatus("tbx-r2").isPresent());
+        assertFalse(this.store.boosterStatus("tbx-r2").get().running());
+
+        StoreService.Outcome queued = get(this.store.revoke("tbx-r2", "refund", "console"));
+        assertEquals(StoreService.Status.REVOKED, queued.status());
+        assertEquals("removed", queued.reason());
+        assertEquals("refund, booster taken out of line", queued.delivery().note());
+        StoreService.Outcome running = get(this.store.revoke("tbx-r1", "chargeback", "console"));
+        assertEquals("ended", running.reason());
+        assertEquals("revoked", state("tbx-r1"));
+        assertEquals(StoreService.Status.ALREADY, get(this.store.revoke("tbx-r1", "refund", "console")).status());
+        assertEquals(StoreService.Status.ALREADY, get(this.store.booster(buyer, "sell", 10, Duration.ofMinutes(30), "tbx-r1", "console")).status(),
+            "a revoked reference is never delivered again");
+        assertEquals(List.of("tbx-r2", "tbx-r1"), this.boosters.revoked);
+
+        get(this.store.booster(buyer, "sell", 10, Duration.ofMinutes(30), "tbx-r3", "console"));
+        this.boosters.over.add("tbx-r3");
+        StoreService.Outcome over = get(this.store.revoke("tbx-r3", "refund", "console"));
+        assertEquals("over", over.reason());
+        assertEquals("refund, booster had already ended", over.delivery().note());
+        restart();
+        assertEquals(Delivery.State.REVOKED, this.store.find("tbx-r1").state());
+        assertEquals(3, this.store.history(buyer, 10).size());
+    }
+
     // ------------------------------------------------------------------ fakes
+
+    /** The boosters feature as the store sees it: a booster starts or waits inside the delivery's transaction. */
+    private static final class FakeBoosters implements ServerBoosters {
+        final List<Grant> started = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final List<String> revoked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final Set<String> over = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        @Override
+        public boolean available() {
+            return true;
+        }
+
+        @Override
+        public int percent() {
+            return 0;
+        }
+
+        @Override
+        public int maxPercent() {
+            return 25;
+        }
+
+        @Override
+        public int latestMaxPercent() {
+            return 25;
+        }
+
+        @Override
+        public int paid(int percent) {
+            return Math.min(percent, maxPercent());
+        }
+
+        /** The contract: only the hard limits refuse a purchase; max-percent (25 here) caps what it pays instead. */
+        @Override
+        public String problem(String kind, int percent, Duration duration) {
+            if (!SELL.equals(kind)) {
+                return "unknown_kind";
+            }
+            if (percent < 1 || percent > PERCENT_CAP) {
+                return "bad_percent";
+            }
+            return duration.compareTo(MIN_LENGTH) < 0 || duration.compareTo(MAX_LENGTH) > 0 ? "bad_duration" : null;
+        }
+
+        @Override
+        public void deliver(net.siftvanilla.siftcore.economy.LedgerTx.Builder tx, Grant grant) {
+            tx.apply(() -> this.started.add(grant), () -> this.started.remove(grant));
+        }
+
+        @Override
+        public java.util.concurrent.atomic.AtomicReference<Revoked> revoke(net.siftvanilla.siftcore.economy.LedgerTx.Builder tx, String ref) {
+            java.util.concurrent.atomic.AtomicReference<Revoked> outcome = new java.util.concurrent.atomic.AtomicReference<>(Revoked.OVER);
+            tx.apply(() -> {
+                if (this.over.contains(ref)) {
+                    outcome.set(Revoked.OVER);
+                    return;
+                }
+                boolean first = this.started.stream().filter(grant -> !this.revoked.contains(grant.ref())).findFirst()
+                    .map(grant -> grant.ref().equals(ref)).orElse(false);
+                outcome.set(first ? Revoked.ENDED : Revoked.REMOVED);
+                this.revoked.add(ref);
+            }, () -> this.revoked.remove(ref));
+            return outcome;
+        }
+
+        @Override
+        public java.util.Optional<Status> status(String ref) {
+            for (int i = 0; i < this.started.size(); i++) {
+                if (this.started.get(i).ref().equals(ref) && !this.revoked.contains(ref)) {
+                    return java.util.Optional.of(new Status(i == 0, paid(this.started.get(i).percent()), this.started.get(i).duration(), i));
+                }
+            }
+            return java.util.Optional.empty();
+        }
+    }
 
     /** Crate keys with the crates feature's reference rule: a reference is applied once. */
     private static final class FakeKeys implements CrateKeys {
@@ -553,6 +737,11 @@ class StoreServiceTest {
                 return CompletableFuture.failedFuture(new IllegalStateException("connection lost after saving"));
             }
             return CompletableFuture.completedFuture(changed);
+        }
+
+        @Override
+        public CompletableFuture<Boolean> permission(UUID player, String node) {
+            return CompletableFuture.completedFuture(false);
         }
 
         @Override

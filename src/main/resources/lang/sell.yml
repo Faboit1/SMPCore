@@ -5,12 +5,15 @@
 
 sell:
   # The receipt in chat. <items> is "64 diamond" for one kind, "150 items" for several; hovering it lists them.
-  sold: "<primary>You sold <items> for <total>."
-  sold-bonus: "<primary>You sold <items> for <total> <secondary>with your <multiplier>x bonus."
-  sold-bonuses: "<primary>You sold <items> for <total> <secondary>with your bonuses."
-  sold-orders: "<primary>You sold <items> for <total>, <orders> of it from buy orders."
+  # <booster> is the booster-note below while a server sell booster raised the price, and nothing otherwise.
+  sold: "<primary>You sold <items> for <total><booster>."
+  sold-bonus: "<primary>You sold <items> for <total> <secondary>with your <multiplier>x bonus<booster>."
+  sold-bonuses: "<primary>You sold <items> for <total> <secondary>with your bonuses<booster>."
+  sold-orders: "<primary>You sold <items> for <total>, <orders> of it from buy orders<booster>."
   # Shown on the action bar after a sale when feedback.action-bar is on, or when sale receipts are turned off.
-  sold-action-bar: "<money>+<total>"
+  sold-action-bar: "<money>+<total><booster>"
+  # Added to the receipts while a server sell booster (/booster) raised what the server paid.
+  booster-note: "<secondary> incl. +<percent>% booster"
   orders-changed: "<secondary>Buy orders changed, so everything went to the server."
   items:
     one: "<amount> <item>"
@@ -25,6 +28,7 @@ sell:
     tax: "<secondary>Order tax <tax>"
     rest: "<secondary>Rest to the server <primary><value>"
     boxes: "<secondary><count> of them came out of shulker boxes"
+    booster: "<secondary>Sell booster <primary>+<percent>%"
   level-up: "<primary><category> mastery is now level <level>. <secondary><category> items sell for <multiplier>x."
   empty-hand: "<primary>Hold the item you want to sell."
   not-sellable: "<primary>You can't sell <item>."
@@ -52,6 +56,7 @@ sell:
     body: "<primary>Sell <count> items for <total>?"
     bonus: "<secondary>Includes your <multiplier>x bonus"
     bonuses: "<secondary>Includes your rank and mastery bonuses"
+    booster: "<secondary>Includes the +<percent>% sell booster"
     orders: "<secondary><orders> of it comes from <count> buy orders"
     inner: "<secondary><count> of them are in shulker boxes"
     kept: "<secondary>Kept: <count> items that can't be sold or don't stack"
@@ -66,6 +71,7 @@ sell:
     total-more: "<secondary>and <count> more kinds"
     total-bonus: "<secondary>Includes your <primary><multiplier>x <secondary>bonus"
     total-bonuses: "<secondary>Includes your rank and mastery bonuses"
+    total-booster: "<secondary>Includes the <primary>+<percent>% <secondary>sell booster"
     total-orders: "<secondary><orders> from <count> buy orders"
     total-unsellable: "<secondary><count> can't be sold and go back to you"
     total-mastery: "<secondary>Mastery: +<value> toward <category> level <level>"
@@ -116,7 +122,8 @@ sell:
   browser:
     title: "Prices"
     price: "<secondary>Sells for <price> each"
-    bonus: "<secondary>With your bonus <price>"
+    bonus: "<secondary>With your bonus <price><booster>"
+    boosted: "<secondary>With the +<percent>% booster <price>"
     category: "<secondary>Category <primary><category>"
     shop: "<secondary>The shop sells it for <price>"
     order: "<secondary>Best buy order <price> each"
@@ -132,7 +139,8 @@ sell:
   # The details of one item (click it in the price list)
   details:
     price: "<secondary>Sells for <price> each"
-    bonus: "<secondary>With your <multiplier>x bonus <price>"
+    bonus: "<secondary>With your <multiplier>x bonus <price><booster>"
+    boosted: "<secondary>With the +<percent>% booster <price>"
     mastery: "<secondary><category> mastery level <level> of <max>"
     shop: "<secondary>The shop sells it for <price>"
     order: "<secondary>Best buy order <price> each"
@@ -144,7 +152,8 @@ sell:
   worth:
     each: "<primary>One <item> sells for <price>."
     stack: "<primary>One <item> sells for <price>, your <amount> for <total>."
-    bonus: "<secondary>With your <primary><multiplier>x <secondary>bonus you get <total>."
+    bonus: "<secondary>With your <primary><multiplier>x <secondary>bonus you get <total><booster>."
+    boosted: "<secondary>With the <primary>+<percent>% <secondary>sell booster you get <total>."
     shop: "<secondary>The shop sells it for <price>."
     order: "<secondary>A buy order pays <price> each."
     box: "<primary>What's inside sells for <total> (<count> items)."

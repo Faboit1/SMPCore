@@ -30,6 +30,20 @@ class StatusBarsTest {
     }
 
     @Test
+    void aServerBoosterGivesWayToAnythingAboutThePlayer() {
+        Map<String, StatusBars.Bar> owners = new HashMap<>();
+        owners.put("boosters", bar("+10% sell booster", StatusBars.PRIORITY_SERVER));
+        assertEquals("boosters", StatusBars.pick(owners).getKey(), "alone, the booster shows");
+        owners.put("afk", bar("AFK", StatusBars.PRIORITY_IDLE));
+        assertEquals("afk", StatusBars.pick(owners).getKey(), "the AFK countdown takes the bar");
+        owners.put("combat", bar("Combat", StatusBars.PRIORITY_COMBAT));
+        assertEquals("combat", StatusBars.pick(owners).getKey(), "and so does the combat timer");
+        owners.remove("combat");
+        owners.remove("afk");
+        assertEquals("boosters", StatusBars.pick(owners).getKey(), "the booster comes back after");
+    }
+
+    @Test
     void progressStaysWithinTheBar() {
         assertEquals(1f, new StatusBars.Bar(Component.empty(), 3f, BossBar.Color.RED, BossBar.Overlay.PROGRESS, 0).progress());
         assertEquals(0f, new StatusBars.Bar(Component.empty(), -1f, BossBar.Color.RED, BossBar.Overlay.PROGRESS, 0).progress());

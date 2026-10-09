@@ -141,8 +141,12 @@ final class WorthBrowser extends PagedMenu<WorthBrowser.Row> {
         lore.addAll(lang.lines(SellMessages.BROWSER_PRICE, Arg.money("price", price)));
         BigDecimal multiplier = this.rates.multiplier(row.entry().category());
         long withBonus = SaleMath.withMultiplier(price, multiplier);
-        if (multiplier.compareTo(BigDecimal.ONE) > 0) {
-            lore.addAll(lang.lines(SellMessages.BROWSER_BONUS, Arg.money("price", withBonus)));
+        int boost = this.rates.boost();
+        if (this.rates.own(row.entry().category()).compareTo(BigDecimal.ONE) > 0) {
+            lore.addAll(lang.lines(SellMessages.BROWSER_BONUS, Arg.money("price", withBonus), Arg.component("booster", boost > 0
+                ? lang.get(SellMessages.BOOSTER_NOTE, Arg.number("percent", boost)) : Component.empty())));
+        } else if (boost > 0) {
+            lore.addAll(lang.lines(SellMessages.BROWSER_BOOSTED, Arg.number("percent", boost), Arg.money("price", withBonus)));
         }
         lore.addAll(lang.lines(SellMessages.BROWSER_CATEGORY,
             Arg.text("category", this.worth.categories().name(row.entry().category()))));

@@ -67,7 +67,8 @@ only take effect in a feature's code, so they are offered once a feature declare
   hotbar style of `sell_receipts` stays above the hotbar, and becomes a chat line in combat with quiet in combat on.
 - `Sounds.play` applies the volume, the kind switches and quiet in combat; `Sounds.ping(player, PingSound)` plays the
   ping sounds (`config.yml` `sounds.pings`; Default is the notify sound and follows Notification pings).
-- `StatusBars` keeps one boss bar per player for lasting status lines; the highest priority owner shows.
+- `StatusBars` keeps one boss bar per player for lasting status lines; the highest priority owner shows (combat
+  `PRIORITY_COMBAT`, the AFK countdown `PRIORITY_IDLE`, a running sell booster for everyone `PRIORITY_SERVER`).
 - `Relations` (`services.relations()`) answers who-can settings (`allows(audience, owner, other)`), friends and
   favourites availability, and ignore lists.
 

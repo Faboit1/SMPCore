@@ -272,13 +272,22 @@ final class SellCommands {
             Arg.text("item", ItemKeys.name(key)));
     }
 
-    /** The player's bonus for the item's category (rank plus mastery) applied to {@code base}, when they have one. */
+    /**
+     * What the player really gets for {@code base}: with their bonus for the item's category (rank plus mastery) and
+     * the running sell booster, when either applies.
+     */
     private void bonus(Player player, WorthTable.Entry entry, long base) {
-        BigDecimal multiplier = this.worth.rates(player).multiplier(entry.category());
-        if (multiplier.compareTo(BigDecimal.ONE) > 0) {
+        WorthService.Rates rates = this.worth.rates(player);
+        BigDecimal own = rates.own(entry.category());
+        long total = SaleMath.withMultiplier(base, rates.multiplier(entry.category()));
+        if (own.compareTo(BigDecimal.ONE) > 0) {
             this.services.messenger().send(player, SellMessages.WORTH_BONUS,
-                Arg.text("multiplier", Multipliers.format(multiplier.doubleValue())),
-                Arg.money("total", SaleMath.withMultiplier(base, multiplier)));
+                Arg.text("multiplier", Multipliers.format(own.doubleValue())), Arg.money("total", total),
+                Arg.component("booster", rates.boost() > 0
+                    ? this.services.lang().get(SellMessages.BOOSTER_NOTE, Arg.number("percent", rates.boost())) : Component.empty()));
+        } else if (rates.boost() > 0) {
+            this.services.messenger().send(player, SellMessages.WORTH_BOOSTED, Arg.number("percent", rates.boost()),
+                Arg.money("total", total));
         }
     }
 

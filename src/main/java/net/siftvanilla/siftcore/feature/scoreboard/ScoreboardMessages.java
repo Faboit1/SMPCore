@@ -25,6 +25,7 @@ public final class ScoreboardMessages {
     public static final MessageKey LINE_TEAM = MessageKey.ui("scoreboard.sidebar.lines.team");
     public static final MessageKey LINE_RANK = MessageKey.ui("scoreboard.sidebar.lines.rank");
     public static final MessageKey LINE_KEYALL = MessageKey.ui("scoreboard.sidebar.lines.keyall");
+    public static final MessageKey LINE_BOOSTER = MessageKey.ui("scoreboard.sidebar.lines.booster");
     public static final MessageKey LINE_BOUNTY = MessageKey.ui("scoreboard.sidebar.lines.bounty");
     public static final MessageKey LINE_COMBAT = MessageKey.ui("scoreboard.sidebar.lines.combat");
     public static final MessageKey LINE_ONLINE = MessageKey.ui("scoreboard.sidebar.lines.online");
@@ -46,6 +47,7 @@ public final class ScoreboardMessages {
         lines.put("team", LINE_TEAM);
         lines.put("rank", LINE_RANK);
         lines.put("keyall", LINE_KEYALL);
+        lines.put("booster", LINE_BOOSTER);
         lines.put("bounty", LINE_BOUNTY);
         lines.put("combat", LINE_COMBAT);
         lines.put("online", LINE_ONLINE);

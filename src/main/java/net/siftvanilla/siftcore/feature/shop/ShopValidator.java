@@ -17,15 +17,15 @@ import net.siftvanilla.siftcore.feature.sell.WorthTable;
 
 /**
  * Keeps the shop from ever paying out: buying an item and selling it back, or buying it and crafting it into
- * something that sells, must always cost more than it returns, even for the rank with the best sell multiplier.
- * Pure logic.
+ * something that sells, must always cost more than it returns, even for the rank with the best sell multiplier while
+ * the largest server sell booster allowed runs ({@link Pricing#guardMultiplier()}). Pure logic.
  * <p>
  * For every item it computes the most one unit can be turned into ("liquidation value"): its own sell price, or
  * the sell value of anything a recipe makes from it (following chains of recipes), minus what the other
  * ingredients of those recipes cost. An ingredient costs what the player gives up by using it: its sell price when
  * it sells, otherwise what making it from its cheapest recipe costs; items that neither sell nor come from a recipe
  * (flowers, ores) cost nothing. Smelting fuel is ignored. Every choice errs on the side of a higher value. A shop
- * price must be more than that value times the highest multiplier times {@link #MARGIN}.
+ * price must be more than that value times the highest multiplier (with the largest booster) times {@link #MARGIN}.
  */
 public final class ShopValidator {
 
@@ -192,14 +192,15 @@ public final class ShopValidator {
      * price.
      */
     public static String check(String item, long price, Pricing pricing, Analysis analysis) {
-        double multiplier = pricing.highestMultiplier();
+        double multiplier = pricing.guardMultiplier();
         long worth = pricing.table().price(item);
-        String bonus = Multipliers.format(multiplier);
+        String bonus = Multipliers.format(multiplier) + "x with the best sell bonus"
+            + (pricing.highestBoost() > 0 ? " and a +" + pricing.highestBoost() + "% sell booster" : "");
         if (worth > 0) {
             long minimum = minimumPrice(worth, multiplier);
             if (price < minimum) {
-                return "costs " + price + " but sells back for " + worth + " each (" + bonus + "x with the best sell "
-                    + "bonus), so buying and selling it would pay out; the price must be at least " + minimum;
+                return "costs " + price + " but sells back for " + worth + " each (" + bonus
+                    + "), so buying and selling it would pay out; the price must be at least " + minimum;
             }
         }
         Liquidation liquidation = analysis.of(item);
@@ -207,8 +208,8 @@ public final class ShopValidator {
             long minimum = minimumPrice(liquidation.value(), multiplier);
             if (price < minimum) {
                 return "costs " + price + " but can be crafted into " + ItemKeys.shortKey(liquidation.via())
-                    + " (recipe " + liquidation.recipe() + "), which sells for more (" + bonus + "x with the best sell "
-                    + "bonus); the price must be at least " + minimum + ", or lower the worth of "
+                    + " (recipe " + liquidation.recipe() + "), which sells for more (" + bonus
+                    + "); the price must be at least " + minimum + ", or lower the worth of "
                     + ItemKeys.shortKey(liquidation.via());
             }
         }

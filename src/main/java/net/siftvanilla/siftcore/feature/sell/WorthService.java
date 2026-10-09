@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -37,16 +38,28 @@ public final class WorthService implements WorthLookup, Pricing.Source {
     }
 
     /**
-     * What one player gets per sell category right now: the rank multiplier plus each category's mastery bonus.
+     * What one player gets per sell category right now: the rank multiplier plus each category's mastery bonus, with
+     * the running server sell booster on top. Server boosters enter sell prices here and only here: every sale path
+     * (the sell menu, {@code /sell} in every form, quick selling in the shop, spawner storage) prices with
+     * {@link #multiplier(String)} or {@link #flat()}, so a booster raises all of them by exactly its percent.
      *
      * @param rank    the rank multiplier
      * @param sold    base value sold per category (the mastery totals)
      * @param mastery the mastery rules
+     * @param boost   the server sell booster running now, in percent (0 = none)
      */
-    public record Rates(BigDecimal rank, Map<String, Long> sold, Mastery mastery) {
+    public record Rates(BigDecimal rank, Map<String, Long> sold, Mastery mastery, int boost) {
 
         public Rates {
             sold = Map.copyOf(sold);
+            if (boost < 0) {
+                throw new IllegalArgumentException("A booster never lowers prices");
+            }
+        }
+
+        /** Rates without a booster. */
+        public Rates(BigDecimal rank, Map<String, Long> sold, Mastery mastery) {
+            this(rank, sold, mastery, 0);
         }
 
         public int level(String category) {
@@ -57,9 +70,19 @@ public final class WorthService implements WorthLookup, Pricing.Source {
             return this.mastery.bonus(level(category));
         }
 
-        /** Rank plus the category's bonus, exactly. */
-        public BigDecimal multiplier(String category) {
+        /** The player's own multiplier for a category: rank plus the category's bonus, exactly (no booster). */
+        public BigDecimal own(String category) {
             return Mastery.multiplier(this.rank, bonus(category));
+        }
+
+        /** What a sale of the category pays per unit of worth: {@link #own} with the booster on top, exactly. */
+        public BigDecimal multiplier(String category) {
+            return Boosts.apply(own(category), this.boost);
+        }
+
+        /** The rank multiplier with the booster on top, for sales outside the mastery categories (spawner storage). */
+        public BigDecimal flat() {
+            return Boosts.apply(this.rank, this.boost);
         }
 
         public long sold(String category) {
@@ -71,6 +94,7 @@ public final class WorthService implements WorthLookup, Pricing.Source {
     private final AtomicReference<SellSettings> latest;
     private final Predicate<Player> onOwnThread;
     private final MasteryBook mastery;
+    private final ServerBoosters boosts;
     private final Map<Material, ItemStack> prototypes = new ConcurrentHashMap<>();
     private final Map<UUID, Double> multipliers = new ConcurrentHashMap<>();
 
@@ -79,13 +103,15 @@ public final class WorthService implements WorthLookup, Pricing.Source {
      * @param latest      the most recently parsed settings (written by the config parser)
      * @param onOwnThread true when the current thread owns the player (permission checks are only made there)
      * @param mastery     what online players sold per category
+     * @param boosts      the server sell booster (and the largest one allowed, for the shop)
      */
     WorthService(Setting<SellSettings> settings, AtomicReference<SellSettings> latest, Predicate<Player> onOwnThread,
-                 MasteryBook mastery) {
+                 MasteryBook mastery, ServerBoosters boosts) {
         this.settings = settings;
         this.latest = latest;
         this.onOwnThread = onOwnThread;
         this.mastery = mastery;
+        this.boosts = boosts;
     }
 
     public static String key(Material material) {
@@ -130,21 +156,26 @@ public final class WorthService implements WorthLookup, Pricing.Source {
         return this.settings.get().categories();
     }
 
-    /** A player's rates for every category. On the player's thread it reads their rank fresh. */
+    /** A player's rates for every category, with the running booster. On the player's thread it reads their rank fresh. */
     public Rates rates(Player player) {
-        return new Rates(BigDecimal.valueOf(multiplier(player)), this.mastery.totals(player.getUniqueId()),
-            this.settings.get().mastery());
+        return new Rates(BigDecimal.valueOf(rankMultiplier(player)), this.mastery.totals(player.getUniqueId()),
+            this.settings.get().mastery(), this.boosts.percent());
     }
 
-    /** A player's rates from cached values only (any thread, also for placeholders). */
+    /** A player's rates from cached values only, with the running booster (any thread, also for placeholders). */
     public Rates cachedRates(UUID player) {
         return new Rates(BigDecimal.valueOf(cachedMultiplier(player)), this.mastery.totals(player),
-            this.settings.get().mastery());
+            this.settings.get().mastery(), this.boosts.percent());
+    }
+
+    /** The server sell booster running now, in percent (0 = none). */
+    public int boost() {
+        return this.boosts.percent();
     }
 
     /**
-     * What a player gets for one plain item of {@code key} with their rank and mastery, rounded down; 0 when the
-     * server doesn't buy it.
+     * What a player gets for one plain item of {@code key} with their rank, mastery and the running booster, rounded
+     * down; 0 when the server doesn't buy it.
      */
     public long unitPriceFor(Player player, String key) {
         WorthTable.Entry entry = table().entry(key);
@@ -159,12 +190,23 @@ public final class WorthService implements WorthLookup, Pricing.Source {
         return verdict(item) == Verdict.SELLABLE ? price(item.getType()) : 0L;
     }
 
-    /**
-     * The player's rank multiplier. On the player's own thread it reads their permissions (and remembers the
-     * result); elsewhere it returns the value last read there.
-     */
+    /** The player's rank multiplier with the running booster on top (spawner storage, buy order comparisons). */
     @Override
     public double multiplier(Player player) {
+        return rate(player).multiplier();
+    }
+
+    @Override
+    public SellRate rate(Player player) {
+        Rates rates = new Rates(BigDecimal.valueOf(rankMultiplier(player)), Map.of(), this.settings.get().mastery(), this.boosts.percent());
+        return new SellRate(rates.flat().doubleValue(), rates.rank().doubleValue(), rates.boost());
+    }
+
+    /**
+     * The player's rank multiplier (no booster). On the player's own thread it reads their permissions (and remembers
+     * the result); elsewhere it returns the value last read there.
+     */
+    private double rankMultiplier(Player player) {
         if (!this.onOwnThread.test(player)) {
             Double cached = this.multipliers.get(player.getUniqueId());
             if (cached != null) {
@@ -181,7 +223,7 @@ public final class WorthService implements WorthLookup, Pricing.Source {
         return value;
     }
 
-    /** The multiplier last read for a player, 1.0 when none was read. Safe from any thread (placeholders). */
+    /** The rank multiplier last read for a player (no booster), 1.0 when none was read. Safe from any thread (placeholders). */
     public double cachedMultiplier(UUID player) {
         return this.multipliers.getOrDefault(player, 1.0);
     }
@@ -210,14 +252,15 @@ public final class WorthService implements WorthLookup, Pricing.Source {
         return base <= 0 ? 0 : SaleMath.withMultiplier(base, multiplier(player));
     }
 
+    /** The pricing in effect, with the largest booster allowed (what the shop's arbitrage check prices against). */
     @Override
     public Pricing current() {
-        return this.settings.get().pricing();
+        return this.settings.get().pricing().withBoost(this.boosts.maxPercent());
     }
 
     @Override
     public Pricing latest() {
         SellSettings parsed = this.latest.get();
-        return (parsed == null ? this.settings.get() : parsed).pricing();
+        return (parsed == null ? this.settings.get() : parsed).pricing().withBoost(this.boosts.latestMaxPercent());
     }
 }

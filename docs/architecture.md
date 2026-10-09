@@ -38,7 +38,8 @@ net.siftvanilla.siftcore
 │   ├── link                contracts between features: StatsRecorder, WorthLookup, TeamLookup, AfkStatus,
 │   │                       CrateKeys, SpawnerItems, SpawnArea, MuteStatus, VanishStatus,
 │   │                       FreezeStatus (teleports and dialogs refuse frozen players), FriendLookup, IgnoreLookup,
-│   │                       Cosmetics, TextChecks; Relations (late-bound friends, teams, ignores for who-can settings)
+│   │                       Cosmetics, TextChecks; Relations (late-bound friends, teams, ignores for who-can settings);
+│   │                       ServerBoosters
 │   ├── integration         Ranks (LuckPerms labels)
 │   ├── audit               AuditLog
 │   └── selftest            SelfTest
@@ -57,7 +58,7 @@ net.siftvanilla.siftcore
 │
 ├── feature                 one package per gameplay feature (see docs/features/)
 │   ├── economy  hub  admin  sell  shop  auction  orders  spawners  crates  kits  stats  teams  friends
-│   └── combat  bounties  homes  tpa  rtp  spawn  chat  settings  afk  shards  scoreboard  cosmetics  extras
+│   └── combat  bounties  homes  tpa  rtp  spawn  chat  settings  afk  shards  scoreboard  cosmetics  extras  boosters
 │
 └── integration             vault, placeholderapi, luckperms, floodgate (loaded only when present)
 ```

@@ -1,6 +1,6 @@
 # Placeholders
 
-Every placeholder SiftCore 1.0.0 provides (118), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
+Every placeholder SiftCore 1.0.0 provides (123), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
 
 | Placeholder | Shows |
 |---|---|
@@ -19,6 +19,11 @@ Every placeholder SiftCore 1.0.0 provides (118), generated with `/sift docs`. Wi
 | `%siftcore_baltop_name_<rank>%` | Name at a leaderboard place (1-100) |
 | `%siftcore_baltop_rank%` | Your place on the money leaderboard (0 when unranked) |
 | `%siftcore_baltop_value_<rank>%` | Money at a leaderboard place, formatted |
+| `%siftcore_booster_active%` | Whether a sell booster runs right now (true or false) |
+| `%siftcore_booster_by%` | Who the running sell booster is from (empty when none runs) |
+| `%siftcore_booster_percent%` | How much the running sell booster raises sell prices, like 10 (0 when none runs) |
+| `%siftcore_booster_queue%` | How many sell boosters wait for the running one to end |
+| `%siftcore_booster_time_left%` | Time the running sell booster has left, like 29m 41s (empty when none runs) |
 | `%siftcore_bounty_top_name_<n>%` | Name of the player with the n-th biggest bounty (1-20) |
 | `%siftcore_bounty_top_value_<n>%` | The n-th biggest bounty, formatted |
 | `%siftcore_bounty_total%` | The bounty on you, formatted ($50,000) |
@@ -63,7 +68,7 @@ Every placeholder SiftCore 1.0.0 provides (118), generated with `/sift docs`. Wi
 | `%siftcore_rank_group%` | Your primary LuckPerms group in lowercase (default without LuckPerms) |
 | `%siftcore_sell_mastery_<category>%` | Your sell mastery level in a category (0-5) |
 | `%siftcore_sell_multiplier%` | Your sell multiplier from sell.yml multipliers (1 when none apply; mastery not included) |
-| `%siftcore_sell_multiplier_<category>%` | Your multiplier for a sell category, rank plus mastery, like 1.6 |
+| `%siftcore_sell_multiplier_<category>%` | Your multiplier for a sell category, rank plus mastery, like 1.6 (a running sell booster comes on top) |
 | `%siftcore_sell_sold%` | Everything you sold to the server, at base value (what mastery counts) |
 | `%siftcore_sell_top_name_<n>%` | Name of the n-th best seller (1-10) |
 | `%siftcore_sell_top_value_<n>%` | What the n-th best seller sold, formatted (1-10) |

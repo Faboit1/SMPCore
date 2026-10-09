@@ -251,6 +251,13 @@ public final class Ledger {
         CompletableFuture<Void> result = new CompletableFuture<>();
         this.database.write(work).whenComplete((ignored, error) -> {
             if (error == null) {
+                for (Runnable callback : tx.afterCommit()) {
+                    try {
+                        callback.run();
+                    } catch (Throwable t) {
+                        this.logger.log(Level.WARNING, "An after-commit step of transaction " + tx.id() + " failed", t);
+                    }
+                }
                 result.complete(null);
                 if (!postings.isEmpty()) {
                     CommittedTx committed = new CommittedTx(tx.id(), tx.actor(), tx.kind(), postings, balancesAfter, now);

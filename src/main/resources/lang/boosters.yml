@@ -1,0 +1,92 @@
+# Text of the server-wide sell boosters: the announcements, the boss bar, /booster and /sift booster.
+# Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>,
+# <icon:name> <!italic> <newline>, plus each message's own placeholders.
+# <name> is a player name and <reason> what staff typed; both are inserted as plain text.
+
+boosters:
+  announce:
+    # When a booster starts. <time> is its whole length in words ("30 minutes", "2 hours").
+    # A booster bought in the store:
+    started: "<icon:star> <primary><name> <secondary>started a <primary>+<percent>% sell booster <secondary>for <primary><time><secondary>. Thank you!"
+    # A booster staff started:
+    started-staff: "<icon:star> <primary><name> <secondary>started a <primary>+<percent>% sell booster <secondary>for <primary><time><secondary>."
+    # A booster from the server itself (the console, community goals):
+    started-server: "<icon:star> <secondary>A <primary>+<percent>% sell booster <secondary>started for <primary><time><secondary>. Everything you sell pays more."
+    # Below the start of a staff booster that was given a reason.
+    reason: "<secondary>\"<primary><reason><secondary>\""
+    # When a store booster has to wait for the boosters before it. <position> is its place in line (1 is next).
+    queued: "<primary><name> <secondary>bought a <primary>+<percent>% sell booster <secondary>for <primary><time><secondary>. It starts after the boosters before it (number <position> in line). Thank you!"
+    queued-other: "<secondary>A <primary>+<percent>% sell booster <secondary>for <primary><time> <secondary>is waiting in line (number <position>)."
+    ended: "<secondary>The <primary>+<percent>% sell booster <secondary>has ended."
+    ended-early: "<secondary>The <primary>+<percent>% sell booster <secondary>was ended early."
+
+  # Who a booster is from when the buyer's name is not known yet, and the server itself (for %siftcore_booster_by%).
+  someone: "Someone"
+  server: "Server"
+
+  # A booster's length in words, for the announcements.
+  time:
+    day-one: "<count> day"
+    day-many: "<count> days"
+    hour-one: "<count> hour"
+    hour-many: "<count> hours"
+    minute-one: "<count> minute"
+    minute-many: "<count> minutes"
+    second-one: "<count> second"
+    second-many: "<count> seconds"
+
+  # The boss bar while a booster runs. <time> is the time left (29m 41s).
+  bar:
+    title: "<primary>+<percent>% sell booster <secondary>from <primary><name> <secondary>- <primary><time> <secondary>left"
+    title-server: "<primary>+<percent>% sell booster <secondary>- <primary><time> <secondary>left"
+
+  # /booster
+  dialog:
+    title: "Sell booster"
+    active: "<icon:star> <primary>+<percent>% <secondary>on everything sold to the server, for everyone online"
+    left: "<secondary>Time left <primary><time> <secondary>of <primary><length>"
+    from: "<secondary>From <primary><name>"
+    from-server: "<secondary>From the server"
+    none: "<primary>No sell booster is running right now."
+    explain: "<secondary>A booster raises what the server pays for everything sold, for everyone online. Boosters come from the store and community goals and run one after another."
+    queue-header: "<secondary>Next in line"
+    queue-line: "<secondary><position>. <primary>+<percent>% <secondary>for <primary><time> <secondary>from <primary><name>"
+    queue-line-server: "<secondary><position>. <primary>+<percent>% <secondary>for <primary><time> <secondary>from the server"
+    queue-more: "<secondary>and <count> more"
+    queue-empty: "<secondary>Nothing is waiting in line."
+    hide-bar: "Hide the booster bar"
+    show-bar: "Show the booster bar"
+    bar-hidden: "<primary>The booster bar is hidden. <secondary>Show it again here or in /settings."
+    bar-shown: "<primary>The booster bar is shown while a booster runs."
+
+  hub:
+    label: "Sell booster"
+    description: "The server-wide sell booster and what comes next"
+
+  # The switch in /settings.
+  toggle:
+    label: "Booster bar"
+    description: "The bar at the top of the screen while a sell booster runs"
+
+  # /sift booster (staff and console)
+  admin:
+    started: "<primary>Started the +<percent>% sell booster #<id> for <time>."
+    queued: "<primary>Queued the +<percent>% sell booster #<id> for <time> <secondary>(number <position> in line)."
+    stopped: "<primary>Stopped the +<percent>% sell booster #<id>."
+    removed: "<primary>Took the +<percent>% sell booster #<id> out of line."
+    none-running: "<primary>No sell booster is running."
+    unknown: "<primary>There is no booster #<id> running or in line."
+    bad-percent: "<primary>The percent must be from 1 to <max> <secondary>(sell.max-percent in boosters.yml)."
+    bad-duration: "<primary>The length must be from <min> to <max> <secondary>(boosters.yml)."
+    bad-duration-input: "<primary><input> <secondary>is not a length. Try 30m, 2h or 1d."
+    queue-full: "<primary><count> boosters are already waiting. <secondary>Stop one first, or raise queue.staff-limit in boosters.yml."
+    failed: "<primary>The booster was not started: <secondary><reason>"
+    list-header: "<primary>Sell boosters <secondary>(<count> running or waiting, at most +<max>%)"
+    # <capped> is empty, or list-capped below for a booster bought for more than sell.max-percent allows now.
+    list-active: "<primary>#<id> +<percent>% <secondary>running, <primary><left> <secondary>of <length> left, from <primary><name><secondary><source><capped>"
+    list-waiting: "<primary>#<id> +<percent>% <secondary>waiting (number <position>), <length>, from <primary><name><secondary><source><capped>"
+    list-empty: "<primary>No sell booster is running or waiting."
+    source-store: ", store <ref>"
+    source-staff: ", staff"
+    source-staff-reason: ", staff: <reason>"
+    list-capped: " (bought for +<percent>%, capped by sell.max-percent)"

@@ -38,4 +38,9 @@ final class LuckPermsAccess implements RankAccess {
     public CompletableFuture<Boolean> limit(UUID player, String group, boolean removePermanent, boolean cutTimed, Instant cutTo) {
         return this.hook.limit(player, group, removePermanent, cutTimed, cutTo);
     }
+
+    @Override
+    public CompletableFuture<Boolean> permission(UUID player, String node) {
+        return this.hook.permission(player, node);
+    }
 }

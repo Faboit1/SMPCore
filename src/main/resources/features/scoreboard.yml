@@ -12,13 +12,15 @@ sidebar:
   refresh: 1s
   # The lines from top to bottom, at most 15. Each is the name of a line in lang/scoreboard.yml
   # (scoreboard.sidebar.lines.<name>) or "blank" for an empty line. A line is left out while one of its
-  # placeholders is empty, so "team" only shows for players in a team and "combat" only in combat.
-  # Available: balance, shards, kills, deaths, kdr, streak, playtime, team, rank, keyall, bounty, combat, online,
-  # ping, website. Each line's text can be changed in lang/scoreboard.yml to show any placeholder.
+  # placeholders is empty, so "team" only shows for players in a team, "combat" only in combat and "booster" only
+  # while a sell booster runs.
+  # Available: balance, shards, kills, deaths, kdr, streak, playtime, team, rank, keyall, booster, bounty, combat,
+  # online, ping, website. Each line's text can be changed in lang/scoreboard.yml to show any placeholder.
   lines:
     - blank
     - balance
     - shards
+    - booster
     - kills
     - deaths
     - playtime

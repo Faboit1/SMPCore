@@ -65,7 +65,8 @@ public final class ItemSellEvent extends SiftCancellableEvent {
      * @param ordersTotal         what buy orders pay after tax
      * @param orders              the units sent to each order
      * @param multiplier          the player's highest multiplier in this sale (1.0 when none)
-     * @param categoryMultipliers the multiplier of each sell category in this sale (rank plus mastery)
+     * @param categoryMultipliers the multiplier of each sell category in this sale (rank plus mastery, with a running server
+     *                            sell booster on top)
      */
     public ItemSellEvent(Player player, Source source, List<ItemStack> items, long serverTotal, long ordersTotal,
                          List<OrderFill> orders, double multiplier, Map<String, Double> categoryMultipliers) {
@@ -129,12 +130,15 @@ public final class ItemSellEvent extends SiftCancellableEvent {
         return this.orders;
     }
 
-    /** The player's sell multiplier (the highest in this sale; 1.0 when they have none). */
+    /** The player's sell multiplier (the highest in this sale, with a running server sell booster on top; 1.0 when none applies). */
     public double multiplier() {
         return this.multiplier;
     }
 
-    /** The multiplier of a sell category in this sale (rank plus mastery), or {@link #multiplier()} if not in it. */
+    /**
+     * The multiplier of a sell category in this sale (rank plus mastery, with a running server sell booster on top), or
+     * {@link #multiplier()} if not in it.
+     */
     public double multiplier(String category) {
         return this.categoryMultipliers.getOrDefault(category, this.multiplier);
     }

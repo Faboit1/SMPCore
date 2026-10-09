@@ -22,7 +22,8 @@ public record SpawnSettings(
     boolean firstJoinWelcome,
     boolean respawnAtSpawn,
     Protection protection,
-    Borders borders) {
+    Borders borders,
+    Fly fly) {
 
     /** The largest border vanilla allows. */
     public static final int MAX_BORDER = 59_999_968;
@@ -52,6 +53,19 @@ public record SpawnSettings(
             allowedInteractions = List.copyOf(allowedInteractions);
             blockedSpawnReasons = Set.copyOf(blockedSpawnReasons);
         }
+    }
+
+    /**
+     * Flight inside the protected spawn area ({@code /fly}, {@code siftcore.spawn.fly}).
+     *
+     * @param enabled        whether {@code /fly} works at all
+     * @param maxHeight      how many blocks above the spawn point players may fly; higher up flight drops them
+     * @param fallProtection when flight turns off in the air, the fall that follows does no damage, however long it is
+     */
+    public record Fly(boolean enabled, int maxHeight, boolean fallProtection) {
+
+        /** The highest {@code fly.max-height} the config accepts. */
+        public static final int MAX_HEIGHT = 2_048;
     }
 
     /** World borders managed by SiftCore, keyed by world name. */
@@ -90,8 +104,11 @@ public record SpawnSettings(
 
         Protection protection = parseProtection(r.section("protection"), defaultWorld, worldExists, blockKeyExists);
         Borders borders = parseBorders(r.section("world-border"), worldExists);
+        ConfigReader fly = r.section("fly");
+        Fly flight = new Fly(fly.bool("enabled", true), fly.integer("max-height", 1, Fly.MAX_HEIGHT, 48),
+            fly.bool("fall-protection", true));
         return new SpawnSettings(defaultWorld, warmup, cooldown, firstJoinAtSpawn, firstJoinWelcome, respawnAtSpawn,
-            protection, borders);
+            protection, borders, flight);
     }
 
     private static Protection parseProtection(ConfigReader p, String defaultWorld, Predicate<String> worldExists,

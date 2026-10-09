@@ -6,7 +6,7 @@ stored state is each player's `scoreboard` setting (the core `settings` table).
 
 | Part | What players see |
 |---|---|
-| Sidebar | Title "SiftVanilla" in plain white, then the configured lines (money, shards, kills, deaths, playtime, team, the address) with icons, gray labels and no red score numbers |
+| Sidebar | Title "SiftVanilla" in plain white, then the configured lines (money, shards, the sell booster while one runs, kills, deaths, playtime, team, the address) with icons, gray labels and no red score numbers |
 | Tab list | A header with the server name and the online count, a footer with a short line and the address, names as "Rank Name" (label gray, name white) with "AFK" after players who are away, higher ranks listed first |
 | Nametags | The rank label in gray in front of the name above heads; names stay white |
 
@@ -59,7 +59,7 @@ inserted as plain text in the colour around the placeholder, so a team name can 
 provides shows `-` (the self-test reports it). A value is cut at 48 characters and never spans lines.
 
 **A sidebar line is left out while one of its placeholders is empty**: `team` without a team, `rank` without a label,
-`combat` out of combat. The other lines keep their places.
+`combat` out of combat, `booster` while no sell booster runs. The other lines keep their places.
 
 ## Config summary (`features/scoreboard.yml`)
 
@@ -67,7 +67,7 @@ provides shows `-` (the self-test reports it). A value is cut at 48 characters a
 |---|---|---|
 | `sidebar.enabled` | `true` | Sidebar for everyone; `false` removes it (tab list and nametags keep working) |
 | `sidebar.refresh` | `1s` | Refresh period of the lines (250ms-1m) |
-| `sidebar.lines` | blank, balance, shards, kills, deaths, playtime, team, blank, website | Lines top to bottom (at most 15): line names from `lang/scoreboard.yml` or `blank` |
+| `sidebar.lines` | blank, balance, shards, booster, kills, deaths, playtime, team, blank, website | Lines top to bottom (at most 15): line names from `lang/scoreboard.yml` or `blank` |
 | `tab.enabled` | `true` | Header and footer; `false` clears them |
 | `tab.refresh` | `5s` | Header and footer refresh period (1s-5m) |
 | `tab.names` | `true` | "Rank Name" in the tab list, higher ranks first; `false` restores plain names |
@@ -78,7 +78,8 @@ provides shows `-` (the self-test reports it). A value is cut at 48 characters a
 | `sidebar.yield-to`, `tab.yield-to`, `nametags.yield-to` | `[TAB]` each | Plugins that show that part instead while they run (see below) |
 
 Available sidebar lines: `balance`, `shards`, `kills`, `deaths`, `kdr`, `streak`, `playtime`, `team`, `rank`,
-`keyall`, `bounty`, `combat`, `online`, `ping`, `website`. Their text is in `lang/scoreboard.yml`
+`keyall`, `booster` ("Booster +10% 29m 41s", from `%siftcore_booster_percent%` and `%siftcore_booster_time_left%`),
+`bounty`, `combat`, `online`, `ping`, `website`. Their text is in `lang/scoreboard.yml`
 (`scoreboard.sidebar.lines.<name>`) and can show any placeholder, so a line can be repurposed without code.
 With both `sidebar.enabled` and `nametags.enabled` off, players are put back on the main scoreboard.
 

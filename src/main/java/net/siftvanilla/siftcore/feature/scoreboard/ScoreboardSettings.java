@@ -45,8 +45,8 @@ public record ScoreboardSettings(
     /** The line name of an empty line. */
     public static final String BLANK = "blank";
     /** The default sidebar. */
-    public static final List<String> DEFAULT_LINES = List.of(BLANK, "balance", "shards", "kills", "deaths", "playtime", "team",
-        BLANK, "website");
+    public static final List<String> DEFAULT_LINES = List.of(BLANK, "balance", "shards", "booster", "kills", "deaths", "playtime",
+        "team", BLANK, "website");
     /** LuckPerms group names: lowercase letters, digits, - and _ (a dot would split the YAML key). */
     private static final Pattern GROUP = Pattern.compile("[a-z0-9_-]{1,36}");
     private static final int MAX_LABEL = 32;

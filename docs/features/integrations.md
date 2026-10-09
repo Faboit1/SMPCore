@@ -2,7 +2,8 @@
 
 SiftCore's hooks into optional plugins, its public API, and the admin tools under `/sift`: integration status,
 database backups, CSV exports, the audit log, the permission and placeholder registries with their generated
-reference pages, and store delivery. Package `feature/integrations` (feature, store, admin tools) plus
+reference pages, store delivery (including server sell boosters), `/purchases`, and joining a full server for rank
+holders. Package `feature/integrations` (feature, store, admin tools) plus
 `integration/placeholderapi`, `integration/luckperms` and `integration/floodgate` (the only classes that touch those
 plugins' APIs), public interfaces in `api`, config `features/integrations.yml`, text `lang/integrations.yml`, table
 `store_deliveries` (V075).
@@ -13,12 +14,13 @@ plugin names are compile-time constants, so even the check loads nothing). `/sif
 hook when its setting changes. The Vault economy (VaultUnlocked, legacy and modern interfaces) belongs to the economy
 feature (`integration/vault`); `/sift integrations` reports on it too.
 
-The feature provides one contract and consumes four:
+The feature provides one contract and consumes five:
 
 | Contract | Direction | Wired |
 |---|---|---|
 | `core.integration.Ranks` | provides, `IntegrationsFeature#ranks()` | for chat, the scoreboard and other features that show ranks; one object for the whole run, answering `Ranks.NONE` until LuckPerms is connected |
 | `CrateKeys` | consumes | `crates.keys()` (store key delivery) |
+| `ServerBoosters` | consumes | `boosters.boosters()` (store booster delivery and revokes, `/purchases` booster states; see `docs/features/boosters.md`) |
 | `EconomyApi` | consumes | `economy.economy()` (the public API) |
 | `CombatTags` | consumes | the shared combat tags (the public API's read-only combat view) |
 | `AdminFeature` | consumes | adds its `/sift` subcommands with `addPart` |
@@ -103,7 +105,10 @@ client could not be checked here.
 
 ## Commands and permissions
 
-Every tool is a `/sift` subcommand, works from the console, and runs anything slow off the server threads.
+Every tool is a `/sift` subcommand, works from the console, and runs anything slow off the server threads. Store
+deliveries and revokes are console only (the web store's console commands, RCON or staff at the server console): they
+don't exist for players, command blocks or entities at all, whatever their permissions, so nobody in game can give
+out a purchase under any name and reference. The store lookups (`check`, `history`) stay open to staff in game.
 
 | Command | Permission | What it does |
 |---|---|---|
@@ -115,17 +120,23 @@ Every tool is a `/sift` subcommand, works from the console, and runs anything sl
 | `/sift permissions [filter] [page]` | `siftcore.admin.registry` | Every declared permission with its description and default (filter by text, `any` for all); the console gets the whole list |
 | `/sift placeholders [filter] [page]` | `siftcore.admin.registry` | Every placeholder with its description and your current value |
 | `/sift docs` | `siftcore.admin.registry` | Writes `permissions.md` and `placeholders.md` to `plugins/SiftCore/docs` |
-| `/sift store money <player> <amount> <ref>` | `siftcore.admin.store` | Store delivery of money (`1.5k`, `2m` work) |
-| `/sift store shards <player> <amount> <ref>` | `siftcore.admin.store` | Store delivery of shards |
-| `/sift store keys <player> <crate> <amount> <ref>` | `siftcore.admin.store` | Delivery of virtual crate keys, for staff and events (keys are never sold, see [monetization](../monetization.md)). The texts word the keys like the crates do, with the crate's name (`1 Basic key`, `3 Basic keys`) |
-| `/sift store rank <player> <group> [duration] <ref>` | `siftcore.admin.store` | Store delivery of a LuckPerms group, for a time (`30d`, `12h`) or `permanent` (also when the duration is left out) |
-| `/sift store revoke <ref> [reason]` | `siftcore.admin.store` | Takes a delivery back after a refund or chargeback (`reason` is one word, `refund` when left out); the reference stays used |
+| `/sift store money <player> <amount> <ref>` | `siftcore.admin.store`, console only | Store delivery of money (`1.5k`, `2m` work) |
+| `/sift store shards <player> <amount> <ref>` | `siftcore.admin.store`, console only | Store delivery of shards |
+| `/sift store keys <player> <crate> <amount> <ref>` | `siftcore.admin.store`, console only | Delivery of virtual crate keys, for staff and events (keys are never sold, see [monetization](../monetization.md)). The texts word the keys like the crates do, with the crate's name (`1 Basic key`, `3 Basic keys`) |
+| `/sift store rank <player> <group> [duration] <ref>` | `siftcore.admin.store`, console only | Store delivery of a LuckPerms group, for a time (`30d`, `12h`) or `permanent` (also when the duration is left out) |
+| `/sift store booster <player\|uuid\|console> sell <percent> <length> <ref>` | `siftcore.admin.store`, console only | Store delivery of a server-wide sell booster (`console` for one from the server itself, such as a community goal) |
+| `/sift store revoke <ref> [reason]` | `siftcore.admin.store`, console only | Takes a delivery back after a refund or chargeback (`reason` is one word, `refund` when left out); the reference stays used |
 | `/sift store check <ref>` | `siftcore.admin.store` | What a reference delivered, to whom, when, by whom, and whether it is done, waiting or revoked (and why) |
 | `/sift store history <player>` | `siftcore.admin.store` | A player's store deliveries, newest first |
+| `/purchases` (`/mypurchases`) | `siftcore.command.purchases` (everyone) | Your own store purchases, read only (see below) |
+| `/purchases <player\|uuid>` | `siftcore.admin.store` | Anyone's purchases (a dialog in game, chat lines from the console) |
 
-All nodes default to operators. `/sift` itself needs `siftcore.admin` (admin feature).
+All nodes except `siftcore.command.purchases` default to operators. `/sift` itself needs `siftcore.admin` (admin
+feature). Two more nodes are read from LuckPerms at login (see Joining a full server): `siftcore.join.full` (a rank
+perk, Baron and up) and `siftcore.join.full.staff`. They default to nobody, operators included: only a LuckPerms
+grant counts.
 
-Audit actions: `store.money`, `store.shards`, `store.keys`, `store.rank`, `store.failed` (every refused delivery
+Audit actions: `store.money`, `store.shards`, `store.keys`, `store.rank`, `store.booster`, `store.failed` (every refused delivery
 with its reason), `store.resumed` (an interrupted rank delivery finished at startup), `store.revoke` (with the reason
 and what was taken back), `store.revoke.failed`, `store.revoke.resumed`, `admin.backup`, `admin.export`, `admin.docs`.
 
@@ -141,6 +152,8 @@ example:
 sift store rank {uuid} prospector 30d tebex-{transaction}-{packageId}
 sift store rank {uuid} tycoon permanent tebex-{transaction}-{packageId}
 sift store money {uuid} 250k tebex-{transaction}-{packageId}
+sift store booster {uuid} sell 10 30m tebex-{transaction}-{packageId}
+sift store booster console sell 15 48h goal-2026-10
 sift store revoke tebex-{transaction}-{packageId} refund
 ```
 
@@ -162,6 +175,18 @@ reference is delivered at most once**, whatever the store retries, even across r
   anything as long or longer is left alone), then the delivery is marked done. A pending delivery (crash, or LuckPerms
   failing) is finished on the next start, or by the same command again; finishing never adds time twice. Rank grants
   of one player run one at a time, so two 30-day purchases always give 60 days.
+- **Boosters**: one silent ledger transaction holds the reference check, the booster (it starts, or waits in line
+  behind the running one) and the `store_deliveries` row (kind `booster`, item the booster kind `sell`, amount the
+  percent as bought, duration in seconds; the buyer is the nil UUID for `console`). Only the hard limits refuse a
+  purchase: the percent must be 1 to 50 and the length 1 minute to 30 days (a mistyped command); anything else is
+  refused and records nothing. The limits in `features/boosters.yml` are for staff boosters: a store booster above
+  `sell.max-percent` (a package made before the owner lowered it) is delivered all the same, because the buyer paid
+  and the store won't retry, and pays the limit while it is lower; the console reply adds "It was bought for +15% but
+  pays +10% while sell.max-percent in boosters.yml is lower." and the log gets a warning. A store booster is never
+  refused for a long line either (only staff boosters are limited by `queue.staff-limit`). Everyone online is told by
+  the boosters feature, once the delivery is stored ("Alex started a +10% sell booster for 30 minutes. Thank you!" or
+  that it waits in line); the buyer, when online, is told that it runs now or which number in line it is. Every
+  percent players see is the one it pays. Details: `docs/features/boosters.md`.
 
 Before anything is applied, `StoreDeliveryEvent` (cancellable) is fired; a cancelled delivery records nothing, so the
 same reference can be delivered later. Refusals (all recorded as `store.failed`): reference malformed, amount zero or
@@ -190,9 +215,41 @@ idempotent and crash-safe like delivery:
   LuckPerms is finished first, so only time it really added is taken.
 - **Keys**: the crates contract has no way to take keys, so the reference is marked revoked and the sender is told the
   `/crates take` command to run.
+- **Boosters**: in the same transaction as the revoke, a running booster ends at once (the next one in line starts), a
+  waiting one is taken out of line, and one that already ran has nothing left to take. The note records which
+  ("refund, booster ended early", "booster taken out of line", "booster had already ended").
 
 An online buyer is told "A store purchase was cancelled, so <what> was taken back." (with `store.notify-player`).
 A chargeback usually also gets a temporary ban from the store's own command list.
+
+## Purchases (`/purchases`)
+
+A read-only dialog of the player's own store deliveries, newest first, six per page with Previous and Next: what it
+gave (a rank and its length, a booster, money, shards or keys), the day (UTC) and how long ago, the reference
+(shortened to its first 8 and last 7 characters when longer than 16) and what became of it: delivered, being
+delivered (a rank waiting for LuckPerms), being taken back, taken back (with the reason), or for a booster whether it
+runs now (time left) or waits (place in line). What it gave is the purchase as bought (a booster bought for +15%
+says +15% even while `sell.max-percent` caps what it pays). The list is read from the store's in-memory book (up to 200 entries),
+never from another player: `/purchases <player>` needs `siftcore.admin.store`, and a player without it who tries
+gets their own page. Staff can pass a UUID for buyers who never joined. From the console it prints the same lines.
+Bedrock players get the same list as a form (through the dialog-to-form bridge; not tried with a real Bedrock
+client, see Unverified).
+
+## Joining a full server
+
+Players with `siftcore.join.full` (Baron and up) or `siftcore.join.full.staff` may join when the server is full.
+Paper decides "full" before the player exists, in `PlayerServerFullCheckEvent` (verified on Paper/Canvas 26.2: it is
+fired from `PlayerList.canBypassFullServerLogin`, twice per login), where Bukkit permissions are not available yet.
+So the node is read from LuckPerms while the player logs in (`AsyncPlayerPreLoginEvent`, `MONITOR`, on the login
+thread: the user LuckPerms loaded for that login, or `loadUser`, checked with LuckPerms' static query options, waiting
+at most 3 seconds) and remembered for one minute; the full check then only reads that answer and calls
+`allow(true)`. Without LuckPerms nobody gets past a full server this way. Only LuckPerms grants count: the
+server's "operators have it by default" does not exist before join, so the nodes default to nobody and an operator
+needs the node set in LuckPerms too. Vanilla's own bypass, an ops.json entry with `"bypassesPlayerLimit": true`, is
+already part of the event's answer (Canvas 26.2 checks `ServerOpList.canBypassPlayerLimit` before firing it) and keeps
+working. The player sees nothing special; the
+console logs "Let Alex join the full server (20/20 online; siftcore.join.full)." once per login, naming the node that
+let them in. `join-full.enabled: false` turns it off.
 
 ## Backups
 
@@ -251,7 +308,8 @@ the test server and are regenerated after integration.
 | `store.rank-groups` | prospector, baron, tycoon | Groups the store may grant (empty: any, not advised) |
 | `store.min-rank-duration`, `max-rank-duration` | 1h, 3650d | Timed rank bounds |
 | `store.notify-player` | true | Tell the buyer when it arrives |
-| `store.announce` | false | Tell everyone |
+| `store.announce` | false | Tell everyone (boosters are always announced by the boosters feature instead) |
+| `join-full.enabled` | true | Let `siftcore.join.full` and `siftcore.join.full.staff` holders join a full server (needs LuckPerms) |
 
 ## Self-test
 
@@ -268,3 +326,11 @@ becomes a custom form whose submit and close press the right buttons, a list a s
 - Store deliveries name crates by id; buyers see `3 legendary keys`.
 - The feature id is `integrations`; its lang and config files are new, so an existing server gets them on the next
   start.
+
+## Unverified
+
+- Bedrock: `/purchases` and the other dialogs reach Bedrock players as forms through the dialog-to-form bridge (the
+  self-test `dialogs map to Bedrock forms` checks the mapping), but Floodgate is not installed on the test servers, so
+  no real Bedrock client has seen them.
+- Joining a full server is tested end to end with bots and LuckPerms grants; a real proxy-less join with a vanilla
+  client behaves the same (the same event), but was not tried.

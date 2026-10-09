@@ -58,6 +58,9 @@ integrations:
     rank-pending: "<primary>The rank delivery <ref> is recorded but LuckPerms failed: <secondary><detail>. Run the same command again to finish it."
     unknown-player: "<primary>Nobody called <name> has joined. <secondary>Use their account id to deliver before they join."
     bad-duration-input: "<primary><input> <secondary>is not a duration. Try 30d, 12h or permanent."
+    bad-booster-length: "<primary><input> <secondary>is not a length. Try 30m, 2h or 48h."
+    # After a booster bought for more than sell.max-percent was delivered (it is never refused for that).
+    booster-capped: "<primary>It was bought for +<percent>% but pays +<paid>% <secondary>while sell.max-percent in boosters.yml is lower."
     check: "<primary><ref> <secondary>gave <primary><what> <secondary>to <primary><name> <secondary><time> ago, <state>, by <actor>"
     check-none: "<primary>Nothing was delivered under <ref>."
     history-header: "<primary>Store deliveries of <name> <secondary>(<count>)"
@@ -76,12 +79,18 @@ integrations:
       rank-cut: "Their <rank> rank now ends in <time>."
       rank-removed: "Their <rank> rank was taken away."
       rank-kept: "No time was left to take; they keep <rank> from another grant."
+      booster-ended: "The running booster was ended; the next one in line started."
+      booster-removed: "The booster was taken out of line before it started."
+      booster-over: "The booster had already run, so nothing was ended."
     what:
       money: "<amount>"
       shards: "<amount> shards"
       keys: "<keys>"
       rank: "<rank> for <time>"
       rank-permanent: "<rank> permanently"
+      booster: "a +<percent>% sell booster for <time>"
+    # Who a booster from the server itself (the console, community goals) went to.
+    who-server: "the server"
     state:
       done: "delivered"
       pending: "waiting for LuckPerms"
@@ -102,14 +111,42 @@ integrations:
       unavailable: "the economy is read-only after storage failures"
       storage: "the database could not store it, nothing was given"
       other: "<reason>"
+      unknown-booster: "there is no such booster (sell is the only kind)"
+      bad-booster-percent: "the percent must be from 1 to <max>"
+      bad-booster-duration: "the length must be from <min> to <max>"
+      no-boosters: "boosters are not available on this server"
     notify:
       money: "<primary>Your store purchase arrived: <amount> was added to your balance. <secondary>Thank you for supporting the server."
       shards: "<primary>Your store purchase arrived: <amount> shards. <secondary>Thank you for supporting the server."
       keys: "<primary>Your store purchase arrived: <keys>. <secondary>Open them with /crates."
       rank: "<primary>Your store purchase arrived: you are <rank> for <time>. <secondary>Thank you for supporting the server."
       rank-permanent: "<primary>Your store purchase arrived: you are <rank> for good. <secondary>Thank you for supporting the server."
+      booster: "<primary>Your store purchase arrived: a +<percent>% sell booster for everyone online, running now for <time>. <secondary>Thank you for supporting the server."
+      booster-queued: "<primary>Your store purchase arrived: a +<percent>% sell booster for everyone online, for <time>. <secondary>It starts after the boosters before it (number <position> in line)."
       revoked: "<primary>A store purchase was cancelled, so <what> was taken back."
     announce: "<primary><name> <secondary>supported the server with <primary><what><secondary>. Thank you."
+
+  # /purchases: your store purchases, newest first (staff: /purchases <player>).
+  purchases:
+    title: "Your purchases"
+    title-other: "<name>'s purchases"
+    page: "<secondary><count> purchases, page <page> of <pages>"
+    empty: "<primary>You have no store purchases yet."
+    empty-other: "<primary><name> has no store purchases."
+    what: "<primary><what>"
+    # <date> is the day of the purchase (UTC), <time> how long ago, <ref> the store reference, shortened.
+    detail: "<secondary><date> (<time> ago), <state>, ref <ref>"
+    state:
+      delivered: "delivered"
+      pending: "being delivered"
+      revoking: "being taken back"
+      revoked: "taken back (<reason>)"
+      running: "running now, <time> left"
+      queued: "waiting, number <position> in line"
+    previous: "Previous page"
+    next: "Next page"
+    help: "<secondary>Missing a purchase? Ask staff with its store order id."
+    header: "<primary>Store purchases of <name> <secondary>(<count>)"
 
   forms:
     action: "Action"

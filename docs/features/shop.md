@@ -66,13 +66,21 @@ together). Entries that were removed or are hidden right now are not shown.
 
 Every price is checked against the worth table (`feature/sell`) when the config is loaded: an item's price must be
 more than the most one unit can be turned into, times the best multiplier anyone can reach (the best rank in
-`features/sell.yml` plus the top sell mastery bonus: 1.5 + 0.25 = 1.75 by default), times 1.1. "Turned into" covers
+`features/sell.yml` plus the top sell mastery bonus: 1 + 0.25 = 1.25 with the shipped empty `multipliers`), times the
+largest server sell booster allowed (`sell.max-percent` in `features/boosters.yml`, +25%: 1.25 x 1.25 = 1.5625),
+times 1.1. So buying in the shop and selling it back loses money even with the best mastery while the strongest
+booster runs. "Turned into" covers
 selling it directly and crafting it (through chains of recipes) into something that sells, minus what the other
 ingredients of those recipes cost; ingredients that sell cost their sell price, ingredients that don't cost what
 making them from their cheapest recipe costs, and items that neither sell nor come from a recipe cost nothing
 (`ShopValidator`). A price that breaks the rule is a config problem: `/sift reload` refuses the change (including a
-`features/sell.yml` change, such as a higher multiplier or mastery step, that would make an existing shop price
-unsafe), and at startup the item is left out of the shop. Items that can't be sold at all may have any price.
+`features/sell.yml` change, such as a higher multiplier or mastery step, or a higher `sell.max-percent` in
+`features/boosters.yml`, that would make an existing shop price unsafe), and at startup the item is left out of the
+shop. The problem names the booster: "... (1.5625x with the best sell bonus and a +25% sell booster)". During a
+reload the shop is checked against the booster limit being loaded (the boosters config is parsed before the shop's),
+so lowering `max-percent` and a shop price together works in one reload. A running booster never pays more than the
+current `max-percent`, even one started under a higher limit or a store booster bought for more (it is delivered and
+pays the limit), so the check always covers what is paid. Items that can't be sold at all may have any price.
 
 The default prices were checked this way; a few needed to be above the obvious value because of recipes
 (cobblestone and cobbled deepslate smelt into stone, feathers make arrows, flint and steel uses an iron ingot), and
@@ -97,7 +105,8 @@ entry's `price x max` must fit the money limit.
 ## Integration
 
 - Reads prices through `feature.sell.Pricing.Source` (the `WorthService` from `SellFeature#worth()`), using the
-  newest parsed sell settings during a reload so both files are validated together.
+  newest parsed sell and booster settings during a reload so the files are validated together
+  (`Pricing#guardMultiplier()` = highest multiplier x (1 + max booster / 100)).
 - Shows and uses selling through `feature.sell.SellLink` (`SellFeature#link()`): sell-back prices, carried counts and
   right-click selling.
 - Offers itself to selling as `feature.sell.ShopOffers` (`ShopFeature#offers()`, handed to `SellFeature#shop`): the
@@ -109,20 +118,22 @@ entry's `price x max` must fit the money limit.
 ## Self-tests (`/sift selftest`)
 
 - `prices stay above what items sell for`: every non-spawner entry passes the price check against the live table
-  and the highest multiplier including mastery.
+  and the highest multiplier including mastery and the largest sell booster allowed.
 - `every entry can be handed out`: every entry makes a real item and `price x max` fits the money limit.
 - `spawner entries match the spawner provider`: every spawner entry the provider lists makes a spawner item.
 
-(`sell`'s `shop safe with mastery` checks the same multiplier from the selling side.)
+(`sell`'s `shop safe with mastery and boosters` checks the same multiplier from the selling side.)
 
 ## Tests
 
 Unit: `ShopValidatorTest` (liquidation values, recipe chains, ingredient costs, multipliers including the mastery
-bonus, margin), `ShopSettingsTest`, `PurchaseMathTest` (totals and overflow, typed and slider amounts, capacity and
+bonus, the largest booster, margin), `ShopSettingsTest`, `PurchaseMathTest` (totals and overflow, typed and slider amounts, capacity and
 claim-box split, "Max you can afford" and "Fill your inventory"), `RecentPurchasesTest`, `PurchaseRefTest` (every
 purchase claims under its own reference), and the shared hand-over pieces `economy.HandoffsTest` (a scheduler that
 returns no task, throws, retires the player or never runs: exactly one of delivery and fallback, once) and
 `economy.SlotPlanTest`. End to end (`tools/e2e`): `SellShopScenarios` (`shop-buy`, `shop-amount`, `shop-confirm`,
 `shop-refusals`, `shop-claim-box`, `shop-double-submit`, `shop-left-before-commit`: the buyer leaves while storage
-is held up, and the paid items wait in the claim box) and `SellPlusScenarios` (`shop-combat-blocked`, `shop-search`,
-`shop-quick-and-buy-again`, `shop-right-click-sell`).
+is held up, and the paid items wait in the claim box), `SellPlusScenarios` (`shop-combat-blocked`, `shop-search`,
+`shop-quick-and-buy-again`, `shop-right-click-sell`) and `BoostersScenarios` (`boosters-shop-guard`: a diamond price
+safe at +5% but not at +25% is refused, accepted together with `max-percent: 5`, and raising the limit again is
+refused).

@@ -65,6 +65,10 @@ public final class IntegrationsMessages {
     public static final MessageKey STORE_RANK_PENDING = MessageKey.chat("integrations.store.rank-pending", "ref", "detail").withFeedback(Feedback.ERROR);
     public static final MessageKey STORE_UNKNOWN_PLAYER = MessageKey.chat("integrations.store.unknown-player", "name").withFeedback(Feedback.ERROR);
     public static final MessageKey STORE_BAD_DURATION_INPUT = MessageKey.chat("integrations.store.bad-duration-input", "input").withFeedback(Feedback.ERROR);
+    public static final MessageKey STORE_BAD_BOOSTER_LENGTH = MessageKey.chat("integrations.store.bad-booster-length", "input")
+        .withFeedback(Feedback.ERROR);
+    /** After a booster bought for more than {@code sell.max-percent} was delivered: what it pays meanwhile. */
+    public static final MessageKey STORE_BOOSTER_CAPPED = MessageKey.chat("integrations.store.booster-capped", "percent", "paid");
     public static final MessageKey STORE_CHECK = MessageKey.chat("integrations.store.check", "ref", "what", "name", "time", "state", "actor");
     public static final MessageKey STORE_CHECK_NONE = MessageKey.chat("integrations.store.check-none", "ref");
     public static final MessageKey STORE_HISTORY_HEADER = MessageKey.chat("integrations.store.history-header", "name", "count");
@@ -84,6 +88,9 @@ public final class IntegrationsMessages {
     public static final MessageKey REVOKE_RANK_CUT = MessageKey.ui("integrations.store.revoke.rank-cut", "rank", "time");
     public static final MessageKey REVOKE_RANK_REMOVED = MessageKey.ui("integrations.store.revoke.rank-removed", "rank");
     public static final MessageKey REVOKE_RANK_KEPT = MessageKey.ui("integrations.store.revoke.rank-kept", "rank");
+    public static final MessageKey REVOKE_BOOSTER_ENDED = MessageKey.ui("integrations.store.revoke.booster-ended");
+    public static final MessageKey REVOKE_BOOSTER_REMOVED = MessageKey.ui("integrations.store.revoke.booster-removed");
+    public static final MessageKey REVOKE_BOOSTER_OVER = MessageKey.ui("integrations.store.revoke.booster-over");
     public static final MessageKey NOTIFY_REVOKED = MessageKey.chat("integrations.store.notify.revoked", "what");
 
     public static final MessageKey WHAT_MONEY = MessageKey.ui("integrations.store.what.money", "amount");
@@ -92,6 +99,9 @@ public final class IntegrationsMessages {
     public static final MessageKey WHAT_KEYS = MessageKey.ui("integrations.store.what.keys", "keys", "amount", "crate");
     public static final MessageKey WHAT_RANK = MessageKey.ui("integrations.store.what.rank", "rank", "time");
     public static final MessageKey WHAT_RANK_PERMANENT = MessageKey.ui("integrations.store.what.rank-permanent", "rank");
+    public static final MessageKey WHAT_BOOSTER = MessageKey.ui("integrations.store.what.booster", "percent", "time");
+    /** Who a booster from the server itself (the console) went to. */
+    public static final MessageKey WHO_SERVER = MessageKey.ui("integrations.store.who-server");
     public static final MessageKey STATE_DONE = MessageKey.ui("integrations.store.state.done");
     public static final MessageKey STATE_PENDING = MessageKey.ui("integrations.store.state.pending");
     public static final MessageKey STATE_REVOKING = MessageKey.ui("integrations.store.state.revoking");
@@ -111,6 +121,10 @@ public final class IntegrationsMessages {
     public static final MessageKey REASON_UNAVAILABLE = MessageKey.ui("integrations.store.reason.unavailable");
     public static final MessageKey REASON_STORAGE = MessageKey.ui("integrations.store.reason.storage");
     public static final MessageKey REASON_OTHER = MessageKey.ui("integrations.store.reason.other", "reason");
+    public static final MessageKey REASON_UNKNOWN_BOOSTER = MessageKey.ui("integrations.store.reason.unknown-booster");
+    public static final MessageKey REASON_BAD_BOOSTER_PERCENT = MessageKey.ui("integrations.store.reason.bad-booster-percent", "max");
+    public static final MessageKey REASON_BAD_BOOSTER_DURATION = MessageKey.ui("integrations.store.reason.bad-booster-duration", "min", "max");
+    public static final MessageKey REASON_NO_BOOSTERS = MessageKey.ui("integrations.store.reason.no-boosters");
 
     // ------------------------------------------------------------------ players
     public static final MessageKey NOTIFY_MONEY = MessageKey.notify("integrations.store.notify.money", "amount");
@@ -118,7 +132,29 @@ public final class IntegrationsMessages {
     public static final MessageKey NOTIFY_KEYS = MessageKey.notify("integrations.store.notify.keys", "keys", "amount", "crate");
     public static final MessageKey NOTIFY_RANK = MessageKey.notify("integrations.store.notify.rank", "rank", "time");
     public static final MessageKey NOTIFY_RANK_PERMANENT = MessageKey.notify("integrations.store.notify.rank-permanent", "rank");
+    public static final MessageKey NOTIFY_BOOSTER = MessageKey.notify("integrations.store.notify.booster", "percent", "time");
+    public static final MessageKey NOTIFY_BOOSTER_QUEUED = MessageKey.notify("integrations.store.notify.booster-queued", "percent", "time",
+        "position");
     public static final MessageKey ANNOUNCE = MessageKey.chat("integrations.store.announce", "name", "what");
+
+    // ------------------------------------------------------------------ /purchases
+    public static final MessageKey PURCHASES_TITLE = MessageKey.ui("integrations.purchases.title");
+    public static final MessageKey PURCHASES_TITLE_OTHER = MessageKey.ui("integrations.purchases.title-other", "name");
+    public static final MessageKey PURCHASES_PAGE = MessageKey.ui("integrations.purchases.page", "page", "pages", "count");
+    public static final MessageKey PURCHASES_EMPTY = MessageKey.ui("integrations.purchases.empty");
+    public static final MessageKey PURCHASES_EMPTY_OTHER = MessageKey.ui("integrations.purchases.empty-other", "name");
+    public static final MessageKey PURCHASES_WHAT = MessageKey.ui("integrations.purchases.what", "what");
+    public static final MessageKey PURCHASES_DETAIL = MessageKey.ui("integrations.purchases.detail", "date", "time", "state", "ref");
+    public static final MessageKey PURCHASES_STATE_DELIVERED = MessageKey.ui("integrations.purchases.state.delivered");
+    public static final MessageKey PURCHASES_STATE_PENDING = MessageKey.ui("integrations.purchases.state.pending");
+    public static final MessageKey PURCHASES_STATE_REVOKING = MessageKey.ui("integrations.purchases.state.revoking");
+    public static final MessageKey PURCHASES_STATE_REVOKED = MessageKey.ui("integrations.purchases.state.revoked", "reason");
+    public static final MessageKey PURCHASES_STATE_RUNNING = MessageKey.ui("integrations.purchases.state.running", "time");
+    public static final MessageKey PURCHASES_STATE_QUEUED = MessageKey.ui("integrations.purchases.state.queued", "position");
+    public static final MessageKey PURCHASES_PREVIOUS = MessageKey.ui("integrations.purchases.previous");
+    public static final MessageKey PURCHASES_NEXT = MessageKey.ui("integrations.purchases.next");
+    public static final MessageKey PURCHASES_HEADER = MessageKey.chat("integrations.purchases.header", "name", "count");
+    public static final MessageKey PURCHASES_HELP = MessageKey.ui("integrations.purchases.help");
 
     // ------------------------------------------------------------------ Bedrock forms
     public static final MessageKey FORM_ACTION = MessageKey.ui("integrations.forms.action");

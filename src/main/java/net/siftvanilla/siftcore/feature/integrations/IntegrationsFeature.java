@@ -18,10 +18,12 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
+import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -41,10 +43,11 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 
 /**
- * Optional plugins and the public API: the PlaceholderAPI expansion, LuckPerms rank labels ({@link #ranks()}) and
- * store rank grants, Bedrock forms through Floodgate, and {@link SiftCoreApi} in the services manager. Also the admin
- * tools under {@code /sift}: integration status, backups, exports, the audit log, the permission and placeholder
- * registries with their generated docs, and store delivery.
+ * Optional plugins and the public API: the PlaceholderAPI expansion, LuckPerms rank labels ({@link #ranks()}), store
+ * rank grants and joining a full server ({@link FullServerJoins}), Bedrock forms through Floodgate, and
+ * {@link SiftCoreApi} in the services manager. Also the admin tools under {@code /sift}: integration status, backups,
+ * exports, the audit log, the permission and placeholder registries with their generated docs, and store delivery
+ * (boosters included); and {@code /purchases}, every player's own store history.
  * <p>
  * Each plugin hook is connected in {@link #enable()} only when its plugin is enabled and its setting is on, and is
  * connected or disconnected again when {@code /sift reload} changes the setting. The classes that touch an optional
@@ -71,6 +74,8 @@ public final class IntegrationsFeature implements Feature {
     private final StoreService store;
     private final BackupService backups;
     private final AdminTools tools;
+    private final PurchasesView purchases;
+    private final FullServerJoins fullJoins;
 
     private volatile LuckPermsHook luckPerms;
     private volatile RankAccess rankAccess = RankAccess.NONE;
@@ -81,8 +86,11 @@ public final class IntegrationsFeature implements Feature {
     private volatile HookState luckPermsState = HookState.MISSING;
     private volatile HookState floodgateState = HookState.MISSING;
 
+    /**
+     * @param boosters the server sell boosters, which the store delivers ({@code /sift store booster})
+     */
     public IntegrationsFeature(Services services, List<ConfigProblem> problems, AdminFeature admin, CombatTags combat, CrateKeys keys,
-                               EconomyApi economy) {
+                               EconomyApi economy, ServerBoosters boosters) {
         this.services = services;
         this.combat = combat;
         this.economy = economy;
@@ -92,11 +100,13 @@ public final class IntegrationsFeature implements Feature {
         services.lang().register(IntegrationsMessages.class);
         AdminTools.declare(services.permissions());
         StoreCommands.declare(services.permissions());
+        PurchasesView.declare(services.permissions());
+        FullServerJoins.declare(services.permissions());
 
         Path data = services.plugin().getDataFolder().toPath();
         var storage = services.core().get().storage();
         Path sqlite = storage.type().equals("sqlite") ? data.resolve(storage.sqliteFile()) : null;
-        this.store = new StoreService(services.ledger(), services.database(), keys, () -> this.rankAccess,
+        this.store = new StoreService(services.ledger(), services.database(), keys, boosters, () -> this.rankAccess,
             () -> this.settings.get().store(), IntegrationsFeature::allowDelivery, System::currentTimeMillis);
         this.backups = new BackupService(services.database(), sqlite, data.resolve("backups"), () -> this.settings.get().backups(),
             services.scheduler(), this.logger);
@@ -105,7 +115,11 @@ public final class IntegrationsFeature implements Feature {
         for (AdminFeature.AdminCommandPart part : this.tools.parts()) {
             admin.addPart(part);
         }
-        admin.addPart(new StoreCommands(services, this.settings, this.store, keys).part());
+        StoreCommands storeCommands = new StoreCommands(services, this.settings, this.store, keys);
+        admin.addPart(storeCommands.part());
+        this.purchases = new PurchasesView(services, this.store, storeCommands::what);
+        this.fullJoins = new FullServerJoins(() -> this.rankAccess, () -> this.settings.get().joinFull(), this.logger,
+            System::currentTimeMillis);
     }
 
     @Override
@@ -139,10 +153,16 @@ public final class IntegrationsFeature implements Feature {
     }
 
     @Override
+    public List<SiftCommand> commands() {
+        return List.of(this.purchases.command());
+    }
+
+    @Override
     public void enable() throws Exception {
         List<Delivery> pending = this.store.load();
         registerPlaceholders();
         applyHooks();
+        Bukkit.getPluginManager().registerEvents(this.fullJoins, this.services.plugin());
         this.settings.onReload(reloaded -> {
             applyHooks();
             LuckPermsHook hook = this.luckPerms;

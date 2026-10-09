@@ -1,0 +1,44 @@
+# Server-wide sell boosters: a booster raises what the server pays for items (/sell in every form, quick selling in
+# the shop and selling a spawner's storage) by a percent, for everyone online, for a while. Buy orders and the
+# auction house are player-to-player and never boosted. Changes apply with /sift reload.
+#
+# Boosters come from the store (/sift store booster <player|uuid|console> sell <percent> <length> <ref>, run by the
+# store's console command) and from staff (/sift booster start <percent> <length> [reason]). They run one after
+# another and never stack: a second booster waits until the first one ends. Their time only counts while the server
+# runs, so a restart picks a booster up where it was.
+
+sell:
+  # The largest percent a sell booster may raise prices by (1 to 50). No booster ever pays more than this: staff
+  # can't start one above it, and a store booster bought for more (a package made before the limit was lowered) is
+  # still delivered, so nobody loses a purchase, but pays this much while the limit is lower (staff are told).
+  # The shop checks every price against the best sell bonus times this booster (plus its 10% margin), so buying in
+  # the shop and selling it back can never make money, even while a booster runs. A higher value makes that check
+  # stricter: /sift reload says which shop prices are then too low.
+  max-percent: 25
+  # The shortest and longest booster staff may start. Store boosters only have to be from 1m to 30d long.
+  min-duration: 1m
+  max-duration: 3d
+
+queue:
+  # The most boosters that may wait at once before staff can add another. Store boosters are always accepted (a
+  # purchase is never refused), so the line can grow past this with purchases.
+  staff-limit: 20
+  # How many waiting boosters /booster lists.
+  shown: 5
+
+announce:
+  # Tell everyone in chat when a booster starts ("Alex started a +10% sell booster for 30 minutes. Thank you!").
+  started: true
+  # Tell everyone when a store booster has to wait for the boosters before it.
+  queued: true
+  # Tell everyone when a booster ends.
+  ended: true
+
+bar:
+  # Show a boss bar to everyone online while a booster runs: the percent, who it is from and the time left.
+  # Players can hide it with the "Booster bar" switch in /settings or in /booster.
+  enabled: true
+  # pink, blue, red, green, yellow, purple or white.
+  color: green
+  # progress, notched_6, notched_10, notched_12 or notched_20.
+  style: progress

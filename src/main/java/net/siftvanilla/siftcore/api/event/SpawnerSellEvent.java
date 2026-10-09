@@ -64,7 +64,7 @@ public final class SpawnerSellEvent extends SiftCancellableEvent {
         return this.total;
     }
 
-    /** The player's sell multiplier (1.0 when they have none). */
+    /** The player's sell multiplier: their rank with a running server sell booster on top (1.0 when neither applies). */
     public double multiplier() {
         return this.multiplier;
     }

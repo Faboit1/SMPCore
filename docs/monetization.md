@@ -66,7 +66,7 @@ player's own name on the scoreboard. No rank is red, so errors stay unmistakable
 | Nickname (/nick, real name on hover) | | | one colour | + hex and gradient | `siftcore.command.nick`, `siftcore.nick.gradient` |
 | Join and leave message | | | rank message | custom message | `siftcore.join.message`, `siftcore.join.message.custom` |
 | Kill effects (/killeffect, visual only) | | | | all effects | `siftcore.killeffect.*` |
-| Flight inside the protected spawn (off on leaving or when tagged) | | | yes | yes | `siftcore.spawn.fly` |
+| Flight inside the protected spawn (off on leaving or when tagged; at most `fly.max-height`, 48 blocks, above the spawn point; a soft landing) | | | yes | yes | `siftcore.spawn.fly` |
 | Join when the server is full | | | yes | yes | `siftcore.join.full` |
 | Server-wide +10% sell booster for 30 min on every purchase | | | | yes | store command |
 | Discord role | | yes | yes | yes | Tebex Discord delivery |
@@ -214,7 +214,10 @@ Options: cumulative pricing **on** (an upgrade costs only the difference: Prospe
 Boosters queue one after another and never add up, are announced with the buyer's name, show a boss bar to everyone,
 and only count down while the server runs. They raise /sell and spawner sales for everyone online; player-to-player
 trades (orders, the auction house) are not boosted. The shop's arbitrage guard accounts for the largest booster, so
-buying from the shop and selling back never makes money.
+buying from the shop and selling back never makes money. A booster package is never refused because of `sell.max-percent`
+(the buyer paid and Tebex does not retry): above the limit it is delivered and pays the limit, and `/sift selftest`
+fails `the store's booster packages arrive and pay in full` when the config would cap one of these packages. Full
+reference: [boosters](features/boosters.md).
 
 ### Refunds and chargebacks (every package)
 
@@ -242,7 +245,9 @@ buying from the shop and selling back never makes money.
   A rank delivered while LuckPerms was unavailable stays pending and is finished at the next startup.
 - **Revoke** takes back what a reference gave (the rank, a running or queued booster) and keeps the reference
   recorded as revoked, so it can't be delivered again.
-- `/sift store check <ref>` and `/sift store history <player>` look purchases up; every action is in `/sift audit store`.
+- Deliveries and revokes run from the console only (Tebex runs them there); no player can run them, whatever their
+  permissions. `/sift store check <ref>` and `/sift store history <player>` look purchases up (staff in game too);
+  every action is in `/sift audit store`.
 - Players see their own history with `/purchases`.
 
 ## Refund and chargeback policy

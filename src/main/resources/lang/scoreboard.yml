@@ -24,6 +24,8 @@ scoreboard:
       team: "<primary><icon:team> <secondary>Team <primary>{team}"
       rank: "<primary><icon:rank> <secondary>Rank <primary>{rank}"
       keyall: "<primary><icon:key> <secondary>Keyall <primary>{keyall_countdown}"
+      # Only while a sell booster runs (/booster).
+      booster: "<primary><icon:star> <secondary>Booster <primary>+{booster_percent}% <secondary>{booster_time_left}"
       bounty: "<primary><icon:bounty> <secondary>Bounty <money>{bounty_total}"
       combat: "<primary><icon:warning> <secondary>Combat <primary>{combat}"
       online: "<primary><icon:online> <secondary>Online <primary>{online}"

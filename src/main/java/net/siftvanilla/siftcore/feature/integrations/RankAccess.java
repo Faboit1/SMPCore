@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-/** The rank grants store delivery needs (LuckPerms when installed). */
+/** The rank grants store delivery needs and permission reads before join (LuckPerms when installed). */
 interface RankAccess {
 
     RankAccess NONE = new RankAccess() {
@@ -32,6 +32,11 @@ interface RankAccess {
         public CompletableFuture<Boolean> limit(UUID player, String group, boolean removePermanent, boolean cutTimed, Instant cutTo) {
             return CompletableFuture.failedFuture(new IllegalStateException("LuckPerms is not installed"));
         }
+
+        @Override
+        public CompletableFuture<Boolean> permission(UUID player, String node) {
+            return CompletableFuture.completedFuture(false);
+        }
     };
 
     /** How a player holds a group: permanently, until a time, or not ({@code until} null and not permanent). */
@@ -52,4 +57,7 @@ interface RankAccess {
      * grants that end after {@code cutTo} are cut to end then, or removed when {@code cutTo} is null or past.
      */
     CompletableFuture<Boolean> limit(UUID player, String group, boolean removePermanent, boolean cutTimed, Instant cutTo);
+
+    /** Whether a player who is not in the world yet has a permission (false without LuckPerms). */
+    CompletableFuture<Boolean> permission(UUID player, String node);
 }

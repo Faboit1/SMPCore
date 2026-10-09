@@ -67,6 +67,7 @@ class IntegrationsResourcesTest {
         assertFalse(settings.store().allowsGroup("admin"), "staff groups can't be bought");
         assertTrue(settings.store().notifyPlayer());
         assertFalse(settings.store().announce());
+        assertTrue(settings.joinFull(), "rank holders may join a full server");
     }
 
     @Test

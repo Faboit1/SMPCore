@@ -62,6 +62,7 @@ class SpawnResourcesTest {
         assertEquals(new BorderSpec(0, 0, 10_000), settings.borders().border("world"));
         assertEquals(new BorderSpec(0, 0, 5_000), settings.borders().border("world_nether"));
         assertEquals(new BorderSpec(0, 0, 6_000), settings.borders().border("world_the_end"));
+        assertEquals(new SpawnSettings.Fly(true, 48, true), settings.fly(), "/fly at spawn up to 48 blocks up, with a soft landing");
     }
 
     @Test
@@ -115,6 +116,27 @@ class SpawnResourcesTest {
         assertTrue(problems.stream().anyMatch(p -> p.contains("'world-border.worlds.creative'")), problems.toString());
         assertEquals(List.of("#minecraft:buttons"), settings.protection().allowedInteractions(), "valid entries are kept");
         assertEquals(Set.of(SpawnReason.NATURAL), settings.protection().blockedSpawnReasons());
+    }
+
+    @Test
+    void flightAlwaysHasAHeightLimit() throws Exception {
+        for (Object wrong : List.of(0, -10, SpawnSettings.Fly.MAX_HEIGHT + 1, "sky")) {
+            YamlConfiguration yaml = yaml("features/spawn.yml");
+            yaml.set("fly.max-height", wrong);
+            ConfigReader[] reader = new ConfigReader[1];
+            SpawnSettings settings = parse(yaml, reader);
+            List<String> problems = reader[0].problems().stream().map(ConfigProblem::toString).toList();
+            assertEquals(1, problems.size(), wrong + ": " + problems);
+            assertTrue(problems.getFirst().contains("'fly.max-height'"), problems.toString());
+            assertEquals(48, settings.fly().maxHeight(), "a wrong value falls back to the default limit, never to no limit");
+        }
+        YamlConfiguration yaml = yaml("features/spawn.yml");
+        yaml.set("fly.max-height", 120);
+        yaml.set("fly.fall-protection", false);
+        ConfigReader[] reader = new ConfigReader[1];
+        SpawnSettings settings = parse(yaml, reader);
+        assertEquals(List.of(), reader[0].problems());
+        assertEquals(new SpawnSettings.Fly(true, 120, false), settings.fly());
     }
 
     @Test

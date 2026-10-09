@@ -22,6 +22,7 @@ import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -29,19 +30,24 @@ import net.siftvanilla.siftcore.core.text.TextStyle;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.integration.luckperms.RankText;
 import org.bukkit.Bukkit;
+import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 /**
  * {@code /sift store ...}: what a web store's console commands run to deliver purchases, plus lookups for support.
  * Every delivery names the store's reference (order or transaction id) and is applied at most once per reference, so
  * a store that retries is harmless. The player may be a name (anyone who joined) or an account id, so a purchase can
- * be delivered before the buyer ever joins. Delivered purchases are audited as {@code store.<kind>}, refusals as
- * {@code store.failed}.
+ * be delivered before the buyer ever joins; a booster may also go to {@code console} (a booster from the server
+ * itself, such as a community goal). Delivered purchases are audited as {@code store.<kind>}, refusals as
+ * {@code store.failed}. Deliveries and revokes are console only ({@link #console}); lookups are for staff too.
  */
 final class StoreCommands {
 
     static final String PERMISSION = "siftcore.admin.store";
+    /** The buyer word for a booster from the server itself (a community goal). */
+    static final String CONSOLE = "console";
     private static final List<String> PERMANENT = List.of("permanent", "perm", "forever", "lifetime");
 
     private final Services services;
@@ -63,21 +69,32 @@ final class StoreCommands {
 
     AdminFeature.AdminCommandPart part() {
         return () -> Commands.literal("store").requires(CommandSupport.permission(PERMISSION))
-            .then(Commands.literal("money").then(player()
+            .then(Commands.literal("money").requires(StoreCommands::console).then(player()
                 .then(CommandSupport.amount("amount").then(ref().executes(ctx -> currency(ctx, Currency.MONEY))))))
-            .then(Commands.literal("shards").then(player()
+            .then(Commands.literal("shards").requires(StoreCommands::console).then(player()
                 .then(CommandSupport.amount("amount").then(ref().executes(ctx -> currency(ctx, Currency.SHARDS))))))
-            .then(Commands.literal("keys").then(player()
+            .then(Commands.literal("keys").requires(StoreCommands::console).then(player()
                 .then(crate()
                     .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1_000_000))
                         .then(ref().executes(this::keys))))))
-            .then(Commands.literal("rank").then(player()
+            .then(Commands.literal("rank").requires(StoreCommands::console).then(player()
                 .then(group()
                     .then(Commands.argument("durationOrRef", StringArgumentType.word())
                         .executes(ctx -> rank(ctx, null, StringArgumentType.getString(ctx, "durationOrRef")))
                         .then(ref().executes(ctx -> rank(ctx, StringArgumentType.getString(ctx, "durationOrRef"),
                             StringArgumentType.getString(ctx, "ref"))))))))
-            .then(Commands.literal("revoke").then(Commands.argument("ref", StringArgumentType.word())
+            .then(Commands.literal("booster").requires(StoreCommands::console).then(boosterTarget()
+                .then(Commands.argument("kind", StringArgumentType.word())
+                    .suggests((context, builder) -> {
+                        if (ServerBoosters.SELL.startsWith(builder.getRemainingLowerCase())) {
+                            builder.suggest(ServerBoosters.SELL);
+                        }
+                        return builder.buildFuture();
+                    })
+                    .then(Commands.argument("percent", IntegerArgumentType.integer(1, 100))
+                        .then(Commands.argument("length", StringArgumentType.word())
+                            .then(ref().executes(this::booster)))))))
+            .then(Commands.literal("revoke").requires(StoreCommands::console).then(Commands.argument("ref", StringArgumentType.word())
                 .executes(ctx -> revoke(ctx, null))
                 .then(Commands.argument("reason", StringArgumentType.word())
                     .suggests((context, builder) -> {
@@ -93,12 +110,38 @@ final class StoreCommands {
             .then(Commands.literal("history").then(player().executes(this::history)));
     }
 
+    /**
+     * Deliveries and revokes run from the console only (the web store's console commands, RCON, or staff at the server
+     * console): never from a player, a command block or an entity, so nobody in game can give out purchases under any
+     * name and reference. Lookups ({@code check}, {@code history}) stay open to staff with the permission.
+     */
+    static boolean console(CommandSourceStack source) {
+        CommandSender sender = source.getSender();
+        return !(sender instanceof Entity) && !(sender instanceof BlockCommandSender);
+    }
+
     private RequiredArgumentBuilder<CommandSourceStack, String> player() {
         return this.services.commands().knownPlayer("player");
     }
 
     private static RequiredArgumentBuilder<CommandSourceStack, String> ref() {
         return Commands.argument("ref", StringArgumentType.word());
+    }
+
+    /** A buyer for a booster: a player as for every delivery, or {@code console} for a booster from the server itself. */
+    private RequiredArgumentBuilder<CommandSourceStack, String> boosterTarget() {
+        return Commands.argument("player", StringArgumentType.word()).suggests((context, builder) -> {
+            String remaining = builder.getRemainingLowerCase();
+            if (CONSOLE.startsWith(remaining)) {
+                builder.suggest(CONSOLE);
+            }
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online.getName().toLowerCase(Locale.ROOT).startsWith(remaining)) {
+                    builder.suggest(online.getName());
+                }
+            }
+            return builder.buildFuture();
+        });
     }
 
     private RequiredArgumentBuilder<CommandSourceStack, String> crate() {
@@ -174,6 +217,33 @@ final class StoreCommands {
         return CommandSupport.OK;
     }
 
+    private int booster(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String input = StringArgumentType.getString(ctx, "player");
+        Optional<UUID> player = CONSOLE.equalsIgnoreCase(input) ? Optional.of(StoreService.SERVER) : player(sender, input);
+        if (player.isEmpty()) {
+            return CommandSupport.OK;
+        }
+        String lengthInput = StringArgumentType.getString(ctx, "length");
+        Duration length;
+        try {
+            length = Durations.parse(lengthInput);
+        } catch (IllegalArgumentException | ArithmeticException e) {
+            this.services.messenger().chat(sender, IntegrationsMessages.STORE_BAD_BOOSTER_LENGTH, Arg.text("input", lengthInput));
+            return CommandSupport.OK;
+        }
+        String ref = StringArgumentType.getString(ctx, "ref");
+        report(sender, player.get(), ref, this.store.booster(player.get(), StringArgumentType.getString(ctx, "kind").toLowerCase(Locale.ROOT),
+            IntegerArgumentType.getInteger(ctx, "percent"), length, ref, AdminTools.actor(sender)));
+        return CommandSupport.OK;
+    }
+
+    /** A player's name, or "the server" for a booster from the server itself. */
+    private String name(UUID player) {
+        return StoreService.SERVER.equals(player) ? this.services.lang().plain(IntegrationsMessages.WHO_SERVER)
+            : this.services.directory().name(player);
+    }
+
     /** A player by account id, online name or known name; tells the sender when there is none. */
     private Optional<UUID> player(CommandSender sender, String input) {
         Optional<UUID> uuid = StoreRules.uuid(input);
@@ -197,7 +267,7 @@ final class StoreCommands {
             if (error != null) {
                 result = StoreService.Outcome.failed("other", null, AdminTools.message(error));
             }
-            String name = this.services.directory().name(player);
+            String name = name(player);
             switch (result.status()) {
                 case DELIVERED -> delivered(sender, result.delivery(), actor);
                 case ALREADY -> {
@@ -247,9 +317,9 @@ final class StoreCommands {
 
     private void revoked(CommandSender sender, StoreService.Outcome outcome, String why, String actor) {
         Delivery delivery = outcome.delivery();
-        String name = this.services.directory().name(delivery.player());
+        String name = name(delivery.player());
         Component what = what(delivery);
-        Component detail = revokeDetail(delivery, outcome.taken(), name);
+        Component detail = revokeDetail(delivery, outcome, name);
         this.services.messenger().chat(sender, IntegrationsMessages.STORE_REVOKED, Arg.text("ref", delivery.ref()),
             Arg.component("what", what), Arg.text("name", name), Arg.component("detail", detail));
         this.services.audit().record(actor, "store.revoke", delivery.player().toString(), "ref " + delivery.ref() + " (" + why + "): "
@@ -260,10 +330,16 @@ final class StoreCommands {
         }
     }
 
-    /** What a revoke did: how much was taken, or what happened to the rank. */
-    private Component revokeDetail(Delivery delivery, long taken, String name) {
+    /** What a revoke did: how much was taken, or what happened to the rank or the booster. */
+    private Component revokeDetail(Delivery delivery, StoreService.Outcome outcome, String name) {
         Lang lang = this.services.lang();
+        long taken = outcome.taken();
         return switch (delivery.kind()) {
+            case BOOSTER -> lang.get(switch (outcome.reason() == null ? "" : outcome.reason()) {
+                case "ended" -> IntegrationsMessages.REVOKE_BOOSTER_ENDED;
+                case "removed" -> IntegrationsMessages.REVOKE_BOOSTER_REMOVED;
+                default -> IntegrationsMessages.REVOKE_BOOSTER_OVER;
+            });
             case MONEY, SHARDS -> taken == delivery.amount()
                 ? lang.get(IntegrationsMessages.REVOKE_TOOK, Arg.component("taken", amount(delivery, taken)))
                 : lang.get(IntegrationsMessages.REVOKE_TOOK_PART, Arg.component("taken", amount(delivery, taken)),
@@ -291,18 +367,30 @@ final class StoreCommands {
     }
 
     private void delivered(CommandSender sender, Delivery delivery, String actor) {
-        String name = this.services.directory().name(delivery.player());
+        String name = name(delivery.player());
         Component what = what(delivery);
         this.services.messenger().chat(sender, IntegrationsMessages.STORE_DELIVERED, Arg.component("what", what),
             Arg.text("name", name), Arg.text("ref", delivery.ref()));
         this.services.audit().record(actor, "store." + delivery.kind().name().toLowerCase(Locale.ROOT), delivery.player().toString(),
             "ref " + delivery.ref() + ": " + TextStyle.plain(what));
+        if (delivery.kind() == StoreDeliveryEvent.Kind.BOOSTER) {
+            int bought = (int) delivery.amount();
+            int paid = this.store.boosterPaid(bought);
+            if (paid < bought) {
+                // Delivered all the same (a purchase is never lost to a config change), but staff should know.
+                this.services.messenger().chat(sender, IntegrationsMessages.STORE_BOOSTER_CAPPED, Arg.number("percent", bought),
+                    Arg.number("paid", paid));
+                this.services.plugin().getLogger().warning("Store booster " + delivery.ref() + " was bought for +" + bought
+                    + "%, above sell.max-percent in boosters.yml: it pays +" + paid + "% while the limit is lower.");
+            }
+        }
         IntegrationsSettings.Store settings = this.settings.get().store();
         Player online = Bukkit.getPlayer(delivery.player());
         if (online != null && settings.notifyPlayer()) {
             notifyBuyer(online, delivery);
         }
-        if (settings.announce()) {
+        // A booster announces itself when it starts (and when it has to wait), so it is not announced twice.
+        if (settings.announce() && delivery.kind() != StoreDeliveryEvent.Kind.BOOSTER) {
             this.services.messenger().broadcast(IntegrationsMessages.ANNOUNCE, Arg.text("name", name), Arg.component("what", what));
         }
     }
@@ -314,8 +402,7 @@ final class StoreCommands {
             return;
         }
         this.services.messenger().chat(sender, IntegrationsMessages.STORE_ALREADY, Arg.component("what", what(delivery)),
-            Arg.text("name", this.services.directory().name(delivery.player())), Arg.text("ref", delivery.ref()),
-            Arg.time("time", age(delivery)));
+            Arg.text("name", name(delivery.player())), Arg.text("ref", delivery.ref()), Arg.time("time", age(delivery)));
     }
 
     private void failed(CommandSender sender, UUID player, String ref, StoreService.Outcome outcome, String actor) {
@@ -344,6 +431,18 @@ final class StoreCommands {
                         Arg.time("time", Duration.ofSeconds(delivery.duration())));
                 }
             }
+            case BOOSTER -> {
+                // What it pays now, like the announcement and the bar (a purchase above sell.max-percent pays the limit).
+                Arg percent = Arg.number("percent", this.store.boosterPaid((int) delivery.amount()));
+                Arg time = Arg.time("time", Duration.ofSeconds(delivery.duration()));
+                Optional<ServerBoosters.Status> status = this.store.boosterStatus(delivery.ref());
+                if (status.isPresent() && !status.get().running()) {
+                    messenger.send(player, IntegrationsMessages.NOTIFY_BOOSTER_QUEUED, percent, time,
+                        Arg.number("position", status.get().position()));
+                } else {
+                    messenger.send(player, IntegrationsMessages.NOTIFY_BOOSTER, percent, time);
+                }
+            }
         }
     }
 
@@ -364,6 +463,8 @@ final class StoreCommands {
                 ? lang.get(IntegrationsMessages.WHAT_RANK_PERMANENT, Arg.text("rank", RankText.fromGroup(delivery.item())))
                 : lang.get(IntegrationsMessages.WHAT_RANK, Arg.text("rank", RankText.fromGroup(delivery.item())),
                     Arg.time("time", Duration.ofSeconds(delivery.duration())));
+            case BOOSTER -> lang.get(IntegrationsMessages.WHAT_BOOSTER, Arg.number("percent", delivery.amount()),
+                Arg.time("time", Duration.ofSeconds(delivery.duration())));
         };
     }
 
@@ -389,6 +490,11 @@ final class StoreCommands {
             case "balance_limit" -> lang.get(IntegrationsMessages.REASON_BALANCE_LIMIT);
             case "unavailable" -> lang.get(IntegrationsMessages.REASON_UNAVAILABLE);
             case "storage" -> lang.get(IntegrationsMessages.REASON_STORAGE);
+            case "unknown_booster" -> lang.get(IntegrationsMessages.REASON_UNKNOWN_BOOSTER);
+            case "bad_booster_percent" -> lang.get(IntegrationsMessages.REASON_BAD_BOOSTER_PERCENT, Arg.number("max", ServerBoosters.PERCENT_CAP));
+            case "bad_booster_duration" -> lang.get(IntegrationsMessages.REASON_BAD_BOOSTER_DURATION,
+                Arg.time("min", ServerBoosters.MIN_LENGTH), Arg.time("max", ServerBoosters.MAX_LENGTH));
+            case "no_boosters" -> lang.get(IntegrationsMessages.REASON_NO_BOOSTERS);
             default -> lang.get(IntegrationsMessages.REASON_OTHER, Arg.text("reason",
                 outcome.detail() == null ? reason.replace('_', ' ') : reason.replace('_', ' ') + ": " + outcome.detail()));
         };
@@ -405,7 +511,7 @@ final class StoreCommands {
             return CommandSupport.OK;
         }
         this.services.messenger().chat(sender, IntegrationsMessages.STORE_CHECK, Arg.text("ref", ref), Arg.component("what", what(delivery)),
-            Arg.text("name", this.services.directory().name(delivery.player())), Arg.time("time", age(delivery)),
+            Arg.text("name", name(delivery.player())), Arg.time("time", age(delivery)),
             Arg.component("state", state(delivery)), Arg.text("actor", actorName(delivery.actor())));
         return CommandSupport.OK;
     }

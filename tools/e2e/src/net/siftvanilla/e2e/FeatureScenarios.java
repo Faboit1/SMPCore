@@ -32,6 +32,7 @@ final class FeatureScenarios {
         list.addAll(KitsScenarios.all());
         list.addAll(IntegrationsScenarios.all());
         list.addAll(ScoreboardScenarios.all());
+        list.addAll(BoostersScenarios.all());
         list.addAll(CosmeticsScenarios.all());
         return list;
     }

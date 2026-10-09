@@ -17,7 +17,9 @@ public final class StoreDeliveryEvent extends SiftCancellableEvent {
         MONEY,
         SHARDS,
         KEYS,
-        RANK
+        RANK,
+        /** A server-wide sell booster for everyone online. */
+        BOOSTER
     }
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -40,7 +42,7 @@ public final class StoreDeliveryEvent extends SiftCancellableEvent {
         this.actor = actor;
     }
 
-    /** Who receives the purchase. */
+    /** Who receives the purchase; for a booster from the server itself (console), the nil UUID. */
     public UUID player() {
         return this.player;
     }
@@ -49,17 +51,17 @@ public final class StoreDeliveryEvent extends SiftCancellableEvent {
         return this.kind;
     }
 
-    /** The currency id ({@code money}, {@code shards}), the crate id or the LuckPerms group. */
+    /** The currency id ({@code money}, {@code shards}), the crate id, the LuckPerms group or the booster kind ({@code sell}). */
     public String item() {
         return this.item;
     }
 
-    /** Money, shards or keys; 0 for ranks. */
+    /** Money, shards or keys; a booster's percent; 0 for ranks. */
     public long amount() {
         return this.amount;
     }
 
-    /** How long a rank lasts; null for permanent ranks and for everything that is not a rank. */
+    /** How long a rank or a booster lasts; null for permanent ranks and for money, shards and keys. */
     public Duration duration() {
         return this.duration;
     }

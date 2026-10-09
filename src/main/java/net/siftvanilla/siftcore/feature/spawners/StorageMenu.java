@@ -117,16 +117,19 @@ final class StorageMenu extends PagedMenu<StorageMenu.Entry> {
                 click(Feedback.CLICK);
                 runBusy(this.service.collectXp(this.viewer, this.spawner), outcome -> afterAction());
             });
-        double multiplier = this.worth.multiplier(this.viewer);
-        SpawnerService.Sale sale = this.service.price(state.items(), multiplier);
+        WorthLookup.SellRate rate = this.worth.rate(this.viewer);
+        SpawnerService.Sale sale = this.service.price(state.items(), rate);
         List<Component> sellLore;
         if (sale == null || sale.total() <= 0) {
             sellLore = lang.lines(SpawnersMessages.MENU_SELL_EMPTY);
-        } else if (multiplier > 1.0) {
-            sellLore = lang.lines(SpawnersMessages.MENU_SELL_LORE_BONUS, Arg.number("count", sale.count()), Arg.money("total", sale.total()),
-                Arg.text("multiplier", SpawnerService.multiplier(multiplier)));
         } else {
-            sellLore = lang.lines(SpawnersMessages.MENU_SELL_LORE, Arg.number("count", sale.count()), Arg.money("total", sale.total()));
+            sellLore = new ArrayList<>(rate.rank() > 1.0
+                ? lang.lines(SpawnersMessages.MENU_SELL_LORE_BONUS, Arg.number("count", sale.count()), Arg.money("total", sale.total()),
+                    Arg.text("multiplier", SpawnerService.multiplier(rate.rank())))
+                : lang.lines(SpawnersMessages.MENU_SELL_LORE, Arg.number("count", sale.count()), Arg.money("total", sale.total())));
+            if (sale.boost() > 0) {
+                sellLore.addAll(lang.lines(SpawnersMessages.MENU_SELL_BOOSTER, Arg.number("percent", sale.boost())));
+            }
         }
         set(SLOT_EXTRA_2, Items.icon(Material.EMERALD, lang.get(SpawnersMessages.MENU_SELL), sellLore), click -> {
             click(Feedback.CLICK);

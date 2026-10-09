@@ -59,7 +59,10 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
   region, `AsyncChatEvent` on an async thread, `AsyncPlayerPreLoginEvent` on an auth thread.
 - Player commands run on the player's thread; console commands on the global thread.
 - Safe from any thread: `sendMessage`, `sendActionBar`, `showDialog`, `closeDialog`, `playSound` to a player,
-  `teleportAsync`, `Bukkit.getOnlinePlayers()`, `getPlayer(uuid)`.
+  `teleportAsync`, `Bukkit.getOnlinePlayers()`, `getPlayer(uuid)`. Not on that list: `showBossBar`/`hideBossBar`
+  (CraftPlayer keeps a player's bars in a plain `HashSet`, checked with javap on Canvas 26.2): put lasting status
+  lines on the shared per-player bar, `services.statusBars()` (`core.text.StatusBars`, an owner name and a priority),
+  which changes each player's bar only on their thread.
 - Only `teleportAsync`; sync `teleport` throws.
 - `Bukkit.dispatchCommand` works only on the global thread and throws on parse errors (wrap in try/catch).
 - No world/entity scans on timers. Track what you need from events (chunk load/unload, place/break).
@@ -72,8 +75,10 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - All money/shards changes go through `services.ledger().execute(LedgerTx)`. Never keep your own balances.
 - A trade is ONE `LedgerTx`: postings (`transfer`, `source`, `sink`), `check(...)` suppliers that validate domain
   state under the economy lock, `apply(change, undo)` for in-memory domain changes, `write(sql)` for domain rows that
-  must commit atomically with the ledger rows. Results: `SUCCESS` (applied in memory, `committed()` completes after
-  the database commit), or a failure status with nothing applied.
+  must commit atomically with the ledger rows, and `afterCommit(callback)` for what may only happen once the change is
+  stored for good (telling players about it: the callback runs on the database callback thread before `committed()`
+  completes, and never for a reverted transaction). Results: `SUCCESS` (applied in memory, `committed()` completes
+  after the database commit), or a failure status with nothing applied.
 - Domain state that takes part in trades (listings, orders, spawner storage, bounties, keys) is held in memory,
   loaded at startup, and mutated only inside `apply` (under the economy lock).
 - Remove before grant:
@@ -155,7 +160,8 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - Need a change? Add `src/main/resources/db/migrations/V0NN.sql` in your range (first line is a `-- name`
   comment; use `{autoinc} {blob} {bigint} {text} {uuid} {engine}` tokens; one statement per `;` line ending):
   economy 10-14, shop/sell 15-19, orders 20-24, auction 25-29, spawners 30-34, teams 35-39, teleport 40-44,
-  combat/bounties 45-49, stats 50-54, crates 55-59, chat 60-64, afk/shards 65-69, kits 70-74, admin/store 75-79,
+  combat/bounties 45-49, stats 50-54, crates 55-59, chat 60-64, afk/shards 65-69, kits 70-74, admin/store/boosters 75-79
+  (V075 store deliveries, V076 boosters),
   scoreboard 80-84, integrations 85-89, staff 90-94, displays 95-99, friends 100-104, cosmetics 110-114.
 - Reads: `services.database().read(conn -> ...)` (off-thread). Writes outside trades: `database().write(...)`.
   Never `join()` a database future on a world thread.

@@ -18,7 +18,8 @@ import net.siftvanilla.siftcore.storage.SqlWork;
  * <p>
  * Rules for domain code: {@code checks} only read state and return a failure reason or null; {@code applies}
  * mutate in-memory state and must not fail; each apply has a matching revert used only if storing fails;
- * {@code writes} run on the database writer inside the same transaction as the ledger rows.
+ * {@code writes} run on the database writer inside the same transaction as the ledger rows; {@code afterCommit}
+ * callbacks run once that transaction is stored (never when it was reverted).
  */
 public final class LedgerTx {
 
@@ -30,6 +31,7 @@ public final class LedgerTx {
     private final List<Runnable> applies;
     private final List<Runnable> reverts;
     private final List<SqlWork<?>> writes;
+    private final List<Runnable> afterCommit;
     private final boolean fireEvent;
 
     private LedgerTx(Builder builder) {
@@ -41,6 +43,7 @@ public final class LedgerTx {
         this.applies = List.copyOf(builder.applies);
         this.reverts = List.copyOf(builder.reverts);
         this.writes = List.copyOf(builder.writes);
+        this.afterCommit = List.copyOf(builder.afterCommit);
         this.fireEvent = builder.fireEvent;
     }
 
@@ -81,6 +84,10 @@ public final class LedgerTx {
         return this.writes;
     }
 
+    List<Runnable> afterCommit() {
+        return this.afterCommit;
+    }
+
     boolean fireEvent() {
         return this.fireEvent;
     }
@@ -100,6 +107,7 @@ public final class LedgerTx {
         private final List<Runnable> applies = new ArrayList<>();
         private final List<Runnable> reverts = new ArrayList<>();
         private final List<SqlWork<?>> writes = new ArrayList<>();
+        private final List<Runnable> afterCommit = new ArrayList<>();
         private boolean fireEvent = true;
 
         private Builder() {
@@ -161,6 +169,16 @@ public final class LedgerTx {
         /** SQL that commits atomically with the ledger rows. */
         public Builder write(SqlWork<?> work) {
             this.writes.add(Objects.requireNonNull(work));
+            return this;
+        }
+
+        /**
+         * Runs once the transaction is stored, on the database callback thread (not under the economy lock), and never
+         * when it failed or was reverted. For things that must only happen for a change that lasts, such as telling
+         * players about it. Must be quick and must not block.
+         */
+        public Builder afterCommit(Runnable callback) {
+            this.afterCommit.add(Objects.requireNonNull(callback));
             return this;
         }
 

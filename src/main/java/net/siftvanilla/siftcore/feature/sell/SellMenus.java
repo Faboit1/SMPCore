@@ -206,12 +206,15 @@ final class SellMenus implements Listener {
                 if (lines.size() > shown) {
                     lore.addAll(lang.lines(SellMessages.MENU_TOTAL_MORE, Arg.number("count", lines.size() - shown)));
                 }
-                BigDecimal shared = draft.sharedMultiplier();
+                BigDecimal shared = draft.sharedBonus();
                 if (shared != null && shared.compareTo(BigDecimal.ONE) > 0) {
                     lore.addAll(lang.lines(SellMessages.MENU_TOTAL_BONUS,
                         Arg.text("multiplier", Multipliers.format(shared.doubleValue()))));
-                } else if (shared == null && draft.topMultiplier().compareTo(BigDecimal.ONE) > 0) {
+                } else if (shared == null && draft.topBonus().compareTo(BigDecimal.ONE) > 0) {
                     lore.addAll(lang.lines(SellMessages.MENU_TOTAL_BONUSES));
+                }
+                if (draft.boosted()) {
+                    lore.addAll(lang.lines(SellMessages.MENU_TOTAL_BOOSTER, Arg.number("percent", draft.boost())));
                 }
                 if (!draft.takes().isEmpty()) {
                     lore.addAll(lang.lines(SellMessages.MENU_TOTAL_ORDERS, Arg.money("orders", draft.ordersNet()),

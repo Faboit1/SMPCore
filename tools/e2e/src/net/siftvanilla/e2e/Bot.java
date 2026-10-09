@@ -56,6 +56,7 @@ import net.minecraft.network.protocol.cookie.ClientboundCookieRequestPacket;
 import net.minecraft.network.protocol.cookie.ServerboundCookieResponsePacket;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundBossEventPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
@@ -122,6 +123,7 @@ import net.minecraft.server.dialog.input.TextInput;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.server.network.EventLoopGroupHolder;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.ChatVisiblity;
@@ -248,8 +250,21 @@ public final class Bot {
     public record SeenSound(String sound, float volume, float pitch, long at) {
     }
 
-    /** A boss bar the client shows: its name and progress. */
-    public record SeenBossBar(UUID id, String name, float progress) {
+    /**
+     * A boss bar the client shows: its title, progress (0 to 1), colour and overlay (enum names, like GREEN and
+     * PROGRESS).
+     */
+    public record SeenBossBar(UUID id, Component text, float progress, String color, String overlay) {
+
+        /** The title as plain text. */
+        public String name() {
+            return this.text.getString();
+        }
+
+        /** The title as plain text (the same as {@link #name()}). */
+        public String title() {
+            return this.text.getString();
+        }
     }
 
     /** An entity the server added for this client, with its synced data values by data id. */
@@ -307,6 +322,7 @@ public final class Bot {
     private volatile Component tabFooter;
     private final Map<UUID, Component> listNames = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> listOrders = new ConcurrentHashMap<>();
+    private final AtomicInteger bossBarPackets = new AtomicInteger();
     /** Particles received, by particle type id (minecraft:heart), counting packets. */
     private final Map<String, AtomicInteger> particles = new ConcurrentHashMap<>();
     /** Every entity type the server ever added for this client (kept after the entity is removed). */
@@ -415,11 +431,6 @@ public final class Bot {
         return List.copyOf(this.sounds);
     }
 
-    /** The boss bars the client shows now. */
-    public List<SeenBossBar> bossBars() {
-        return List.copyOf(this.bossBars.values());
-    }
-
     public int deaths() {
         return this.deaths.get();
     }
@@ -458,6 +469,29 @@ public final class Bot {
     /** Whether the client currently tracks an entity with this uuid (it was spawned and not removed). */
     public boolean seesEntity(UUID uuid) {
         return this.entities.values().stream().anyMatch(entity -> entity.uuid().equals(uuid));
+    }
+
+    // ------------------------------------------------------------------ boss bars (client state)
+
+    /** The boss bars the client shows now (added and not yet removed). */
+    public List<SeenBossBar> bossBars() {
+        return List.copyOf(this.bossBars.values());
+    }
+
+    /** The boss bar whose title contains the text, or null. */
+    public SeenBossBar bossBar(String titleContains) {
+        String needle = titleContains.toLowerCase();
+        for (SeenBossBar bar : this.bossBars.values()) {
+            if (bar.title().toLowerCase().contains(needle)) {
+                return bar;
+            }
+        }
+        return null;
+    }
+
+    /** Boss bar packets received so far (adds, updates and removals). */
+    public int bossBarPackets() {
+        return this.bossBarPackets.get();
     }
 
     // ------------------------------------------------------------------ scoreboard and tab list (client state)
@@ -1080,29 +1114,6 @@ public final class Bot {
                 s.getVolume(), s.getPitch(), System.currentTimeMillis()));
             case net.minecraft.network.protocol.game.ClientboundSoundPacket s -> this.sounds.add(new SeenSound(soundId(s.getSound()),
                 s.getVolume(), s.getPitch(), System.currentTimeMillis()));
-            case net.minecraft.network.protocol.game.ClientboundBossEventPacket boss -> boss.dispatch(
-                new net.minecraft.network.protocol.game.ClientboundBossEventPacket.Handler() {
-                    @Override
-                    public void add(UUID id, Component name, float progress, net.minecraft.world.BossEvent.BossBarColor color,
-                                    net.minecraft.world.BossEvent.BossBarOverlay overlay, boolean darken, boolean music, boolean fog) {
-                        Bot.this.bossBars.put(id, new SeenBossBar(id, name.getString(), progress));
-                    }
-
-                    @Override
-                    public void remove(UUID id) {
-                        Bot.this.bossBars.remove(id);
-                    }
-
-                    @Override
-                    public void updateProgress(UUID id, float progress) {
-                        Bot.this.bossBars.computeIfPresent(id, (k, bar) -> new SeenBossBar(id, bar.name(), progress));
-                    }
-
-                    @Override
-                    public void updateName(UUID id, Component name) {
-                        Bot.this.bossBars.computeIfPresent(id, (k, bar) -> new SeenBossBar(id, name.getString(), bar.progress()));
-                    }
-                });
             case ClientboundSetHealthPacket health -> {
                 // A player who logged in dead gets no death screen packet, only their health: respawn like a client.
                 if (health.getHealth() <= 0) {
@@ -1218,6 +1229,37 @@ public final class Bot {
                     }
                     this.teams.put(name, new SeenTeam(name, prefix, suffix, color, options, Set.copyOf(members)));
                 }
+            }
+            case ClientboundBossEventPacket boss -> {
+                this.bossBarPackets.incrementAndGet();
+                boss.dispatch(new ClientboundBossEventPacket.Handler() {
+                    @Override
+                    public void add(UUID id, Component name, float progress, BossEvent.BossBarColor color, BossEvent.BossBarOverlay overlay,
+                                    boolean darken, boolean music, boolean fog) {
+                        Bot.this.bossBars.put(id, new SeenBossBar(id, name, progress, color.name(), overlay.name()));
+                    }
+
+                    @Override
+                    public void remove(UUID id) {
+                        Bot.this.bossBars.remove(id);
+                    }
+
+                    @Override
+                    public void updateProgress(UUID id, float progress) {
+                        Bot.this.bossBars.computeIfPresent(id, (key, bar) -> new SeenBossBar(id, bar.text(), progress, bar.color(), bar.overlay()));
+                    }
+
+                    @Override
+                    public void updateName(UUID id, Component name) {
+                        Bot.this.bossBars.computeIfPresent(id, (key, bar) -> new SeenBossBar(id, name, bar.progress(), bar.color(), bar.overlay()));
+                    }
+
+                    @Override
+                    public void updateStyle(UUID id, BossEvent.BossBarColor color, BossEvent.BossBarOverlay overlay) {
+                        Bot.this.bossBars.computeIfPresent(id, (key, bar) -> new SeenBossBar(id, bar.text(), bar.progress(), color.name(),
+                            overlay.name()));
+                    }
+                });
             }
             case ClientboundTabListPacket tab -> {
                 this.tabListPackets.incrementAndGet();

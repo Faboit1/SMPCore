@@ -7,14 +7,16 @@ import net.siftvanilla.siftcore.core.text.MessageKey;
 public final class SellMessages {
 
     /** The receipt, kept in chat, with the success sound. */
-    public static final MessageKey SOLD = MessageKey.chat("sell.sold", "items", "total").withFeedback(Feedback.SUCCESS);
-    public static final MessageKey SOLD_BONUS = MessageKey.chat("sell.sold-bonus", "items", "total", "multiplier")
+    public static final MessageKey SOLD = MessageKey.chat("sell.sold", "items", "total", "booster").withFeedback(Feedback.SUCCESS);
+    public static final MessageKey SOLD_BONUS = MessageKey.chat("sell.sold-bonus", "items", "total", "multiplier", "booster")
         .withFeedback(Feedback.SUCCESS);
-    public static final MessageKey SOLD_BONUSES = MessageKey.chat("sell.sold-bonuses", "items", "total")
+    public static final MessageKey SOLD_BONUSES = MessageKey.chat("sell.sold-bonuses", "items", "total", "booster")
         .withFeedback(Feedback.SUCCESS);
-    public static final MessageKey SOLD_ORDERS = MessageKey.chat("sell.sold-orders", "items", "total", "orders")
+    public static final MessageKey SOLD_ORDERS = MessageKey.chat("sell.sold-orders", "items", "total", "orders", "booster")
         .withFeedback(Feedback.SUCCESS);
-    public static final MessageKey SOLD_ACTION_BAR = MessageKey.success("sell.sold-action-bar", "total");
+    public static final MessageKey SOLD_ACTION_BAR = MessageKey.success("sell.sold-action-bar", "total", "booster");
+    /** The receipts' {@code <booster>} part while a server sell booster raised the price: " incl. +10% booster". */
+    public static final MessageKey BOOSTER_NOTE = MessageKey.ui("sell.booster-note", "percent");
     public static final MessageKey ORDERS_CHANGED = MessageKey.chat("sell.orders-changed");
     public static final MessageKey ITEMS_ONE = MessageKey.ui("sell.items.one", "amount", "item");
     public static final MessageKey ITEMS_MANY = MessageKey.ui("sell.items.many", "amount");
@@ -26,6 +28,7 @@ public final class SellMessages {
     public static final MessageKey RECEIPT_TAX = MessageKey.ui("sell.receipt.tax", "tax");
     public static final MessageKey RECEIPT_REST = MessageKey.ui("sell.receipt.rest", "value");
     public static final MessageKey RECEIPT_BOXES = MessageKey.ui("sell.receipt.boxes", "count");
+    public static final MessageKey RECEIPT_BOOSTER = MessageKey.ui("sell.receipt.booster", "percent");
     public static final MessageKey LEVEL_UP = MessageKey.chat("sell.level-up", "category", "level", "multiplier")
         .withFeedback(Feedback.SUCCESS);
 
@@ -54,6 +57,7 @@ public final class SellMessages {
     public static final MessageKey CONFIRM_BODY = MessageKey.ui("sell.confirm.body", "count", "total");
     public static final MessageKey CONFIRM_BONUS = MessageKey.ui("sell.confirm.bonus", "multiplier");
     public static final MessageKey CONFIRM_BONUSES = MessageKey.ui("sell.confirm.bonuses");
+    public static final MessageKey CONFIRM_BOOSTER = MessageKey.ui("sell.confirm.booster", "percent");
     public static final MessageKey CONFIRM_ORDERS = MessageKey.ui("sell.confirm.orders", "orders", "count");
     public static final MessageKey CONFIRM_INNER = MessageKey.ui("sell.confirm.inner", "count");
     public static final MessageKey CONFIRM_KEPT = MessageKey.ui("sell.confirm.kept", "count");
@@ -68,6 +72,7 @@ public final class SellMessages {
     public static final MessageKey MENU_TOTAL_MORE = MessageKey.ui("sell.menu.total-more", "count");
     public static final MessageKey MENU_TOTAL_BONUS = MessageKey.ui("sell.menu.total-bonus", "multiplier");
     public static final MessageKey MENU_TOTAL_BONUSES = MessageKey.ui("sell.menu.total-bonuses");
+    public static final MessageKey MENU_TOTAL_BOOSTER = MessageKey.ui("sell.menu.total-booster", "percent");
     public static final MessageKey MENU_TOTAL_ORDERS = MessageKey.ui("sell.menu.total-orders", "orders", "count");
     public static final MessageKey MENU_TOTAL_UNSELLABLE = MessageKey.ui("sell.menu.total-unsellable", "count");
     public static final MessageKey MENU_TOTAL_MASTERY = MessageKey.ui("sell.menu.total-mastery", "value", "category", "level");
@@ -116,7 +121,8 @@ public final class SellMessages {
 
     public static final MessageKey BROWSER_TITLE = MessageKey.ui("sell.browser.title");
     public static final MessageKey BROWSER_PRICE = MessageKey.ui("sell.browser.price", "price");
-    public static final MessageKey BROWSER_BONUS = MessageKey.ui("sell.browser.bonus", "price");
+    public static final MessageKey BROWSER_BONUS = MessageKey.ui("sell.browser.bonus", "price", "booster");
+    public static final MessageKey BROWSER_BOOSTED = MessageKey.ui("sell.browser.boosted", "percent", "price");
     public static final MessageKey BROWSER_CATEGORY = MessageKey.ui("sell.browser.category", "category");
     public static final MessageKey BROWSER_SHOP = MessageKey.ui("sell.browser.shop", "price");
     public static final MessageKey BROWSER_ORDER = MessageKey.ui("sell.browser.order", "price");
@@ -131,7 +137,8 @@ public final class SellMessages {
     public static final MessageKey FILTER_ALL = MessageKey.ui("sell.browser.filter-all");
 
     public static final MessageKey DETAILS_PRICE = MessageKey.ui("sell.details.price", "price");
-    public static final MessageKey DETAILS_BONUS = MessageKey.ui("sell.details.bonus", "multiplier", "price");
+    public static final MessageKey DETAILS_BONUS = MessageKey.ui("sell.details.bonus", "multiplier", "price", "booster");
+    public static final MessageKey DETAILS_BOOSTED = MessageKey.ui("sell.details.boosted", "percent", "price");
     public static final MessageKey DETAILS_MASTERY = MessageKey.ui("sell.details.mastery", "category", "level", "max");
     public static final MessageKey DETAILS_SHOP = MessageKey.ui("sell.details.shop", "price");
     public static final MessageKey DETAILS_ORDER = MessageKey.ui("sell.details.order", "price");
@@ -143,7 +150,8 @@ public final class SellMessages {
 
     public static final MessageKey WORTH_EACH = MessageKey.chat("sell.worth.each", "item", "price");
     public static final MessageKey WORTH_STACK = MessageKey.chat("sell.worth.stack", "item", "price", "amount", "total");
-    public static final MessageKey WORTH_BONUS = MessageKey.chat("sell.worth.bonus", "multiplier", "total");
+    public static final MessageKey WORTH_BONUS = MessageKey.chat("sell.worth.bonus", "multiplier", "total", "booster");
+    public static final MessageKey WORTH_BOOSTED = MessageKey.chat("sell.worth.boosted", "percent", "total");
     public static final MessageKey WORTH_SHOP = MessageKey.chat("sell.worth.shop", "price");
     public static final MessageKey WORTH_ORDER = MessageKey.chat("sell.worth.order", "price");
     public static final MessageKey WORTH_BOX = MessageKey.chat("sell.worth.box", "total", "count");

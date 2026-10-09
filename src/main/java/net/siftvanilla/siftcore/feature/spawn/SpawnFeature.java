@@ -2,10 +2,12 @@ package net.siftvanilla.siftcore.feature.spawn;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Feature;
@@ -15,6 +17,7 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
@@ -24,7 +27,8 @@ import org.bukkit.entity.Player;
 
 /**
  * Spawn: {@code /spawn} and {@code /setspawn}, the protected spawn area (implements {@link SpawnArea} for random
- * teleport, combat and AFK), where new and respawning players arrive, and the world borders.
+ * teleport, combat and AFK), flying inside it with {@code /fly} (a rank perk, {@link SpawnFlight}), where new and
+ * respawning players arrive, and the world borders.
  */
 public final class SpawnFeature implements Feature {
 
@@ -40,12 +44,16 @@ public final class SpawnFeature implements Feature {
     private final WorldBorders borders;
     private final SpawnProtection protection;
     private final SpawnCommands commands;
+    private final SpawnFlight flight;
     private final SpawnArea area;
     private volatile SpawnPoint point;
     private volatile ProtectedRegion region = ProtectedRegion.NONE;
     private volatile boolean canvasRespawn;
 
-    public SpawnFeature(Services services, List<ConfigProblem> problems) {
+    /**
+     * @param combat what ends and refuses flying at spawn in combat
+     */
+    public SpawnFeature(Services services, List<ConfigProblem> problems, CombatStatus combat) {
         this.services = services;
         this.logger = services.plugin().getLogger();
         this.settings = services.configs().register(WorldBorders.FILE,
@@ -56,6 +64,7 @@ public final class SpawnFeature implements Feature {
         perms.declare(ADMIN_OTHERS, "Send other players to spawn with /spawn <player>", false);
         perms.declare(ADMIN_SET, "Set the server spawn with /setspawn", false);
         perms.declare(SpawnProtection.BYPASS, "Build and use everything inside the protected spawn area", false);
+        perms.declare(SpawnFlight.NODE, "Fly with /fly inside the protected spawn area (a rank perk; never outside spawn)", false);
         this.store = new SpawnStore(services.plugin().getDataFolder().toPath().resolve("data/spawn.yml"),
             services.scheduler().asyncExecutor(), this.logger);
         this.borders = new WorldBorders(this.settings::get, services.configs().files(), this.logger);
@@ -63,6 +72,16 @@ public final class SpawnFeature implements Feature {
         this.commands = new SpawnCommands(services, this);
         this.area = location -> location != null && location.getWorld() != null
             && this.region.contains(location.getWorld().getName(), location.getX(), location.getY(), location.getZ());
+        this.flight = new SpawnFlight(services, this.settings::get, this.area, this::flightCeiling, combat);
+    }
+
+    /**
+     * The highest y anyone may fly at spawn: the spawn point plus {@code fly.max-height}. Without a spawn point there is
+     * no protected radius either, so nobody flies anyway. Safe from any thread.
+     */
+    private double flightCeiling() {
+        SpawnPoint current = point();
+        return current == null ? Double.POSITIVE_INFINITY : FlightRules.ceiling(current.y(), this.settings.get().fly().maxHeight());
     }
 
     @Override
@@ -116,6 +135,7 @@ public final class SpawnFeature implements Feature {
         }
         rebuildRegion();
         Bukkit.getPluginManager().registerEvents(this.protection, this.services.plugin());
+        Bukkit.getPluginManager().registerEvents(this.flight, this.services.plugin());
         SpawnArrival arrival = new SpawnArrival(this.settings::get, this::location, this.services.messenger(),
             this.services.scheduler(), this.logger);
         this.canvasRespawn = arrival.register(this.services.plugin());
@@ -175,11 +195,18 @@ public final class SpawnFeature implements Feature {
 
     @Override
     public List<SiftCommand> commands() {
-        return this.commands.all();
+        List<SiftCommand> all = new ArrayList<>(this.commands.all());
+        all.add(this.flight.command());
+        return all;
     }
 
     @Override
     public void disable() {
+        try {
+            this.flight.stopAll();
+        } catch (RuntimeException e) {
+            this.logger.log(Level.WARNING, "Could not turn off flying at spawn for every player", e);
+        }
         this.store.flush(10);
     }
 

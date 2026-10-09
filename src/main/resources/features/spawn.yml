@@ -59,6 +59,20 @@ protection:
     - drowned
     - nether-portal
 
+fly:
+  # /fly lets players with siftcore.spawn.fly (Baron and up) fly inside the protected spawn area above, and only there.
+  # Flight turns off when they leave the area (checked twice a second), get into combat, change game mode or world, or
+  # lose the permission; /fly is refused in combat. Players in creative or spectator mode are left alone.
+  enabled: true
+  # How many blocks above the spawn point players may fly (1 to 2048). Higher up, flight drops them back down (they
+  # can fly again lower), and /fly is refused. This keeps anyone from climbing high inside spawn and gliding or
+  # falling far out of it. Keep it a little above the tallest part of the spawn build.
+  max-height: 48
+  # When flight turns off in the air (leaving spawn, the height limit, combat, a game mode change), the fall that
+  # follows does no damage, however long it is, so nobody dies from it. It ends when they land, or when the fall ends
+  # any other way (water, a ladder, an elytra, flying again). false turns it off.
+  fall-protection: true
+
 world-border:
   # SiftCore sets these borders at startup and on /sift reload. false leaves every border alone (use /worldborder).
   # The worlds are pre-generated exactly to these borders, and random teleport keeps its rings inside them: if a

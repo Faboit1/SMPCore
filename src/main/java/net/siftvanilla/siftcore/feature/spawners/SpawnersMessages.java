@@ -43,8 +43,9 @@ public final class SpawnersMessages {
     public static final MessageKey PICKED_UP_MANY = MessageKey.success("spawners.break.picked-up-many", "amount", "mob");
     public static final MessageKey STORAGE_TO_YOUR_CLAIM_BOX = MessageKey.chat("spawners.break.storage-claim-box", "count");
     public static final MessageKey STORAGE_TO_OWNER_CLAIM_BOX = MessageKey.chat("spawners.break.storage-owner-claim-box", "count", "owner");
-    public static final MessageKey STORAGE_SOLD = MessageKey.chat("spawners.break.storage-sold", "count", "total");
-    public static final MessageKey STORAGE_SOLD_FOR_OWNER = MessageKey.chat("spawners.break.storage-sold-owner", "count", "total", "owner");
+    public static final MessageKey STORAGE_SOLD = MessageKey.chat("spawners.break.storage-sold", "count", "total", "booster");
+    public static final MessageKey STORAGE_SOLD_FOR_OWNER = MessageKey.chat("spawners.break.storage-sold-owner", "count", "total", "owner",
+        "booster");
     public static final MessageKey OWNER_PICKED_UP = MessageKey.notify("spawners.break.owner-notice", "name", "mob", "amount");
     public static final MessageKey OWNER_PICKED_UP_STAFF = MessageKey.notify("spawners.break.owner-notice-staff", "mob", "amount");
     public static final MessageKey NATURAL_PICKED_UP = MessageKey.success("spawners.break.natural", "mob");
@@ -64,6 +65,7 @@ public final class SpawnersMessages {
     public static final MessageKey MENU_SELL_LORE = MessageKey.ui("spawners.menu.sell.lore", "count", "total");
     public static final MessageKey MENU_SELL_LORE_BONUS = MessageKey.ui("spawners.menu.sell.lore-bonus", "count", "total", "multiplier");
     public static final MessageKey MENU_SELL_EMPTY = MessageKey.ui("spawners.menu.sell.empty");
+    public static final MessageKey MENU_SELL_BOOSTER = MessageKey.ui("spawners.menu.sell.booster", "percent");
     public static final MessageKey MENU_XP = MessageKey.ui("spawners.menu.xp.name");
     public static final MessageKey MENU_XP_LORE = MessageKey.ui("spawners.menu.xp.lore", "xp", "cap");
     public static final MessageKey MENU_XP_EMPTY = MessageKey.ui("spawners.menu.xp.empty", "cap");
@@ -75,8 +77,10 @@ public final class SpawnersMessages {
     // Taking, selling, XP
     public static final MessageKey TOOK = MessageKey.success("spawners.took", "amount", "item");
     public static final MessageKey NONE_LEFT = MessageKey.error("spawners.none-left");
-    public static final MessageKey SOLD = MessageKey.chat("spawners.sell.sold", "count", "mob", "total");
-    public static final MessageKey SOLD_BONUS = MessageKey.chat("spawners.sell.sold-bonus", "count", "mob", "total", "multiplier");
+    public static final MessageKey SOLD = MessageKey.chat("spawners.sell.sold", "count", "mob", "total", "booster");
+    public static final MessageKey SOLD_BONUS = MessageKey.chat("spawners.sell.sold-bonus", "count", "mob", "total", "multiplier", "booster");
+    /** The receipts' {@code <booster>} part while a server sell booster raised the sale: " incl. +10% booster". */
+    public static final MessageKey BOOSTER_NOTE = MessageKey.ui("spawners.sell.booster-note", "percent");
     public static final MessageKey RECEIPT_LINE = MessageKey.ui("spawners.sell.receipt-line", "amount", "item", "value");
     public static final MessageKey NOTHING_TO_SELL = MessageKey.error("spawners.sell.nothing");
     public static final MessageKey SELL_CANCELLED = MessageKey.info("spawners.sell.cancelled");

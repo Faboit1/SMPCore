@@ -62,8 +62,28 @@ player's multiplier for that category: a sale line pays `worth x (rank + bonus)`
 - A level-up (after the sale is stored) says "Mining mastery is now level 2. Mining items sell for 1.6x." in chat
   with the success sound and fires `api.event.SellMasteryLevelEvent`.
 - Safety: the shop is validated against the best rank multiplier plus the top mastery bonus
-  (`SellSettings#highestMultiplier`, 1.75 by default; `x 1.1` margin = 1.925), so a reload that makes any shop price
-  unsafe with mastery is refused.
+  (`SellSettings#highestMultiplier`, 1.25 with the shipped empty `multipliers`), times the largest server sell
+  booster allowed (`sell.max-percent` in `boosters.yml`, +25%: 1.5625), times the shop's 1.1 margin, so a reload that
+  makes any shop price unsafe with mastery and a booster is refused (see `shop.md`).
+
+## Server sell boosters
+
+A running server booster (`docs/features/boosters.md`) raises what the server pays everyone by its percent, on top of
+rank and mastery: a line pays `worth x (rank + mastery) x (1 + percent/100)`, rounded down once per category like
+every sale. It enters prices in exactly one place, `WorthService.Rates#multiplier(category)`, so `/sell` in every
+form, the sell menu, the shop's quick sell and sell-back, `/worth`, the price list, the details dialog,
+`WorthLookup#priceFor` and spawner storage sales (`WorthLookup#rate`) all pay or show the boosted price, while
+`Rates#own(category)` keeps the player's own bonus for mastery and for text. Buy orders pay their own price and are
+never boosted (`SaleDraft#boost` covers the server part only); the auction house is between players and untouched.
+The percent applied is `ServerBoosters#percent()`: the running booster's, never more than the current
+`sell.max-percent` (a store booster bought for more pays the limit), which is also what every receipt names.
+
+The booster is read when a sale is worked out and again when it is confirmed; if it changed in between (it ended,
+the next one started) the total differs and the confirmation is shown again, like any other price change. The
+receipt and the action bar say so ("You sold 64 diamond for $28,160 incl. +10% booster."), the confirmation dialog
+shows "Sell booster +10%", the sell menu's total "Includes the +10% sell booster", `/worth` "With the +10% sell
+booster you get $4,400." and the price list and details dialog "With the +10% booster $440". The multipliers in
+`ItemSellEvent` are the ones paid, booster included.
 
 ## Selling
 
@@ -259,7 +279,7 @@ the shop for $1,000" (the shop's purchase dialog), "Order it" (the orders form, 
 | Placeholder | Value |
 |---|---|
 | `%siftcore_sell_multiplier%` | The player's rank multiplier (`1`, `1.1`, ... `1.5`); mastery not included. |
-| `%siftcore_sell_multiplier_<category>%` | Rank plus the category's mastery bonus, like `1.6`. |
+| `%siftcore_sell_multiplier_<category>%` | Rank plus the category's mastery bonus, like `1.6` (a running server booster comes on top and is not included). |
 | `%siftcore_sell_mastery_<category>%` | The player's mastery level in a category (0-5). |
 | `%siftcore_sell_sold%` | Everything the player sold to the server, at base value, formatted as money. |
 | `%siftcore_worth_<item>%` | What one plain item sells for (`worth_diamond` gives `$400`), empty when it can't be sold. |
@@ -279,8 +299,11 @@ Top sellers are read from storage in the background (`SUM(sold) GROUP BY uuid` o
 ## Integration
 
 - `SellFeature#worth()` returns the `WorthService`: `core.link.WorthLookup` (price of a plain item, with or without
-  the player's rank multiplier; spawner and crate sales) and `feature.sell.Pricing.Source` (the table, the recipes
-  and the highest multiplier including mastery, for the shop's validator).
+  the player's rank multiplier and the running booster; `rate(player)` gives spawner sales the rank multiplier, the
+  booster and the two combined) and `feature.sell.Pricing.Source` (the table, the recipes, the highest multiplier
+  including mastery and the largest booster allowed, for the shop's validator; during a reload `latest()` uses the
+  booster limit being loaded).
+- Consumes `core.link.ServerBoosters` (`boosters.boosters()`): the running booster's percent and the limit.
 - `SellFeature#link()` (`SellLink`): the viewer's sell-back price, how many they carry and selling from a shop page.
 - `SellFeature#shop(ShopOffers)`: the shop's prices and purchase dialog for `/worth`, the price list and details.
 - Consumes `core.teleport.CombatStatus` (the shared combat tags) and `Supplier<OrderMarket>`.
@@ -315,8 +338,10 @@ price unsafe, see `shop.md`). Keys added after the first release are optional an
 - `generated worth file`: `data/worth-generated.yml` exists and is not empty.
 - `no recipe gains`: the no-gain check passes on the live table.
 - `sell categories cover the table`: every item is in a category that exists, listed items in their own.
-- `shop safe with mastery`: the highest multiplier is the best rank plus the top bonus, the shop validates against
-  it, and no shop item sells back for its price at that multiplier.
+- `shop safe with mastery and boosters`: the highest multiplier is the best rank plus the top bonus, the shop
+  validates against it with the largest booster allowed, and no shop item sells back for its price at that.
+- `a sell booster raises sales by exactly its percent`: 64 diamonds at +10% pay exactly 10% more, and nothing is
+  boosted without a booster.
 - `shulker rebuild keeps other contents`: taking one kind out of a box leaves every other stack at its position and
   an emptied box is a plain box.
 - `villager trades are marked`: the marker makes a copy that does not sell and is otherwise unchanged.

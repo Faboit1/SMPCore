@@ -120,7 +120,7 @@ from a world thread (the main thread on Paper, a region thread on Folia/Canvas) 
 | `EconomyTransactionEvent` | yes | before every money or shards transaction (payments, sales, purchases, taxes, refunds, rewards, admin changes, Vault and API calls), on the caller's thread | the transaction fails with status `CANCELLED`; nothing changes |
 | `EconomyTransactionCommittedEvent` | no | asynchronously, after a transaction was durably stored; carries the postings and the balances after | |
 | `PlayerPayEvent` | yes | before `/pay` moves money | the payment is stopped |
-| `ItemSellEvent` | yes | before `/sell` (hand, all, menu) takes items and pays, on the player's thread; has the items, total and multiplier | the items stay where they are |
+| `ItemSellEvent` | yes | before `/sell` (hand, all, menu) takes items and pays, on the player's thread; has the items, total and multiplier (a running server sell booster included) | the items stay where they are |
 | `SellMasteryLevelEvent` | no | after a stored sale raised the player's sell mastery level in a category, on the player's thread | |
 | `ShopPurchaseEvent` | yes | before a server shop purchase, on the player's thread | nothing is charged |
 | `ShardShopPurchaseEvent` | yes | before a shard shop purchase, on the player's thread | no shards move |
@@ -137,10 +137,11 @@ from a world thread (the main thread on Paper, a region thread on Folia/Canvas) 
 | `SpawnerPlaceEvent` | yes | before a player places a SiftCore spawner, on the player's thread | the block is not placed; the item stays in hand |
 | `SpawnerStackEvent` | yes | before a player adds spawners to a placed stack, on the player's thread | the items stay in hand |
 | `SpawnerBreakEvent` | yes | before a player picks up a placed spawner (after access, silk touch and storage checks) | the spawner stays with its stack and storage |
-| `SpawnerSellEvent` | yes | before the loot stored in a spawner is sold, after pricing, on the player's thread | the loot stays in the spawner |
+| `SpawnerSellEvent` | yes | before the loot stored in a spawner is sold, after pricing (the multiplier includes a running sell booster), on the player's thread | the loot stays in the spawner |
+| `SellBoosterEvent` | no | when a server sell booster starts running or ends (ran out, stopped, refunded), on the global thread at most a second later and only once the change is stored (never for one that was taken back); the percent it pays (never above `sell.max-percent`), length, time left, owner, store reference | |
 | `AfkStatusChangeEvent` | no | after a player became AFK or came back (player's thread, or the chat thread when chatting brought them back) | |
 | `AfkZoneRewardEvent` | yes | before a player in the AFK zone is paid shards for an interval, on the player's thread | this payment is skipped; they keep earning towards the next |
-| `StoreDeliveryEvent` | yes | before a store purchase (`/sift store ...`) is delivered, on the command's thread | nothing is delivered or recorded; the store may deliver the same reference later |
+| `StoreDeliveryEvent` | yes | before a store purchase (`/sift store ...`) is delivered, on the command's thread; kinds `MONEY`, `SHARDS`, `KEYS`, `RANK`, `BOOSTER` (for a booster: the item is its kind `sell`, the amount its percent, the duration its length; the player is the nil UUID for one from the server) | nothing is delivered or recorded; the store may deliver the same reference later |
 | `TeamCreateEvent` | yes | before a team is created and paid for | nothing is charged |
 | `TeamJoinEvent` | yes | before a player joins a team (with the cause) | they stay out |
 | `TeamLeaveEvent` | yes | before a player leaves or is removed (with the reason) | they stay in |
@@ -172,6 +173,6 @@ public void onStore(StoreDeliveryEvent event) {
 
 ## Admin and store integration
 
-Web stores deliver purchases with console commands (`/sift store money|shards|keys|rank ... <ref>`); each reference is
-delivered at most once. See `docs/features/integrations.md` for those commands, backups, exports and the audit log,
+Web stores deliver purchases with console commands (`/sift store money|shards|keys|rank|booster ... <ref>`); each
+reference is delivered at most once. See `docs/features/integrations.md` for those commands, backups, exports and the audit log,
 and `docs/permissions.md` for every permission node.

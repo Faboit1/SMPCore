@@ -186,6 +186,20 @@ public final class LuckPermsHook {
             RankText.gradient(meta.getMetaValue(options.gradientMeta())));
     }
 
+    // ------------------------------------------------------------------ permissions before join
+
+    /**
+     * Whether a player has a permission, read from LuckPerms rather than the server (which only knows a player's
+     * permissions once they are in the world): for checks while they log in, like joining a full server. Uses the user
+     * LuckPerms loaded at login (or loads it), with the server's own context; false when the node is not set.
+     */
+    public CompletableFuture<Boolean> permission(UUID player, String node) {
+        User loaded = this.api.getUserManager().getUser(player);
+        CompletableFuture<User> user = loaded != null ? CompletableFuture.completedFuture(loaded) : this.api.getUserManager().loadUser(player);
+        return user.thenApply(found -> found.getCachedData().getPermissionData(this.api.getContextManager().getStaticQueryOptions())
+            .checkPermission(node).asBoolean());
+    }
+
     // ------------------------------------------------------------------ store grants
 
     /** Whether LuckPerms has a group with this name. */
