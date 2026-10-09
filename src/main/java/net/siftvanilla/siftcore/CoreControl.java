@@ -1,6 +1,7 @@
 package net.siftvanilla.siftcore;
 
 import java.util.List;
+import java.util.Optional;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.storage.Database;
@@ -19,6 +20,15 @@ public interface CoreControl {
     Metrics metrics();
 
     Database database();
+
+    /**
+     * The config problems the startup found (every one it logged as {@code Config problem: ...}). Empty until the
+     * startup is done, and when the plugin does not keep them: the admin feature then counts them from the log. For
+     * the "Config problem alerts" setting ({@code admin-config-alerts}).
+     */
+    default Optional<List<ConfigProblem>> startupProblems() {
+        return Optional.empty();
+    }
 
     /** A snapshot of internal counters for /sift metrics. */
     record Metrics(long uptimeMillis, int pendingWrites, long committedWrites, long failedWrites, long avgGroupMicros,

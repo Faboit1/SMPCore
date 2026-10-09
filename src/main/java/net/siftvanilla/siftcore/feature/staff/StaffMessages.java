@@ -35,6 +35,9 @@ public final class StaffMessages {
     public static final MessageKey VANISH_OFF_OTHER = MessageKey.chat("staff.vanish.off-other", "name");
     public static final MessageKey VANISH_REMINDER = MessageKey.status("staff.vanish.reminder");
     public static final MessageKey VANISH_CLEARED = MessageKey.chat("staff.vanish.cleared");
+    public static final MessageKey VANISH_JOINED = MessageKey.chat("staff.vanish.joined");
+    public static final MessageKey VANISH_NO_FAKE_LINE = MessageKey.chat("staff.vanish.no-fake-line");
+    public static final MessageKey VANISH_NO_FAKE_LINE_OTHER = MessageKey.chat("staff.vanish.no-fake-line-other", "name");
 
     // ------------------------------------------------------------------ freeze
     public static final MessageKey FREEZE_DONE = MessageKey.chat("staff.freeze.done", "name");
@@ -104,6 +107,7 @@ public final class StaffMessages {
     public static final MessageKey CHAT_FORMAT = MessageKey.chat("staff.chat.format", "name", "message");
     public static final MessageKey CHAT_ON = MessageKey.success("staff.chat.on");
     public static final MessageKey CHAT_OFF = MessageKey.success("staff.chat.off");
+    public static final MessageKey CHAT_HIDDEN = MessageKey.chat("staff.chat.hidden");
 
     // ------------------------------------------------------------------ reports (players)
     public static final MessageKey REPORT_SENT = MessageKey.success("staff.report.sent", "name");
@@ -206,6 +210,32 @@ public final class StaffMessages {
     public static final MessageKey BROADCAST = MessageKey.notify("staff.broadcast", "message");
     public static final MessageKey CLEARCHAT_DONE = MessageKey.chat("staff.clearchat.done");
     public static final MessageKey CLEARCHAT_CONFIRM = MessageKey.chat("staff.clearchat.confirm", "count");
+
+    // ------------------------------------------------------------------ ban confirmation (staff-confirm-bans)
+    public static final MessageKey BAN_CONFIRM_TITLE = MessageKey.ui("staff.ban.confirm.title", "name");
+    public static final MessageKey BAN_CONFIRM_BODY = MessageKey.ui("staff.ban.confirm.body", "name", "length", "reason");
+    public static final MessageKey BAN_CONFIRM_BUTTON = MessageKey.ui("staff.ban.confirm.button");
+    public static final MessageKey BAN_CANCELLED = MessageKey.info("staff.ban.confirm.cancelled", "name");
+
+    // ------------------------------------------------------------------ player settings (Staff group)
+    public static final MessageKey SETTING_CHAT = MessageKey.ui("staff.settings.chat");
+    public static final MessageKey SETTING_CHAT_DESCRIPTION = MessageKey.ui("staff.settings.chat-description");
+    public static final MessageKey SETTING_PUNISH_ALERTS = MessageKey.ui("staff.settings.punish-alerts");
+    public static final MessageKey SETTING_PUNISH_ALERTS_DESCRIPTION = MessageKey.ui("staff.settings.punish-alerts-description");
+    public static final MessageKey SETTING_REPORT_ALERTS = MessageKey.ui("staff.settings.report-alerts");
+    public static final MessageKey SETTING_REPORT_ALERTS_DESCRIPTION = MessageKey.ui("staff.settings.report-alerts-description");
+    public static final MessageKey SETTING_VANISH_ON_JOIN = MessageKey.ui("staff.settings.vanish-on-join");
+    public static final MessageKey SETTING_VANISH_ON_JOIN_DESCRIPTION = MessageKey.ui("staff.settings.vanish-on-join-description");
+    public static final MessageKey SETTING_VANISH_REMINDER = MessageKey.ui("staff.settings.vanish-reminder");
+    public static final MessageKey SETTING_VANISH_REMINDER_DESCRIPTION = MessageKey.ui("staff.settings.vanish-reminder-description");
+    public static final MessageKey SETTING_SEE_VANISHED = MessageKey.ui("staff.settings.see-vanished");
+    public static final MessageKey SETTING_SEE_VANISHED_DESCRIPTION = MessageKey.ui("staff.settings.see-vanished-description");
+    public static final MessageKey SETTING_FREEZE_ALERTS = MessageKey.ui("staff.settings.freeze-alerts");
+    public static final MessageKey SETTING_FREEZE_ALERTS_DESCRIPTION = MessageKey.ui("staff.settings.freeze-alerts-description");
+    public static final MessageKey SETTING_CONFIRM_BANS = MessageKey.ui("staff.settings.confirm-bans");
+    public static final MessageKey SETTING_CONFIRM_BANS_DESCRIPTION = MessageKey.ui("staff.settings.confirm-bans-description");
+    public static final MessageKey SETTING_FAKE_MESSAGES = MessageKey.ui("staff.settings.fake-messages");
+    public static final MessageKey SETTING_FAKE_MESSAGES_DESCRIPTION = MessageKey.ui("staff.settings.fake-messages-description");
 
     private StaffMessages() {
     }

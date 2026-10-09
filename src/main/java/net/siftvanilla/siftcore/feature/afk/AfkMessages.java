@@ -9,6 +9,11 @@ public final class AfkMessages {
     public static final MessageKey NOW_AFK_MANUAL = MessageKey.info("afk.now-afk-manual");
     public static final MessageKey BACK = MessageKey.info("afk.back");
     public static final MessageKey KICK_WARNING = MessageKey.notify("afk.kick-warning", "time");
+    public static final MessageKey KICK_WARNING_TITLE = MessageKey.title("afk.kick-warning-title", "time");
+    public static final MessageKey KICK_WARNING_SUBTITLE = MessageKey.ui("afk.kick-warning-subtitle", "time");
+    public static final MessageKey RETURN_SUMMARY = MessageKey.chat("afk.return-summary", "time");
+    public static final MessageKey RETURN_SUMMARY_SHARD = MessageKey.chat("afk.return-summary-shard", "time");
+    public static final MessageKey RETURN_SUMMARY_SHARDS = MessageKey.chat("afk.return-summary-shards", "time", "shards");
     public static final MessageKey KICK_REASON = MessageKey.ui("afk.kick-reason");
     public static final MessageKey PLACEHOLDER = MessageKey.ui("afk.placeholder");
 
@@ -59,6 +64,14 @@ public final class AfkMessages {
 
     public static final MessageKey SETTING_STATUS = MessageKey.ui("afk.settings.status");
     public static final MessageKey SETTING_STATUS_DESCRIPTION = MessageKey.ui("afk.settings.status-description");
+    public static final MessageKey SETTING_PAYOUTS = MessageKey.ui("afk.settings.payouts");
+    public static final MessageKey SETTING_PAYOUTS_DESCRIPTION = MessageKey.ui("afk.settings.payouts-description");
+    public static final MessageKey SETTING_KICK_WARNING = MessageKey.ui("afk.settings.kick-warning");
+    public static final MessageKey SETTING_KICK_WARNING_DESCRIPTION = MessageKey.ui("afk.settings.kick-warning-description");
+    public static final MessageKey SETTING_STATUS_MESSAGES = MessageKey.ui("afk.settings.status-messages");
+    public static final MessageKey SETTING_STATUS_MESSAGES_DESCRIPTION = MessageKey.ui("afk.settings.status-messages-description");
+    public static final MessageKey SETTING_RETURN_SUMMARY = MessageKey.ui("afk.settings.return-summary");
+    public static final MessageKey SETTING_RETURN_SUMMARY_DESCRIPTION = MessageKey.ui("afk.settings.return-summary-description");
 
     private AfkMessages() {
     }

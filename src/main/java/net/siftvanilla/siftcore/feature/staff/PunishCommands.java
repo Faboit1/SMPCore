@@ -16,6 +16,7 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import org.bukkit.Bukkit;
@@ -28,6 +29,10 @@ import org.bukkit.event.player.PlayerKickEvent;
  * plugin commands replace vanilla ones, so /ban and /kick are SiftCore's; vanilla's stay reachable as
  * /minecraft:ban and /minecraft:kick. Bans, kicks, warnings and mutes follow the staff hierarchy ({@link StaffHierarchy}):
  * nobody punishes staff of the same or a higher weight, or the owner; lifting a ban or mute is never refused.
+ * <p>
+ * Staff with "Confirm bans" on ({@link StaffPreferences#CONFIRM_BANS}) confirm player, length and reason in a dialog
+ * before a ban of theirs goes through; the console and automatic bans never ask. Other staff are told about each
+ * punishment where their "Punishment alerts" setting says.
  */
 final class PunishCommands {
 
@@ -152,8 +157,55 @@ final class PunishCommands {
         }
         UUID uuid = target.get();
         String name = this.services.directory().name(uuid);
+        if (sender instanceof Player staff && this.services.settings().get(staff.getUniqueId(), StaffPreferences.CONFIRM_BANS)) {
+            confirmBan(staff, uuid, name, parsed, banNode(timeAndReason != null));
+            return CommandSupport.OK;
+        }
         this.hierarchy.guard(sender, uuid, name, "ban", () -> ban(sender, uuid, name, parsed));
         return CommandSupport.OK;
+    }
+
+    /** The permission a ban needs: /tempban's for a ban with a length, /ban's for a permanent one. */
+    static String banNode(boolean temporary) {
+        return temporary ? StaffNodes.TEMPBAN : StaffNodes.BAN;
+    }
+
+    /**
+     * The Ban button of a ban confirmation: whether the confirmer still holds {@code node}, the permission of the
+     * command they typed (it may have been taken away while the dialog was open). Tells them when they don't.
+     */
+    static boolean mayStillBan(Player confirmer, String node, Messenger messenger) {
+        if (confirmer.hasPermission(node)) {
+            return true;
+        }
+        messenger.send(confirmer, CoreMessages.NO_PERMISSION);
+        return false;
+    }
+
+    /**
+     * Asks a staff member to confirm a ban: player, length and reason, then Ban or Cancel. When they press Ban (on
+     * their thread) the ban's permission ({@code node}) and the staff hierarchy are checked again, so losing the
+     * permission or a rank change meanwhile still counts.
+     */
+    private void confirmBan(Player staff, UUID uuid, String name, DurationInput.Parsed parsed, String node) {
+        Lang lang = this.services.lang();
+        Arg nameArg = Arg.text("name", name);
+        Arg length = parsed.permanent() ? Arg.text("length", lang.plain(StaffMessages.PERMANENT)) : Arg.time("length", parsed.length());
+        Arg reason = Arg.text("reason", this.text.reason(parsed.reason()));
+        this.services.dialogs().show(staff, this.services.templates().confirm(lang.get(StaffMessages.BAN_CONFIRM_TITLE, nameArg),
+            lang.lines(StaffMessages.BAN_CONFIRM_BODY, nameArg, length, reason), lang.get(StaffMessages.BAN_CONFIRM_BUTTON),
+            lang.get(CoreMessages.UI_CANCEL),
+            s -> {
+                s.close();
+                Player confirmer = s.player();
+                if (mayStillBan(confirmer, node, this.messenger)) {
+                    this.hierarchy.guard(confirmer, uuid, name, "ban", () -> ban(confirmer, uuid, name, parsed));
+                }
+            },
+            s -> {
+                s.close();
+                this.messenger.send(s.player(), StaffMessages.BAN_CANCELLED, nameArg);
+            }));
     }
 
     private void ban(CommandSender sender, UUID uuid, String name, DurationInput.Parsed parsed) {
@@ -168,10 +220,10 @@ final class PunishCommands {
         Arg staff = Arg.text("staff", this.text.staff(actor));
         if (parsed.permanent()) {
             this.messenger.chat(sender, StaffMessages.BAN_DONE_PERMANENT, nameArg);
-            this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_BAN_PERMANENT, staff, nameArg, reason);
+            notifyStaff(actor, StaffMessages.NOTIFY_BAN_PERMANENT, staff, nameArg, reason);
         } else {
             this.messenger.chat(sender, StaffMessages.BAN_DONE, nameArg, Arg.time("time", parsed.length()));
-            this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_BAN, staff, nameArg, Arg.time("time", parsed.length()), reason);
+            notifyStaff(actor, StaffMessages.NOTIFY_BAN, staff, nameArg, Arg.time("time", parsed.length()), reason);
         }
     }
 
@@ -188,7 +240,7 @@ final class PunishCommands {
             return CommandSupport.OK;
         }
         this.messenger.chat(sender, StaffMessages.UNBAN_DONE, name);
-        this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_UNBAN, Arg.text("staff", this.text.staff(actor)), name);
+        notifyStaff(actor, StaffMessages.NOTIFY_UNBAN, Arg.text("staff", this.text.staff(actor)), name);
         return CommandSupport.OK;
     }
 
@@ -213,7 +265,7 @@ final class PunishCommands {
             onPlayerThread(online, () -> online.kick(screen, PlayerKickEvent.Cause.KICKED));
             Arg name = Arg.text("name", online.getName());
             this.messenger.chat(sender, StaffMessages.KICK_DONE, name);
-            this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_KICK, Arg.text("staff", this.text.staff(actor)), name,
+            notifyStaff(actor, StaffMessages.NOTIFY_KICK, Arg.text("staff", this.text.staff(actor)), name,
                 Arg.text("reason", this.text.reason(parsed.reason())));
         });
         return CommandSupport.OK;
@@ -246,7 +298,7 @@ final class PunishCommands {
         } else {
             this.messenger.chat(sender, StaffMessages.WARN_DONE_OFFLINE, Arg.text("name", name));
         }
-        this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_WARN, Arg.text("staff", this.text.staff(actor)),
+        notifyStaff(actor, StaffMessages.NOTIFY_WARN, Arg.text("staff", this.text.staff(actor)),
             Arg.text("name", name), reason);
     }
 
@@ -278,14 +330,14 @@ final class PunishCommands {
                 this.messenger.send(online, StaffMessages.MUTE_TARGET_PERMANENT, reason);
             }
             this.messenger.chat(sender, StaffMessages.MUTE_DONE_PERMANENT, nameArg);
-            this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_MUTE_PERMANENT, staff, nameArg, reason);
+            notifyStaff(actor, StaffMessages.NOTIFY_MUTE_PERMANENT, staff, nameArg, reason);
         } else {
             Arg time = Arg.time("time", parsed.length());
             if (online != null) {
                 this.messenger.send(online, StaffMessages.MUTE_TARGET, time, reason);
             }
             this.messenger.chat(sender, StaffMessages.MUTE_DONE, nameArg, time);
-            this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_MUTE, staff, nameArg, time, reason);
+            notifyStaff(actor, StaffMessages.NOTIFY_MUTE, staff, nameArg, time, reason);
         }
     }
 
@@ -306,11 +358,16 @@ final class PunishCommands {
             this.messenger.send(online, StaffMessages.UNMUTE_TARGET);
         }
         this.messenger.chat(sender, StaffMessages.UNMUTE_DONE, name);
-        this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_UNMUTE, Arg.text("staff", this.text.staff(actor)), name);
+        notifyStaff(actor, StaffMessages.NOTIFY_UNMUTE, Arg.text("staff", this.text.staff(actor)), name);
         return CommandSupport.OK;
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** Tells other staff about a punishment, each where their "Punishment alerts" setting says (and the console). */
+    private void notifyStaff(Actor actor, MessageKey key, Arg... args) {
+        this.notices.send(StaffNodes.NOTIFY, StaffPreferences.PUNISH_ALERTS, actor, key, args);
+    }
 
     /**
      * Runs a kick on the player's own thread. From any other thread the server only drops the connection, without the

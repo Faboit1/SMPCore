@@ -13,5 +13,13 @@ admin:
     pass: "<secondary>pass <primary><feature> <secondary><name> <time>"
     fail: "<primary>fail <feature> <name>: <detail>"
     done: "<primary><passed> passed, <failed> failed in <time>."
+  # Told on join to admins with Config problem alerts on (/settings staff) when the last startup or /sift reload found
+  # config problems. Hovering the line lists them; clicking it fills in /sift reload.
+  config-alert:
+    line: "<primary>Config problems at the last start or reload: <count>. <secondary>Hover to see them, fix them, then /sift reload."
+    hover-more: "<secondary>and <count> more in the console log"
+  settings:
+    config-alerts: "Config problem alerts"
+    config-alerts-description: "When you join, tell you if the last startup or /sift reload found config problems."
   "on": "on"
   "off": "off"

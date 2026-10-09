@@ -11,6 +11,7 @@ import java.util.logging.Logger;
 import net.siftvanilla.siftcore.core.audit.AuditLog;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.config.TestSettings;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import net.siftvanilla.siftcore.core.text.Sounds;
@@ -65,7 +66,7 @@ class FreezeServiceTest {
         Lang lang = Fakes.lang(List.of("lang/staff.yml"), StaffMessages.class);
         Messenger messenger = new Messenger(lang, new Sounds());
         this.freeze = new FreezeService(new Fakes.ImmediateScheduler(), store, new AuditLog(this.database), messenger, new StaffText(lang),
-            new StaffNotices(messenger), null, TestSettings.of(settings), LOGGER);
+            new StaffNotices(messenger, new PlayerSettings(null, null, LOGGER)), null, TestSettings.of(settings), LOGGER);
         this.freeze.load();
     }
 

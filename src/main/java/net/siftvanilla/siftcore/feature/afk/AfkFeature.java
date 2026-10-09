@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
@@ -14,7 +15,13 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Choices;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import org.bukkit.Bukkit;
@@ -26,11 +33,32 @@ import org.bukkit.permissions.PermissionDefault;
  * AFK: notices players who are away from the keyboard (with anti-bypass rules), marks them for the tab list and
  * placeholders ({@link AfkStatus}), kicks those who stay away outside the AFK zone, and runs the AFK zone where
  * players earn shards just by being there (one account per connection, no combat, an optional daily limit).
+ * <p>
+ * Player settings (AFK &amp; shards): where the zone countdown and the payouts show, how the kick warning shows, the
+ * "now AFK" and "welcome back" lines, and the welcome-back summary.
  */
 public final class AfkFeature implements Feature {
 
-    public static final Toggle STATUS = new Toggle("afk-zone-status", true, AfkMessages.SETTING_STATUS,
-        AfkMessages.SETTING_STATUS_DESCRIPTION, null);
+    /** Where the time to the next shard shows in the zone. Was a switch: on reads as the hotbar, off as off. */
+    public static final Choice<AlertStyle> STATUS = Choices.alert("afk-zone-status", AlertStyle.ACTIONBAR,
+            AlertStyle.ACTIONBAR, AlertStyle.BOSSBAR, AlertStyle.OFF)
+        .legacyValue("true", AlertStyle.ACTIONBAR.id()).legacyValue("false", AlertStyle.OFF.id())
+        .text(AfkMessages.SETTING_STATUS, AfkMessages.SETTING_STATUS_DESCRIPTION).build();
+    /** How a player is told about shards earned in the zone (reaching the daily limit always shows). */
+    public static final Choice<AlertStyle> PAYOUTS = Choices.alert("afk-zone-payouts", AlertStyle.ACTIONBAR,
+            AlertStyle.ACTIONBAR, AlertStyle.CHAT, AlertStyle.OFF)
+        .text(AfkMessages.SETTING_PAYOUTS, AfkMessages.SETTING_PAYOUTS_DESCRIPTION).build();
+    /** How the warning before an AFK kick shows: a chat line or a title. It can't be turned off. */
+    public static final Choice<AlertStyle> KICK_WARNING = Choices.alert("afk-kick-warning", AlertStyle.CHAT,
+            AlertStyle.CHAT, AlertStyle.TITLE)
+        .text(AfkMessages.SETTING_KICK_WARNING, AfkMessages.SETTING_KICK_WARNING_DESCRIPTION).build();
+    /** Where "You are now AFK" and "Welcome back" show ({@code /afk} always answers). */
+    public static final Choice<AlertStyle> STATUS_MESSAGES = Choices.alert("afk-status-messages", AlertStyle.ACTIONBAR,
+            AlertStyle.ACTIONBAR, AlertStyle.CHAT, AlertStyle.OFF)
+        .text(AfkMessages.SETTING_STATUS_MESSAGES, AfkMessages.SETTING_STATUS_MESSAGES_DESCRIPTION).build();
+    /** A chat line on coming back: how long the player was away and the shards they earned meanwhile. */
+    public static final Toggle RETURN_SUMMARY = new Toggle("afk-return-summary", true, AfkMessages.SETTING_RETURN_SUMMARY,
+        AfkMessages.SETTING_RETURN_SUMMARY_DESCRIPTION, null);
     private static final Duration TICK = Duration.ofSeconds(1);
 
     private final Services services;
@@ -50,7 +78,7 @@ public final class AfkFeature implements Feature {
         this.vanish = vanish;
         this.settings = services.configs().register("features/afk.yml", AfkSettings::parse, problems);
         services.lang().register(AfkMessages.class);
-        services.settings().register(STATUS);
+        registerSettings(services.settings(), this.settings::get);
         var perms = services.permissions();
         perms.declare(AfkService.COMMAND_AFK, "Mark yourself AFK with /afk", true);
         perms.declare(AfkService.COMMAND_ZONE, "Teleport to the AFK zone with /afkzone", true);
@@ -63,8 +91,30 @@ public final class AfkFeature implements Feature {
         }
         ZoneStore store = new ZoneStore(services.plugin().getDataFolder().toPath().resolve("data/afk-zone.yml"),
             services.scheduler().asyncExecutor(), services.plugin().getLogger());
-        this.service = new AfkService(services, this.settings, combat, spawnArea, vanish, STATUS, store);
+        this.service = new AfkService(services, this.settings, combat, spawnArea, vanish, store);
         this.commands = new AfkCommands(services, this.service, this.settings, vanish);
+    }
+
+    /**
+     * Registers the AFK settings in the AFK &amp; shards group, in the catalog's order. The zone settings are offered
+     * while the zone is on (the countdown also needs {@code rewards.status-every} above 0s), the kick warning while
+     * the kick and its warning are on.
+     */
+    static void registerSettings(PlayerSettings prefs, Supplier<AfkSettings> config) {
+        prefs.register(SettingCategories.AFK, STATUS, SettingOptions.<AlertStyle>builder().order(1)
+            .availableWhen(() -> config.get().zoneEnabled() && !config.get().statusEvery().isZero()).build());
+        prefs.register(SettingCategories.AFK, PAYOUTS, SettingOptions.<AlertStyle>builder().order(2)
+            .availableWhen(() -> config.get().zoneEnabled()).build());
+        prefs.register(SettingCategories.AFK, KICK_WARNING, SettingOptions.<AlertStyle>builder().order(3)
+            .availableWhen(() -> warnsBeforeKick(config.get())).build());
+        prefs.register(SettingCategories.AFK, STATUS_MESSAGES, SettingOptions.<AlertStyle>builder().order(4).build());
+        prefs.register(SettingCategories.AFK, RETURN_SUMMARY, SettingOptions.<Boolean>builder().order(5).build());
+    }
+
+    /** Whether the config kicks AFK players and warns them first (the kick warning setting needs both). */
+    static boolean warnsBeforeKick(AfkSettings settings) {
+        AfkClock.Timing timing = settings.timing();
+        return timing.kickAfterMillis() > 0 && timing.warnBeforeMillis() > 0;
     }
 
     @Override

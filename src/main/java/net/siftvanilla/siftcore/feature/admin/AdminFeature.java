@@ -7,6 +7,11 @@ import io.papermc.paper.command.brigadier.Commands;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.CoreControl;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
@@ -14,17 +19,43 @@ import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 
-/** /sift: reload, debug, metrics, self-test and version. Console friendly. */
-public final class AdminFeature implements Feature {
+/**
+ * /sift: reload, debug, metrics, self-test and version. Console friendly. Admins who may reload are told on join when
+ * the last startup or reload found config problems ("Config problem alerts" in the Staff settings group).
+ */
+public final class AdminFeature implements Feature, Listener {
+
+    /** The permission of /sift reload; also who gets the config problem alert. */
+    static final String RELOAD = "siftcore.admin.reload";
+    /** A short wait after joining, so the alert isn't lost among the join messages. */
+    private static final long ALERT_DELAY_TICKS = 40;
+    /** How many problems the alert's hover lists. */
+    private static final int HOVER_LINES = 8;
+
+    /** The config problem alert on join. */
+    public static final Toggle CONFIG_ALERTS = new Toggle("admin-config-alerts", true, AdminMessages.SETTING_CONFIG_ALERTS,
+        AdminMessages.SETTING_CONFIG_ALERTS_DESCRIPTION, RELOAD);
 
     private final Services services;
     private final CoreControl control;
     private final List<AdminCommandPart> parts = new ArrayList<>();
+    private final ConfigProblemLog problems = new ConfigProblemLog();
+    private final Logger logger;
 
     /** A subcommand of /sift contributed by another feature (store delivery, backups, ...). */
     public interface AdminCommandPart {
@@ -35,9 +66,13 @@ public final class AdminFeature implements Feature {
         this.services = services;
         this.control = control;
         services.lang().register(AdminMessages.class);
+        registerSettings(services.settings());
+        // Built first, so every startup problem the log reports later is seen.
+        this.logger = services.plugin().getLogger();
+        this.logger.addHandler(this.problems);
         var perms = services.permissions();
         perms.declare("siftcore.admin", "Use /sift", false);
-        perms.declare("siftcore.admin.reload", "Reload SiftCore's files", false);
+        perms.declare(RELOAD, "Reload SiftCore's files", false);
         perms.declare("siftcore.admin.debug", "Toggle debug logging", false);
         perms.declare("siftcore.admin.metrics", "See internal metrics", false);
         perms.declare("siftcore.admin.selftest", "Run the self-test", false);
@@ -50,6 +85,11 @@ public final class AdminFeature implements Feature {
         this.parts.add(part);
     }
 
+    /** Registers "Config problem alerts" in the Staff group (catalog order: last). */
+    static void registerSettings(PlayerSettings prefs) {
+        prefs.register(SettingCategories.STAFF, CONFIG_ALERTS, SettingOptions.<Boolean>builder().order(13).build());
+    }
+
     @Override
     public String id() {
         return "admin";
@@ -57,6 +97,58 @@ public final class AdminFeature implements Feature {
 
     @Override
     public void enable() {
+        Bukkit.getPluginManager().registerEvents(this, this.services.plugin());
+    }
+
+    @Override
+    public void disable() {
+        this.logger.removeHandler(this.problems);
+    }
+
+    /** Admins who may reload hear about config problems a moment after joining (unless they turned it off). */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        if (problems().count() == 0 || !player.hasPermission(RELOAD)
+            || !this.services.settings().get(player.getUniqueId(), CONFIG_ALERTS)) {
+            return;
+        }
+        this.services.scheduler().entityLater(player, () -> alert(player), null, ALERT_DELAY_TICKS);
+    }
+
+    /**
+     * The problems of the last startup or reload, with the startup's own list taken over once the plugin keeps one
+     * ({@link CoreControl#startupProblems}); until then the startup's are read from the log.
+     */
+    private ConfigProblemLog problems() {
+        this.control.startupProblems().ifPresent(this.problems::startup);
+        return this.problems;
+    }
+
+    /** One line with the count; hovering lists the problems (as plain text) and clicking fills in /sift reload. */
+    private void alert(Player player) {
+        int count = problems().count();
+        if (count == 0 || !player.isOnline()) {
+            return;
+        }
+        Lang lang = this.services.lang();
+        List<Component> lines = new ArrayList<>();
+        List<String> first = this.problems.first(HOVER_LINES);
+        for (String problem : first) {
+            lines.add(Component.text(problem));
+        }
+        if (count > first.size()) {
+            lines.add(lang.get(AdminMessages.CONFIG_ALERT_HOVER_MORE, Arg.number("count", count - first.size())));
+        }
+        player.sendMessage(lang.get(AdminMessages.CONFIG_ALERT, Arg.number("count", count))
+            .hoverEvent(HoverEvent.showText(Component.join(JoinConfiguration.newlines(), lines)))
+            .clickEvent(ClickEvent.suggestCommand("/sift reload")));
+        this.services.messenger().feedback(player, AdminMessages.CONFIG_ALERT.feedback());
+    }
+
+    /** How many config problems the last startup or reload found (for tests). */
+    int configProblems() {
+        return problems().count();
     }
 
     @Override
@@ -67,7 +159,7 @@ public final class AdminFeature implements Feature {
                 .requires(CommandSupport.permission(perm))
                 .executes(ctx -> version(ctx.getSource().getSender()))
                 .then(Commands.literal("version").executes(ctx -> version(ctx.getSource().getSender())))
-                .then(Commands.literal("reload").requires(CommandSupport.permission("siftcore.admin.reload"))
+                .then(Commands.literal("reload").requires(CommandSupport.permission(RELOAD))
                     .executes(ctx -> reload(ctx.getSource().getSender())))
                 .then(Commands.literal("debug").requires(CommandSupport.permission("siftcore.admin.debug"))
                     .executes(ctx -> debug(ctx.getSource().getSender(), !this.control.debug()))
@@ -94,7 +186,9 @@ public final class AdminFeature implements Feature {
 
     private int reload(CommandSender sender) {
         long start = System.nanoTime();
+        this.problems.reloading();
         List<ConfigProblem> problems = this.control.reload();
+        this.problems.reloaded(problems);
         if (problems.isEmpty()) {
             this.services.messenger().chat(sender, AdminMessages.RELOADED,
                 Arg.number("files", this.services.configs().fileNames().size()),

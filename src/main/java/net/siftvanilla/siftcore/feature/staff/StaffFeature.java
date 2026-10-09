@@ -9,6 +9,7 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.FreezeStatus;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
@@ -23,7 +24,8 @@ import org.bukkit.plugin.PluginManager;
  * Staff moderation tools: vanish, freeze, mutes, bans, kicks, warnings and their history, staff chat, player
  * reports, inventory and ender chest inspection, alt and player lookups, broadcasts and clearing chat. Implements
  * {@link MuteStatus}, {@link VanishStatus} and {@link FreezeStatus} for the other features and the core. Every staff
- * action is written to the audit log.
+ * action is written to the audit log. Staff tune their alerts, staff chat and vanish in the Staff settings group
+ * ({@link StaffPreferences}).
  */
 public final class StaffFeature implements Feature {
 
@@ -38,6 +40,7 @@ public final class StaffFeature implements Feature {
     private final StaffChat staffChat;
     private final Reports reports;
     private final ReportDialogs reportDialogs;
+    private final FakeLines fakeLines;
     private final List<SiftCommand> commands;
     private final List<Task> timers = new ArrayList<>();
     private volatile StaffRanks luckPerms;
@@ -48,15 +51,18 @@ public final class StaffFeature implements Feature {
         services.lang().register(StaffMessages.class);
         StaffNodes.declare(services.permissions());
         Logger logger = services.plugin().getLogger();
+        services.lang().register(FakeLines.class);
         StaffText text = new StaffText(services.lang());
-        StaffNotices notices = new StaffNotices(services.messenger());
+        StaffNotices notices = new StaffNotices(services.messenger(), services.settings());
         this.store = new StaffStore(services.database(), logger);
         this.punishments = new Punishments(this.store, services.audit(), services.messenger(), text, this.settings::get, logger);
         this.vanish = new VanishService(services.plugin(), services.scheduler(), this.store, services.audit(), services.messenger(),
-            this.settings, logger);
+            this.settings, services.settings(), logger);
+        this.fakeLines = new FakeLines(services.lang(), services.settings(), services.plugin().getDataFolder().toPath(), logger);
+        StaffPreferences.register(services.settings(), this.vanish::seeVanishedChanged, this.fakeLines::available);
         this.freeze = new FreezeService(services.scheduler(), this.store, services.audit(), services.messenger(), text, notices,
             this.punishments, this.settings, logger);
-        this.staffChat = new StaffChat(services.lang());
+        this.staffChat = new StaffChat(services.lang(), services.settings());
         this.reports = new Reports(this.store, services.audit(), services.messenger(), notices, this.settings, logger);
         this.reportDialogs = new ReportDialogs(services, this.reports, this.settings);
         StaffHierarchy hierarchy = new StaffHierarchy(services.scheduler(), services.messenger(), services.audit(), this.settings,
@@ -68,7 +74,7 @@ public final class StaffFeature implements Feature {
         List<SiftCommand> all = new ArrayList<>();
         all.addAll(new PunishCommands(services, this.punishments, history, notices, text, this.settings, hierarchy).all());
         all.addAll(new ToolCommands(services, this.vanish, this.freeze, this.staffChat, announcements, inspector, lookups, notices, text,
-            hierarchy).all());
+            hierarchy, this.fakeLines).all());
         all.addAll(new ReportCommands(services, this.reports, this.reportDialogs).all());
         this.commands = List.copyOf(all);
     }
@@ -104,6 +110,16 @@ public final class StaffFeature implements Feature {
     /** Who is frozen, for the shared teleports and the dialog router (frozen players can't use either). Lock-free. */
     public FreezeStatus freezes() {
         return this.freeze;
+    }
+
+    /**
+     * Rank join and leave lines and nicknames (the cosmetics feature, built after this one), so a fake join or leave
+     * line on vanish looks exactly like the real one. The composition root calls it once cosmetics is built
+     * ({@code staff.cosmetics(cosmetics.cosmetics())} in FeatureCatalog, wired in the settings integration pass);
+     * until then fake lines imitate only the plain join and leave lines of the extras feature.
+     */
+    public void cosmetics(Cosmetics cosmetics) {
+        this.fakeLines.cosmetics(cosmetics);
     }
 
     @Override

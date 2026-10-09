@@ -49,8 +49,10 @@ A dialog lists the offers (`Basic key, 50 shards`, or `32x Bottle o' Enchanting,
 several; the description and the per-purchase limit in the tooltip). An offer opens a purchase dialog: the item (for
 item offers), what one unit gives, the price, the balance, the keys the player already has (key offers), an amount
 slider when more than one may be bought, and a Buy button that always names the amount and total. Moving the slider
-first shows the new total instead of buying. Purchases at or above `shop.confirm-above` (500) ask once more. Receipts
-name what was given (`You bought 2x Basic key for 100 shards.`, with a click to `/crates` for keys).
+first shows the new total instead of buying. Purchases at or above `shop.confirm-above` (500) ask once more, unless
+the player chose otherwise (`shard-confirm-above`, below). Receipts name what was given (`You bought 2x Basic key for
+100 shards.`, with a click to `/crates` for keys). After a purchase the dialog closes, or shows the shop again with the
+new balance for players who keep it open (`shard-shop-stay-open`; not in combat).
 
 **In combat** (`shop.block-in-combat`, on by default) the shop doesn't open and nothing can be bought: "You can't use
 the shard shop in combat. <time> left." It is checked when the shop or an offer opens, on every Buy and confirm press,
@@ -87,6 +89,17 @@ given. Purchases cut off by a crash, or whose refund could not be stored, are re
 hidden, and anything still pending is refunded. A crate removed from `features/crates.yml` hides its offers the same
 way, and a player who already holds the most keys the crates feature allows gets the shards back.
 
+## Player settings (AFK & shards group)
+
+| Id | Kind | Default | What it does |
+|---|---|---|---|
+| `shard-confirm-above` | choice server/always/100/1000/5000/never | server | from which total a purchase asks once more: `Server default` follows `shop.confirm-above`, `Always` asks for every purchase, a preset asks from that many shards, `Never` buys at once |
+| `shard-shop-stay-open` | toggle | off | go back to the shop after a purchase instead of closing it |
+
+They follow the five AFK settings in the group ([afk](afk.md)). The decision is `ShardMath.needsConfirmation(total,
+choice, shop.confirm-above)` (unit tested). Errors (not enough shards, a changed price, combat) behave the same with
+either setting.
+
 ## The shards page
 
 Main menu entry `shards` (order 85): the balance, what the AFK zone pays this player (their rank tier) and every how
@@ -115,3 +128,11 @@ reported when the config loads.
 
 Every item offer sells a real item and, with a crates feature installed, every key offer names a known crate; the
 purchase arithmetic; the pending key purchases in memory match `shard_purchases` in storage.
+
+## Tests
+
+- Unit (`src/test/java/.../feature/shards`): the shipped shop, purchase arithmetic and text (`ShardsResourcesTest`),
+  the key purchase saga (`KeyGrantsTest`), and the shard settings: group and order, the thresholds and how they
+  combine with `shop.confirm-above` (`ShardSettingsTest`).
+- End to end (`tools/e2e/.../AfkScenarios.java`): `shard-shop`, `shard-shop-combat`, and `shard-settings` (Always
+  confirm picked in the dialog, Never and Keep the shard shop open by API).

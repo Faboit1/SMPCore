@@ -7,6 +7,13 @@ afk:
   now-afk-manual: "<primary>You are now AFK. <secondary>Move around or type to come back."
   back: "<secondary>Welcome back."
   kick-warning: "<primary>You'll be kicked for being AFK in <time>. <secondary>Chat, run a command or use something to stay."
+  # The same warning as a title (the AFK kick warning setting): a short title and a line under it.
+  kick-warning-title: "<primary>AFK kick in <time>"
+  kick-warning-subtitle: "<secondary>Chat, run a command or use something to stay"
+  # The welcome-back summary (shown in chat when coming back after at least a minute, or with shards earned).
+  return-summary: "<secondary>You were away for <time>."
+  return-summary-shard: "<secondary>You were away for <time> and earned <primary>1 shard <secondary>in the AFK zone."
+  return-summary-shards: "<secondary>You were away for <time> and earned <primary><shards> shards <secondary>in the AFK zone."
   # The disconnect screen of a player kicked for being AFK.
   kick-reason: "<primary>You were AFK for too long.<newline><secondary>You can rejoin right away."
   # What %siftcore_afk_status% shows for an AFK player (empty for everyone else).
@@ -58,4 +65,12 @@ afk:
     save-failed: "<primary>The zone changed, but data/afk-zone.yml could not be saved. Check the console."
   settings:
     status: "AFK zone countdown"
-    status-description: "Show the time to your next shard while in the AFK zone"
+    status-description: "Where the time until your next shard shows while you are in the AFK zone."
+    payouts: "AFK zone payout messages"
+    payouts-description: "How you are told about shards you earn in the AFK zone. Reaching the daily cap always shows."
+    kick-warning: "AFK kick warning style"
+    kick-warning-description: "How you are warned before an AFK kick. The warning itself can't be turned off."
+    status-messages: "AFK status messages"
+    status-messages-description: "'You are now AFK' and 'Welcome back' messages. /afk always answers."
+    return-summary: "Welcome-back summary"
+    return-summary-description: "When you come back, show how long you were away and the shards you earned."

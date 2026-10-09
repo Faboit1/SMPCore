@@ -20,7 +20,8 @@ import org.bukkit.entity.Player;
 
 /**
  * /vanish, /freeze, /staffchat, /broadcast, /clearchat, /invsee, /ecsee, /alts and /whois. Vanishing another staff
- * member and freezing follow the staff hierarchy ({@link StaffHierarchy}); unfreezing is never refused.
+ * member and freezing follow the staff hierarchy ({@link StaffHierarchy}); unfreezing is never refused. Vanishing and
+ * reappearing show a fake leave or join line for staff who want that ({@link FakeLines}).
  */
 final class ToolCommands {
 
@@ -36,9 +37,11 @@ final class ToolCommands {
     private final StaffNotices notices;
     private final StaffText text;
     private final StaffHierarchy hierarchy;
+    private final FakeLines fakeLines;
 
     ToolCommands(Services services, VanishService vanish, FreezeService freeze, StaffChat staffChat, Announcements announcements,
-                 Inspector inspector, Lookups lookups, StaffNotices notices, StaffText text, StaffHierarchy hierarchy) {
+                 Inspector inspector, Lookups lookups, StaffNotices notices, StaffText text, StaffHierarchy hierarchy,
+                 FakeLines fakeLines) {
         this.services = services;
         this.support = services.commands();
         this.messenger = services.messenger();
@@ -51,6 +54,7 @@ final class ToolCommands {
         this.notices = notices;
         this.text = text;
         this.hierarchy = hierarchy;
+        this.fakeLines = fakeLines;
     }
 
     List<SiftCommand> all() {
@@ -71,6 +75,7 @@ final class ToolCommands {
                     boolean now = !this.vanish.vanished(player.getUniqueId());
                     this.vanish.set(player.getUniqueId(), now, Actor.of(player));
                     this.messenger.send(player, now ? StaffMessages.VANISH_ON : StaffMessages.VANISH_OFF);
+                    fakeLine(player, player, now);
                 }
                 return CommandSupport.OK;
             })
@@ -93,6 +98,25 @@ final class ToolCommands {
         Player online = Bukkit.getPlayer(target);
         if (online != null && !online.equals(sender)) {
             this.messenger.send(online, now ? StaffMessages.VANISH_ON : StaffMessages.VANISH_OFF);
+        }
+        if (online != null) {
+            fakeLine(sender, online, now);
+        }
+    }
+
+    /**
+     * The fake leave (vanished) or join line of {@code subject}, if they turned it on; tells {@code sender} when the
+     * server shows no such line for the subject that could be imitated.
+     */
+    private void fakeLine(CommandSender sender, Player subject, boolean vanished) {
+        if (this.fakeLines.announce(subject, vanished)) {
+            return;
+        }
+        if (sender.equals(subject)) {
+            this.messenger.send(sender, StaffMessages.VANISH_NO_FAKE_LINE);
+        } else {
+            // The missing line is the subject's (their rank line, or the plain lines), not the sender's.
+            this.messenger.send(sender, StaffMessages.VANISH_NO_FAKE_LINE_OTHER, Arg.text("name", subject.getName()));
         }
     }
 
@@ -127,7 +151,7 @@ final class ToolCommands {
         this.freeze.set(target, now, actor);
         Arg name = Arg.text("name", targetName);
         this.messenger.chat(sender, now ? StaffMessages.FREEZE_DONE : StaffMessages.UNFREEZE_DONE, name);
-        this.notices.send(StaffNodes.NOTIFY, actor, now ? StaffMessages.NOTIFY_FREEZE : StaffMessages.NOTIFY_UNFREEZE,
+        this.notices.send(StaffNodes.NOTIFY, StaffPreferences.PUNISH_ALERTS, actor, now ? StaffMessages.NOTIFY_FREEZE : StaffMessages.NOTIFY_UNFREEZE,
             Arg.text("staff", this.text.staff(actor)), name);
     }
 
@@ -142,6 +166,9 @@ final class ToolCommands {
                     if (player != null) {
                         boolean on = this.staffChat.toggle(player.getUniqueId());
                         this.messenger.send(player, on ? StaffMessages.CHAT_ON : StaffMessages.CHAT_OFF);
+                        if (on && !this.staffChat.reads(player.getUniqueId())) {
+                            this.messenger.send(player, StaffMessages.CHAT_HIDDEN);
+                        }
                     }
                     return CommandSupport.OK;
                 })

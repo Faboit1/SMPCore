@@ -71,6 +71,11 @@ shards:
   in-combat: "<primary>You can't use the shard shop in combat. <time> left."
   cancelled: "<secondary>Purchase cancelled."
   failed: "<primary>The purchase didn't go through. You weren't charged."
+  settings:
+    confirm: "Confirm shard buys from"
+    confirm-description: "Ask once more before shard purchases costing at least this many shards."
+    stay-open: "Keep the shard shop open"
+    stay-open-description: "Go back to the shop after a purchase instead of closing it."
   hub:
     label: "Shards"
     description: "Your shards, the shard shop and the AFK zone"

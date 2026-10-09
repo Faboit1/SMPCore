@@ -36,6 +36,12 @@ staff:
     off-other: "<primary><name> is visible again."
     reminder: "<secondary>You are vanished"
     cleared: "<primary>You are no longer staff, so you are visible again."
+    # Sent on join to staff who have Join vanished on (/settings staff).
+    joined: "<primary>You joined vanished. <secondary>Players can't see you; /vanish shows you."
+    # Sent to staff with Fake join/leave on vanish on when this server shows no join or leave line for them to imitate.
+    no-fake-line: "<secondary>No fake join or leave line: this server shows none for you right now."
+    # The same, to staff who vanished or revealed another staff member (/vanish <player>) who has the setting on.
+    no-fake-line-other: "<secondary>No fake join or leave line for <name>: this server shows none for them right now."
 
   freeze:
     done: "<primary>Froze <name>."
@@ -62,6 +68,15 @@ staff:
     not-muted: "<primary><name> isn't muted."
 
   ban:
+    # The confirmation staff with Confirm bans on (/settings staff) see before a ban from them goes through.
+    confirm:
+      title: "Ban <name>?"
+      body:
+        - "<secondary>Player <primary><name>"
+        - "<secondary>Length <primary><length>"
+        - "<secondary>Reason <primary><reason>"
+      button: "Ban"
+      cancelled: "<secondary>Didn't ban <name>."
     done: "<primary>Banned <name> for <time>."
     done-permanent: "<primary>Banned <name> permanently."
     undone: "<primary>Unbanned <name>."
@@ -126,6 +141,8 @@ staff:
     format: "<secondary>Staff <primary><name><secondary>: <primary><message>"
     "on": "<primary>Staff chat on. Your messages go to staff only."
     "off": "<primary>Staff chat off. Your messages are public again."
+    # Sent with "on" to staff who turned Show staff chat off (/settings staff).
+    hidden: "<secondary>Show staff chat is off in /settings staff, so you only see your own staff chat lines."
 
   report:
     sent: "<primary>Thanks. Staff will look at your report about <name>."
@@ -247,6 +264,27 @@ staff:
     history: "Punishment history"
     inventory: "Inventory"
     ender: "Ender chest"
+
+  # Labels and descriptions of the staff settings (/settings staff).
+  settings:
+    chat: "Show staff chat"
+    chat-description: "Show staff chat from other staff. Your own messages always echo."
+    punish-alerts: "Punishment alerts"
+    punish-alerts-description: "Tell you when other staff ban, mute, kick, warn or freeze someone."
+    report-alerts: "Report alerts"
+    report-alerts-description: "How you are told about new player reports. /reports always lists them."
+    vanish-on-join: "Join vanished"
+    vanish-on-join-description: "Always join the server vanished."
+    vanish-reminder: "Vanish reminder"
+    vanish-reminder-description: "Remind you above the hotbar that you are vanished."
+    see-vanished: "See vanished staff"
+    see-vanished-description: "Show other vanished staff to you."
+    freeze-alerts: "Frozen player logout alerts"
+    freeze-alerts-description: "Tell you when a frozen player logs out."
+    confirm-bans: "Confirm bans"
+    confirm-bans-description: "Ask you to confirm player, length and reason before a ban goes through."
+    fake-messages: "Fake join/leave on vanish"
+    fake-messages-description: "Show a normal leave line when you vanish and a join line when you reappear."
 
   broadcast: "<primary><message>"
   clearchat:

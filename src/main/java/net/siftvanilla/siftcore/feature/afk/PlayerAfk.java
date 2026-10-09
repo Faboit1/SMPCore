@@ -1,5 +1,6 @@
 package net.siftvanilla.siftcore.feature.afk;
 
+import java.util.ArrayDeque;
 import java.util.UUID;
 
 /**
@@ -9,6 +10,26 @@ import java.util.UUID;
  * by placeholders and other features are volatile so those reads never block.
  */
 final class PlayerAfk {
+
+    /**
+     * How long a player was away and the zone shards they earned meanwhile (the welcome-back summary). A spell the
+     * clock noticed on its own starts at the player's last activity, not at the AFK mark {@code afk-after} later, so it
+     * counts the whole time away and the shards paid before the mark; a {@code /afk} spell starts at the command.
+     */
+    record Spell(long millis, long shards) {
+
+        /** Less than this away and nothing earned is not worth a summary (a quick /afk and back). */
+        static final long SHORT_MILLIS = 60_000;
+
+        /** Whether the summary says anything worth reading: shards were earned, or the player was away a while. */
+        boolean worthTelling() {
+            return this.shards > 0 || this.millis >= SHORT_MILLIS;
+        }
+    }
+
+    /** Zone shards paid at a moment. */
+    private record Payout(long at, long shards) {
+    }
 
     private final UUID player;
     private ActivityClassifier classifier;
@@ -22,6 +43,18 @@ final class PlayerAfk {
     private long lastStatus;
     private long holdStatusUntil;
     private long lastNotice;
+    /** Zone shards earned during the current AFK spell (from {@link #spellStart} on). */
+    private long spellShards;
+    /** When the current AFK spell started for the summary, or -1 when not AFK. */
+    private long spellStart = -1;
+    /**
+     * Zone payouts since the last activity while not AFK, oldest first: a spell the clock notices later started at
+     * that activity, so they count towards it. Bounded: dropped at each activity and when a spell starts, so it
+     * holds at most about {@code afk-after} divided by the reward interval.
+     */
+    private final ArrayDeque<Payout> paidSinceActivity = new ArrayDeque<>();
+    /** The spell that ended last, for the welcome-back summary; null before the first one. */
+    private Spell lastSpell;
 
     PlayerAfk(UUID player, ActivityClassifier.Settings settings, long now) {
         this.player = player;
@@ -107,27 +140,90 @@ final class PlayerAfk {
         if (verdict != ActivityClassifier.Verdict.ACTIVE) {
             return AfkClock.Change.NONE;
         }
-        return publish(this.clock.activity(now, motion, timing));
+        AfkClock.Change change = this.clock.activity(now, motion, timing);
+        forgetPaidBefore(this.clock.lastActivity(timing));
+        return publish(change, now, now);
+    }
+
+    /** Payouts before the last activity belong to no spell the clock could notice later. */
+    private void forgetPaidBefore(long lastActivity) {
+        while (!this.paidSinceActivity.isEmpty() && this.paidSinceActivity.peekFirst().at() < lastActivity) {
+            this.paidSinceActivity.removeFirst();
+        }
     }
 
     // ------------------------------------------------------------------ clock
 
+    /** {@code /afk}: the spell starts now and counts only what is paid from now on. */
     synchronized AfkClock.Change goAfk(long now, AfkClock.Timing timing) {
-        return publish(this.clock.goAfk(now, timing));
+        return publish(this.clock.goAfk(now, timing), now, now);
     }
 
+    /** {@code /afk} again: back at once (typing the command is an action). */
     synchronized AfkClock.Change comeBack(long now) {
-        return publish(this.clock.comeBack(now));
+        AfkClock.Change change = this.clock.comeBack(now);
+        forgetPaidBefore(now);
+        return publish(change, now, now);
     }
 
+    /** The periodic check: a spell it starts began at the last activity ({@code afk-after} ago or longer). */
     synchronized AfkClock.Change tick(long now, AfkClock.Timing timing, boolean kickable) {
-        return publish(this.clock.tick(now, timing, this.inZone, kickable));
+        long lastActivity = this.clock.lastActivity(timing);
+        return publish(this.clock.tick(now, timing, this.inZone, kickable), now, lastActivity);
     }
 
-    private AfkClock.Change publish(AfkClock.Change change) {
+    /**
+     * Makes the clock's state readable without the lock, and keeps the spell bookkeeping. A spell that starts begins
+     * at {@code start}: a {@code /afk} spell counts shards from zero, one the clock noticed takes along the shards
+     * paid since the last activity. A spell that ends is remembered for the summary.
+     */
+    private AfkClock.Change publish(AfkClock.Change change, long now, long start) {
+        if (change == AfkClock.Change.BECAME_AFK) {
+            boolean manual = this.clock.manual();
+            this.spellStart = manual ? now : Math.min(now, start);
+            this.spellShards = 0;
+            if (!manual) {
+                for (Payout payout : this.paidSinceActivity) {
+                    if (payout.at() >= this.spellStart) {
+                        this.spellShards += payout.shards();
+                    }
+                }
+            }
+            this.paidSinceActivity.clear();
+        } else if (change == AfkClock.Change.RETURNED) {
+            this.lastSpell = spell(this.spellStart, now, this.spellShards);
+            this.spellStart = -1;
+            this.spellShards = 0;
+            this.paidSinceActivity.clear();
+        }
         this.afk = this.clock.afk();
         this.afkSince = this.clock.afkSince();
         return change;
+    }
+
+    /** The summary of a spell from {@code start} (-1 when unknown) to {@code end}. Pure. */
+    static Spell spell(long start, long end, long shards) {
+        return new Spell(start < 0 ? 0 : Math.max(0, end - start), shards);
+    }
+
+    /**
+     * Counts zone shards paid to the player at {@code now}: towards the current AFK spell, or, while they are not
+     * AFK, towards a spell the clock may notice later (forgotten at their next activity).
+     */
+    synchronized void earned(long shards, long now) {
+        if (shards <= 0) {
+            return;
+        }
+        if (this.afk) {
+            this.spellShards += shards;
+        } else {
+            this.paidSinceActivity.addLast(new Payout(now, shards));
+        }
+    }
+
+    /** The spell that ended last, or null. */
+    synchronized Spell lastSpell() {
+        return this.lastSpell;
     }
 
     /** Records zone presence; returns true when it changed. */

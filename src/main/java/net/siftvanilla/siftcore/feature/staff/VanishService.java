@@ -11,6 +11,7 @@ import java.util.logging.Logger;
 import net.siftvanilla.siftcore.core.audit.AuditLog;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.text.Messenger;
@@ -34,6 +35,9 @@ import org.bukkit.plugin.Plugin;
  * {@link Player#hidePlayer(Plugin, Player)}, shows them again with {@link Player#showPlayer(Plugin, Player)}, and keeps
  * that true for players who join later and for permission changes.
  * <p>
+ * Staff settings: "See vanished staff" off hides vanished staff from a viewer who may see them (applied at once),
+ * "Join vanished" vanishes a staff member as they join, and "Vanish reminder" off stops the reminder above the hotbar.
+ * <p>
  * Threading (verified in the Canvas 962 sources, see docs/features/staff.md): {@code viewer.hidePlayer(plugin, v)}
  * records the hidden player in the viewer's visibility map (a {@code ConcurrentHashMap}) and then removes the
  * viewer from <em>v's</em> entity tracker ({@code seenBy}, a plain set owned by the region thread that ticks v).
@@ -48,6 +52,7 @@ final class VanishService implements VanishStatus, Listener {
     private final AuditLog audit;
     private final Messenger messenger;
     private final Setting<StaffSettings> settings;
+    private final PlayerSettings prefs;
     private final Logger logger;
     private final Set<UUID> vanished = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Task> timers = new ConcurrentHashMap<>();
@@ -55,14 +60,33 @@ final class VanishService implements VanishStatus, Listener {
     private final Object lock = new Object();
 
     VanishService(Plugin plugin, Scheduler scheduler, StaffStore store, AuditLog audit, Messenger messenger,
-                  Setting<StaffSettings> settings, Logger logger) {
+                  Setting<StaffSettings> settings, PlayerSettings prefs, Logger logger) {
         this.plugin = plugin;
         this.scheduler = scheduler;
         this.store = store;
         this.audit = audit;
         this.messenger = messenger;
         this.settings = settings;
+        this.prefs = prefs;
         this.logger = logger;
+    }
+
+    /** Whether a viewer sees vanished staff: the see permission and "See vanished staff" on. Any thread. */
+    boolean seesVanished(Player viewer) {
+        return viewer.hasPermission(StaffNodes.VANISH_SEE) && this.prefs.get(viewer.getUniqueId(), StaffPreferences.SEE_VANISHED);
+    }
+
+    /**
+     * "See vanished staff" changed for {@code viewer}: every online vanished player settles who sees them again, each on
+     * its own thread (the only thread that may hide or show it). Runs on the viewer's thread.
+     */
+    void seeVanishedChanged(Player viewer, Boolean before, Boolean after) {
+        for (UUID id : this.vanished) {
+            Player target = Bukkit.getPlayer(id);
+            if (target != null && !target.equals(viewer)) {
+                onTargetThread(target, () -> reconcile(target));
+            }
+        }
     }
 
     /** Loads who is vanished; call once from enable (blocks on storage). */
@@ -146,7 +170,8 @@ final class VanishService implements VanishStatus, Listener {
             if (viewer.equals(target)) {
                 continue;
             }
-            boolean shouldSee = !hidden || viewer.hasPermission(StaffNodes.VANISH_SEE);
+            boolean shouldSee = StaffPreferences.shouldSee(hidden, viewer.hasPermission(StaffNodes.VANISH_SEE),
+                this.prefs.get(viewer.getUniqueId(), StaffPreferences.SEE_VANISHED));
             boolean sees = viewer.canSee(target);
             if (shouldSee && !sees) {
                 viewer.showPlayer(this.plugin, target);
@@ -196,14 +221,19 @@ final class VanishService implements VanishStatus, Listener {
         }
     }
 
-    /** On the vanished player's thread: re-applies visibility (permissions may have changed) and reminds them. */
+    /**
+     * On the vanished player's thread: re-applies visibility (permissions may have changed) and reminds them, unless
+     * they turned the reminder off.
+     */
     private void tick(Player target) {
         if (!vanished(target)) {
             stopTimer(target.getUniqueId());
             return;
         }
         reconcile(target);
-        this.messenger.send(target, StaffMessages.VANISH_REMINDER);
+        if (this.prefs.get(target.getUniqueId(), StaffPreferences.VANISH_REMINDER)) {
+            this.messenger.send(target, StaffMessages.VANISH_REMINDER);
+        }
     }
 
     void stopAll() {
@@ -230,26 +260,34 @@ final class VanishService implements VanishStatus, Listener {
      *       sent because the joiner is not listed yet. Doing it here is what keeps the vanished player out of the
      *       joiner's tab list; scheduling it on the other region would only apply after the tab list was sent.</li>
      * </ul>
+     * Staff with "Join vanished" on who are not vanished yet become vanished here first, so they take the first path
+     * (and the join line, which the extras feature writes later, is left out like for any vanished player). Viewers
+     * who may see vanished staff but turned "See vanished staff" off count as viewers without the permission.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player joined = event.getPlayer();
         UUID id = joined.getUniqueId();
+        boolean joinedVanished = !vanished(id) && joined.hasPermission(StaffNodes.VANISH)
+            && this.prefs.get(id, StaffPreferences.VANISH_ON_JOIN) && vanishOnJoin(id);
         if (vanished(id)) {
             if (joined.hasPermission(StaffNodes.VANISH)) {
                 mark(joined, true);
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
-                    if (!viewer.equals(joined) && !viewer.hasPermission(StaffNodes.VANISH_SEE) && viewer.canSee(joined)) {
+                    if (!viewer.equals(joined) && !seesVanished(viewer) && viewer.canSee(joined)) {
                         viewer.hidePlayer(this.plugin, joined);
                     }
                 }
                 startTimer(joined);
+                if (joinedVanished) {
+                    this.messenger.send(joined, StaffMessages.VANISH_JOINED);
+                }
             } else {
                 set(id, false, Actor.console());
                 this.messenger.send(joined, StaffMessages.VANISH_CLEARED);
             }
         }
-        if (this.vanished.isEmpty() || joined.hasPermission(StaffNodes.VANISH_SEE)) {
+        if (this.vanished.isEmpty() || seesVanished(joined)) {
             return;
         }
         for (UUID other : this.vanished) {
@@ -258,6 +296,21 @@ final class VanishService implements VanishStatus, Listener {
                 hideFromJoiner(joined, hidden);
             }
         }
+    }
+
+    /**
+     * Vanishes a staff member who is joining with "Join vanished" on: stored and audited like /vanish, without the
+     * visibility pass ({@link #onJoin} hides them inline). Returns false when they already were vanished.
+     */
+    private boolean vanishOnJoin(UUID id) {
+        synchronized (this.lock) {
+            if (!this.vanished.add(id)) {
+                return false;
+            }
+            this.store.vanish(id, System.currentTimeMillis()).whenComplete(this::logFailure);
+        }
+        this.audit.record(id.toString(), "staff.vanish.on", id.toString(), "joined vanished");
+        return true;
     }
 
     private void hideFromJoiner(Player joined, Player hidden) {
@@ -272,7 +325,7 @@ final class VanishService implements VanishStatus, Listener {
             // recorded before the lookup; redo it on the owner thread to be certain.
             this.logger.log(Level.FINE, "Re-applying vanish of " + hidden.getName() + " for " + joined.getName() + " on its own thread", e);
             this.scheduler.entity(hidden, () -> {
-                if (joined.isOnline() && vanished(hidden) && !joined.hasPermission(StaffNodes.VANISH_SEE) && joined.canSee(hidden)) {
+                if (joined.isOnline() && vanished(hidden) && !seesVanished(joined) && joined.canSee(hidden)) {
                     joined.hidePlayer(this.plugin, hidden);
                 }
             }, null);
@@ -347,7 +400,10 @@ final class VanishService implements VanishStatus, Listener {
         return stored.thenApply(count -> count == memory ? null : memory + " vanished in memory, " + count + " stored");
     }
 
-    /** Null when every online vanished player is hidden from every online player who may not see them. */
+    /**
+     * Null when every online vanished player is hidden from every online player who may not see them (no see
+     * permission, or "See vanished staff" off).
+     */
     String checkHidden() {
         for (UUID id : this.vanished) {
             Player hidden = Bukkit.getPlayer(id);
@@ -355,7 +411,7 @@ final class VanishService implements VanishStatus, Listener {
                 continue;
             }
             for (Player viewer : Bukkit.getOnlinePlayers()) {
-                if (!viewer.equals(hidden) && !viewer.hasPermission(StaffNodes.VANISH_SEE) && viewer.canSee(hidden)) {
+                if (!viewer.equals(hidden) && !seesVanished(viewer) && viewer.canSee(hidden)) {
                     return viewer.getName() + " can see vanished " + hidden.getName();
                 }
             }

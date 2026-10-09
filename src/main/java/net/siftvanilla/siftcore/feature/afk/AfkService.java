@@ -28,8 +28,12 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
+import net.siftvanilla.siftcore.core.text.StatusBars;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.feature.afk.ZoneBox.Corner;
 import net.siftvanilla.siftcore.feature.afk.ZoneBox.Point;
@@ -48,8 +52,9 @@ import org.bukkit.event.player.PlayerMoveEvent;
 
 /**
  * The AFK feature at run time: one {@link PlayerAfk} per online player fed by {@link AfkListener}, a once-a-second
- * check per player on that player's own thread (AFK status, kick, zone presence, rewards, the action-bar countdown),
- * and the AFK zone itself (from the config, or set in game).
+ * check per player on that player's own thread (AFK status, kick, zone presence, rewards, the zone countdown on the
+ * action bar or the shared boss bar), and the AFK zone itself (from the config, or set in game). What each player
+ * sees follows their AFK settings ({@link AfkFeature#STATUS} and the others).
  * <p>
  * Implements {@link AfkStatus} for the rest of SiftCore and {@link AfkZoneInfo} for the shards page. Both read
  * volatile flags only, so they are cheap and safe from any thread.
@@ -65,13 +70,14 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
     private static final String COOLDOWN_KEY = "afk:zone";
     private static final long MESSAGE_HOLD_MILLIS = 2_500;
     private static final long NOTICE_MILLIS = 1_000;
+    /** The zone countdown's owner name on the shared boss bar ({@link StatusBars}). */
+    static final String BAR_OWNER = "afk";
 
     private final Services services;
     private final Setting<AfkSettings> settings;
     private final CombatTags combat;
     private final SpawnArea spawnArea;
     private final VanishStatus vanish;
-    private final Toggle statusToggle;
     private final ZoneStore store;
     private final Logger logger;
     private final Map<UUID, PlayerAfk> players = new ConcurrentHashMap<>();
@@ -83,13 +89,12 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
     private volatile CompletableFuture<Void> lastSave = CompletableFuture.completedFuture(null);
 
     AfkService(Services services, Setting<AfkSettings> settings, CombatTags combat, SpawnArea spawnArea, VanishStatus vanish,
-               Toggle statusToggle, ZoneStore store) {
+               ZoneStore store) {
         this.services = services;
         this.settings = settings;
         this.combat = combat;
         this.spawnArea = spawnArea;
         this.vanish = vanish;
-        this.statusToggle = statusToggle;
         this.store = store;
         this.logger = services.plugin().getLogger();
     }
@@ -261,6 +266,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
             state.holdStatus(now, MESSAGE_HOLD_MILLIS);
         } else {
             this.sessions.leave(id, now);
+            hideBar(player);
             this.services.messenger().send(player, AfkMessages.ZONE_LEFT);
         }
     }
@@ -298,6 +304,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
             reward(player, state, s, now);
         } else {
             state.nextShardSeconds(-1);
+            hideBar(player);
         }
     }
 
@@ -326,8 +333,13 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
             pay(player, state, s, today, now);
             return;
         }
-        if (s.statusEvery().isZero() || !this.services.settings().enabled(id, this.statusToggle)
-            || this.services.teleports().pending(id) || !state.statusDue(now, s.statusEvery().toMillis())) {
+        AlertStyle style = s.statusEvery().isZero() ? AlertStyle.OFF : this.services.settings().get(id, AfkFeature.STATUS);
+        if (style == AlertStyle.BOSSBAR) {
+            showBar(player, status, s.interval().toMillis(), cap);
+            return;
+        }
+        hideBar(player);
+        if (style != AlertStyle.ACTIONBAR || this.services.teleports().pending(id) || !state.statusDue(now, s.statusEvery().toMillis())) {
             return;
         }
         switch (status.state()) {
@@ -351,6 +363,54 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
 
     private static int seconds(long millis) {
         return (int) Math.max(0, (millis + 999) / 1000);
+    }
+
+    /**
+     * Shows the zone countdown on the player's boss bar (the combat timer outranks it there): the time to the next
+     * shard with a bar that fills towards it, or why nothing is being earned. Player's thread.
+     */
+    private void showBar(Player player, ZoneSessions.Status status, long intervalMillis, long cap) {
+        Component text;
+        float progress;
+        switch (status.state()) {
+            case EARNING -> {
+                long shards = shardsPerInterval(player);
+                Arg time = Arg.time("time", Duration.ofSeconds(seconds(status.nextInMillis())));
+                text = shards == 1 ? this.services.lang().get(AfkMessages.ZONE_STATUS, time)
+                    : this.services.lang().get(AfkMessages.ZONE_STATUS_MANY, Arg.number("shards", shards), time);
+                progress = barProgress(status.nextInMillis(), intervalMillis);
+            }
+            case WAITING_ALT -> {
+                text = this.services.lang().get(AfkMessages.ZONE_WAITING_ALT);
+                progress = 0f;
+            }
+            case CAPPED -> {
+                text = this.services.lang().get(AfkMessages.ZONE_CAPPED, Arg.number("cap", cap));
+                progress = 1f;
+            }
+            // In combat the combat timer speaks for itself; nothing to show while today's earnings load.
+            default -> {
+                hideBar(player);
+                return;
+            }
+        }
+        this.services.statusBars().show(player, BAR_OWNER, new StatusBars.Bar(text, progress, BossBar.Color.PURPLE,
+            BossBar.Overlay.PROGRESS, StatusBars.PRIORITY_IDLE));
+    }
+
+    /** How full the countdown bar is: the part of the interval already waited (it fills up towards the next shard). */
+    static float barProgress(long nextInMillis, long intervalMillis) {
+        if (intervalMillis <= 0) {
+            return 1f;
+        }
+        return Math.clamp(1f - (float) Math.max(0, nextInMillis) / intervalMillis, 0f, 1f);
+    }
+
+    /** Takes the zone countdown off the player's boss bar, if it is there. Any thread. */
+    private void hideBar(Player player) {
+        if (this.services.statusBars().has(player.getUniqueId(), BAR_OWNER)) {
+            this.services.statusBars().hide(player, BAR_OWNER);
+        }
     }
 
     /** Pays one interval's shards. Player's thread. */
@@ -377,39 +437,80 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
             return;
         }
         state.daily().add(today, amount);
+        state.earned(amount, now);
         long balance = this.services.ledger().balance(id, Currency.SHARDS);
+        AlertStyle payouts = this.services.settings().get(id, AfkFeature.PAYOUTS);
         if (amount == 1) {
-            this.services.messenger().send(player, AfkMessages.ZONE_EARNED_ONE, Arg.number("balance", balance));
+            this.services.messenger().alert(player, payouts, AfkMessages.ZONE_EARNED_ONE, Arg.number("balance", balance));
         } else {
-            this.services.messenger().send(player, AfkMessages.ZONE_EARNED_MANY, Arg.number("shards", amount),
+            this.services.messenger().alert(player, payouts, AfkMessages.ZONE_EARNED_MANY, Arg.number("shards", amount),
                 Arg.number("balance", balance));
         }
-        state.holdStatus(now, MESSAGE_HOLD_MILLIS);
+        if (payouts == AlertStyle.ACTIONBAR) {
+            // Keep the countdown from replacing the payout line at once.
+            state.holdStatus(now, MESSAGE_HOLD_MILLIS);
+        }
         if (cap > 0 && state.daily().earned(today) >= cap) {
             this.services.messenger().send(player, AfkMessages.ZONE_CAPPED_NOW, Arg.number("cap", cap));
         }
     }
 
-    /** Acts on a change of a player's AFK clock. Any thread (sending text and firing the event are thread-safe). */
+    /**
+     * Acts on a change of a player's AFK clock, in the styles the player chose (AFK status messages, the kick
+     * warning, the welcome-back summary). Any thread (sending text and firing the event are thread-safe).
+     */
     void apply(Player player, PlayerAfk state, AfkClock.Change change, boolean manual, long now) {
+        UUID id = player.getUniqueId();
         switch (change) {
             case NONE -> {
             }
             case BECAME_AFK -> {
                 boolean byCommand = state.manual();
-                this.services.messenger().send(player, byCommand ? AfkMessages.NOW_AFK_MANUAL : AfkMessages.NOW_AFK);
-                state.holdStatus(now, MESSAGE_HOLD_MILLIS);
+                statusLine(player, state, byCommand ? AfkMessages.NOW_AFK_MANUAL : AfkMessages.NOW_AFK, byCommand, now);
                 new AfkStatusChangeEvent(player, true, byCommand).callEvent();
             }
             case RETURNED -> {
-                this.services.messenger().send(player, AfkMessages.BACK);
-                state.holdStatus(now, MESSAGE_HOLD_MILLIS);
+                statusLine(player, state, AfkMessages.BACK, manual, now);
+                PlayerAfk.Spell spell = state.lastSpell();
+                if (spell != null && spell.worthTelling() && this.services.settings().get(id, AfkFeature.RETURN_SUMMARY)) {
+                    Arg time = Arg.time("time", Duration.ofSeconds(Math.max(1, spell.millis() / 1000)));
+                    if (spell.shards() == 1) {
+                        this.services.messenger().chat(player, AfkMessages.RETURN_SUMMARY_SHARD, time);
+                    } else if (spell.shards() > 1) {
+                        this.services.messenger().chat(player, AfkMessages.RETURN_SUMMARY_SHARDS, time, Arg.number("shards", spell.shards()));
+                    } else {
+                        this.services.messenger().chat(player, AfkMessages.RETURN_SUMMARY, time);
+                    }
+                }
                 new AfkStatusChangeEvent(player, false, manual).callEvent();
             }
-            case KICK_WARNING -> this.services.messenger().send(player, AfkMessages.KICK_WARNING,
-                Arg.time("time", Duration.ofMillis(Math.max(1_000, state.untilKick(now, this.settings.get().timing())))));
+            case KICK_WARNING -> {
+                Arg time = Arg.time("time", Duration.ofMillis(Math.max(1_000, state.untilKick(now, this.settings.get().timing()))));
+                if (this.services.settings().get(id, AfkFeature.KICK_WARNING) == AlertStyle.TITLE) {
+                    this.services.messenger().title(player, AfkMessages.KICK_WARNING_TITLE, AfkMessages.KICK_WARNING_SUBTITLE, time);
+                } else {
+                    this.services.messenger().send(player, AfkMessages.KICK_WARNING, time);
+                }
+            }
             case KICK -> kick(player, state, now);
         }
+    }
+
+    /** "You are now AFK" or "Welcome back" where the player wants it; {@code /afk} always gets an answer. */
+    private void statusLine(Player player, PlayerAfk state, MessageKey key, boolean byCommand, long now) {
+        AlertStyle style = statusStyle(this.services.settings().get(player.getUniqueId(), AfkFeature.STATUS_MESSAGES), byCommand);
+        this.services.messenger().alert(player, style, key);
+        if (style == AlertStyle.ACTIONBAR) {
+            state.holdStatus(now, MESSAGE_HOLD_MILLIS);
+        }
+    }
+
+    /**
+     * Where an AFK status line goes: the player's choice, except that a player who used {@code /afk} always gets an
+     * answer (on the action bar when they turned the lines off).
+     */
+    static AlertStyle statusStyle(AlertStyle chosen, boolean byCommand) {
+        return byCommand && chosen == AlertStyle.OFF ? AlertStyle.ACTIONBAR : chosen;
     }
 
     private void kick(Player player, PlayerAfk state, long now) {

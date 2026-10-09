@@ -359,9 +359,9 @@ final class FreezeService implements Listener, FreezeStatus {
         if (s.freezeBanOnLogout() && this.punishments.activeBan(id).isEmpty()) {
             this.punishments.issue(PunishmentType.BAN, id, player.getName(), Actor.stored(record.staff(), record.staffName()),
                 s.freezeBanReason(), s.freezeBanLength(), true);
-            this.notices.send(StaffNodes.FREEZE, null, StaffMessages.FREEZE_LOGOUT_BANNED, name);
+            this.notices.send(StaffNodes.FREEZE, StaffPreferences.FREEZE_ALERTS, null, StaffMessages.FREEZE_LOGOUT_BANNED, name);
         } else {
-            this.notices.send(StaffNodes.FREEZE, null, StaffMessages.FREEZE_LOGOUT, name);
+            this.notices.send(StaffNodes.FREEZE, StaffPreferences.FREEZE_ALERTS, null, StaffMessages.FREEZE_LOGOUT, name);
         }
     }
 

@@ -8,8 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
 import net.siftvanilla.siftcore.feature.crates.CratesFeature;
+import net.siftvanilla.siftcore.feature.shards.ShardsFeature;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -18,7 +21,8 @@ import org.bukkit.inventory.ItemStack;
 /**
  * AFK detection, the AFK kick, the AFK zone (rewards, one account per connection, the daily limit) and the shard
  * shop, with real clients. Every scenario shortens the timings in features/afk.yml for its run and restores the file
- * afterwards. All bots connect from 127.0.0.1, so they share one connection for the AFK zone's alt rule.
+ * afterwards. All bots connect from 127.0.0.1, so they share one connection for the AFK zone's alt rule. The AFK &amp;
+ * shards player settings are changed through the settings dialog and the API ({@link AfkStaffSettingSteps}).
  */
 final class AfkScenarios {
 
@@ -52,6 +56,10 @@ final class AfkScenarios {
         list.add(of("afk-zone-cap", AfkScenarios::zoneCap));
         list.add(of("shard-shop", AfkScenarios::shardShop));
         list.add(of("shard-shop-combat", AfkScenarios::shardShopCombat));
+        list.add(of("afk-settings", AfkScenarios::zoneSettings));
+        list.add(of("afk-status-settings", AfkScenarios::statusSettings));
+        list.add(of("afk-kick-title", AfkScenarios::kickTitle));
+        list.add(of("shard-settings", AfkScenarios::shardSettings));
         return list;
     }
 
@@ -534,5 +542,248 @@ final class AfkScenarios {
         }, "a shard_refund ledger row of +100");
         e2e.eventually(() -> String.join(" ", e2e.consoleOutput("shards pending")).contains("Key purchases waiting (0)"),
             "nothing left waiting");
+    }
+
+    // ------------------------------------------------------------------ player settings
+
+    /**
+     * The zone countdown on the boss bar and payouts in chat, both picked in the settings dialog; then the countdown off,
+     * back on the action bar, and silent payouts, through the API.
+     */
+    static void zoneSettings(E2E e2e) throws Exception {
+        withAfkConfig(e2e, Map.of("interval: 60s", "interval: 5s", "status-every: 2s", "status-every: 1s"), unused -> {
+            String name = e2e.name("AfkPrefs");
+            Bot bot = e2e.bot(name);
+            UUID id = e2e.uuid(name);
+            AfkFeature afk = afk(e2e);
+            try {
+                e2e.step("the AFK & shards group offers every AFK and shard shop setting with the shared styles");
+                Map<String, List<String>> inputs = AfkStaffSettingSteps.groupInputs(e2e, bot, "afk", AfkStaffSettingSteps.AFK_PAGE);
+                e2e.expect(inputs.get("afk_zone_status").equals(List.of("actionbar", "bossbar", "off")), "countdown styles: " + inputs);
+                e2e.expect(inputs.get("afk_zone_payouts").equals(List.of("actionbar", "chat", "off")), "payout styles: " + inputs);
+                e2e.expect(inputs.get("afk_kick_warning").equals(List.of("chat", "title")), "kick warning styles: " + inputs);
+                e2e.expect(inputs.get("afk_status_messages").equals(List.of("actionbar", "chat", "off")), "status line styles: " + inputs);
+                e2e.expect(inputs.containsKey("afk_return_summary") && inputs.containsKey("shard_shop_stay_open"), "the switches: " + inputs);
+                e2e.expect(inputs.get("shard_confirm_above").equals(List.of("server", "always", "100", "1000", "5000", "never")),
+                    "shard thresholds: " + inputs);
+
+                e2e.step("boss bar countdown and chat payouts, saved in the dialog");
+                AfkStaffSettingSteps.editSettings(e2e, bot, "afk", AfkStaffSettingSteps.AFK_PAGE,
+                    Map.of("afk_zone_status", "bossbar", "afk_zone_payouts", "chat"));
+                e2e.eventually(() -> bot.anyFeedbackContains("Saved 2 settings"), "saved: " + bot.chat() + " " + bot.actionBar());
+                AfkStaffSettingSteps.expectStored(e2e, id, "afk-zone-status", "bossbar");
+                AfkStaffSettingSteps.expectStored(e2e, id, "afk-zone-payouts", "chat");
+
+                e2e.step("in the zone the countdown fills the boss bar and payouts arrive in chat");
+                zoneNear(e2e, name);
+                bot.clearLogs();
+                bot.command("afkzone");
+                e2e.eventually(() -> afk.zone().inside(id), 12_000, "inside the zone");
+                e2e.eventually(() -> bot.bossBars().stream().anyMatch(bar -> bar.name().contains("next shard in")), 6_000,
+                    "the countdown on the boss bar: " + bot.bossBars());
+                e2e.eventually(() -> bot.chatContains("AFK zone: +1 shard"), 10_000, "a payout in chat: " + bot.chat());
+                e2e.eventually(() -> bot.bossBars().stream().anyMatch(bar -> bar.name().contains("next shard in") && bar.progress() > 0.1f),
+                    6_000, "the bar fills towards the next shard: " + bot.bossBars());
+                bot.clearMessages();
+                e2e.sleep(2_500);
+                e2e.expect(!bot.actionBarContains("next shard in"), "no countdown on the action bar: " + bot.actionBar());
+
+                e2e.step("the countdown turned off (API): no boss bar, no action bar line");
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.STATUS, AlertStyle.OFF);
+                e2e.eventually(() -> bot.bossBars().stream().noneMatch(bar -> bar.name().contains("AFK zone")), 4_000,
+                    "the boss bar is gone: " + bot.bossBars());
+                bot.clearMessages();
+                e2e.sleep(2_500);
+                e2e.expect(!bot.actionBarContains("next shard in"), "no countdown anywhere: " + bot.actionBar());
+
+                e2e.step("back above the hotbar (API)");
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.STATUS, AlertStyle.ACTIONBAR);
+                e2e.eventually(() -> bot.actionBarContains("next shard in"), 6_000, "the countdown above the hotbar: " + bot.actionBar());
+                e2e.expect(bot.bossBars().stream().noneMatch(bar -> bar.name().contains("AFK zone")), "and no boss bar: " + bot.bossBars());
+
+                e2e.step("payouts turned off (API): shards still arrive, silently");
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.PAYOUTS, AlertStyle.OFF);
+                long before = e2e.shards(name);
+                bot.clearMessages();
+                e2e.eventually(() -> e2e.shards(name) > before, 8_000, "another shard");
+                e2e.sleep(300);
+                e2e.expect(!bot.anyFeedbackContains("+1 shard"), "no payout line: " + bot.chat() + " " + bot.actionBar());
+            } finally {
+                e2e.console("afkzone reset");
+            }
+        });
+    }
+
+    /**
+     * AFK status lines in chat and off (where /afk still answers), and the welcome-back summary with the shards earned
+     * in the zone, on and off (all through the API).
+     */
+    static void statusSettings(E2E e2e) throws Exception {
+        withAfkConfig(e2e, Map.of("afk-after: 5m", "afk-after: 10s", "interval: 60s", "interval: 5s"), unused -> {
+            String name = e2e.name("AfkLines");
+            Bot bot = e2e.bot(name);
+            try {
+                e2e.step("AFK status lines in chat");
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.STATUS_MESSAGES, AlertStyle.CHAT);
+                bot.clearLogs();
+                bot.command("afk");
+                e2e.eventually(() -> bot.chatContains("You are now AFK."), "the AFK line in chat: " + bot.chat());
+                e2e.expect(!bot.actionBarContains("You are now AFK"), "not above the hotbar: " + bot.actionBar());
+                e2e.sleep(3_500);
+                bot.command("afk");
+                e2e.eventually(() -> bot.chatContains("Welcome back."), "welcome back in chat: " + bot.chat());
+
+                e2e.step("lines off: /afk still answers, becoming AFK on its own is silent");
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.STATUS_MESSAGES, AlertStyle.OFF);
+                bot.clearLogs();
+                bot.command("afk");
+                e2e.eventually(() -> bot.actionBarContains("You are now AFK."), "/afk answers above the hotbar: " + bot.actionBar());
+                e2e.sleep(3_500);
+                bot.command("afk");
+                e2e.eventually(() -> bot.actionBarContains("Welcome back."), "and on coming back: " + bot.actionBar());
+                e2e.eventually(() -> !isAfk(e2e, name), "back");
+                bot.clearLogs();
+                e2e.eventually(() -> isAfk(e2e, name), 16_000, "AFK after ten idle seconds");
+                lookAround(bot, 40f);
+                e2e.eventually(() -> !isAfk(e2e, name), "back after looking around");
+                e2e.sleep(800);
+                e2e.expect(!bot.anyFeedbackContains("You are now AFK") && !bot.anyFeedbackContains("Welcome back"),
+                    "no status lines: " + bot.chat() + " " + bot.actionBar());
+
+                e2e.step("the welcome-back summary names the time away and the shards earned in the zone");
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.STATUS_MESSAGES, AlertStyle.ACTIONBAR);
+                zoneNear(e2e, name);
+                bot.command("afkzone");
+                e2e.eventually(() -> afk(e2e).zone().inside(e2e.uuid(name)), 12_000, "inside the zone");
+                bot.command("afk");
+                e2e.eventually(() -> isAfk(e2e, name), "AFK in the zone");
+                long before = e2e.shards(name);
+                e2e.eventually(() -> e2e.shards(name) >= before + 1, 10_000, "a shard while AFK");
+                bot.clearLogs();
+                bot.command("afk");
+                e2e.eventually(() -> !isAfk(e2e, name), "back");
+                long earned = e2e.shards(name) - before;
+                e2e.eventually(() -> bot.chatContains("You were away for"), "the summary: " + bot.chat());
+                String summary = bot.chat().stream().filter(line -> line.contains("You were away for")).findFirst().orElseThrow();
+                java.util.regex.Matcher shards = java.util.regex.Pattern.compile("and earned (\\d+) shards? in the AFK zone").matcher(summary);
+                e2e.expect(shards.find() && Long.parseLong(shards.group(1)) >= 1 && Long.parseLong(shards.group(1)) <= earned,
+                    "the shards earned while away (" + earned + " since going AFK): " + summary);
+
+                e2e.step("AFK on its own: the summary counts from the last activity, the idle wait and its shards included");
+                lookAround(bot, 40f);
+                long atActivity = e2e.shards(name);
+                e2e.eventually(() -> isAfk(e2e, name), 16_000, "AFK after ten idle seconds in the zone");
+                long atMark = e2e.shards(name);
+                e2e.eventually(() -> e2e.shards(name) >= atMark + 1, 10_000, "a shard after the AFK mark");
+                bot.clearLogs();
+                lookAround(bot, 40f);
+                e2e.eventually(() -> !isAfk(e2e, name), "back after looking around");
+                long sinceActivity = e2e.shards(name) - atActivity;
+                e2e.eventually(() -> bot.chatContains("You were away for"), "the summary: " + bot.chat());
+                String passive = bot.chat().stream().filter(line -> line.contains("You were away for")).findFirst().orElseThrow();
+                java.util.regex.Matcher away = java.util.regex.Pattern.compile("away for (?:(\\d+)m )?(\\d+)s").matcher(passive);
+                e2e.expect(away.find(), "a time in the summary: " + passive);
+                long seconds = (away.group(1) == null ? 0 : Long.parseLong(away.group(1)) * 60) + Long.parseLong(away.group(2));
+                e2e.expect(seconds >= 10, "the time since the last activity, at least afk-after (10s), not since the AFK mark: " + passive);
+                java.util.regex.Matcher passiveShards = java.util.regex.Pattern.compile("and earned (\\d+) shards? in the AFK zone").matcher(passive);
+                e2e.expect(passiveShards.find(), "shards in the summary: " + passive);
+                long counted = Long.parseLong(passiveShards.group(1));
+                e2e.expect(atMark > atActivity, "shards were paid during the idle wait (" + atActivity + " -> " + atMark + ")");
+                // The shards before the mark plus the one waited for after it; one payout may land between a check and
+                // the moment it reads the balance, on either end.
+                e2e.expect(counted >= atMark - atActivity + 1 && counted >= sinceActivity - 1 && counted <= sinceActivity + 1,
+                    "every shard since the last activity (" + sinceActivity + ", " + (atMark - atActivity) + " before the mark): " + passive);
+
+                e2e.step("summary off (API): no summary");
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.RETURN_SUMMARY, false);
+                bot.command("afk");
+                e2e.eventually(() -> isAfk(e2e, name), "AFK again");
+                long again = e2e.shards(name);
+                e2e.eventually(() -> e2e.shards(name) >= again + 1, 10_000, "another shard while AFK");
+                bot.clearLogs();
+                bot.command("afk");
+                e2e.eventually(() -> bot.actionBarContains("Welcome back."), "back: " + bot.actionBar());
+                e2e.sleep(800);
+                e2e.expect(!bot.chatContains("You were away for"), "no summary: " + bot.chat());
+            } finally {
+                e2e.console("afkzone reset");
+            }
+        });
+    }
+
+    /** The AFK kick warning as a title (API): a title instead of the chat line, then the kick. */
+    static void kickTitle(E2E e2e) throws Exception {
+        withAfkConfig(e2e, Map.of("afk-after: 5m", "afk-after: 10s", "after: 30m", "after: 10s", "warn-before: 1m", "warn-before: 5s"), unused -> {
+            String name = e2e.name("AfkTitle");
+            Bot bot = e2e.bot(name);
+            AfkStaffSettingSteps.set(e2e, name, AfkFeature.KICK_WARNING, AlertStyle.TITLE);
+            bot.clearLogs();
+            e2e.step("the warning shows as a title");
+            e2e.eventually(() -> isAfk(e2e, name), 16_000, "AFK first");
+            e2e.eventually(() -> bot.titles().stream().anyMatch(title -> title.contains("AFK kick in")), 12_000, "the title: " + bot.titles());
+            e2e.expect(!bot.chatContains("You'll be kicked for being AFK"), "no chat line: " + bot.chat());
+            e2e.step("and the kick still comes");
+            e2e.eventually(() -> bot.disconnected(), 12_000, "kicked");
+            e2e.expect(bot.disconnectReason().contains("You were AFK for too long"), "the kick reason: " + bot.disconnectReason());
+        });
+    }
+
+    /**
+     * Shard shop settings: "Always" confirm picked in the dialog asks even for a cheap purchase; "Never" (API) buys a
+     * purchase the server would confirm at once; "Keep the shard shop open" (API) shows the shop again afterwards.
+     */
+    static void shardSettings(E2E e2e) throws Exception {
+        String name = e2e.name("ShardPrefs");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        e2e.onPlayer(name, () -> {
+            e2e.player(name).getInventory().clear();
+            return null;
+        });
+        e2e.consoleOutput("shards give " + name + " 2000");
+        e2e.eventually(() -> e2e.shards(name) == 2000, "2,000 shards");
+
+        e2e.step("Always, picked in the dialog: a 250-shard totem asks first");
+        AfkStaffSettingSteps.editSettings(e2e, bot, "afk", AfkStaffSettingSteps.AFK_PAGE, Map.of("shard_confirm_above", "always"));
+        e2e.eventually(() -> bot.anyFeedbackContains("Saved") || bot.anyFeedbackContains("set to"), "saved: " + bot.chat() + " " + bot.actionBar());
+        AfkStaffSettingSteps.expectStored(e2e, id, "shard-confirm-above", "always");
+        bot.command("shardshop");
+        e2e.dialog(bot, "Shard shop");
+        e2e.click(bot, "Totem of Undying");
+        e2e.dialog(bot, "Buy Totem of Undying");
+        e2e.click(bot, "Buy 1", Map.of("amount", 1));
+        Bot.SeenDialog confirm = e2e.dialog(bot, "Confirm purchase");
+        e2e.expect(confirm.bodyText().contains("You'll have 1,750 shards left."), "what is left: " + confirm.body());
+        e2e.expect(e2e.shards(name) == 2000, "nothing charged before the confirmation");
+        e2e.click(bot, "Buy");
+        e2e.eventually(() -> e2e.shards(name) == 1750, "charged 250 (has " + e2e.shards(name) + ")");
+
+        e2e.step("Never (API): 500 shards of totems, which the server would confirm, go through at once");
+        AfkStaffSettingSteps.set(e2e, name, ShardsFeature.CONFIRM_ABOVE, ConfirmAbove.NEVER);
+        bot.command("shardshop");
+        e2e.dialog(bot, "Shard shop");
+        e2e.click(bot, "Totem of Undying");
+        e2e.dialog(bot, "Buy Totem of Undying");
+        e2e.click(bot, "Buy 1", Map.of("amount", 2));
+        e2e.dialog(bot, "Buy Totem of Undying");
+        bot.clearMessages();
+        e2e.click(bot, "Buy 2", Map.of("amount", 2));
+        e2e.eventually(() -> e2e.shards(name) == 1250, "charged 500 without asking (has " + e2e.shards(name) + ")");
+        e2e.expect(bot.dialogs().stream().noneMatch(dialog -> dialog.title().equals("Confirm purchase") && dialog.at() > confirm.at()),
+            "no confirmation this time");
+        e2e.eventually(() -> count(e2e, name, Material.TOTEM_OF_UNDYING) == 3, "three totems");
+
+        e2e.step("Keep the shard shop open (API): the shop comes back with the new balance");
+        AfkStaffSettingSteps.set(e2e, name, ShardsFeature.STAY_OPEN, true);
+        bot.command("shardshop");
+        e2e.dialog(bot, "Shard shop");
+        e2e.click(bot, "Totem of Undying");
+        e2e.dialog(bot, "Buy Totem of Undying");
+        e2e.click(bot, "Buy 1", Map.of("amount", 1));
+        e2e.eventually(() -> e2e.shards(name) == 1000, "charged 250 (has " + e2e.shards(name) + ")");
+        Bot.SeenDialog shop = e2e.dialog(bot, "Shard shop");
+        e2e.eventually(() -> bot.dialog() != null && bot.dialog().bodyText().contains("You have 1,000 shards"),
+            "the shop again, with the new balance: " + (bot.dialog() == null ? "none" : bot.dialog().body()));
+        e2e.expect(shop.button("Totem of Undying") != null, "the offers are there: " + shop.buttons());
     }
 }

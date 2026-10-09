@@ -125,6 +125,13 @@ Time left: <time>            (or: This ban is permanent.)
 Appeal on our Discord: discord.gg/siftvanilla     (bans.appeal)
 ```
 
+Staff with **Confirm bans** on (`staff-confirm-bans`) get a dialog before a `/ban` or `/tempban` of theirs goes
+through: `Ban <name>?` with the player, the length (`permanent` or the time) and the reason, then **Ban** or
+**Cancel** ("Didn't ban <name>."). When they press Ban, the permission of the command they typed
+(`siftcore.staff.ban`, or `siftcore.staff.tempban` for a ban with a length) is checked again, so staff who lost it
+while the dialog was open are refused ("You can't do that."), and then the staff hierarchy. The console and automatic
+bans (freeze logout) never ask.
+
 A player banned between the login check and the join is removed in `PlayerJoinEvent`. An online player who is
 banned is removed at once with the same screen. Kicks and ban removals run on the player's own thread: from any
 other thread Folia only drops the connection, without the kick event and with "disconnected" as the quit reason.
@@ -161,12 +168,37 @@ relogs and restarts. While vanished:
 
 - they are re-hidden from players who join later, before the join completes (no flash in the tab list);
 - every 3 seconds (`vanish.reminder-interval`) visibility is re-applied for permission changes and they see a quiet
-  "You are vanished" on the action bar;
+  "You are vanished" on the action bar (unless they turned **Vanish reminder** off, `vanish-reminder`);
 - they don't pick up items or arrows, mobs don't target them, they don't press pressure plates or tripwires or
   trample farmland (physical interactions), and sculk sensors don't hear them;
 - the server list ping (`PaperServerListPingEvent`) leaves them out of the player sample and the online count.
 
 A vanished player who joins without `siftcore.staff.vanish` (no longer staff) is made visible and told so.
+
+Staff settings for vanish:
+
+- **See vanished staff** (`vanish-see-vanished`, `siftcore.staff.vanish.see`, on): turned off, vanished staff are hidden
+  from that viewer like from a player. Applied at once: the change hook asks every online vanished player's own thread
+  to settle who sees them (`reconcile`), and the join path and the self-test use the same rule
+  (`StaffPreferences.shouldSee`: the permission and the setting).
+- **Join vanished** (`vanish-on-join`, `siftcore.staff.vanish`, off): a staff member who is not vanished becomes
+  vanished in `PlayerJoinEvent` (LOWEST), stored and audited (`staff.vanish.on`, "joined vanished"), before the
+  inline hide described below; the extras feature then leaves the join line out like for any vanished player. They are
+  told in chat ("You joined vanished.").
+- **Fake join/leave on vanish** (`vanish-fake-messages`, `siftcore.staff.vanish`, off): `/vanish` (or staff vanishing
+  them) shows the line a real leave would show, and reappearing the line a real join would show: their rank line
+  (cosmetics, `siftcore.join.message`, with its cooldown) when they have one, otherwise the plain extras line
+  (`extras.join` / `extras.quit`, the same lang entries, so no import of the extras feature) when
+  `features/extras.yml` shows plain lines (`messages.join` / `messages.quit`, read from the file when it changes),
+  otherwise nothing and the staff member is told there is no line to imitate (staff who vanished someone else with
+  `/vanish <player>` are told it is missing for that player). Players whose `join-leave-messages` setting (extras,
+  read by id) is not `all` don't get them. Offered only while there is a line to imitate: the plain lines are on, or
+  the cosmetics link is bound and `features/cosmetics.yml` has `enabled` and `join-messages.enabled` on (read from the
+  file when it changes, like extras.yml). The link is handed over by the composition root
+  (`staff.cosmetics(cosmetics.cosmetics())` in `FeatureCatalog`, wired in the settings integration pass); until then
+  only the plain lines are imitated and offered. The offer is server-wide: with only rank lines on, staff without
+  `siftcore.join.message` still see the switch, and their `/vanish` says there is no line. Friend join alerts and the
+  tab list are not faked.
 
 Silent containers (opening a chest without the animation and sound) are not possible without NMS, so vanished
 staff open containers normally; other players nearby see and hear the lid.
@@ -243,15 +275,17 @@ only then starts tracking. In `PlayerJoinEvent` (LOWEST, on the joining player's
   so it is never kept after a crash.
 
 The freeze is stored and re-applied on join. Logging out while frozen (any quit that isn't a kick) tells everyone
-with `siftcore.staff.freeze`, writes `staff.freeze.logout` to the audit log, and with `freeze.ban-on-logout.enabled`
-(default off) bans the player for `duration` with `reason`, in the name of the staff member who froze them.
+with `siftcore.staff.freeze` (where their **Frozen player logout alerts** setting says: chat, above the hotbar or off),
+writes `staff.freeze.logout` to the audit log, and with `freeze.ban-on-logout.enabled` (default off) bans the player
+for `duration` with `reason`, in the name of the staff member who froze them.
 
 ## Staff chat
 
 `/sc <message>` sends `Staff <name>: <message>` (gray/white, the message literal) to everyone with
 `siftcore.staff.chat` and the console. `/sc` alone toggles staff chat mode: the player's normal chat goes to staff
 chat instead (`AsyncChatEvent`, LOW, `ignoreCancelled = true`, cancelled). The mode ends on quit or when the
-permission is gone.
+permission is gone. Staff who turned **Show staff chat** off (`staff-chat`) don't get other staff's lines; their own
+always echo, and switching to staff chat mode reminds them that others' lines are hidden.
 
 ## Reports
 
@@ -262,7 +296,8 @@ same player twice while the first report is open, at most 5 open reports per rep
 seconds (`reports.cooldown`). The form keeps what was typed and shows the problem.
 
 Online staff with `siftcore.staff.reports` get a chat line `Report #<id>: <reporter> reported <target>: <reason>`;
-clicking it runs `/reports <id>`. `/reports` is a paged dialog of open reports (6 per page) with a button per
+clicking it runs `/reports <id>`. Their **Report alerts** setting (`staff-report-alerts`) can move it above the hotbar
+(not clickable there) or turn it off; `/reports` always lists open reports. `/reports` is a paged dialog of open reports (6 per page) with a button per
 report; a report shows the player, whether they are online, who reported, when, and the reason, with:
 
 - **Teleport to <name>** (only when online): teleports at once (`teleportAsync`, no warmup) to where the player is,
@@ -305,6 +340,32 @@ open the punishment history and the inventory or ender chest views.
 `/broadcast <message>` sends the message as one plain line (tags shown literally) with the soft notify sound.
 `/clearchat` sends 100 blank lines (`clear-chat.lines`) to everyone without the bypass, then "Chat was cleared by
 staff." to everyone; the staff member is told how many players were cleared.
+
+## Player settings (Staff group)
+
+Only staff see them: each needs the permission of the tool it changes, and none is exposed as a placeholder.
+Notifications use the shared alert styles (chat, above the hotbar, off) through one per-recipient check in
+`StaffNotices` (`StaffPreferences.noticeStyle`: the permission, not the staff member who acted, and their choice); the
+console always gets every notice.
+
+| Order | Id | Kind | Default | Permission | What it does |
+|---|---|---|---|---|---|
+| 2 | `staff-chat` | toggle | on | `siftcore.staff.chat` | show staff chat from other staff |
+| 3 | `staff-punish-alerts` | choice chat/actionbar/off | chat | `siftcore.staff.notify` | bans, unbans, mutes, unmutes, kicks, warnings, freezes and unfreezes by other staff |
+| 4 | `staff-report-alerts` | choice chat/actionbar/off | chat | `siftcore.staff.reports` | new player reports |
+| 6 | `vanish-on-join` | toggle | off | `siftcore.staff.vanish` | always join vanished |
+| 7 | `vanish-reminder` | toggle | on | `siftcore.staff.vanish` | the "You are vanished" reminder |
+| 8 | `vanish-see-vanished` | toggle | on | `siftcore.staff.vanish.see` | see other vanished staff (applied at once) |
+| 9 | `staff-freeze-alerts` | choice chat/actionbar/off | chat | `siftcore.staff.freeze` | a frozen player logging out |
+| 11 | `staff-confirm-bans` | toggle | off | `siftcore.staff.ban` | confirm player, length and reason before a ban |
+| 12 | `vanish-fake-messages` | toggle | off | `siftcore.staff.vanish` | fake leave and join lines on vanish |
+
+The other places in the group belong to other features: social spy (1, chat), team spy (5, teams), staff combat alerts
+(10, combat) and config problem alerts (13, admin: when an admin with `siftcore.admin.reload` joins, a chat line with
+the number of problems the last startup or `/sift reload` found, listed on hover; clicking fills in `/sift reload`).
+A reload hands its problems to the admin feature; the startup's are read from `CoreControl.startupProblems()` once the
+plugin keeps that list (integration pass), and until then from the plugin log (`Config problem: ...` lines, and the
+`features/settings.yml: ...` override warnings), formats pinned by `ConfigProblemLogTest` against their sources.
 
 ## Audit log actions
 
@@ -381,9 +442,18 @@ private message targets and their suggestions).
   expiry (`PunishmentTest`, `PunishmentBookTest`), report rules and cooldown (`ReportRulesTest`), the freeze
   predicates (`FreezeRulesTest`), the inspection layout and the take re-check (`InspectTest`), the V090 tables and
   the punishment service on a real SQLite database including restarts (`StaffStorageTest`), and every staff message
-  against the real lang files (`StaffLangTest`).
+  against the real lang files (`StaffLangTest`), the staff settings' group, order, permissions and deciders (notices,
+  who sees vanished staff, staff chat echo, fake line availability from extras.yml and cosmetics.yml, the viewer
+  filter, the Ban button's permission re-check and the missing-line notices: `StaffPreferencesTest`), and the config
+  problem log behind the admin alert, including the log formats of the startup and the settings feature
+  (`ConfigProblemLogTest`, in `feature/admin`).
 - End to end (`tools/e2e/.../StaffScenarios.java`): `staff-mute`, `staff-ban`, `staff-freeze`, `staff-vanish`,
-  `staff-report`, `staff-invsee`, `staff-chat`, `staff-lookups`.
+  `staff-report`, `staff-invsee`, `staff-chat`, `staff-lookups`; the settings: `staff-alert-settings` (punishment
+  alerts and staff chat in the dialog, report and freeze alerts by API), `staff-vanish-settings` (see vanished staff
+  in the dialog, reminder, join vanished, ban confirmation including a permission taken away while it is open),
+  `staff-fake-lines` (not offered without a line to imitate, the missing-line notices for self and `/vanish
+  <player>`, offered and saved in the dialog with plain lines on) and `admin-config-alerts` (including a problem
+  logged the way the startup logs it).
 
 ## Known limitations
 

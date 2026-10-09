@@ -14,6 +14,13 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.Choices;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
@@ -31,8 +38,19 @@ import org.bukkit.entity.Player;
  * staff tools ({@code /shards give|take|set}, waiting key purchases) and the shards page of the main menu, which also
  * shows what the AFK zone pays and leads there. The balance placeholders ({@code shards}, {@code shards_raw}) belong
  * to the economy feature.
+ * <p>
+ * Player settings (AFK &amp; shards): from which price a purchase asks once more, and whether the shop opens again
+ * after a purchase.
  */
 public final class ShardsFeature implements Feature {
+
+    /** From which total a purchase asks once more; "Server default" follows {@code shop.confirm-above}. */
+    public static final Choice<ConfirmAbove> CONFIRM_ABOVE = Choices.confirmAbove("shard-confirm-above", Currency.SHARDS, true,
+            "100", "1000", "5000")
+        .text(ShardsMessages.SETTING_CONFIRM, ShardsMessages.SETTING_CONFIRM_DESCRIPTION).build();
+    /** Back to the shop after a purchase instead of closing it. */
+    public static final Toggle STAY_OPEN = new Toggle("shard-shop-stay-open", false, ShardsMessages.SETTING_STAY_OPEN,
+        ShardsMessages.SETTING_STAY_OPEN_DESCRIPTION, null);
 
     private static final Duration RETRY = Duration.ofMinutes(5);
 
@@ -60,6 +78,7 @@ public final class ShardsFeature implements Feature {
         this.settings = services.configs().register("features/shards.yml",
             reader -> ShardsSettings.parse(reader, ShardsFeature::itemExists), problems);
         services.lang().register(ShardsMessages.class);
+        registerSettings(services.settings());
         var perms = services.permissions();
         perms.declare(ShardsCommands.COMMAND, "See your shards with /shards", true);
         perms.declare(ShardsCommands.OTHERS, "See other players' shards with /shards <player>", true);
@@ -74,6 +93,12 @@ public final class ShardsFeature implements Feature {
         this.handouts = new ShardHandouts(services);
         this.shop = new ShardShop(services, this.settings, crates, this.grants, this.handouts, combat);
         this.commands = new ShardsCommands(services, this.shop, this);
+    }
+
+    /** Registers the shard shop settings in the AFK &amp; shards group, after the AFK settings (catalog order). */
+    static void registerSettings(PlayerSettings prefs) {
+        prefs.register(SettingCategories.AFK, CONFIRM_ABOVE, SettingOptions.<ConfirmAbove>builder().order(6).build());
+        prefs.register(SettingCategories.AFK, STAY_OPEN, SettingOptions.<Boolean>builder().order(7).build());
     }
 
     private static boolean itemExists(String id) {

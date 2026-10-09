@@ -41,6 +41,10 @@ import org.bukkit.inventory.ItemStack;
  * that transaction is stored. Crate keys: see {@link KeyGrants}. Shards never buy money (see features/shards.yml).
  * Combat-tagged players can't open the shop or buy ({@code shop.block-in-combat}), checked on every screen and
  * once more right before the purchase.
+ * <p>
+ * Player settings: "Confirm shard buys from" ({@link ShardsFeature#CONFIRM_ABOVE}) decides which totals ask once
+ * more, and "Keep the shard shop open" ({@link ShardsFeature#STAY_OPEN}) shows the shop again after a purchase
+ * instead of closing it.
  */
 final class ShardShop {
 
@@ -312,7 +316,8 @@ final class ShardShop {
             showError(s, offer, amount, lang.get(ShardsMessages.BUY_NOT_ENOUGH, Arg.number("total", total), Arg.number("shards", balance)), back);
             return;
         }
-        if (!confirmed && ShardMath.needsConfirmation(total, this.settings.get().confirmAbove())) {
+        if (!confirmed && ShardMath.needsConfirmation(total, this.services.settings().get(uuid, ShardsFeature.CONFIRM_ABOVE),
+            this.settings.get().confirmAbove())) {
             s.show(confirmView(player, offer, amount, total, back));
             return;
         }
@@ -361,7 +366,7 @@ final class ShardShop {
         if (!handleFailure(s, offer, amount, total, result, back)) {
             return;
         }
-        s.close();
+        finish(s, back);
         Component name = name(offer);
         this.services.messenger().send(player, ShardsMessages.GIVING);
         result.committed().whenComplete((ignored, error) -> {
@@ -415,7 +420,7 @@ final class ShardShop {
         if (!handleFailure(s, offer, amount, total, result, back)) {
             return;
         }
-        s.close();
+        finish(s, back);
         Component name = name(offer);
         result.committed().whenComplete((ignored, error) -> {
             if (error != null) {
@@ -434,6 +439,20 @@ final class ShardShop {
                 }
             }), null);
         });
+    }
+
+    /**
+     * After a purchase went through: back to the shop (with the new balance) for players who keep it open, otherwise
+     * the dialog closes.
+     */
+    private void finish(Submission s, Runnable back) {
+        UUID id = s.player().getUniqueId();
+        boolean shut = this.settings.get().blockInCombat() && this.combat.tagged(id);
+        if (!shut && this.services.settings().get(id, ShardsFeature.STAY_OPEN)) {
+            open(s.player(), back);
+        } else {
+            s.close();
+        }
     }
 
     /** Handles a failed purchase transaction; returns true when it succeeded. */

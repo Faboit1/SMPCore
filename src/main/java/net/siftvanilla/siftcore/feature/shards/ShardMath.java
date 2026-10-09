@@ -1,5 +1,7 @@
 package net.siftvanilla.siftcore.feature.shards;
 
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
+
 /** Arithmetic of shard shop purchases. Pure, unit tested. */
 final class ShardMath {
 
@@ -47,8 +49,16 @@ final class ShardMath {
         return Math.max(0, balance - total);
     }
 
-    /** Whether a purchase of {@code total} needs a second confirmation. */
+    /** Whether a purchase of {@code total} needs a second confirmation by the server's rule (0 asks every time). */
     static boolean needsConfirmation(long total, long confirmAbove) {
         return confirmAbove <= 0 || total >= confirmAbove;
+    }
+
+    /**
+     * Whether a purchase of {@code total} needs a second confirmation for a player: their "Confirm shard buys from"
+     * choice, where "Server default" follows {@code shop.confirm-above} ({@code serverThreshold}).
+     */
+    static boolean needsConfirmation(long total, ConfirmAbove choice, long serverThreshold) {
+        return choice.asks(total, needsConfirmation(total, serverThreshold));
     }
 }

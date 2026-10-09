@@ -79,8 +79,8 @@ one), so a turn on its own is always at least 10 degrees; `look-threshold` matte
 
 AFK players are kicked after `kick.after` (30m) spent AFK *outside* the AFK zone (counted from the moment they are
 marked AFK; entering the zone stops the clock, leaving it starts it again from zero). `kick.warn-before` (1m) before,
-they get a chat warning with a sound. The disconnect screen says they were AFK for too long and can rejoin. Players
-with `siftcore.afk.bypass-kick` are never kicked; `kick.enabled: false` turns kicking off.
+they get a chat warning with a sound (or a title, `afk-kick-warning`). The disconnect screen says they were AFK for too
+long and can rejoin. Players with `siftcore.afk.bypass-kick` are never kicked; `kick.enabled: false` turns kicking off.
 
 ## The AFK zone
 
@@ -102,7 +102,10 @@ are offsets, 16 to 28 blocks east of the spawn, inside the protected spawn area,
   so it survives restarts; the last reward of the day is cut to the limit, and the player is told in chat.
 - **Status line.** Every `status-every` (2s) the action bar says `AFK zone: next shard in 42s` (or why the player isn't
   earning). It pauses for a moment after another message, while a teleport warmup counts down, and while combat-tagged
-  (the combat timer owns the action bar then). Players can turn it off in the settings dialog (`afk-zone-status`).
+  (the combat timer owns the action bar then). Players can move it to the boss bar or turn it off (`afk-zone-status`).
+  The boss bar (shared `StatusBars`, below the combat timer) updates every second and fills up towards the next shard;
+  it shows why nothing is earned while waiting for another account or after the daily limit, and goes away outside the
+  zone, in combat and when the player picks another style.
 - **Safety.** Players in the zone are never kicked for being AFK. With `zone.safe` (on), players inside can't be hurt
   (except by the void and kill commands) and can't hurt anyone, even when the zone is outside the protected spawn area;
   `/afkzone info` and the self-test say whether resting players are safe.
@@ -110,6 +113,20 @@ are offsets, 16 to 28 blocks east of the spawn, inside the protected spawn area,
   cancelled by moving or damage), then a cooldown (`zone.teleport-cooldown` 10s, bypass `siftcore.bypass.cooldown`).
   It lands on `zone.arrival`, or with `auto` on the ground in the middle of the zone (read on that chunk's region
   thread), kept inside the box.
+
+## Player settings (AFK & shards group)
+
+| Id | Kind | Default | What it does | Offered while |
+|---|---|---|---|---|
+| `afk-zone-status` | choice actionbar/bossbar/off | actionbar | where the zone countdown shows; was a switch: stored `true` reads as actionbar, `false` as off | the zone is on and `rewards.status-every` is above 0s |
+| `afk-zone-payouts` | choice actionbar/chat/off | actionbar | how `AFK zone: +1 shard` lines show; reaching the daily limit is always told in chat | the zone is on |
+| `afk-kick-warning` | choice chat/title | chat | the kick warning as a chat line or a title (`AFK kick in 1m`); it can't be turned off | `kick.enabled` and `kick.warn-before` above 0s |
+| `afk-status-messages` | choice actionbar/chat/off | actionbar | where `You are now AFK` and `Welcome back` show; `/afk` always answers (above the hotbar when off) | always |
+| `afk-return-summary` | toggle | on | on coming back, a chat line with the time away and the zone shards earned meanwhile (shown after at least a minute away or with shards earned); a spell noticed by the clock is measured from the last activity, so it includes the `afk-after` wait and the shards paid in it, a `/afk` spell from the command | always |
+
+The shard shop adds `shard-confirm-above` and `shard-shop-stay-open` to the same group ([shards](shards.md)). None of
+them needs a permission. Status lines and payouts go through `Messenger.alert` (quiet in combat turns hotbar lines into
+chat lines); the AFK tab mark, placeholders, `AfkStatusChangeEvent` and the kick clock don't depend on any setting.
 
 ## Threading
 
@@ -167,6 +184,19 @@ are offsets, 16 to 28 blocks east of the spawn, inside the protected spawn area,
 The classifier rejects a scripted water push, jump macro and pacing macro and accepts a walk; the zone's world is
 loaded and its arrival point is inside; resting players are safe (inside spawn protection or `zone.safe`); every
 connection in the zone has exactly one earner; only online players are tracked.
+
+## Tests
+
+- Unit (`src/test/java/.../feature/afk`): the classifier, the clock, zone sessions and the shipped config and text
+  (`ActivityClassifierTest`, `AfkClockTest`, `ZoneSessionsTest`, `AfkResourcesTest`), and the AFK settings: group and
+  order, the old switch's stored values, config-dependent offering, `/afk` always answering, the boss bar's progress
+  and the spell bookkeeping behind the welcome-back summary: a `/afk` spell from the command, one the clock noticed
+  from the last activity with the shards paid during the idle wait, motion past the motion limit (`AfkPlayerSettingsTest`).
+- End to end (`tools/e2e/.../AfkScenarios.java`): `afk-detect`, `afk-manual`, `afk-kick`, `afk-zone`, `afk-zone-cap`;
+  the settings: `afk-settings` (boss bar countdown and chat payouts in the dialog, then off, back on the action bar and
+  silent payouts by API), `afk-status-settings` (status lines in chat and off, the welcome-back summary on and off,
+  and for a spell noticed on its own: the time since the last activity and the shards paid before the AFK mark) and
+  `afk-kick-title`.
 
 ## Design decisions
 

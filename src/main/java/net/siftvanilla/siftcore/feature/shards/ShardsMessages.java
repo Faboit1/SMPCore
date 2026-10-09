@@ -56,6 +56,11 @@ public final class ShardsMessages {
     public static final MessageKey CANCELLED = MessageKey.info("shards.cancelled");
     public static final MessageKey FAILED = MessageKey.error("shards.failed");
 
+    public static final MessageKey SETTING_CONFIRM = MessageKey.ui("shards.settings.confirm");
+    public static final MessageKey SETTING_CONFIRM_DESCRIPTION = MessageKey.ui("shards.settings.confirm-description");
+    public static final MessageKey SETTING_STAY_OPEN = MessageKey.ui("shards.settings.stay-open");
+    public static final MessageKey SETTING_STAY_OPEN_DESCRIPTION = MessageKey.ui("shards.settings.stay-open-description");
+
     public static final MessageKey HUB_LABEL = MessageKey.ui("shards.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("shards.hub.description");
     public static final MessageKey HUB_TITLE = MessageKey.ui("shards.hub.title");

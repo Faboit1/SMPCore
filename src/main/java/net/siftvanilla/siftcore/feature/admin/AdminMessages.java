@@ -16,6 +16,10 @@ public final class AdminMessages {
     public static final MessageKey SELFTEST_PASS = MessageKey.chat("admin.selftest.pass", "feature", "name", "time");
     public static final MessageKey SELFTEST_FAIL = MessageKey.chat("admin.selftest.fail", "feature", "name", "detail");
     public static final MessageKey SELFTEST_DONE = MessageKey.chat("admin.selftest.done", "passed", "failed", "time");
+    public static final MessageKey CONFIG_ALERT = MessageKey.notify("admin.config-alert.line", "count");
+    public static final MessageKey CONFIG_ALERT_HOVER_MORE = MessageKey.ui("admin.config-alert.hover-more", "count");
+    public static final MessageKey SETTING_CONFIG_ALERTS = MessageKey.ui("admin.settings.config-alerts");
+    public static final MessageKey SETTING_CONFIG_ALERTS_DESCRIPTION = MessageKey.ui("admin.settings.config-alerts-description");
     public static final MessageKey ON = MessageKey.ui("admin.on");
     public static final MessageKey OFF = MessageKey.ui("admin.off");
 

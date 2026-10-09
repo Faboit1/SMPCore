@@ -127,7 +127,7 @@ final class Reports {
                 Arg.text("reporter", report.reporterName()), Arg.text("target", report.targetName()), Arg.text("reason", report.reason()))
             .clickEvent(ClickEvent.runCommand(REVIEW_COMMAND + report.id()))
             .hoverEvent(HoverEvent.showText(this.lang.get(StaffMessages.REPORT_NOTIFY_HOVER)));
-        this.notices.send(StaffNodes.REPORTS, null, line, Feedback.NOTIFY);
+        this.notices.send(StaffNodes.REPORTS, StaffPreferences.REPORT_ALERTS, null, line, Feedback.NOTIFY);
         this.messenger.send(reporter, StaffMessages.REPORT_SENT, Arg.text("name", targetName));
         return null;
     }

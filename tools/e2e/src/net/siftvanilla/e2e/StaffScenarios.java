@@ -25,7 +25,10 @@ import net.siftvanilla.siftcore.SiftCorePlugin;
 import net.siftvanilla.siftcore.api.event.PlayerPayEvent;
 import net.siftvanilla.siftcore.core.audit.AuditLog;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.staff.StaffFeature;
+import net.siftvanilla.siftcore.feature.staff.StaffPreferences;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -33,7 +36,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
-/** Scenarios for the staff tools: mutes, bans, freeze, vanish, reports, inventory inspection, staff chat, lookups. */
+/**
+ * Scenarios for the staff tools: mutes, bans, freeze, vanish, reports, inventory inspection, staff chat, lookups, and the
+ * Staff settings (alerts, staff chat, vanish options, ban confirmation, fake join and leave lines, config problem
+ * alerts) changed through the settings dialog and the API ({@link AfkStaffSettingSteps}).
+ */
 final class StaffScenarios {
 
     private StaffScenarios() {
@@ -69,6 +76,10 @@ final class StaffScenarios {
         list.add(of("staff-invsee", StaffScenarios::invsee));
         list.add(of("staff-chat", StaffScenarios::staffChat));
         list.add(of("staff-lookups", StaffScenarios::lookups));
+        list.add(of("staff-alert-settings", StaffScenarios::alertSettings));
+        list.add(of("staff-vanish-settings", StaffScenarios::vanishSettings));
+        list.add(of("staff-fake-lines", StaffScenarios::fakeLines));
+        list.add(of("admin-config-alerts", StaffScenarios::configAlerts));
         return list;
     }
 
@@ -1052,5 +1063,386 @@ final class StaffScenarios {
         e2e.eventually(() -> mod.chatContains("Accounts on " + TARGET + "'s address"), "the alts header: " + mod.chat());
         e2e.eventually(() -> mod.chatContains(MOD), "the moderator's own account shares the address: " + mod.chat());
         e2e.console("deop " + MOD);
+    }
+
+    // ------------------------------------------------------------------ staff settings
+
+    /**
+     * Punishment alerts above the hotbar and staff chat hidden, both picked in the Staff settings dialog; then punishment,
+     * report and frozen-logout alerts changed through the API.
+     */
+    static void alertSettings(E2E e2e) throws Exception {
+        String MOD = e2e.name("AlertMod");
+        String WATCH = e2e.name("AlertSeen");
+        String PLAYER = e2e.name("AlertPlr");
+        String OTHER = e2e.name("AlertOth");
+        Bot mod = e2e.bot(MOD);
+        Bot watch = e2e.bot(WATCH);
+        Bot player = e2e.bot(PLAYER);
+        e2e.bot(OTHER);
+        e2e.console("op " + MOD);
+        e2e.console("op " + WATCH);
+        UUID watchId = e2e.uuid(WATCH);
+        UUID playerId = e2e.uuid(PLAYER);
+        StaffFeature staff = staff();
+        try {
+            e2e.step("the Staff group offers the staff settings to an operator");
+            Map<String, List<String>> inputs = AfkStaffSettingSteps.groupInputs(e2e, watch, "staff", AfkStaffSettingSteps.STAFF_PAGE);
+            for (String key : List.of("staff_chat", "staff_punish_alerts", "staff_report_alerts", "vanish_on_join", "vanish_reminder",
+                "vanish_see_vanished", "staff_freeze_alerts", "staff_confirm_bans", "admin_config_alerts")) {
+                e2e.expect(inputs.containsKey(key), key + " is offered: " + inputs.keySet());
+            }
+            // Offered only while the server shows a join or leave line to imitate (staff-fake-lines checks both ways).
+            boolean fakeOffered = e2e.services().settings().registry().entry("vanish-fake-messages").offered();
+            e2e.expect(inputs.containsKey("vanish_fake_messages") == fakeOffered,
+                "vanish_fake_messages shown exactly while offered (" + fakeOffered + "): " + inputs.keySet());
+            e2e.expect(inputs.get("staff_punish_alerts").equals(List.of("chat", "actionbar", "off")), "alert styles: " + inputs);
+
+            e2e.step("punishment alerts above the hotbar and staff chat hidden, saved in the dialog");
+            AfkStaffSettingSteps.editSettings(e2e, watch, "staff", AfkStaffSettingSteps.STAFF_PAGE,
+                Map.of("staff_punish_alerts", "actionbar", "staff_chat", false));
+            e2e.eventually(() -> watch.anyFeedbackContains("Saved 2 settings"), "saved: " + watch.chat() + " " + watch.actionBar());
+            AfkStaffSettingSteps.expectStored(e2e, watchId, "staff-punish-alerts", "actionbar");
+            AfkStaffSettingSteps.expectStored(e2e, watchId, "staff-chat", "false");
+
+            e2e.step("another moderator's warning shows above the watcher's hotbar, not in chat");
+            watch.clearMessages();
+            mod.command("warn " + PLAYER + " be nice in chat");
+            e2e.eventually(() -> watch.actionBarContains(MOD + " warned " + PLAYER), "on the action bar: " + watch.actionBar());
+            e2e.expect(!watch.chatContains("warned " + PLAYER), "not in chat: " + watch.chat());
+
+            e2e.step("punishment alerts off (API): nothing for the watcher; the moderator still gets the confirmation");
+            AfkStaffSettingSteps.set(e2e, WATCH, StaffPreferences.PUNISH_ALERTS, AlertStyle.OFF);
+            watch.clearMessages();
+            mod.clearMessages();
+            mod.command("warn " + PLAYER + " second warning");
+            expectSaw(e2e, mod, "Warned " + PLAYER);
+            e2e.sleep(800);
+            e2e.expect(!watch.anyFeedbackContains("warned " + PLAYER), "no alert: " + watch.chat() + " " + watch.actionBar());
+
+            e2e.step("staff chat hidden: other staff's lines don't reach the watcher, their own always echo");
+            watch.clearMessages();
+            mod.clearMessages();
+            mod.command("sc anyone around");
+            e2e.eventually(() -> mod.chatContains("Staff " + MOD + ": anyone around"), "the sender sees their line: " + mod.chat());
+            e2e.sleep(800);
+            e2e.expect(!watch.chatContains("anyone around"), "the watcher doesn't: " + watch.chat());
+            watch.command("sc I am here");
+            e2e.eventually(() -> watch.chatContains("Staff " + WATCH + ": I am here"), "the watcher's own line echoes: " + watch.chat());
+            e2e.eventually(() -> mod.chatContains("Staff " + WATCH + ": I am here"), "and reaches staff who read staff chat: " + mod.chat());
+            e2e.step("switching to staff chat mode says the lines of others are hidden");
+            watch.clearMessages();
+            watch.command("sc");
+            e2e.eventually(() -> watch.chatContains("Show staff chat is off"), "the hint: " + watch.chat());
+            watch.command("sc");
+            expectSaw(e2e, watch, "Staff chat off");
+
+            e2e.step("report alerts off for the watcher (API); the moderator gets the report in chat");
+            AfkStaffSettingSteps.set(e2e, WATCH, StaffPreferences.REPORT_ALERTS, AlertStyle.OFF);
+            watch.clearMessages();
+            mod.clearMessages();
+            player.command("report " + OTHER + " flying around the spawn");
+            expectSaw(e2e, player, "Thanks. Staff will look at your report about " + OTHER);
+            e2e.eventually(() -> mod.chatContains("reported " + OTHER), "the moderator is told: " + mod.chat());
+            e2e.sleep(500);
+            e2e.expect(!watch.anyFeedbackContains("reported " + OTHER), "the watcher isn't: " + watch.chat() + " " + watch.actionBar());
+
+            e2e.step("frozen player logout alerts above the hotbar (API)");
+            AfkStaffSettingSteps.set(e2e, WATCH, StaffPreferences.FREEZE_ALERTS, AlertStyle.ACTIONBAR);
+            mod.command("freeze " + PLAYER);
+            e2e.eventually(() -> staff.freezes().frozen(playerId), "the player is frozen");
+            watch.clearMessages();
+            mod.clearMessages();
+            player.quit();
+            e2e.eventually(() -> watch.actionBarContains(PLAYER + " logged out while frozen"), "the watcher above the hotbar: "
+                + watch.actionBar());
+            e2e.eventually(() -> mod.chatContains(PLAYER + " logged out while frozen"), "the moderator in chat: " + mod.chat());
+            e2e.expect(!watch.chatContains("logged out while frozen"), "not in the watcher's chat: " + watch.chat());
+        } finally {
+            if (staff.freezes().frozen(playerId)) {
+                e2e.console("freeze " + PLAYER);
+            }
+            e2e.console("deop " + MOD);
+            e2e.console("deop " + WATCH);
+        }
+    }
+
+    /**
+     * See vanished staff off in the dialog (applied at once) and back on, the vanish reminder off, joining vanished, and
+     * the ban confirmation (Cancel and Ban), through the API.
+     */
+    static void vanishSettings(E2E e2e) throws Exception {
+        String MOD = e2e.name("VsetMod");
+        String SEER = e2e.name("VsetSeer");
+        String WATCHER = e2e.name("VsetWatch");
+        Bot mod = e2e.bot(MOD);
+        Bot seer = e2e.bot(SEER);
+        Bot watcher = e2e.bot(WATCHER);
+        e2e.console("op " + MOD);
+        e2e.console("op " + SEER);
+        UUID modId = e2e.uuid(MOD);
+        UUID seerId = e2e.uuid(SEER);
+        StaffFeature staff = staff();
+        try {
+            e2e.step("a vanished moderator stays visible to staff who may see vanished staff");
+            mod.command("vanish");
+            e2e.eventually(() -> staff.vanish().vanished(modId), "vanished");
+            e2e.eventually(() -> !watcher.hasPlayerInfo(modId), "hidden from the player");
+            e2e.eventually(() -> seer.hasPlayerInfo(modId) && seer.seesEntity(modId), "visible to the other moderator");
+
+            e2e.step("See vanished staff off, in the dialog: the moderator disappears for the other moderator at once");
+            AfkStaffSettingSteps.editSettings(e2e, seer, "staff", AfkStaffSettingSteps.STAFF_PAGE, Map.of("vanish_see_vanished", false));
+            e2e.eventually(() -> seer.anyFeedbackContains("See vanished staff turned off"), "saved: " + seer.chat() + " " + seer.actionBar());
+            AfkStaffSettingSteps.expectStored(e2e, seerId, "vanish-see-vanished", "false");
+            e2e.eventually(() -> !seer.hasPlayerInfo(modId) && !seer.seesEntity(modId), 4_000, "gone from the tab list and the world");
+            e2e.expect(!e2e.onPlayer(SEER, () -> e2e.player(SEER).canSee(e2e.player(MOD))), "the server agrees");
+
+            e2e.step("back on (API): visible to them again");
+            AfkStaffSettingSteps.set(e2e, SEER, StaffPreferences.SEE_VANISHED, true);
+            e2e.eventually(() -> seer.hasPlayerInfo(modId) && seer.seesEntity(modId), "back in the tab list and the world");
+            e2e.expect(!watcher.hasPlayerInfo(modId), "still hidden from the player");
+
+            e2e.step("Vanish reminder off (API): no reminder above the hotbar; on again, it is back");
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.VANISH_REMINDER, false);
+            e2e.sleep(500);
+            mod.clearMessages();
+            e2e.sleep(4_500);
+            e2e.expect(!mod.actionBarContains("You are vanished"), "no reminder: " + mod.actionBar());
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.VANISH_REMINDER, true);
+            e2e.eventually(() -> mod.actionBarContains("You are vanished"), 6_000, "the reminder again: " + mod.actionBar());
+
+            e2e.step("Join vanished (API): the moderator shows themself, relogs and joins vanished");
+            mod.command("vanish");
+            e2e.eventually(() -> !staff.vanish().vanished(modId), "visible");
+            e2e.eventually(() -> watcher.hasPlayerInfo(modId), "the player sees the moderator");
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.VANISH_ON_JOIN, true);
+            mod.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(MOD) == null && !watcher.hasPlayerInfo(modId), "the moderator left");
+            Bot back = e2e.bot(MOD);
+            e2e.eventually(() -> staff.vanish().vanished(modId), "vanished on joining");
+            expectSaw(e2e, back, "You joined vanished");
+            e2e.sleep(800);
+            e2e.expect(!watcher.hasPlayerInfo(modId) && !watcher.seesEntity(modId), "the player never got the moderator back");
+            e2e.eventually(() -> recentAudit(e2e, "staff.vanish.on", modId), "the vanish is in the audit log");
+            back.command("vanish");
+            e2e.eventually(() -> !staff.vanish().vanished(modId), "visible again");
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.VANISH_ON_JOIN, false);
+
+            e2e.step("Confirm bans (API): the ban asks with player, length and reason; Cancel leaves the player alone");
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.CONFIRM_BANS, true);
+            back.clearLogs();
+            back.command("ban " + WATCHER + " using a fly hack");
+            Bot.SeenDialog ask = e2e.dialog(back, "Ban " + WATCHER + "?");
+            String body = ask.bodyText();
+            e2e.expect(body.contains("Player " + WATCHER) && body.contains("Length permanent") && body.contains("Reason using a fly hack"),
+                "what is confirmed: " + ask.body());
+            e2e.click(back, "Cancel");
+            expectSaw(e2e, back, "Didn't ban " + WATCHER);
+            e2e.sleep(500);
+            e2e.expect(!watcher.disconnected() && Bukkit.getPlayerExact(WATCHER) != null, "the player is still here");
+
+            e2e.step("the ban permission taken away while the confirmation is open: Ban is refused");
+            back.clearLogs();
+            back.command("ban " + WATCHER + " using a fly hack");
+            e2e.dialog(back, "Ban " + WATCHER + "?");
+            e2e.console("deop " + MOD);
+            e2e.eventually(() -> !e2e.onPlayer(MOD, () -> e2e.player(MOD).hasPermission("siftcore.staff.ban")), "no longer allowed to ban");
+            e2e.click(back, "Ban");
+            e2e.eventually(() -> back.anyFeedbackContains("You can't do that."), "refused: " + back.chat() + " " + back.actionBar());
+            e2e.sleep(800);
+            e2e.expect(!watcher.disconnected() && Bukkit.getPlayerExact(WATCHER) != null, "the player is still here");
+            e2e.console("op " + MOD);
+            e2e.eventually(() -> e2e.onPlayer(MOD, () -> e2e.player(MOD).hasPermission("siftcore.staff.ban")), "allowed again");
+
+            e2e.step("Ban goes through after confirming (a temporary ban)");
+            back.command("tempban " + WATCHER + " 1h using a fly hack");
+            Bot.SeenDialog again = e2e.dialog(back, "Ban " + WATCHER + "?");
+            e2e.expect(again.bodyText().contains("Length 1h"), "the length: " + again.body());
+            e2e.click(back, "Ban");
+            e2e.eventually(watcher::disconnected, "the player is banned");
+            e2e.expect(watcher.disconnectReason().contains("Time left"), "a temporary ban: " + watcher.disconnectReason());
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.CONFIRM_BANS, false);
+        } finally {
+            e2e.console("unban " + WATCHER);
+            e2e.console("deop " + MOD);
+            e2e.console("deop " + SEER);
+        }
+    }
+
+    private static boolean fakeLinesOffered(E2E e2e) {
+        return e2e.services().settings().registry().entry("vanish-fake-messages").offered();
+    }
+
+    /**
+     * Fake join/leave on vanish: not offered while the server shows no join or leave line (plain lines off, rank lines
+     * off in cosmetics), and a moderator who had it on, or the staff member who vanished them, is told there is no
+     * line; with the plain join and leave lines on it is offered, saved in the dialog, and shows a normal leave line on
+     * vanishing and a join line on reappearing.
+     */
+    static void fakeLines(E2E e2e) throws Exception {
+        String MOD = e2e.name("FakeMod");
+        String WATCHER = e2e.name("FakeWatch");
+        java.nio.file.Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/extras.yml");
+        java.nio.file.Path cosmeticsConfig = e2e.services().plugin().getDataFolder().toPath().resolve("features/cosmetics.yml");
+        String original = java.nio.file.Files.readString(config);
+        String cosmeticsOriginal = java.nio.file.Files.readString(cosmeticsConfig);
+        e2e.expect(original.contains("join: false") && original.contains("quit: false"), "the default extras messages");
+        String rankLinesOff = cosmeticsOriginal.replaceFirst("(?s)(\njoin-messages:.*?\n  enabled: )true", "$1false");
+        e2e.expect(!rankLinesOff.equals(cosmeticsOriginal), "the cosmetics join lines switch");
+        try {
+            Bot mod = e2e.bot(MOD);
+            e2e.console("op " + MOD);
+            Bot watcher = e2e.bot(WATCHER);
+            UUID modId = e2e.uuid(MOD);
+            StaffFeature staff = staff();
+
+            e2e.step("no line to imitate (plain lines off, rank lines off in cosmetics): the setting is not offered");
+            java.nio.file.Files.writeString(cosmeticsConfig, rankLinesOff);
+            e2e.console("sift reload");
+            e2e.eventually(() -> !fakeLinesOffered(e2e), "not offered");
+            Map<String, List<String>> hidden = AfkStaffSettingSteps.groupInputs(e2e, mod, "staff", AfkStaffSettingSteps.STAFF_PAGE);
+            e2e.expect(!hidden.containsKey("vanish_fake_messages"), "not in the dialog: " + hidden.keySet());
+            e2e.expect(hidden.containsKey("vanish_on_join"), "the other vanish settings are: " + hidden.keySet());
+
+            e2e.step("still on from before (API): vanishing tells the moderator there is no line, /vanish <player> tells the sender");
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.FAKE_MESSAGES, true);
+            mod.clearMessages();
+            watcher.clearMessages();
+            mod.command("vanish");
+            e2e.eventually(() -> staff.vanish().vanished(modId), "vanished");
+            e2e.eventually(() -> mod.chatContains("No fake join or leave line: this server shows none for you right now."),
+                "told there is no line: " + mod.chat());
+            List<String> console = e2e.consoleOutput("vanish " + MOD);
+            e2e.eventually(() -> !staff.vanish().vanished(modId), "made visible by the console");
+            e2e.expect(String.join(" ", console).contains("No fake join or leave line for " + MOD + ": this server shows none for them right now."),
+                "the sender is told the line is missing for the moderator: " + console);
+            e2e.sleep(500);
+            e2e.expect(!watcher.chatContains(MOD + " left") && !watcher.chatContains(MOD + " joined"), "no line: " + watcher.chat());
+            AfkStaffSettingSteps.set(e2e, MOD, StaffPreferences.FAKE_MESSAGES, false);
+
+            e2e.step("plain join and leave lines on: the setting is offered");
+            java.nio.file.Files.writeString(cosmeticsConfig, cosmeticsOriginal);
+            java.nio.file.Files.writeString(config, original.replace("join: false", "join: true").replace("quit: false", "quit: true"));
+            e2e.console("sift reload");
+            e2e.eventually(() -> fakeLinesOffered(e2e), "offered");
+            Map<String, List<String>> shown = AfkStaffSettingSteps.groupInputs(e2e, mod, "staff", AfkStaffSettingSteps.STAFF_PAGE);
+            e2e.expect(shown.containsKey("vanish_fake_messages"), "in the dialog: " + shown.keySet());
+
+            e2e.step("without the setting, vanishing and reappearing show no line");
+            watcher.clearMessages();
+            mod.command("vanish");
+            e2e.eventually(() -> staff.vanish().vanished(modId), "vanished");
+            e2e.sleep(800);
+            e2e.expect(!watcher.chatContains(MOD + " left"), "no leave line: " + watcher.chat());
+            mod.command("vanish");
+            e2e.eventually(() -> !staff.vanish().vanished(modId), "visible");
+            e2e.sleep(800);
+            e2e.expect(!watcher.chatContains(MOD + " joined"), "no join line: " + watcher.chat());
+
+            e2e.step("with Fake join/leave on vanish, saved in the dialog: a normal leave line when vanishing");
+            AfkStaffSettingSteps.editSettings(e2e, mod, "staff", AfkStaffSettingSteps.STAFF_PAGE, Map.of("vanish_fake_messages", true));
+            AfkStaffSettingSteps.expectStored(e2e, modId, "vanish-fake-messages", "true");
+            watcher.clearMessages();
+            mod.command("vanish");
+            e2e.eventually(() -> watcher.chatContains(MOD + " left"), "the leave line: " + watcher.chat());
+            e2e.eventually(() -> !watcher.hasPlayerInfo(modId), "and the moderator is gone");
+
+            e2e.step("and a join line when reappearing");
+            watcher.clearMessages();
+            mod.command("vanish");
+            e2e.eventually(() -> watcher.chatContains(MOD + " joined"), "the join line: " + watcher.chat());
+            e2e.eventually(() -> watcher.hasPlayerInfo(modId), "and the moderator is back");
+        } finally {
+            java.nio.file.Files.writeString(config, original);
+            java.nio.file.Files.writeString(cosmeticsConfig, cosmeticsOriginal);
+            e2e.console("sift reload");
+            e2e.console("deop " + MOD);
+        }
+    }
+
+    /** How many config problems the admin feature counts for its join alert (test-only access). */
+    private static int configProblems(E2E e2e) throws ReflectiveOperationException {
+        AdminFeature admin = e2e.feature(AdminFeature.class);
+        java.lang.reflect.Method count = AdminFeature.class.getDeclaredMethod("configProblems");
+        count.setAccessible(true);
+        return (int) count.invoke(admin);
+    }
+
+    private static final String CONFIG_ALERT = "Config problems at the last start or reload: ";
+
+    /**
+     * Config problem alerts: an admin joining is told exactly when the last start or reload found problems (listed on
+     * hover), players are not, and admins who turned the alert off (API) are not.
+     */
+    static void configAlerts(E2E e2e) throws Exception {
+        String ADMIN = e2e.name("CfgAdmin");
+        String PLAYER = e2e.name("CfgPlayer");
+        Bot admin = e2e.bot(ADMIN);
+        e2e.console("op " + ADMIN);
+        java.nio.file.Path shards = e2e.services().plugin().getDataFolder().toPath().resolve("features/shards.yml");
+        String original = java.nio.file.Files.readString(shards);
+        try {
+            e2e.step("an admin joining is told exactly when the last start or reload found problems");
+            int now = configProblems(e2e);
+            admin.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(ADMIN) == null, "the admin left");
+            Bot first = e2e.bot(ADMIN);
+            if (now > 0) {
+                e2e.eventually(() -> first.chatContains(CONFIG_ALERT + now), 6_000, "the alert for " + now + " problems: " + first.chat());
+            } else {
+                e2e.sleep(3_500);
+                e2e.expect(!first.chatContains(CONFIG_ALERT), "no alert after a clean start or reload: " + first.chat());
+            }
+
+            e2e.step("a problem logged the way the startup logs it is counted (the startup half of the alert)");
+            int beforeProbe = configProblems(e2e);
+            e2e.services().plugin().getLogger().info("Config problem: "
+                + new net.siftvanilla.siftcore.core.config.ConfigProblem("features/e2e-probe.yml", "probe", "written by the e2e test, not a real problem"));
+            e2e.expect(configProblems(e2e) == beforeProbe + 1, "counted from the plugin's log: " + beforeProbe + " -> " + configProblems(e2e));
+
+            e2e.step("a reload that finds a problem: the next admin join is told, with the problem on hover");
+            e2e.expect(original.contains("confirm-above: 500"), "the shipped shard shop threshold");
+            java.nio.file.Files.writeString(shards, original.replace("confirm-above: 500", "confirm-above: lots"));
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(String.join(" ", reload).contains("Nothing was reloaded"), "the reload refuses: " + reload);
+            int found = configProblems(e2e);
+            e2e.expect(found >= 1, "the problem is counted: " + found);
+            first.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(ADMIN) == null, "the admin left");
+            Bot second = e2e.bot(ADMIN);
+            Bot player = e2e.bot(PLAYER);
+            e2e.eventually(() -> second.chatContains(CONFIG_ALERT + found), 6_000, "the alert: " + second.chat());
+            String hover = second.chatComponents().stream().filter(line -> line.getString().contains(CONFIG_ALERT))
+                .map(line -> String.valueOf(line.getStyle().getHoverEvent())).findFirst().orElse("");
+            e2e.expect(hover.contains("shards.yml"), "the hover lists the problem: " + hover);
+            e2e.sleep(2_500);
+            e2e.expect(!player.chatContains(CONFIG_ALERT), "players without /sift reload are not told: " + player.chat());
+
+            e2e.step("alerts turned off (API): no alert");
+            AfkStaffSettingSteps.set(e2e, ADMIN, AdminFeature.CONFIG_ALERTS, false);
+            second.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(ADMIN) == null, "the admin left");
+            Bot third = e2e.bot(ADMIN);
+            e2e.sleep(3_500);
+            e2e.expect(!third.chatContains(CONFIG_ALERT), "no alert: " + third.chat());
+
+            e2e.step("a clean reload clears it");
+            java.nio.file.Files.writeString(shards, original);
+            List<String> clean = e2e.consoleOutput("sift reload");
+            e2e.expect(String.join(" ", clean).contains("Reloaded"), "the fixed file reloads: " + clean);
+            e2e.expect(configProblems(e2e) == 0, "nothing counted after a clean reload");
+            AfkStaffSettingSteps.set(e2e, ADMIN, AdminFeature.CONFIG_ALERTS, true);
+            third.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(ADMIN) == null, "the admin left");
+            Bot fourth = e2e.bot(ADMIN);
+            e2e.sleep(3_500);
+            e2e.expect(!fourth.chatContains(CONFIG_ALERT), "no alert: " + fourth.chat());
+        } finally {
+            if (!java.nio.file.Files.readString(shards).equals(original)) {
+                java.nio.file.Files.writeString(shards, original);
+                e2e.console("sift reload");
+            }
+            e2e.console("deop " + ADMIN);
+        }
     }
 }
