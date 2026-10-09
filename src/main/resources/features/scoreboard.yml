@@ -1,0 +1,64 @@
+# The sidebar, the tab list and nametags. Changes apply with /sift reload.
+# The text of every line, the tab list header and footer and the nametag prefix is in lang/scoreboard.yml.
+#
+# Each part has a yield-to list: while one of those plugins runs, SiftCore leaves that part to it (two plugins
+# drawing the same sidebar, tab list or nametag teams would fight). By default the TAB plugin takes over every part
+# when it is installed; remove TAB from a part's list when TAB has that part turned off and SiftCore should show it.
+
+sidebar:
+  # false hides the sidebar for everyone (the tab list and nametags keep working).
+  enabled: true
+  # How often the lines are refreshed (250ms to 1m). Only lines whose text changed are sent to the player.
+  refresh: 1s
+  # The lines from top to bottom, at most 15. Each is the name of a line in lang/scoreboard.yml
+  # (scoreboard.sidebar.lines.<name>) or "blank" for an empty line. A line is left out while one of its
+  # placeholders is empty, so "team" only shows for players in a team and "combat" only in combat.
+  # Available: balance, shards, kills, deaths, kdr, streak, playtime, team, rank, keyall, bounty, combat, online,
+  # ping, website. Each line's text can be changed in lang/scoreboard.yml to show any placeholder.
+  lines:
+    - blank
+    - balance
+    - shards
+    - kills
+    - deaths
+    - playtime
+    - team
+    - blank
+    - website
+  # Plugins that show the sidebar instead while they run ([] never yields).
+  yield-to:
+    - TAB
+
+tab:
+  # false leaves the tab list header and footer empty.
+  enabled: true
+  # How often the header and footer are refreshed (1s to 5m).
+  refresh: 5s
+  # Shows names in the tab list as "rank name" and lists higher ranks first.
+  names: true
+  # Adds a marker after the names of players who are away (from the AFK feature).
+  afk-marker: true
+  # Plugins that run the tab list (header, footer, names and order) instead while they run.
+  yield-to:
+    - TAB
+
+nametags:
+  # Shows the rank label in front of names above heads. Players are grouped by rank in scoreboard teams that are
+  # the same on every player's board. Vanished staff are never in a team.
+  enabled: true
+  # Plugins that run nametags (and scoreboard teams) instead while they run.
+  yield-to:
+    - TAB
+
+ranks:
+  # How often ranks are read again (5s to 1h). They are also read when a player joins and with /sidebar refresh.
+  refresh: 30s
+  # The ranks from highest to lowest: the LuckPerms group, and the label shown when the rank integration gives
+  # none (an empty label shows no label). A player's rank is their LuckPerms primary group when it is listed here,
+  # otherwise the highest group here they belong to (LuckPerms gives every member the permission group.<name>).
+  # Players with no listed rank come last in the tab list.
+  order:
+    tycoon: "Tycoon"
+    baron: "Baron"
+    prospector: "Prospector"
+    default: ""

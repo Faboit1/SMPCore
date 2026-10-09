@@ -341,7 +341,9 @@ final class FriendsScenarios {
         f.command("friend deny " + eve);
         e2e.eventually(() -> f.actionBarContains("Request from " + eve + " denied."), "deny feedback: " + f.actionBar());
         e2e.sleep(1_000);
-        e2e.expect(e.chat().isEmpty() && e.actionBar().isEmpty(), "the sender heard nothing: " + e.chat() + e.actionBar());
+        // Other features may greet the sender meanwhile (kit reminders); nothing may be about this request.
+        e2e.expect(!e.anyFeedbackContains(finn) && !e.anyFeedbackContains("denied") && !e.anyFeedbackContains("friend"),
+            "the sender heard nothing: " + e.chat() + e.actionBar());
         e.command("friend " + finn);
         e2e.eventually(() -> e.actionBarContains("You already sent " + finn + " a request."), "still looks waiting: " + e.actionBar());
         Bot.SeenDialog mine = open(e2e, e, "friend requests", "Friend requests");

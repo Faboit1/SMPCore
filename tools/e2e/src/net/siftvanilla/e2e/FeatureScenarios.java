@@ -31,6 +31,7 @@ final class FeatureScenarios {
         list.addAll(ChatScenarios.all());
         list.addAll(KitsScenarios.all());
         list.addAll(IntegrationsScenarios.all());
+        list.addAll(ScoreboardScenarios.all());
         return list;
     }
 }

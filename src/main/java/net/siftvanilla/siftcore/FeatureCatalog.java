@@ -26,6 +26,7 @@ import net.siftvanilla.siftcore.feature.integrations.IntegrationsFeature;
 import net.siftvanilla.siftcore.feature.kits.KitsFeature;
 import net.siftvanilla.siftcore.feature.orders.OrdersFeature;
 import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
+import net.siftvanilla.siftcore.feature.scoreboard.ScoreboardFeature;
 import net.siftvanilla.siftcore.feature.sell.SellFeature;
 import net.siftvanilla.siftcore.feature.settings.SettingsFeature;
 import net.siftvanilla.siftcore.feature.shards.ShardsFeature;
@@ -112,6 +113,8 @@ final class FeatureCatalog {
         features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), friends.lookup(), chat.ignores()));
         features.add(new ExtrasFeature(this.services, this.problems, staff.vanish()));
         features.add(new DisplaysFeature(this.services, this.problems));
+        features.add(new ScoreboardFeature(this.services, this.problems, stats.recorder(), teams.lookup(), afk.status(), integrations.ranks(),
+            this.combatTags, staff.vanish()));
         features.add(combat);
         features.add(new BountiesFeature(this.services, this.problems));
         features.add(afk);

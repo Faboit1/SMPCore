@@ -68,6 +68,12 @@ import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
+import net.minecraft.network.protocol.game.ClientboundResetScorePacket;
+import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket;
+import net.minecraft.network.protocol.game.ClientboundSetScorePacket;
+import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
@@ -179,6 +185,23 @@ public final class Bot {
     public record ChatDialog(String text, SeenDialog dialog) {
     }
 
+    /** A scoreboard objective as the client knows it; {@code numberFormat} is the format's class name or "default". */
+    public record SeenObjective(String name, Component displayName, String numberFormat) {
+    }
+
+    /** A score as the client knows it: owner (entry), value, custom text (null when none) and the number of the packet that last set it. */
+    public record SeenScore(String owner, int value, Component display, String numberFormat, int packet) {
+
+        /** What the sidebar shows for this score: the custom text, or the owner name without one. */
+        public String text() {
+            return this.display == null ? this.owner : this.display.getString();
+        }
+    }
+
+    /** A scoreboard team as the client knows it; {@code color} is the team colour's name or "none". */
+    public record SeenTeam(String name, Component prefix, Component suffix, String color, byte options, Set<String> members) {
+    }
+
     /** An entity the server added for this client, with its synced data values by data id. */
     public record SeenEntity(int id, UUID uuid, String type, double x, double y, double z, Map<Integer, Object> data) {
     }
@@ -218,6 +241,17 @@ public final class Bot {
     private volatile long lastDeathScreen;
     private final Set<UUID> playerInfo = ConcurrentHashMap.newKeySet();
     private final Set<UUID> everPlayerInfo = ConcurrentHashMap.newKeySet();
+    private final Map<String, SeenObjective> objectives = new ConcurrentHashMap<>();
+    private final Map<String, String> displaySlots = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, SeenScore>> scores = new ConcurrentHashMap<>();
+    private final Map<String, SeenTeam> teams = new ConcurrentHashMap<>();
+    private final AtomicInteger scorePackets = new AtomicInteger();
+    private final AtomicInteger teamPackets = new AtomicInteger();
+    private final AtomicInteger tabListPackets = new AtomicInteger();
+    private volatile Component tabHeader;
+    private volatile Component tabFooter;
+    private final Map<UUID, Component> listNames = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> listOrders = new ConcurrentHashMap<>();
 
     public Bot(String name) {
         this.name = name;
@@ -350,6 +384,90 @@ public final class Bot {
     /** Whether the client currently tracks an entity with this uuid (it was spawned and not removed). */
     public boolean seesEntity(UUID uuid) {
         return this.entities.values().stream().anyMatch(entity -> entity.uuid().equals(uuid));
+    }
+
+    // ------------------------------------------------------------------ scoreboard and tab list (client state)
+
+    public SeenObjective objective(String name) {
+        return this.objectives.get(name);
+    }
+
+    /** The objective shown in a display slot ({@code sidebar}, {@code list}, {@code below_name}), or null. */
+    public SeenObjective displayed(String slot) {
+        String name = this.displaySlots.get(slot);
+        return name == null ? null : this.objectives.get(name);
+    }
+
+    /** The scores of an objective by owner. */
+    public Map<String, SeenScore> scores(String objective) {
+        Map<String, SeenScore> map = this.scores.get(objective);
+        return map == null ? Map.of() : Map.copyOf(map);
+    }
+
+    /** The sidebar as the client draws it: text of each score, highest score first (ties by owner), or empty. */
+    public List<String> sidebarLines() {
+        SeenObjective sidebar = displayed("sidebar");
+        if (sidebar == null) {
+            return List.of();
+        }
+        List<SeenScore> sorted = new ArrayList<>(scores(sidebar.name()).values());
+        sorted.sort(java.util.Comparator.comparingInt(SeenScore::value).reversed().thenComparing(SeenScore::owner));
+        List<String> lines = new ArrayList<>(sorted.size());
+        for (SeenScore score : sorted) {
+            lines.add(score.text());
+        }
+        return lines;
+    }
+
+    public SeenTeam team(String name) {
+        return this.teams.get(name);
+    }
+
+    public Map<String, SeenTeam> teams() {
+        return Map.copyOf(this.teams);
+    }
+
+    /** The team an entry (player name) belongs to on this client's board, or null. */
+    public SeenTeam teamOf(String entry) {
+        for (SeenTeam team : this.teams.values()) {
+            if (team.members().contains(entry)) {
+                return team;
+            }
+        }
+        return null;
+    }
+
+    /** Score packets received so far (to check that unchanged lines are not resent). */
+    public int scorePackets() {
+        return this.scorePackets.get();
+    }
+
+    public int teamPackets() {
+        return this.teamPackets.get();
+    }
+
+    public int tabListPackets() {
+        return this.tabListPackets.get();
+    }
+
+    public String tabHeader() {
+        Component header = this.tabHeader;
+        return header == null ? null : header.getString();
+    }
+
+    public String tabFooter() {
+        Component footer = this.tabFooter;
+        return footer == null ? null : footer.getString();
+    }
+
+    /** The tab list name the server set for a profile, or null when it shows the plain name. */
+    public Component listName(UUID profile) {
+        return this.listNames.get(profile);
+    }
+
+    /** The tab list order the server set for a profile (0 when never set). */
+    public int listOrder(UUID profile) {
+        return this.listOrders.getOrDefault(profile, 0);
     }
 
     /** Forgets everything received so far (start of a step). */
@@ -890,6 +1008,85 @@ public final class Bot {
                     this.playerInfo.add(entry.profileId());
                     this.everPlayerInfo.add(entry.profileId());
                 }
+                for (ClientboundPlayerInfoUpdatePacket.Entry entry : info.entries()) {
+                    if (info.actions().contains(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME)) {
+                        if (entry.displayName() == null) {
+                            this.listNames.remove(entry.profileId());
+                        } else {
+                            this.listNames.put(entry.profileId(), entry.displayName());
+                        }
+                    }
+                    if (info.actions().contains(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LIST_ORDER)) {
+                        this.listOrders.put(entry.profileId(), entry.listOrder());
+                    }
+                }
+            }
+            case ClientboundSetObjectivePacket objective -> {
+                String name = objective.getObjectiveName();
+                if (objective.getMethod() == 1) {
+                    this.objectives.remove(name);
+                    this.scores.remove(name);
+                    this.displaySlots.values().removeIf(name::equals);
+                } else {
+                    this.objectives.put(name, new SeenObjective(name, objective.getDisplayName(),
+                        objective.getNumberFormat().map(format -> format.getClass().getSimpleName()).orElse("default")));
+                }
+            }
+            case ClientboundSetDisplayObjectivePacket display -> {
+                String slot = display.getSlot().getSerializedName();
+                if (display.getObjectiveName() == null) {
+                    this.displaySlots.remove(slot);
+                } else {
+                    this.displaySlots.put(slot, display.getObjectiveName());
+                }
+            }
+            case ClientboundSetScorePacket score -> {
+                int number = this.scorePackets.incrementAndGet();
+                this.scores.computeIfAbsent(score.objectiveName(), k -> new ConcurrentHashMap<>()).put(score.owner(),
+                    new SeenScore(score.owner(), score.score(), score.display().orElse(null),
+                        score.numberFormat().map(format -> format.getClass().getSimpleName()).orElse("default"), number));
+            }
+            case ClientboundResetScorePacket reset -> {
+                if (reset.objectiveName() == null) {
+                    this.scores.values().forEach(map -> map.remove(reset.owner()));
+                } else {
+                    Map<String, SeenScore> map = this.scores.get(reset.objectiveName());
+                    if (map != null) {
+                        map.remove(reset.owner());
+                    }
+                }
+            }
+            case ClientboundSetPlayerTeamPacket team -> {
+                this.teamPackets.incrementAndGet();
+                String name = team.getName();
+                if (team.getTeamAction() == ClientboundSetPlayerTeamPacket.Action.REMOVE) {
+                    this.teams.remove(name);
+                } else {
+                    SeenTeam current = this.teams.get(name);
+                    Set<String> members = new java.util.TreeSet<>(current == null ? Set.of() : current.members());
+                    Component prefix = current == null ? Component.empty() : current.prefix();
+                    Component suffix = current == null ? Component.empty() : current.suffix();
+                    String color = current == null ? "none" : current.color();
+                    byte options = current == null ? 0 : current.options();
+                    if (team.getParameters().isPresent()) {
+                        ClientboundSetPlayerTeamPacket.Parameters parameters = team.getParameters().get();
+                        prefix = parameters.playerPrefix();
+                        suffix = parameters.playerSuffix();
+                        color = parameters.color().map(c -> c.getSerializedName()).orElse("none");
+                        options = parameters.options();
+                    }
+                    if (team.getPlayerAction() == ClientboundSetPlayerTeamPacket.Action.ADD) {
+                        members.addAll(team.getPlayers());
+                    } else if (team.getPlayerAction() == ClientboundSetPlayerTeamPacket.Action.REMOVE) {
+                        members.removeAll(team.getPlayers());
+                    }
+                    this.teams.put(name, new SeenTeam(name, prefix, suffix, color, options, Set.copyOf(members)));
+                }
+            }
+            case ClientboundTabListPacket tab -> {
+                this.tabListPackets.incrementAndGet();
+                this.tabHeader = tab.header();
+                this.tabFooter = tab.footer();
             }
             case ClientboundPlayerInfoRemovePacket remove -> remove.profileIds().forEach(this.playerInfo::remove);
             default -> {

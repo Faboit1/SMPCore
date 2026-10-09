@@ -1,0 +1,88 @@
+# Text of the sidebar, the tab list and nametags. Allowed tags: <primary> <secondary> <money> <error>, colours
+# (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's own placeholders
+# (shown in angle brackets).
+#
+# Sidebar lines and the tab list header and footer can also show placeholders in braces, like {balance}: any of
+# SiftCore's placeholders (/sift placeholders lists them) and these, which the scoreboard provides itself:
+#   {player} {online} {max_players} {ping} {rank} {team} {kills} {deaths} {streak} {best_streak} {playtime} {combat}
+# A value is shown as plain text in the colour around it. A sidebar line is left out while one of its placeholders
+# is empty: {team} without a team, {rank} without a rank label, {combat} out of combat.
+
+scoreboard:
+  sidebar:
+    # The sidebar's heading.
+    title: "SiftVanilla"
+    # Every line features/scoreboard.yml can use, by name.
+    lines:
+      balance: "<primary><icon:money> <secondary>Money <money>{balance}"
+      shards: "<primary><icon:shard> <secondary>Shards <primary>{shards}"
+      kills: "<primary><icon:kill> <secondary>Kills <primary>{kills}"
+      deaths: "<primary><icon:death> <secondary>Deaths <primary>{deaths}"
+      kdr: "<primary><icon:kdr> <secondary>KDR <primary>{stats_kdr}"
+      streak: "<primary><icon:streak> <secondary>Streak <primary>{streak}"
+      playtime: "<primary><icon:playtime> <secondary>Playtime <primary>{playtime}"
+      team: "<primary><icon:team> <secondary>Team <primary>{team}"
+      rank: "<primary><icon:rank> <secondary>Rank <primary>{rank}"
+      keyall: "<primary><icon:key> <secondary>Keyall <primary>{keyall_countdown}"
+      bounty: "<primary><icon:bounty> <secondary>Bounty <money>{bounty_total}"
+      combat: "<primary><icon:warning> <secondary>Combat <primary>{combat}"
+      online: "<primary><icon:online> <secondary>Online <primary>{online}"
+      ping: "<primary><icon:ping> <secondary>Ping <primary>{ping}ms"
+      website: "<secondary>siftvanilla.net"
+
+  tab:
+    # Above and below the player list, one entry per line.
+    header:
+      - ""
+      - "<primary>SiftVanilla"
+      - "<secondary>{online} online"
+      - ""
+    footer:
+      - ""
+      - "<secondary>/menu opens everything on the server"
+      - "<secondary>siftvanilla.net"
+      - ""
+    # A name in the player list. <afk> is the marker below while the player is away, otherwise nothing.
+    name: "<primary><name><afk>"
+    name-ranked: "<secondary><rank> <primary><name><afk>"
+    afk: " <secondary>AFK"
+
+  nametag:
+    # In front of names above heads, for players with a rank label.
+    prefix: "<secondary><rank> "
+
+  # The switch in the settings menu, in its own group.
+  toggle:
+    category: "Display"
+    category-description: "What is shown on your screen"
+    label: "Sidebar"
+    description: "Your money and stats on the right of the screen"
+
+  shown: "<primary>Sidebar shown."
+  hidden: "<primary>Sidebar hidden. /sidebar shows it again."
+  already-shown: "<primary>Your sidebar is already shown."
+  already-hidden: "<primary>Your sidebar is already hidden."
+  off-on-server: "<primary>The sidebar is turned off on this server."
+  yielded: "<primary>The sidebar on this server comes from <plugin>."
+
+  # Names of the parts in /sidebar status.
+  parts:
+    sidebar: "sidebar"
+    tab: "tab list"
+    nametags: "nametags"
+    yielded: "<part> (<plugin>)"
+    none: "none"
+
+  admin:
+    refreshed: "<primary>Refreshed the sidebar, tab list and nametags of <count> players."
+    status:
+      - "<primary>Sidebar, tab list and nametags"
+      - "<secondary>Players <primary><players><secondary>, sidebars shown <primary><sidebars><secondary>, hidden by the player <primary><hidden>"
+      - "<secondary>Nametag teams <primary><teams><secondary>, boards waiting for their player <primary><pending>"
+      - "<secondary>Last refresh took <primary><time>"
+      - "<secondary>Left to other plugins <primary><yielded>"
+    preview-title: "<primary>Sidebar of <name>"
+    preview-line: "<secondary><number>. <primary><line>"
+    preview-empty: "<secondary>No lines are shown right now."
+    preview-hidden: "<secondary><name> has hidden the sidebar; these are the lines it would show."
+    preview-wait: "<primary><name> has only just joined. Try again in a moment."
