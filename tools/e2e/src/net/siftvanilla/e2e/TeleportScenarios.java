@@ -1,20 +1,34 @@
 package net.siftvanilla.e2e;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
+import net.siftvanilla.siftcore.core.player.PlayerSetting;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Audience;
+import net.siftvanilla.siftcore.core.player.options.AutoAccept;
+import net.siftvanilla.siftcore.core.teleport.Teleports;
+import net.siftvanilla.siftcore.feature.homes.BareHome;
+import net.siftvanilla.siftcore.feature.homes.HomesFeature;
+import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
 import net.siftvanilla.siftcore.feature.spawn.SpawnFeature;
+import net.siftvanilla.siftcore.feature.tpa.TpaFeature;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -69,6 +83,10 @@ final class TeleportScenarios {
         list.add(of("homes-combat", TeleportScenarios::homesCombat));
         list.add(of("rtp-flow", TeleportScenarios::rtpFlow));
         list.add(of("rtp-limits", TeleportScenarios::rtpLimits));
+        list.add(of("tpa-settings", TeleportScenarios::tpaSettings));
+        list.add(of("homes-settings", TeleportScenarios::homesSettings));
+        list.add(of("teleport-display", TeleportScenarios::teleportDisplay));
+        list.add(of("rtp-settings", TeleportScenarios::rtpSettings));
         return list;
     }
 
@@ -196,6 +214,64 @@ final class TeleportScenarios {
 
     private static double health(E2E e2e, String name) {
         return e2e.onPlayer(name, () -> e2e.player(name).getHealth());
+    }
+
+    /** The title of the teleport settings page. */
+    private static final String TELEPORT_PAGE = "Teleports & homes settings";
+
+    private static PlayerSettings settings(E2E e2e) {
+        return e2e.services().settings();
+    }
+
+    /**
+     * Changes a setting the way a player types it, {@code /settings <id> <value>}, and waits until the player reads the
+     * typed value (the command's own answer is in the failure message when it doesn't).
+     */
+    private static void setting(E2E e2e, Bot bot, String id, String value) {
+        UUID player = e2e.uuid(bot.name);
+        PlayerSetting<?> setting = settings(e2e).setting(id);
+        e2e.expect(setting != null, id + " is a setting");
+        Object wanted = PlayerSettings.parse(setting, value, null);
+        e2e.expect(wanted != null, value + " is a value of " + id);
+        bot.clearLogs();
+        bot.command("settings " + id + " " + value);
+        e2e.eventually(() -> wanted.equals(settings(e2e).get(player, setting)),
+            "/settings " + id + " " + value + " changes it for " + bot.name + " (chat " + bot.chat() + ", action bar " + bot.actionBar() + ")");
+    }
+
+    /**
+     * Opens the teleport settings with /settings teleport and changes inputs wherever they are: walks the pages with Next
+     * page (changes carried along), sets each key on the page that shows it, and saves on the page with the last one.
+     */
+    private static void editTeleportSettings(E2E e2e, Bot bot, Map<String, Object> wanted) {
+        bot.clearLogs();
+        bot.command("settings teleport");
+        Set<String> left = new HashSet<>(wanted.keySet());
+        for (int guard = 0; guard < 10; guard++) {
+            Bot.SeenDialog current = e2e.dialog(bot, TELEPORT_PAGE);
+            Map<String, Object> values = current.values();
+            for (String key : List.copyOf(left)) {
+                if (current.inputs().containsKey(key)) {
+                    e2e.expect(!(wanted.get(key) instanceof String option) || current.options().getOrDefault(key, List.of()).contains(option),
+                        key + " offers " + wanted.get(key) + ": " + current.options().get(key));
+                    values.put(key, wanted.get(key));
+                    left.remove(key);
+                }
+            }
+            if (left.isEmpty()) {
+                e2e.click(bot, "Save", values);
+                return;
+            }
+            e2e.expect(current.button("Next page") != null, "inputs " + left + " on a later page (last page: " + current.inputs().keySet() + ")");
+            e2e.click(bot, "Next page", values);
+        }
+        throw new E2E.Failure("too many pages of teleport settings");
+    }
+
+    /** Makes two players friends through the staff tool and waits until the friends feature knows it. */
+    private static void befriend(E2E e2e, String a, String b) {
+        e2e.console("sift friends add " + a + " " + b);
+        e2e.eventually(() -> e2e.services().relations().areFriends(e2e.uuid(a), e2e.uuid(b)), a + " and " + b + " are friends");
     }
 
     /** Generates (once) every chunk in the square around a block centre, so random teleport finds land there. */
@@ -455,6 +531,10 @@ final class TeleportScenarios {
         e2e.eventually(() -> bot.actionBarContains("You have 2 of 2 homes"), "the limit: " + bot.actionBar());
         bot.clearLogs();
         bot.command("sethome BASE");
+        Bot.SeenDialog move = e2e.dialog(bot, "Move home");
+        e2e.expect(move.bodyText().contains("Home base already exists") && move.bodyText().contains("Now: " + second.getWorld().getName() + " "
+            + second.getBlockX() + ", "), "moving an existing home asks first, with where it is: " + move.body());
+        e2e.click(bot, "Move it here");
         e2e.eventually(() -> bot.actionBarContains("Home base moved here"), "moved: " + bot.actionBar());
         bot.clearLogs();
         bot.command("sethome bad.name");
@@ -687,6 +767,8 @@ final class TeleportScenarios {
         e2e.eventually(() -> comer.chatContains(stayName + " wants you to teleport to them"), "the request: " + comer.chat());
         comer.clearLogs();
         comer.command("tpaccept");
+        e2e.dialog(comer, "Teleport request");
+        e2e.click(comer, "Accept");
         e2e.eventually(() -> comer.anyFeedbackContains("Accepted " + stayName), "accepted: " + comer.chat() + comer.actionBar());
         e2e.console("combat tag " + stayName + " 60s");
         e2e.eventually(() -> comer.anyFeedbackContains(stayName + " is in combat now."), 10_000, "refused on arrival: " + comer.actionBar());
@@ -800,12 +882,15 @@ final class TeleportScenarios {
         e2e.expect(System.currentTimeMillis() - start >= 2_500, "the warmup applied to the one who moved");
         e2e.expect("0".equals(placeholder(e2e, hostName, "tpa_requests")), "nothing waiting any more");
 
-        e2e.step("/tpahere moves the target, who accepts with /tpaccept");
+        e2e.step("/tpahere moves the target, who accepts with /tpaccept and confirms being pulled");
         shift(e2e, host, 0, 10);
         asker.clearLogs();
         host.command("tpahere " + askerName);
         e2e.eventually(() -> asker.chatContains(hostName + " wants you to teleport to them."), "the request: " + asker.chat());
         asker.command("tpaccept");
+        Bot.SeenDialog pulled = e2e.dialog(asker, "Teleport request");
+        e2e.expect(pulled.bodyText().contains("Accepting teleports you to " + hostName), "asked once more: " + pulled.body());
+        e2e.click(asker, "Accept");
         e2e.eventually(() -> near(location(e2e, askerName), location(e2e, hostName), 1.0), 15_000, "the asker came over");
 
         e2e.step("/tpdeny tells the sender");
@@ -1103,6 +1188,9 @@ final class TeleportScenarios {
             Location before = location(e2e, farName);
             far.clearLogs();
             far.command("rtp far-test");
+            Bot.SeenDialog price = e2e.dialog(far, "Confirm random teleport");
+            e2e.expect(price.bodyText().contains("A random teleport to Far test costs $500"), "the price first: " + price.body());
+            e2e.click(far, "Teleport");
             e2e.eventually(() -> far.actionBarContains("No safe spot found this time. Nothing was charged."), 40_000,
                 "no spot: " + far.actionBar());
             e2e.expect(e2e.money(farName) == 5_000, "nothing charged: " + e2e.money(farName));
@@ -1134,6 +1222,396 @@ final class TeleportScenarios {
             Files.writeString(config, original);
             List<String> restored = e2e.consoleOutput("sift reload");
             e2e.expect(restored.stream().anyMatch(line -> line.startsWith("Reloaded")), "the original file loads again: " + restored);
+        }
+    }
+
+    // ------------------------------------------------------------------ settings
+
+    /**
+     * The teleport request settings: who can send requests (a choice saved in the settings dialog: friends only), who
+     * can ask the player over (typed as /settings tpahere-requests nobody), the pop-up (held back while the player
+     * clicks in their own inventory), the confirmation before being pulled (also when the /tpahere is picked in the
+     * window of several requests), /tpatoggle under a server lock written the old way, and /tpatoggle friends with a
+     * choice, and with an unknown word while the server hides the setting.
+     */
+    static void tpaSettings(E2E e2e) throws Exception {
+        String hostName = e2e.name("TsHost");
+        String palName = e2e.name("TsPal");
+        String strangerName = e2e.name("TsStranger");
+        Bot host = e2e.bot(hostName);
+        Bot pal = e2e.bot(palName);
+        Bot stranger = e2e.bot(strangerName);
+        UUID hostId = e2e.uuid(hostName);
+        shift(e2e, host, 10, 0);
+        e2e.expect(e2e.services().relations().friendsAvailable(), "the test server runs the friends feature");
+        befriend(e2e, hostName, palName);
+
+        e2e.step("the settings dialog: Teleport requests from friends");
+        editTeleportSettings(e2e, host, Map.of("tpa_requests", "friends"));
+        e2e.eventually(() -> host.anyFeedbackContains("Teleport requests from set to Friends"), "saved: " + host.actionBar() + host.chat());
+        e2e.eventually(() -> settings(e2e).get(hostId, TpaFeature.REQUESTS) == Audience.FRIENDS, "stored as friends");
+
+        e2e.step("a stranger is refused, a friend's request arrives");
+        stranger.clearLogs();
+        stranger.command("tpa " + hostName);
+        e2e.eventually(() -> stranger.anyFeedbackContains(hostName + " isn't taking teleport requests"), "refused: " + stranger.actionBar());
+        e2e.expect(!host.chatContains(strangerName + " wants"), "the host never hears of it: " + host.chat());
+        host.clearLogs();
+        pal.command("tpa " + hostName);
+        e2e.eventually(() -> host.chatContains(palName + " wants to teleport to you."), "the friend's request: " + host.chat());
+        e2e.expect(host.dialogs().stream().noneMatch(dialog -> dialog.title().contains("Teleport request")), "no pop-up by default");
+        host.command("tpdeny");
+
+        e2e.step("/settings: Pull requests from nobody refuses a friend's /tpahere, their /tpa still works");
+        setting(e2e, host, "tpahere-requests", "nobody");
+        e2e.sleep(5_200);
+        pal.clearLogs();
+        pal.command("tpahere " + hostName);
+        e2e.eventually(() -> pal.anyFeedbackContains(hostName + " isn't taking requests to come to you"), "refused: " + pal.actionBar());
+
+        e2e.step("the pop-up waits while the player is clicking in their own inventory");
+        setting(e2e, host, "tpa-popup", "on");
+        e2e.sleep(5_200);
+        host.clearLogs();
+        host.clickSlot(9);
+        e2e.sleep(300);
+        pal.command("tpa " + hostName);
+        e2e.eventually(() -> host.chatContains(palName + " wants to teleport to you."), "the request: " + host.chat());
+        e2e.sleep(1_000);
+        e2e.expect(host.dialogs().stream().noneMatch(dialog -> dialog.title().contains("Teleport request")),
+            "no pop-up over the inventory being sorted: " + host.dialogs());
+        host.command("tpdeny");
+        e2e.eventually(() -> pal.anyFeedbackContains(hostName + " denied your request"), "cleared: " + pal.actionBar());
+
+        e2e.step("a request opens the answer window when the player wants a pop-up");
+        e2e.sleep(5_200);
+        host.clearLogs();
+        pal.command("tpa " + hostName);
+        Bot.SeenDialog popped = e2e.dialog(host, "Teleport request");
+        e2e.expect(popped.bodyText().contains(palName + " wants to teleport to you."), "the request's window: " + popped.body());
+        e2e.expect(host.chatContains(palName + " wants to teleport to you."), "the chat line stays: " + host.chat());
+        e2e.click(host, "Accept");
+        e2e.eventually(() -> near(location(e2e, palName), location(e2e, hostName), 1.0), 15_000, "the friend came over");
+
+        e2e.step("being pulled asks once more (the default); Deny there answers the request");
+        setting(e2e, host, "tpa-popup", "off");
+        setting(e2e, host, "tpahere-requests", "everyone");
+        shift(e2e, pal, 12, 0);
+        e2e.sleep(5_200);
+        host.clearLogs();
+        pal.clearLogs();
+        pal.command("tpahere " + hostName);
+        e2e.eventually(() -> host.chatContains(palName + " wants you to teleport to them."), "the pull request: " + host.chat());
+        host.command("tpaccept");
+        Bot.SeenDialog again = e2e.dialog(host, "Teleport request");
+        e2e.expect(again.bodyText().contains("Accepting teleports you to " + palName), "asked once more: " + again.body());
+        e2e.click(host, "Deny");
+        e2e.eventually(() -> pal.anyFeedbackContains(hostName + " denied your request"), "denied: " + pal.actionBar());
+
+        e2e.step("two requests waiting: picking the /tpahere sender in the window asks once more");
+        String mateName = e2e.name("TsMate");
+        Bot mate = e2e.bot(mateName);
+        befriend(e2e, hostName, mateName);
+        shift(e2e, mate, -12, 0);
+        e2e.sleep(5_200);
+        host.clearLogs();
+        pal.clearLogs();
+        mate.command("tpa " + hostName);
+        pal.command("tpahere " + hostName);
+        e2e.eventually(() -> host.chatContains(mateName + " wants to teleport to you.")
+            && host.chatContains(palName + " wants you to teleport to them."), "both requests: " + host.chat());
+        host.command("tpaccept");
+        Bot.SeenDialog several = e2e.dialog(host, "Teleport requests");
+        e2e.expect(several.button(palName) != null && several.button(mateName) != null, "one button per sender: " + several.buttons());
+        Location hostBefore = location(e2e, hostName);
+        e2e.click(host, palName);
+        e2e.eventually(() -> host.dialog() != null && host.dialog().title().equals("Teleport request"), "the request's own window: "
+            + host.dialogs());
+        e2e.expect(host.dialog().bodyText().contains("Accepting teleports you to " + palName), "asked once more: " + host.dialog().body());
+        e2e.sleep(1_000);
+        e2e.expect(near(location(e2e, hostName), hostBefore, 0.5) && !host.actionBarContains("Teleporting in"),
+            "not pulled before saying yes: " + host.actionBar());
+        e2e.click(host, "Deny");
+        e2e.eventually(() -> pal.anyFeedbackContains(hostName + " denied your request"), "denied: " + pal.actionBar());
+
+        e2e.step("picking the /tpa sender in the window accepts at once and closes it");
+        e2e.sleep(5_200);
+        host.clearLogs();
+        pal.command("tpahere " + hostName);
+        e2e.eventually(() -> host.chatContains(palName + " wants you to teleport to them."), "the pull again: " + host.chat());
+        host.command("tpaccept");
+        Bot.SeenDialog again2 = e2e.dialog(host, "Teleport requests");
+        e2e.click(host, mateName);
+        e2e.eventually(() -> host.anyFeedbackContains("Accepted " + mateName), "accepted at once: " + host.actionBar() + host.chat());
+        e2e.expect(host.dialog() == null || !host.dialog().title().startsWith("Teleport request"), "no second question: " + host.dialog());
+        e2e.eventually(() -> near(location(e2e, mateName), location(e2e, hostName), 1.0), 15_000, "the friend came over");
+        e2e.expect(again2.button(palName) != null, "the pull was listed too: " + again2.buttons());
+        host.command("tpdeny");
+        e2e.eventually(() -> pal.anyFeedbackContains(hostName + " denied your request"), "the pull cleared: " + pal.actionBar());
+
+        e2e.step("with Confirm before being pulled off, /tpaccept moves at once");
+        setting(e2e, host, "tpaccept-confirm-here", "off");
+        e2e.sleep(5_200);
+        host.clearLogs();
+        pal.command("tpahere " + hostName);
+        e2e.eventually(() -> host.chatContains(palName + " wants you to teleport to them."), "the pull request: " + host.chat());
+        host.command("tpaccept");
+        e2e.eventually(() -> host.anyFeedbackContains("Accepted " + palName), "accepted at once: " + host.actionBar() + host.chat());
+        e2e.eventually(() -> near(location(e2e, hostName), location(e2e, palName), 1.0), 15_000, "the host was pulled over");
+        e2e.expect(host.dialogs().stream().noneMatch(dialog -> dialog.title().contains("Teleport request")), "no window: " + host.dialogs());
+
+        e2e.step("/tpatoggle says when the server locked the setting (a lock written as the old switch)");
+        Path file = e2e.services().plugin().getDataFolder().toPath().resolve("features/settings.yml");
+        String original = Files.readString(file, StandardCharsets.UTF_8);
+        try {
+            Files.writeString(file, original.stripTrailing() + "\nlocked:\n  tpa-requests: false\n", StandardCharsets.UTF_8);
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(String.join(" ", reload).contains("Reloaded"), "the lock loads: " + reload);
+            e2e.expect(settings(e2e).get(hostId, TpaFeature.REQUESTS) == Audience.NOBODY, "locked off reads as nobody");
+            host.clearLogs();
+            host.command("tpatoggle");
+            e2e.eventually(() -> host.anyFeedbackContains("Teleport requests from is set by the server."), "fixed: " + host.actionBar());
+            stranger.clearLogs();
+            e2e.sleep(5_200);
+            stranger.command("tpa " + hostName);
+            e2e.eventually(() -> stranger.anyFeedbackContains(hostName + " isn't taking teleport requests"), "locked: " + stranger.actionBar());
+        } finally {
+            Files.writeString(file, original, StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
+        e2e.expect(settings(e2e).get(hostId, TpaFeature.REQUESTS) == Audience.FRIENDS, "the player's own choice is back");
+        host.clearLogs();
+        host.command("tpatoggle");
+        e2e.eventually(() -> host.anyFeedbackContains("Teleport requests to you are now declined"), "off: " + host.actionBar());
+        host.command("tpatoggle");
+        e2e.eventually(() -> host.anyFeedbackContains("Players can send you teleport requests again"), "on: " + host.actionBar());
+        e2e.expect(settings(e2e).get(hostId, TpaFeature.REQUESTS) == Audience.EVERYONE, "back on is everyone");
+
+        e2e.step("/tpatoggle friends with a choice: friends and teammates come without asking");
+        host.clearLogs();
+        host.command("tpatoggle friends friends-team");
+        e2e.eventually(() -> host.anyFeedbackContains("Accepting /tpa without asking from: Friends and teammates."), "set: " + host.actionBar());
+        e2e.expect(settings(e2e).get(hostId, SharedSettings.FRIENDS_TPA) == AutoAccept.FRIENDS_TEAM, "stored");
+        shift(e2e, pal, 12, 0);
+        e2e.sleep(5_200);
+        pal.clearLogs();
+        pal.command("tpa " + hostName);
+        e2e.eventually(() -> pal.anyFeedbackContains(hostName + " lets friends come without asking."), "came without asking: " + pal.actionBar());
+        e2e.eventually(() -> near(location(e2e, palName), location(e2e, hostName), 1.0), 15_000, "the friend arrived");
+        host.clearLogs();
+        host.command("tpatoggle friends");
+        e2e.eventually(() -> host.anyFeedbackContains("Friends have to ask before teleporting to you again."), "off: " + host.actionBar());
+        host.command("tpatoggle friends sometimes");
+        e2e.eventually(() -> host.anyFeedbackContains("Use one of these: nobody,"), "the choices: " + host.actionBar());
+
+        e2e.step("/tpatoggle friends with an unknown word while the server hides the setting: set by the server");
+        // The bundled file already has "hidden: []": replace it (a second hidden: key would not be valid YAML).
+        String hiding = original.contains("hidden: []") ? original.replace("hidden: []", "hidden: [friends-tpa]")
+            : original.stripTrailing() + "\nhidden: [friends-tpa]\n";
+        Files.writeString(file, hiding, StandardCharsets.UTF_8);
+        try {
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(String.join(" ", reload).contains("Reloaded"), "the hide loads: " + reload);
+            host.clearLogs();
+            host.command("tpatoggle friends sometimes");
+            e2e.eventually(() -> host.anyFeedbackContains("Auto-accept /tpa from is set by the server."), "fixed: " + host.actionBar());
+            e2e.expect(!host.anyFeedbackContains("Use one of these"), "no empty list: " + host.actionBar() + host.chat());
+        } finally {
+            Files.writeString(file, original, StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
+    }
+
+    /**
+     * The homes settings: "/home with no name" and "Confirm moving a home" saved in the settings dialog, the home named
+     * 'home' typed with /settings, and streamer mode (hide-coordinates) in the homes list and the delete window.
+     */
+    static void homesSettings(E2E e2e) {
+        String name = e2e.name("HsOwner");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        bot.command("sethome");
+        e2e.eventually(() -> "1".equals(placeholder(e2e, name, "homes_count")), "a home was set");
+
+        e2e.step("the settings dialog: /home always opens the list, moving a home doesn't ask");
+        editTeleportSettings(e2e, bot, Map.of("homes_bare_command", "list", "homes_confirm_overwrite", false));
+        e2e.eventually(() -> settings(e2e).get(id, HomesFeature.BARE_COMMAND) == BareHome.LIST
+            && !settings(e2e).get(id, HomesFeature.CONFIRM_OVERWRITE), "both saved");
+        bot.clearLogs();
+        bot.command("home");
+        Bot.SeenDialog list = e2e.dialog(bot, "Homes");
+        e2e.expect(list.button("home") != null, "the list, although there is only one home: " + list.buttons());
+        e2e.click(bot, "Close");
+        Location moved = shift(e2e, bot, 5, 0);
+        bot.clearLogs();
+        bot.command("sethome");
+        e2e.eventually(() -> bot.actionBarContains("Home home moved here"), "moved without asking: " + bot.actionBar());
+        e2e.expect(bot.dialogs().stream().noneMatch(dialog -> dialog.title().contains("Move home")), "no question: " + bot.dialogs());
+
+        e2e.step("/settings: /home goes to the home named home");
+        setting(e2e, bot, "homes-bare-command", "default-home");
+        shift(e2e, bot, 6, 0);
+        bot.command("sethome other");
+        e2e.eventually(() -> "2".equals(placeholder(e2e, name, "homes_count")), "a second home");
+        shift(e2e, bot, 6, 0);
+        bot.clearLogs();
+        bot.command("home");
+        e2e.eventually(() -> near(location(e2e, name), moved, 0.5), 15_000, "at the home named home");
+        e2e.expect(bot.dialogs().stream().noneMatch(dialog -> dialog.title().equals("Homes")), "no list: " + bot.dialogs());
+
+        e2e.step("streamer mode leaves the coordinates out of the list and the delete window");
+        setting(e2e, bot, "hide-coordinates", "on");
+        String position = moved.getBlockX() + ", " + moved.getBlockY() + ", " + moved.getBlockZ();
+        bot.clearLogs();
+        bot.command("homes");
+        Bot.SeenDialog hidden = e2e.dialog(bot, "Homes");
+        e2e.expect(hidden.bodyText().contains("home " + moved.getWorld().getName()) && !hidden.bodyText().contains(position),
+            "no coordinates: " + hidden.body());
+        bot.clearLogs();
+        bot.command("delhome home");
+        Bot.SeenDialog delete = e2e.dialog(bot, "Delete home");
+        e2e.expect(!delete.bodyText().contains(position), "no coordinates when deleting: " + delete.body());
+        e2e.click(bot, "Cancel");
+        setting(e2e, bot, "hide-coordinates", "off");
+        bot.clearLogs();
+        bot.command("homes");
+        Bot.SeenDialog shown = e2e.dialog(bot, "Homes");
+        e2e.expect(shown.bodyText().contains(position), "the coordinates are back: " + shown.body());
+    }
+
+    /**
+     * "Teleport countdown": one chat line instead of the countdown above the hotbar (saved in the settings dialog), a
+     * title (typed with /settings), and off, where only the cancel message shows.
+     */
+    static void teleportDisplay(E2E e2e) {
+        String name = e2e.name("TdWalker");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        Location home = location(e2e, name);
+        bot.command("sethome");
+        e2e.eventually(() -> "1".equals(placeholder(e2e, name, "homes_count")), "a home was set");
+
+        e2e.step("the settings dialog: the countdown and arrival in chat");
+        editTeleportSettings(e2e, bot, Map.of("teleport_display", "chat"));
+        e2e.eventually(() -> settings(e2e).get(id, Teleports.DISPLAY) == AlertStyle.CHAT, "saved as chat");
+        shift(e2e, bot, 6, 0);
+        bot.clearLogs();
+        bot.command("home");
+        e2e.eventually(() -> near(location(e2e, name), home, 0.5), 15_000, "at home");
+        e2e.eventually(() -> bot.chatContains("Welcome to home."), "the arrival in chat: " + bot.chat());
+        long countdown = bot.chat().stream().filter(line -> line.contains("Teleporting in")).count();
+        e2e.expect(countdown == 1 && bot.chatContains("Teleporting in 3s"), "one countdown line in chat: " + bot.chat());
+        e2e.expect(!bot.actionBarContains("Teleporting in") && !bot.actionBarContains("Welcome to home"), "nothing above the hotbar: "
+            + bot.actionBar());
+
+        e2e.step("/settings: as a title");
+        setting(e2e, bot, "teleport-display", "title");
+        shift(e2e, bot, 6, 0);
+        e2e.sleep(5_200);
+        bot.clearLogs();
+        bot.command("home");
+        e2e.eventually(() -> near(location(e2e, name), home, 0.5), 15_000, "at home");
+        e2e.eventually(() -> bot.titles().stream().anyMatch(title -> title.contains("Welcome to home.")), "the arrival title: " + bot.titles());
+        e2e.expect(bot.titles().stream().anyMatch(title -> title.contains("Teleporting in")), "the countdown title: " + bot.titles());
+        e2e.expect(!bot.anyFeedbackContains("Teleporting in"), "nowhere else: " + bot.chat() + bot.actionBar());
+
+        e2e.step("as a title, moving cancels: the cancel line shows and the countdown stops");
+        shift(e2e, bot, 6, 0);
+        e2e.sleep(5_200);
+        bot.clearLogs();
+        bot.command("home");
+        e2e.eventually(() -> bot.titles().stream().anyMatch(title -> title.contains("Teleporting in")), "the countdown title: "
+            + bot.titles());
+        stepUp(bot);
+        e2e.eventually(() -> bot.anyFeedbackContains("Teleport cancelled because you moved."), "the cancel line: " + bot.actionBar());
+        int titlesSeen = bot.titles().size();
+        e2e.sleep(2_500);
+        e2e.expect(bot.titles().size() == titlesSeen, "no countdown title after the cancel: " + bot.titles());
+
+        e2e.step("off: no countdown, but the cancel message shows");
+        setting(e2e, bot, "teleport-display", "off");
+        shift(e2e, bot, 6, 0);
+        e2e.sleep(5_200);
+        bot.clearLogs();
+        bot.command("home");
+        e2e.sleep(1_500);
+        stepUp(bot);
+        e2e.eventually(() -> bot.anyFeedbackContains("Teleport cancelled because you moved."), "the cancel message: " + bot.actionBar());
+        e2e.expect(!bot.anyFeedbackContains("Teleporting in") && bot.titles().isEmpty(), "no countdown anywhere: " + bot.chat()
+            + bot.actionBar() + bot.titles());
+        setting(e2e, bot, "teleport-display", "actionbar");
+    }
+
+    /**
+     * Random teleport settings: the price confirmation (asked by default, Cancel charges nothing; turned off in the
+     * settings dialog), "/rtp with no region: last region" typed with /settings (the picker while that region cools down),
+     * and streamer mode in the landing line.
+     */
+    static void rtpSettings(E2E e2e) throws Exception {
+        String name = e2e.name("RsRoamer");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        Location spawn = spawn(e2e);
+        Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/rtp.yml");
+        String original = Files.readString(config);
+        try {
+            Files.writeString(config, original.stripTrailing() + "\n" + testRegions(spawn));
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(reload.stream().anyMatch(line -> line.startsWith("Reloaded")), "the test regions load: " + reload);
+            generate(e2e, spawn.getWorld(), spawn.getBlockX(), spawn.getBlockZ(), 120);
+            generate(e2e, Bukkit.getWorld("world_nether"), 0, 0, 72);
+            e2e.console("eco set " + name + " 5000");
+            e2e.eventually(() -> e2e.money(name) == 5_000, "funded");
+
+            e2e.step("a typed paid /rtp shows the price first; Cancel charges nothing");
+            bot.clearLogs();
+            bot.command("rtp " + RING);
+            Bot.SeenDialog price = e2e.dialog(bot, "Confirm random teleport");
+            e2e.expect(price.bodyText().contains("A random teleport to Test ring costs $1,000"), "the price: " + price.body());
+            e2e.click(bot, "Cancel");
+            e2e.sleep(1_000);
+            e2e.expect(!bot.actionBarContains("Teleporting in") && e2e.money(name) == 5_000, "nothing started or charged");
+
+            e2e.step("the settings dialog: paid random teleports start without asking");
+            editTeleportSettings(e2e, bot, Map.of("rtp_confirm_cost", false));
+            e2e.eventually(() -> !settings(e2e).get(id, RtpFeature.CONFIRM_COST), "saved");
+            bot.clearLogs();
+            bot.command("rtp " + RING);
+            e2e.eventually(() -> bot.actionBarContains("Teleporting in"), "the warmup at once: " + bot.actionBar());
+            e2e.expect(bot.dialogs().stream().noneMatch(dialog -> dialog.title().contains("Confirm")), "no question: " + bot.dialogs());
+            e2e.eventually(() -> e2e.money(name) == 4_000, 40_000, "charged once: " + e2e.money(name));
+            e2e.eventually(() -> bot.actionBarContains("Welcome to Test ring at "), "landed with the position: " + bot.actionBar());
+
+            e2e.step("/settings: /rtp goes to the last region, or the picker while it cools down");
+            setting(e2e, bot, "rtp-default", "last");
+            e2e.eventually(() -> RING.equals(settings(e2e).raw(id, "rtp_last", null)), "the last region is remembered");
+            bot.clearLogs();
+            bot.command("rtp");
+            Bot.SeenDialog picker = e2e.dialog(bot, "Random teleport");
+            e2e.expect(picker.button("Test ring") != null && !picker.title().contains("Confirm"), "the picker: " + picker.buttons());
+            e2e.click(bot, "Close");
+
+            e2e.step("streamer mode: the landing line without the position");
+            setting(e2e, bot, "hide-coordinates", "on");
+            bot.clearLogs();
+            bot.command("rtp nether-test");
+            e2e.eventually(() -> location(e2e, name).getWorld().getName().equals("world_nether"), 40_000, "in the nether");
+            e2e.eventually(() -> bot.actionBarContains("Welcome to Nether test."), "landed: " + bot.actionBar());
+            e2e.expect(!bot.actionBarContains("Nether test at "), "no position: " + bot.actionBar());
+            e2e.eventually(() -> "nether-test".equals(settings(e2e).raw(id, "rtp_last", null)), "the new last region");
+
+            e2e.step("/rtp with no region now goes straight to the nether test");
+            Location before = location(e2e, name);
+            bot.clearLogs();
+            bot.command("rtp");
+            e2e.eventually(() -> bot.actionBarContains("Teleporting in"), "straight into the warmup: " + bot.actionBar());
+            e2e.expect(bot.dialogs().stream().noneMatch(dialog -> dialog.title().equals("Random teleport")), "no picker: " + bot.dialogs());
+            e2e.eventually(() -> bot.actionBarContains("Welcome to Nether test.") && !near(location(e2e, name), before, 2), 40_000,
+                "a new spot in the nether: " + location(e2e, name));
+            setting(e2e, bot, "hide-coordinates", "off");
+        } finally {
+            Files.writeString(config, original);
+            e2e.console("sift reload");
         }
     }
 }

@@ -3,8 +3,10 @@
 Players save places with `/sethome` and go back with `/home`. Package `feature/homes`, config `features/homes.yml`,
 text `lang/homes.yml`, table `homes` (migration V006).
 
-Homes use the shared teleport (`core.teleport.Teleports`): a warmup with an action-bar countdown that moving or
-taking damage cancels, refused while combat-tagged, `teleportAsync` only. The feature consumes two contracts:
+Homes use the shared teleport (`core.teleport.Teleports`): a warmup with a countdown that moving or taking damage
+cancels, refused while combat-tagged, `teleportAsync` only. The countdown and the arrival line ("Welcome to base.",
+sent through `Teleports#arrival`) show where the player's "Teleport countdown" setting says. The feature consumes two
+contracts:
 
 | Contract | Used for |
 |---|---|
@@ -15,8 +17,8 @@ taking damage cancels, refused while combat-tagged, `teleportAsync` only. The fe
 
 | Command | Who | What it does |
 |---|---|---|
-| `/sethome [name]` (alias `/createhome`) | everyone | Sets a home where the player stands. No name means `home`. An existing name moves that home |
-| `/home [name]` (alias `/h`) | everyone | Teleports to a home after the warmup. No name: the only home, or the homes dialog when there are several |
+| `/sethome [name]` (alias `/createhome`) | everyone | Sets a home where the player stands. No name means `home`. An existing name moves that home, after "Move home" asks first (unless the player turned that off) |
+| `/home [name]` (alias `/h`) | everyone | Teleports to a home after the warmup. No name: as the player's "/home with no name" says (by default the only home, or the homes dialog when there are several) |
 | `/delhome [name]` (aliases `/deletehome`, `/removehome`) | everyone | Deletes a home after a confirmation dialog. No name: the homes dialog |
 | `/homes` | everyone | The homes dialog |
 | `/homes <player>` | `siftcore.admin.homes`, console | Another player's homes, online or offline: a dialog with teleport and delete buttons for staff, chat lines for the console. Written to the audit log as `homes.view`; a staff teleport to one of the homes as `homes.teleport` (details: home name, world, block position) |
@@ -40,7 +42,22 @@ Rank nodes on SiftVanilla (the default of 2 comes from the config): `prospector`
 list: a header with `<count> of <limit> homes`, one line per home (name, world, block position), a teleport button
 named after each home and a Delete button next to it, Set a home here (a form with a name field prefilled with the
 first free name: `home`, `home2`, ...), and paging past 8 homes. Delete asks for confirmation and comes back to the
-list. A wrong name in the form keeps the dialog open with the rule.
+list. A wrong name in the form keeps the dialog open with the rule; a name that exists asks "Move home" (Move it here
+goes back to the list, Cancel back to the form). A home's teleport button closes the list at once.
+
+## Per-player settings (Settings > Teleports & homes)
+
+Registered in `SettingCategories.TELEPORT` by `HomesFeature#registerSettings` (3rd and 5th in the group; text
+`homes.settings.*` in `lang/homes.yml`):
+
+| Id | Kind | Default | Read in | Meaning |
+|---|---|---|---|---|
+| `homes-confirm-overwrite` | switch | on | `HomesService#trySet` (`/sethome` and the form) | "Confirm moving a home": before an existing home moves, a window shows where it is now and where it would go (worlds only in streamer mode). Move it here runs every check again at that moment |
+| `homes-bare-command` | choice smart / default-home / list | smart | `HomesService#home` (`BareHome#decide`, unit tested) | "/home with no name": the only home or the list (smart), the home named `home` (like smart when there is none), or always the list |
+
+Homes also read the shared `hide-coordinates` (Settings > Privacy, "Streamer mode: hide coordinates"): the player's
+own homes list and delete window leave the position out (`homes.list.line-hidden`, `homes.delete.body-hidden`).
+Staff views of other players' homes always show it.
 
 ## Config (`features/homes.yml`)
 
@@ -77,3 +94,12 @@ list. A wrong name in the form keeps the dialog open with the rule.
 - Staff views read the table directly, so offline players' homes are complete; deleting one of an online player
   also updates their memory.
 - Nothing about homes takes part in the economy, so no ledger transaction is involved.
+
+## Tests
+
+- Unit: `HomeNamesTest`, `HomeSafetyTest`, `HomeStoreTest`, `HomesAuditTest`, `HomesSettingsTest` ("/home with no
+  name" for every choice and number of homes, the stored option ids); `TpaSettingsTest` registers the whole Teleports
+  & homes group (homes' two settings in their places, streamer mode declared as read).
+- E2E (`TeleportScenarios`): `homes-flow` (moving an existing home asks first), `homes-staff`, `homes-safety`,
+  `homes-combat`, and `homes-settings` (always the list and moving without asking, saved in the settings dialog; the
+  home named home typed with `/settings`; streamer mode in the list and the delete window).

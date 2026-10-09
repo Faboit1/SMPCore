@@ -10,6 +10,9 @@ public final class RtpMessages {
     public static final MessageKey NO_SPOT = MessageKey.error("rtp.no-spot");
     public static final MessageKey LANDED = MessageKey.success("rtp.landed", "region", "x", "z");
     public static final MessageKey LANDED_PAID = MessageKey.success("rtp.landed-paid", "region", "x", "z", "amount");
+    /** The landing lines while the player hides coordinates (streamer mode). */
+    public static final MessageKey LANDED_HIDDEN = MessageKey.success("rtp.landed-hidden", "region");
+    public static final MessageKey LANDED_PAID_HIDDEN = MessageKey.success("rtp.landed-paid-hidden", "region", "amount");
     public static final MessageKey REFUNDED = MessageKey.info("rtp.refunded", "amount");
     public static final MessageKey CANCELLED = MessageKey.info("rtp.cancelled");
     public static final MessageKey UNKNOWN = MessageKey.error("rtp.unknown", "name");
@@ -29,6 +32,19 @@ public final class RtpMessages {
     public static final MessageKey MENU_WAIT = MessageKey.ui("rtp.menu.wait", "time");
     public static final MessageKey MENU_TOOLTIP_FREE = MessageKey.ui("rtp.menu.tooltip-free", "min", "max");
     public static final MessageKey MENU_TOOLTIP_COST = MessageKey.ui("rtp.menu.tooltip-cost", "min", "max", "amount");
+
+    /** "Confirm paid random teleports": the question before a /rtp &lt;region&gt; that costs money. */
+    public static final MessageKey CONFIRM_TITLE = MessageKey.ui("rtp.confirm.title");
+    public static final MessageKey CONFIRM_BODY = MessageKey.ui("rtp.confirm.body", "region", "amount");
+    public static final MessageKey CONFIRM_NOTE = MessageKey.ui("rtp.confirm.note");
+    public static final MessageKey CONFIRM_BUTTON = MessageKey.ui("rtp.confirm.button");
+
+    public static final MessageKey SETTING_CONFIRM_COST = MessageKey.ui("rtp.settings.confirm-cost");
+    public static final MessageKey SETTING_CONFIRM_COST_DESCRIPTION = MessageKey.ui("rtp.settings.confirm-cost-description");
+    public static final MessageKey SETTING_DEFAULT = MessageKey.ui("rtp.settings.default");
+    public static final MessageKey SETTING_DEFAULT_DESCRIPTION = MessageKey.ui("rtp.settings.default-description");
+    public static final MessageKey SETTING_DEFAULT_MENU = MessageKey.ui("rtp.settings.default-menu");
+    public static final MessageKey SETTING_DEFAULT_LAST = MessageKey.ui("rtp.settings.default-last");
 
     public static final MessageKey HUB_LABEL = MessageKey.ui("rtp.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("rtp.hub.description");

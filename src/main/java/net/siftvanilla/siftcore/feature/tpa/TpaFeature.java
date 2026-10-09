@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
@@ -21,8 +22,17 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
+import net.siftvanilla.siftcore.core.link.Relations;
+import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.Audience;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
@@ -34,6 +44,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
@@ -42,11 +54,22 @@ import org.bukkit.event.player.PlayerQuitEvent;
  */
 public final class TpaFeature implements Feature, Listener {
 
-    public static final Toggle REQUESTS = new Toggle("tpa-requests", true, TpaMessages.SETTING_LABEL,
-        TpaMessages.SETTING_DESCRIPTION, null);
-    /** Friends teleport without a request (/tpa only; /tpahere always asks). Registered only with a friends system. */
-    public static final Toggle FRIENDS = new Toggle("tpa-friends", false, TpaMessages.SETTING_FRIENDS_LABEL,
-        TpaMessages.SETTING_FRIENDS_DESCRIPTION, null);
+    /**
+     * "Teleport requests from": who may send the player /tpa and /tpahere requests (staff with the bypass always can).
+     * Was the {@code tpa-requests} switch: on reads as everyone, off as nobody. The friend options read as nobody
+     * while the server has no friends system (and no teams, for friends and teammates).
+     */
+    public static final Choice<Audience> REQUESTS = whoCan("tpa-requests", TpaMessages.SETTING_LABEL, TpaMessages.SETTING_DESCRIPTION)
+        .legacyValue("true", Audience.EVERYONE.id()).legacyValue("false", Audience.NOBODY.id()).build();
+    /** "Pull requests from": who may ask the player to come to them with /tpahere, on top of {@link #REQUESTS}. */
+    public static final Choice<Audience> HERE_REQUESTS = whoCan("tpahere-requests", TpaMessages.SETTING_HERE,
+        TpaMessages.SETTING_HERE_DESCRIPTION).build();
+    /** "Requests open a pop-up": an incoming request also opens the accept/deny window (not in combat, AFK or a menu). */
+    public static final Toggle POPUP = new Toggle("tpa-popup", false, TpaMessages.SETTING_POPUP, TpaMessages.SETTING_POPUP_DESCRIPTION,
+        null);
+    /** "Confirm before being pulled": /tpaccept on a /tpahere asks once more before the player is moved. */
+    public static final Toggle CONFIRM_HERE = new Toggle("tpaccept-confirm-here", true, TpaMessages.SETTING_CONFIRM_HERE,
+        TpaMessages.SETTING_CONFIRM_HERE_DESCRIPTION, null);
     public static final String TPA = "siftcore.command.tpa";
     public static final String TPAHERE = "siftcore.command.tpahere";
     public static final String TPACCEPT = "siftcore.command.tpaccept";
@@ -63,7 +86,9 @@ public final class TpaFeature implements Feature, Listener {
     /**
      * @param vanish  vanished staff can't be asked (staff module)
      * @param afk     the sender is told when the target is AFK (AFK module)
-     * @param friends friends may skip the request when the target allows it (friends module)
+     * @param friends not read: friendships, favourites and teams for the "who can" settings and auto-accept come from
+     *                {@code services.relations()}, which the composition root binds to this same lookup. Kept so the
+     *                composition root's call stays as it is
      * @param ignores players who ignore the sender never get the request (chat module)
      * @param combat  combat-tagged players can't send or accept requests (command, chat dialog or menu form)
      */
@@ -72,11 +97,7 @@ public final class TpaFeature implements Feature, Listener {
         this.services = services;
         this.settings = services.configs().register("features/tpa.yml", TpaSettings::parse, problems);
         services.lang().register(TpaMessages.class);
-        services.settings().register(REQUESTS);
-        boolean withFriends = friends != FriendLookup.NONE;
-        if (withFriends) {
-            services.settings().register(FRIENDS);
-        }
+        registerSettings(services.settings(), services.relations());
         var perms = services.permissions();
         perms.declare(TPA, "Use /tpa", true);
         perms.declare(TPAHERE, "Use /tpahere", true);
@@ -85,8 +106,40 @@ public final class TpaFeature implements Feature, Listener {
         perms.declare(TPACANCEL, "Use /tpacancel", true);
         perms.declare(TPATOGGLE, "Use /tpatoggle", true);
         perms.declare(TpaService.BYPASS, "Staff: /tpa teleports at once without a request, and /tpahere reaches players who turned requests off", false);
-        this.service = new TpaService(services, this.settings, new TpaRequests(System::currentTimeMillis), REQUESTS,
-            withFriends ? FRIENDS : null, new TpaService.Links(vanish, afk, friends, ignores, combat));
+        this.service = new TpaService(services, this.settings, new TpaRequests(System::currentTimeMillis),
+            new TpaService.Links(vanish, afk, ignores, combat), new InventoryUse(System::currentTimeMillis));
+    }
+
+    /** A "who can" choice: everyone, friends and teammates, friends, nobody (the friend options fall back to nobody). */
+    private static Choice.Builder<Audience> whoCan(String id, MessageKey label, MessageKey description) {
+        return Choice.ofEnum(id, Audience.class, Audience::id, Audience.EVERYONE)
+            .option(Audience.EVERYONE, Audience.EVERYONE.label())
+            .option(Audience.FRIENDS_TEAM, Audience.FRIENDS_TEAM.label(), null, Audience.NOBODY.id())
+            .option(Audience.FRIENDS, Audience.FRIENDS.label(), null, Audience.NOBODY.id())
+            .option(Audience.NOBODY, Audience.NOBODY.label())
+            .text(label, description);
+    }
+
+    /**
+     * Registers the teleport request settings in Settings &gt; Teleports &amp; homes, in the catalog's order (the shared
+     * {@code friends-tpa} is second and {@code teleport-display} fourth; homes and random teleport add theirs). The
+     * friend options are offered only while the server has friends (friends and teammates: or teams); the retired
+     * {@code tpa-friends} switch is no longer registered, so its rows move to {@code friends-tpa}.
+     */
+    static void registerSettings(PlayerSettings settings, Relations relations) {
+        BooleanSupplier friendsOrTeams = () -> relations.friendsAvailable() || relations.teams() != TeamLookup.NONE;
+        settings.register(SettingCategories.TELEPORT, REQUESTS, SettingOptions.<Audience>builder().order(1)
+            .optionAvailableWhen(Audience.FRIENDS_TEAM.id(), friendsOrTeams)
+            .optionAvailableWhen(Audience.FRIENDS.id(), relations::friendsAvailable)
+            .placeholder(false).build());
+        settings.register(SettingCategories.TELEPORT, HERE_REQUESTS, SettingOptions.<Audience>builder().order(6)
+            .optionAvailableWhen(Audience.FRIENDS_TEAM.id(), friendsOrTeams)
+            .optionAvailableWhen(Audience.FRIENDS.id(), relations::friendsAvailable)
+            .placeholder(false).build());
+        settings.register(SettingCategories.TELEPORT, POPUP, SettingOptions.<Boolean>builder().order(7).build());
+        settings.register(SettingCategories.TELEPORT, CONFIRM_HERE, SettingOptions.<Boolean>builder().order(8).build());
+        // Auto-accept (/tpa without asking) is the shared friends-tpa, decided in TpaService#skipsRequest.
+        settings.reads(SharedSettings.FRIENDS_TPA);
     }
 
     @Override
@@ -121,6 +174,17 @@ public final class TpaFeature implements Feature, Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         this.service.forget(event.getPlayer().getUniqueId());
+    }
+
+    /** A click in the player's own inventory: the pop-up waits a moment (see {@link InventoryUse}). Player's thread. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onInventoryClick(InventoryClickEvent event) {
+        this.service.inventories().clicked(event.getWhoClicked().getUniqueId(), InventoryUse.own(event.getView().getType()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onInventoryClose(InventoryCloseEvent event) {
+        this.service.inventories().closed(event.getPlayer().getUniqueId());
     }
 
     // ------------------------------------------------------------------ commands
@@ -198,10 +262,26 @@ public final class TpaFeature implements Feature, Listener {
                 .then(Commands.literal("friends").executes(ctx -> {
                     Player player = support.player(ctx);
                     if (player != null) {
-                        this.service.toggleFriends(player);
+                        this.service.toggleFriends(player, null);
                     }
                     return CommandSupport.OK;
-                })));
+                }).then(Commands.argument("choice", StringArgumentType.word()).suggests((context, builder) -> {
+                    if (context.getSource().getSender() instanceof Player player) {
+                        String remaining = builder.getRemainingLowerCase();
+                        for (String option : this.service.autoAcceptOptions(player)) {
+                            if (option.startsWith(remaining)) {
+                                builder.suggest(option);
+                            }
+                        }
+                    }
+                    return builder.buildFuture();
+                }).executes(ctx -> {
+                    Player player = support.player(ctx);
+                    if (player != null) {
+                        this.service.toggleFriends(player, StringArgumentType.getString(ctx, "choice"));
+                    }
+                    return CommandSupport.OK;
+                }))));
         return List.of(
             send("tpa", List.of("tpask"), "Asks to teleport to a player", TPA, Kind.TO_TARGET),
             send("tpahere", List.of(), "Asks a player to teleport to you", TPAHERE, Kind.TO_SENDER),

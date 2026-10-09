@@ -3,16 +3,17 @@
 Players ask to teleport to each other. Package `feature/tpa`, config `features/tpa.yml`, text `lang/tpa.yml`. No
 tables: requests live in memory and expire within a minute.
 
-The player who moves gets the shared teleport warmup (`core.teleport.Teleports`: action-bar countdown, cancelled by
-moving or damage, refused while combat-tagged). The destination is wherever the other player stands when the warmup
-ends, read on that player's thread. The feature consumes five contracts:
+The player who moves gets the shared teleport warmup (`core.teleport.Teleports`: a countdown shown where the player's
+"Teleport countdown" setting says, cancelled by moving or damage, refused while combat-tagged). The destination is
+wherever the other player stands when the warmup ends, read on that player's thread. The feature consumes these
+contracts:
 
 | Contract | Wired | Used for |
 |---|---|---|
 | `VanishStatus` | staff feature | A vanished staff member looks offline to players without `siftcore.tpa.bypass` |
-| `IgnoreLookup` | `NONE` (chat) | A player who ignores the sender never gets the request; the sender is told they can't send one |
-| `AfkStatus` | `NONE` (AFK) | The sender is told the target is AFK, so an unanswered request makes sense |
-| `FriendLookup` | `NONE` (friends) | Friends may come without a request when the target allows it (see below) |
+| `IgnoreLookup` | chat | A player who ignores the sender never gets the request; the sender is told they can't send one |
+| `AfkStatus` | AFK | The sender is told the target is AFK, so an unanswered request makes sense; no pop-up while AFK |
+| `Relations` (`services.relations()`) | friends, teams | Friends and teammates for "Teleport requests from", "Pull requests from" and auto-accept; the friends lookup answers favourites |
 | `CombatStatus` | core combat tags | Combat-tagged players can't send or accept requests (see "Combat" below) |
 
 ## Commands and permissions
@@ -24,8 +25,14 @@ ends, read on that player's thread. The feature consumes five contracts:
 | `/tpaccept [player]` (alias `/tpyes`) | Accepts the only request, the named one, or opens a choice dialog when several wait |
 | `/tpdeny [player]` (alias `/tpno`) | Denies the same way; the choice dialog also has Deny all |
 | `/tpacancel [player]` (alias `/tpcancel`) | Withdraws your request to that player, or all of yours |
-| `/tpatoggle` (alias `/tptoggle`) | Turns incoming requests off (they are declined at once) or back on |
-| `/tpatoggle friends` | Lets friends come without asking, or makes them ask again (only with a friends list) |
+| `/tpatoggle` (alias `/tptoggle`) | "Teleport requests from": nobody (requests are declined at once), or back to everyone. Any other choice (friends...) counts as on, so it goes to nobody |
+| `/tpatoggle friends [choice]` | "Auto-accept /tpa from": nobody goes to all friends, anything else back to nobody; with a choice (`nobody`, `favourites`, `all`, `friends-team`, suggested as offered) it is set to that. Only with a friends list. This form replaces the old `tpa-friends` switch's command (owner note: the shared `friends-tpa` is what it changes now) |
+
+Both `/tpatoggle` forms change the settings through the settings registry: when the server locked or hides the
+setting the player reads "Teleport requests from is set by the server." (or "Auto-accept /tpa from ..."), and an
+option that isn't offered now (favourites without favourites) reads "... couldn't be changed.". `/tpatoggle friends`
+checks the server's say before it looks at the typed word (`TpaGate#typedChoice`), so a hidden setting never answers
+"Use one of these: ." with an empty list.
 
 Name arguments suggest only the players in your own requests (`/tpaccept`, `/tpdeny`: who asked you; `/tpacancel`:
 who you asked) or online players you can see (`/tpa`, `/tpahere`); selectors are never accepted.
@@ -40,15 +47,30 @@ who you asked) or online players you can see (`/tpa`, `/tpahere`); selectors are
 ## How a request flows
 
 1. The sender passes the checks in `TpaGate` (pure, unit tested), in this order: not yourself, online and visible,
-   staff `/tpa` (instant), ignored, requests turned off. Then the request cooldown and the cancellable
-   `api.event.TeleportRequestEvent`.
-2. The target gets a chat line with a clickable `Click to answer`: a `ClickEvent.showDialog` carrying an accept/deny
-   dialog made for that target (`Dialogs#inline`). Typing `/tpaccept` works the same.
+   staff `/tpa` (instant), ignored, the target's "Teleport requests from" doesn't take the sender ("<name> isn't
+   taking teleport requests."), and for a `/tpahere` the target's "Pull requests from" doesn't take the sender
+   ("<name> isn't taking requests to come to you. Ask with /tpa instead."). Staff with the bypass pass both. Then the
+   request cooldown and the cancellable `api.event.TeleportRequestEvent`.
+2. A `/tpa` the target auto-accepts ("Auto-accept /tpa from", see below) skips the request: the sender's warmup starts
+   at once. Otherwise the target gets a chat line with a clickable `Click to answer`: a `ClickEvent.showDialog`
+   carrying an accept/deny dialog made for that target (`Dialogs#inline`). Typing `/tpaccept` works the same. With
+   "Requests open a pop-up" on, the same window also opens by itself, on the target's thread, unless they are in
+   combat, AFK or busy in a window, and only while the request still waits. "Busy in a window" is what the server
+   can see: a window it opened (a chest, a SiftCore menu, an anvil) is always seen; the player's own inventory is
+   opened by the client without telling the server (the open view still reads as the crafting screen), so it counts
+   only while they are clicking in it: a click in their own inventory within the last 5 seconds, until they close it
+   (`InventoryUse`). A player who just opened their inventory without clicking, or who looks at another dialog, can't
+   be detected, so a pop-up can replace it.
 3. Requests are keyed by sender: a player can have requests from many players at once; a new request from the same
    sender replaces the older one. Each expires on its own; the sender is told when it does.
 4. Accepting takes the request atomically (`TpaRequests#take`, by request id: an old dialog can't accept a newer
    request) and starts the warmup for whoever moves. If they move, take damage or are in combat, the other player is
-   told they didn't come.
+   told they didn't come. A `/tpaccept` that would move the player who answers (a `/tpahere`) shows the request's
+   window once more while "Confirm before being pulled" is on, however the request was picked: the only one, a named
+   one, or a sender picked in the window of several requests (`TpaGate#answer` decides all three). The window of a
+   `/tpahere` says "Accepting teleports you to <name>.". Accept and Deny close the window at once; in the window of
+   several, a pick that finishes (a `/tpa`, any deny) closes it at once, and a pick that asks once more keeps it up
+   until the request's own window replaces it.
 
 ## Combat
 
@@ -71,12 +93,42 @@ menu's form and answered from the chat dialog, so the feature checks combat itse
 The main menu entry `tpa` (order 62) opens a form: a player name and who moves (I go to them / They come to me). It
 also says how many requests wait for you.
 
-## Per-player settings (shown in the settings dialog)
+## Per-player settings (Settings > Teleports & homes)
 
-| Toggle | Default | Meaning |
-|---|---|---|
-| `tpa-requests` | on | Accept teleport requests |
-| `tpa-friends` | off | Friends teleport to me without asking. Registered only when a friends list is installed. Only `/tpa` skips the request: a friend's `/tpahere` would move you without your consent, so it always asks |
+Registered in `SettingCategories.TELEPORT` by `TpaFeature.registerSettings`, in the catalog's order (the shared
+`friends-tpa` is 2nd, core's `teleport-display` 4th, the homes and random teleport settings fill the rest). Text:
+`tpa.settings.*` in `lang/tpa.yml`; the option names are the shared ones in `lang/settings.yml`.
+
+| Id | Kind | Default | Read in | Meaning |
+|---|---|---|---|---|
+| `tpa-requests` | who-can choice everyone / friends-team / friends / nobody | everyone | `TpaService#request` (`TpaGate#check`) | "Teleport requests from": who may send /tpa and /tpahere. Was a switch: stored `true` reads as everyone and `false` as nobody (rows and `features/settings.yml` entries keep working and are rewritten on the next change). `placeholder(false)` |
+| `tpahere-requests` | who-can choice, same options | everyone | `TpaService#request` | "Pull requests from": who may ask you over with /tpahere, on top of the first (the stricter wins). `placeholder(false)` |
+| `tpa-popup` | switch | off | `TpaService#send` / `popUp` | "Requests open a pop-up" (see the flow above) |
+| `tpaccept-confirm-here` | switch | on | `TpaService#answerOf` (typed, named, and the window of several requests) | "Confirm before being pulled": a /tpaccept of a /tpahere asks once more |
+| `friends-tpa` (shared, `SharedSettings`) | choice nobody / favourites / all / friends-team | nobody | `TpaService#skipsRequest` | "Auto-accept /tpa from": whose plain `/tpa` comes without asking (never a `/tpahere`, never an ignored player, never while the target is in combat). Favourites are answered by the friends feature (`FriendLookup#autoAcceptTeleport`) and offered only while favourites exist; the setting is offered only with a friends list (TPA declares it reads it) |
+
+The group also holds core's `teleport-display` ("Teleport countdown", choice actionbar / title / chat / off, default
+actionbar), registered by `core.teleport.Teleports` itself and read for every shared teleport (homes, TPA, random
+teleport, spawn, team home, the AFK zone): the warmup countdown shows above the hotbar every second, as a title every
+second, as one chat line, or not at all, and the arrival line ("Teleported.", a home's welcome, a random teleport's
+landing) goes to the same place (`TeleportDisplay`, unit tested). As a title, only the first second fades in; the
+later ones change the number in place and each stays 1.5 seconds, so the count never blinks between seconds. Cancel
+messages and failures always show, and a line saying money was paid shows even with "off"; a countdown title is taken
+off the screen first (moved, damage, replaced, frozen, in combat, a failed or refused destination), so "Teleporting in
+3s. Don't move." never sits over the line saying the teleport was called off. Features with their own arrival line start the teleport with
+`announces` and send it through `Teleports#arrival`, so "Teleported." isn't sent twice. Its text is `teleport.settings`
+in `lang/core.yml`.
+
+The friend options of the two who-can choices are offered only while the server has a friends list ("Friends and
+teammates": or teams); a player who picked one reads it as nobody meanwhile, so turning friends off never opens
+anyone up. The retired `tpa-friends` switch is no longer registered: its rows move to `friends-tpa` when a player
+loads (on: all friends, off: nobody).
+
+Owner note: the move covers stored rows only. An entry for `tpa-friends` in `features/settings.yml` (`defaults:`,
+`locked:` or `hidden:`) no longer applies; the server warns "there is no setting called tpa-friends" at startup.
+Write it for `friends-tpa` instead, with a choice id (`all` for the old `true`, `nobody` for `false`; `friends-tpa`
+has no `true`/`false` aliases). The bundled `features/settings.yml`
+has no such entry.
 
 ## Config (`features/tpa.yml`)
 
@@ -101,3 +153,25 @@ also says how many requests wait for you.
 - A refused request because of an ignore list reads like any refusal ("You can't send X a teleport request"), so
   the sender learns nothing about the ignore.
 - Pending requests are swept once a second off the world threads; quitting drops every request of that player.
+- `/tpatoggle friends` toggles (nobody and all friends, keeping the old command's messages) rather than cycling
+  through four choices; the choice argument reaches the others directly.
+
+## Tests
+
+- Unit: `TpaGateTest` (the gate order including pull requests, who-can audiences, auto-accept for every choice and
+  ignored players, the pop-up and pull-confirmation rules, `answer` for every way a request is picked, the order of
+  `/tpatoggle friends`' checks), `InventoryUseTest` (the own inventory counts as busy for 5 seconds after a click,
+  until closed), `TpaSettingsTest` (legacy values and a lock written as the old switch, the whole Teleports & homes
+  group of ten in the catalog's order with homes and random teleport registered, rtp-confirm-cost following the paid
+  regions, streamer mode declared, tpa-friends retired, friend options and favourites offered only when they exist),
+  `TeleportDisplayTest` (the countdown and arrival places, title timing, the title cleared on every cancel and
+  failure and not on arrival).
+- E2E (`TeleportScenarios`): `tpa-flow`, `tpa-switches`, `tpa-combat`, `tpa-combat-warmup`, and `tpa-settings`
+  (Teleport requests from friends saved in the settings dialog: a stranger refused, a friend's request arrives; Pull
+  requests from nobody typed as `/settings tpahere-requests nobody`; no pop-up while the player clicks in their own
+  inventory, then the pop-up; being pulled asks once more, Deny there; with a /tpa and a /tpahere waiting, picking
+  the /tpahere sender in the window of several asks once more, picking the /tpa sender doesn't; off moves at once;
+  /tpatoggle under a server lock written as `false`; /tpatoggle friends friends-team letting a friend in; /tpatoggle
+  friends with an unknown word while the server hides the setting says it is the server's). Every other setting
+  change in the teleport scenarios is typed as `/settings <id> <value>`. `teleport-display` also cancels a title
+  countdown by moving (the cancel line shows, no countdown title follows).

@@ -18,6 +18,7 @@ import net.siftvanilla.siftcore.api.event.RandomTeleportEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -26,6 +27,7 @@ import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.feature.spawn.BorderSpec;
 import net.siftvanilla.siftcore.feature.spawn.WorldBorders;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -46,6 +48,8 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 final class RtpService {
 
     static final String BYPASS_COOLDOWN = "siftcore.bypass.cooldown";
+    /** The free-form per-player value holding the region of the last random teleport that happened. */
+    static final String LAST_REGION = "rtp_last";
 
     /** One player's teleport in progress: what was charged, for a refund if the teleport does not happen. */
     private static final class Attempt {
@@ -147,8 +151,38 @@ final class RtpService {
 
     // ------------------------------------------------------------------ player flow
 
-    /** Starts a random teleport to a region (by id or world name). Runs on the player's thread. */
-    void start(Player player, String regionName) {
+    /**
+     * /rtp with no region, as the player's "/rtp with no region" setting says: the region picker, or straight to the
+     * region they used last when it can be used now (enabled, allowed, fits its world, cooldown over); otherwise the
+     * picker. Runs on the player's thread.
+     */
+    void bare(Player player) {
+        if (this.services.settings().get(player, RtpFeature.DEFAULT) == RtpDefault.LAST) {
+            RtpSettings s = this.settings.get();
+            String last = this.services.settings().raw(player.getUniqueId(), LAST_REGION, null);
+            RtpSettings.Region region = last == null ? null : s.regions().get(last);
+            if (RtpDefault.LAST.straight(region != null, region != null && usableNow(player, region, s.borderMargin()))) {
+                start(player, region.id(), false);
+                return;
+            }
+        }
+        openMenu(player, null);
+    }
+
+    /** Whether the player could start a random teleport to the region now (money aside). Player's thread. */
+    private boolean usableNow(Player player, RtpSettings.Region region, int margin) {
+        return region.enabled() && (region.permission() == null || player.hasPermission(region.permission()))
+            && usableMax(region, margin) > 0
+            && (player.hasPermission(BYPASS_COOLDOWN) || cooldownLeft(player.getUniqueId(), region.id()).isZero());
+    }
+
+    /**
+     * Starts a random teleport to a region (by id or world name). A typed /rtp to a region that costs money shows the
+     * price and asks first, unless the player turned that off. Runs on the player's thread.
+     *
+     * @param priceShown the player already saw the price (the picker shows it, or they confirmed it)
+     */
+    void start(Player player, String regionName, boolean priceShown) {
         RtpSettings s = this.settings.get();
         RtpSettings.Region region = s.find(regionName).orElse(null);
         if (region == null) {
@@ -162,9 +196,31 @@ final class RtpService {
             this.services.messenger().send(player, RtpMessages.ALREADY_SEARCHING);
             return;
         }
+        if (RtpDefault.asksCost(this.services.settings().get(player, RtpFeature.CONFIRM_COST), region.cost(), priceShown)) {
+            confirmCost(player, region);
+            return;
+        }
         Attempt attempt = new Attempt(region.id());
         this.services.teleports().teleport(player, "rtp", s.warmup(), () -> destination(player, attempt),
-            ok -> finish(player, attempt, ok));
+            ok -> finish(player, attempt, ok), true);
+    }
+
+    /**
+     * "A random teleport to X costs $1,000." Teleport starts it (every check runs again at that moment); Cancel just
+     * closes. Player's thread.
+     */
+    private void confirmCost(Player player, RtpSettings.Region region) {
+        Lang lang = this.services.lang();
+        String id = region.id();
+        List<Component> lines = List.of(
+            lang.get(RtpMessages.CONFIRM_BODY, Arg.text("region", region.name()), Arg.money("amount", region.cost())),
+            lang.get(RtpMessages.CONFIRM_NOTE));
+        View confirm = this.services.templates().confirm(lang.get(RtpMessages.CONFIRM_TITLE), lines, lang.get(RtpMessages.CONFIRM_BUTTON),
+            lang.get(CoreMessages.UI_CANCEL), yes -> start(yes.player(), id, true), null);
+        // Teleport finishes here: the window closes at once and the warmup shows.
+        List<Button> buttons = List.of(confirm.buttons().get(0).closes(), confirm.buttons().get(1));
+        this.services.dialogs().show(player, new View(confirm.kind(), confirm.title(), confirm.body(), confirm.inputs(), buttons,
+            confirm.exit(), confirm.columns(), confirm.escapable()));
     }
 
     /** Runs on the player's thread when the warmup is over: searches, then pays. */
@@ -275,17 +331,38 @@ final class RtpService {
         if (!cooldown.isZero() && !player.hasPermission(BYPASS_COOLDOWN)) {
             this.cooldownUntil.put(key(id, attempt.region), System.currentTimeMillis() + cooldown.toMillis());
         }
+        // Remembered for "/rtp with no region: last region" (a row only when it changes).
+        if (!attempt.region.equals(this.services.settings().raw(id, LAST_REGION, null))) {
+            this.services.settings().setRaw(id, LAST_REGION, attempt.region);
+        }
         Location spot = attempt.spot;
         String name = region == null ? attempt.region : region.name();
         long charged = attempt.charged.get();
         if (spot != null) {
-            Arg x = Arg.number("x", spot.getBlockX());
-            Arg z = Arg.number("z", spot.getBlockZ());
-            if (charged > 0) {
-                this.services.messenger().send(player, RtpMessages.LANDED_PAID, Arg.text("region", name), x, z, Arg.money("amount", charged));
+            landed(player, name, spot, charged);
+        }
+    }
+
+    /**
+     * The landing line, where the player's teleport display setting says (a line saying money was taken shows even
+     * with the display off), without the position while they hide coordinates.
+     */
+    private void landed(Player player, String name, Location spot, long charged) {
+        Arg region = Arg.text("region", name);
+        boolean hidden = this.services.settings().get(player, SharedSettings.HIDE_COORDINATES);
+        if (charged > 0) {
+            Arg amount = Arg.money("amount", charged);
+            if (hidden) {
+                this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID_HIDDEN, region, amount);
             } else {
-                this.services.messenger().send(player, RtpMessages.LANDED, Arg.text("region", name), x, z);
+                this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID, region, Arg.number("x", spot.getBlockX()),
+                    Arg.number("z", spot.getBlockZ()), amount);
             }
+        } else if (hidden) {
+            this.services.teleports().arrival(player, RtpMessages.LANDED_HIDDEN, region);
+        } else {
+            this.services.teleports().arrival(player, RtpMessages.LANDED, region, Arg.number("x", spot.getBlockX()),
+                Arg.number("z", spot.getBlockZ()));
         }
     }
 
@@ -369,7 +446,9 @@ final class RtpService {
                 ? lang.get(RtpMessages.MENU_TOOLTIP_COST, min, maxArg, Arg.money("amount", region.cost()))
                 : lang.get(RtpMessages.MENU_TOOLTIP_FREE, min, maxArg);
             String id = region.id();
-            buttons.add(Button.of(Component.text(region.name()), tooltip, submission -> start(submission.player(), id)).width(150));
+            // The picker shows the price, so starting from it never asks again; the window closes as the warmup starts.
+            buttons.add(Button.of(Component.text(region.name()), tooltip, submission -> start(submission.player(), id, true))
+                .width(150).closes());
         }
         if (buttons.isEmpty()) {
             this.services.messenger().send(player, RtpMessages.NONE);

@@ -7,6 +7,9 @@ rtp:
   no-spot: "<primary>No safe spot found this time. Nothing was charged. Try again."
   landed: "<primary>Welcome to <region> at <x>, <z>."
   landed-paid: "<primary>Welcome to <region> at <x>, <z>. <secondary>Paid <amount>."
+  # The same lines while the player hides coordinates (Settings > Privacy > Streamer mode).
+  landed-hidden: "<primary>Welcome to <region>."
+  landed-paid-hidden: "<primary>Welcome to <region>. <secondary>Paid <amount>."
   refunded: "<primary>The teleport didn't happen. You got your <amount> back."
   cancelled: "<primary>The random teleport was cancelled."
   unknown: "<primary>There is no random teleport called <name>."
@@ -26,6 +29,20 @@ rtp:
     wait: "<secondary>Ready in <primary><time><secondary>."
     tooltip-free: "<secondary><min> to <max> blocks out. Free."
     tooltip-cost: "<secondary><min> to <max> blocks out. Costs <amount>."
+  # Asked before a /rtp <region> that costs money, unless the player turned that off (the picker shows the price).
+  confirm:
+    title: "Confirm random teleport"
+    body: "<primary>A random teleport to <region> costs <amount>."
+    note: "<secondary>You pay only once a safe spot is found."
+    button: "Teleport"
+  # The settings in Settings, Teleports & homes: a label, then one line that says what it does.
+  settings:
+    confirm-cost: "Confirm paid random teleports"
+    confirm-cost-description: "Show the price and ask first when a /rtp you type costs money. The region picker already shows prices."
+    default: "/rtp with no region"
+    default-description: "Open the region picker, or go straight to the region you used last."
+    default-menu: "Open the picker"
+    default-last: "Last region"
   hub:
     label: "Random teleport"
     description: "Go somewhere new"

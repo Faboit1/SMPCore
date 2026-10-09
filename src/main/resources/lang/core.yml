@@ -66,6 +66,10 @@ teleport:
   frozen: "<primary>You can't teleport while frozen."
   done: "<primary>Teleported."
   failed: "<primary>That teleport didn't work. Try again."
+  # The teleport-display setting (Settings > Teleports & homes).
+  settings:
+    display: "Teleport countdown"
+    display-description: "Where the warmup countdown and the arrival message show. Cancel messages (moved, hit, in combat) always show."
 
 # Settings several features read, kept in core (Settings > Sounds, Privacy, Display...). A label, then one line that
 # says what it does.

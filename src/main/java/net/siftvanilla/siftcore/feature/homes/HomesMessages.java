@@ -34,6 +34,8 @@ public final class HomesMessages {
     public static final MessageKey LIST_HEADER = MessageKey.ui("homes.list.header", "count", "limit");
     public static final MessageKey LIST_EMPTY = MessageKey.ui("homes.list.empty");
     public static final MessageKey LIST_LINE = MessageKey.ui("homes.list.line", "name", "world", "x", "y", "z");
+    /** A list line while the player hides coordinates (streamer mode). */
+    public static final MessageKey LIST_LINE_HIDDEN = MessageKey.ui("homes.list.line-hidden", "name", "world");
     public static final MessageKey LIST_PAGE = MessageKey.ui("homes.list.page", "page", "pages");
     public static final MessageKey LIST_DELETE = MessageKey.ui("homes.list.delete");
     public static final MessageKey LIST_TELEPORT_TOOLTIP = MessageKey.ui("homes.list.teleport-tooltip", "name");
@@ -44,7 +46,25 @@ public final class HomesMessages {
 
     public static final MessageKey DELETE_TITLE = MessageKey.ui("homes.delete.title");
     public static final MessageKey DELETE_BODY = MessageKey.ui("homes.delete.body", "name", "world", "x", "y", "z");
+    public static final MessageKey DELETE_BODY_HIDDEN = MessageKey.ui("homes.delete.body-hidden", "name", "world");
     public static final MessageKey DELETE_BUTTON = MessageKey.ui("homes.delete.button");
+
+    /** Asking before /sethome moves an existing home ("Confirm moving a home"). */
+    public static final MessageKey OVERWRITE_TITLE = MessageKey.ui("homes.overwrite.title");
+    public static final MessageKey OVERWRITE_BODY = MessageKey.ui("homes.overwrite.body", "name");
+    public static final MessageKey OVERWRITE_FROM = MessageKey.ui("homes.overwrite.from", "world", "x", "y", "z");
+    public static final MessageKey OVERWRITE_TO = MessageKey.ui("homes.overwrite.to", "world", "x", "y", "z");
+    public static final MessageKey OVERWRITE_FROM_HIDDEN = MessageKey.ui("homes.overwrite.from-hidden", "world");
+    public static final MessageKey OVERWRITE_TO_HIDDEN = MessageKey.ui("homes.overwrite.to-hidden", "world");
+    public static final MessageKey OVERWRITE_BUTTON = MessageKey.ui("homes.overwrite.button");
+
+    public static final MessageKey SETTING_CONFIRM_OVERWRITE = MessageKey.ui("homes.settings.confirm-overwrite");
+    public static final MessageKey SETTING_CONFIRM_OVERWRITE_DESCRIPTION = MessageKey.ui("homes.settings.confirm-overwrite-description");
+    public static final MessageKey SETTING_BARE = MessageKey.ui("homes.settings.bare-command");
+    public static final MessageKey SETTING_BARE_DESCRIPTION = MessageKey.ui("homes.settings.bare-command-description");
+    public static final MessageKey SETTING_BARE_SMART = MessageKey.ui("homes.settings.bare-smart");
+    public static final MessageKey SETTING_BARE_DEFAULT = MessageKey.ui("homes.settings.bare-default-home");
+    public static final MessageKey SETTING_BARE_LIST = MessageKey.ui("homes.settings.bare-list");
 
     public static final MessageKey FORM_TITLE = MessageKey.ui("homes.form.title");
     public static final MessageKey FORM_BODY = MessageKey.ui("homes.form.body");

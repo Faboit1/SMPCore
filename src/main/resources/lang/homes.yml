@@ -31,6 +31,8 @@ homes:
     header: "<primary><icon:home> <count> of <limit> homes"
     empty: "<secondary>No homes yet. Set one where you stand."
     line: "<primary><name> <secondary><world> <x>, <y>, <z>"
+    # The same line while the player hides coordinates (Settings > Privacy > Streamer mode).
+    line-hidden: "<primary><name> <secondary><world>"
     page: "<secondary>Page <page> of <pages>"
     delete: "Delete"
     teleport-tooltip: "<secondary>Teleport to <name>"
@@ -43,7 +45,28 @@ homes:
     body:
       - "<primary>Delete home <name>?"
       - "<secondary><world> <x>, <y>, <z>"
+    body-hidden:
+      - "<primary>Delete home <name>?"
+      - "<secondary><world>"
     button: "Delete"
+  # Asked before /sethome (or the form) moves a home that already exists, unless the player turned that off.
+  overwrite:
+    title: "Move home"
+    body: "<primary>Home <name> already exists. Move it to where you stand?"
+    from: "<secondary>Now: <world> <x>, <y>, <z>"
+    to: "<secondary>New: <world> <x>, <y>, <z>"
+    from-hidden: "<secondary>Now: <world>"
+    to-hidden: "<secondary>New: <world>"
+    button: "Move it here"
+  # The settings in Settings, Teleports & homes: a label, then one line that says what it does.
+  settings:
+    confirm-overwrite: "Confirm moving a home"
+    confirm-overwrite-description: "Ask before /sethome moves a home you already have to where you stand."
+    bare-command: "/home with no name"
+    bare-command-description: "Go to your only home or open the list, go to the home named 'home', or always open the list."
+    bare-smart: "Only home, or the list"
+    bare-default-home: "The home named 'home'"
+    bare-list: "Always the list"
   form:
     title: "Set a home"
     body: "<secondary>The home is set where you stand. Names are 1 to 16 letters, numbers, _ or -."

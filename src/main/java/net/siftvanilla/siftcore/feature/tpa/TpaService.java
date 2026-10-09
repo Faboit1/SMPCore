@@ -14,10 +14,18 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
-import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
+import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.PlayerSetting;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.Registry;
+import net.siftvanilla.siftcore.core.player.SetResult;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.Audience;
+import net.siftvanilla.siftcore.core.player.options.AutoAccept;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -35,51 +43,57 @@ import org.bukkit.entity.Player;
 
 /**
  * Teleport requests: sending (with the clickable answer in chat), accepting, denying, cancelling, expiry and the
- * per-player switches (requests on or off, friends without asking). The player who moves gets the warmup; the
- * destination is wherever the other player stands when the warmup ends.
+ * per-player settings (who may send requests and pull requests, whose /tpa comes without asking, the pop-up, the
+ * confirmation before being pulled). The player who moves gets the warmup; the destination is wherever the other
+ * player stands when the warmup ends.
  * <p>
  * Other features it consults: vanished staff can't be found (vanish), a player who ignores the sender never gets
- * the request (ignore lists), the sender is told when the target is AFK, and friends skip the request when the
- * target allows it (friends). Combat-tagged players can't send or accept requests, and nobody accepts a request while
- * its sender is in combat, however they answer (command, chat dialog, main menu form). When the warmup ends, nobody
- * arrives at a player who got into a fight meanwhile.
+ * the request (ignore lists), the sender is told when the target is AFK, and friends and teammates are looked up
+ * through {@link Relations} for the "who can" settings and auto-accept. Combat-tagged players can't send or accept
+ * requests, and nobody accepts a request while its sender is in combat, however they answer (command, chat dialog,
+ * main menu form). When the warmup ends, nobody arrives at a player who got into a fight meanwhile.
  */
 final class TpaService {
 
     static final String BYPASS = "siftcore.tpa.bypass";
     private static final String COOLDOWN_KEY = "tpa:request";
 
-    /** What the service asks other features. Every lookup is thread-safe and answers from memory. */
-    record Links(VanishStatus vanish, AfkStatus afk, FriendLookup friends, IgnoreLookup ignores, CombatStatus combat) {
+    /**
+     * What the service asks other features. Every lookup is thread-safe and answers from memory. Friends and teammates
+     * are not here: they are read through {@code services.relations()}, like every other "who can" setting.
+     */
+    record Links(VanishStatus vanish, AfkStatus afk, IgnoreLookup ignores, CombatStatus combat) {
     }
 
     private final Services services;
     private final Setting<TpaSettings> settings;
     private final TpaRequests requests;
-    private final Toggle toggle;
-    private final Toggle friendsToggle;
     private final Links links;
+    private final InventoryUse inventories;
 
-    /**
-     * @param toggle        the "accept teleport requests" switch
-     * @param friendsToggle the "friends come without asking" switch, or null when no friends system is installed
-     */
-    TpaService(Services services, Setting<TpaSettings> settings, TpaRequests requests, Toggle toggle, Toggle friendsToggle,
-               Links links) {
+    TpaService(Services services, Setting<TpaSettings> settings, TpaRequests requests, Links links, InventoryUse inventories) {
         this.services = services;
         this.settings = settings;
         this.requests = requests;
-        this.toggle = toggle;
-        this.friendsToggle = friendsToggle;
         this.links = links;
+        this.inventories = inventories;
     }
 
     TpaRequests requests() {
         return this.requests;
     }
 
+    /** Who is busy in their own inventory, for the pop-up (fed by the feature's inventory listeners). */
+    InventoryUse inventories() {
+        return this.inventories;
+    }
+
     private Messenger messenger() {
         return this.services.messenger();
+    }
+
+    private PlayerSettings playerSettings() {
+        return this.services.settings();
     }
 
     private String name(UUID player) {
@@ -92,12 +106,24 @@ final class TpaService {
     }
 
     /**
-     * Whether {@code target} lets {@code sender} come without a request: they are friends, the target allows it and
-     * isn't in combat.
+     * Whether {@code target} lets {@code sender} come without a request: their "Auto-accept /tpa from" (the shared
+     * {@code friends-tpa}) takes the sender, the target doesn't ignore them and isn't in combat. Only a /tpa can skip.
+     * Favourites are known to the friends feature only, so it answers for that choice.
      */
     private boolean skipsRequest(Kind kind, UUID target, UUID sender) {
-        return this.friendsToggle != null && TpaGate.friendSkips(kind, this.links.friends().friends(target, sender),
-            this.services.settings().enabled(target, this.friendsToggle), this.links.combat().tagged(target));
+        Relations relations = this.services.relations();
+        if (kind != Kind.TO_TARGET || !relations.friendsAvailable()) {
+            return false;
+        }
+        AutoAccept mode = playerSettings().get(target, SharedSettings.FRIENDS_TPA);
+        if (mode == AutoAccept.NOBODY) {
+            return false;
+        }
+        boolean friends = relations.areFriends(target, sender);
+        boolean favourite = mode == AutoAccept.FAVOURITES && friends && relations.friends().autoAcceptTeleport(target, sender);
+        boolean accepted = TpaGate.autoAccepts(mode, friends, favourite, relations.sameTeam(target, sender),
+            this.links.ignores().ignores(target, sender));
+        return TpaGate.skips(kind, accepted, this.links.combat().tagged(target));
     }
 
     /** True (after telling the player) when combat keeps them from sending or accepting a request. */
@@ -122,9 +148,14 @@ final class TpaService {
         UUID senderId = sender.getUniqueId();
         UUID targetId = target.getUniqueId();
         boolean self = sender.equals(target);
+        Relations relations = this.services.relations();
+        boolean friends = !self && relations.areFriends(targetId, senderId);
+        boolean sameTeam = !self && relations.sameTeam(targetId, senderId);
+        boolean acceptsRequests = TpaGate.accepts(playerSettings().get(targetId, TpaFeature.REQUESTS), friends, sameTeam);
+        boolean acceptsPulls = kind != Kind.TO_SENDER
+            || TpaGate.accepts(playerSettings().get(targetId, TpaFeature.HERE_REQUESTS), friends, sameTeam);
         TpaGate.Verdict verdict = TpaGate.check(self, !self && target.isOnline() && visible(sender, target),
-            sender.hasPermission(BYPASS), kind, this.links.ignores().ignores(targetId, senderId),
-            this.services.settings().enabled(targetId, this.toggle));
+            sender.hasPermission(BYPASS), kind, this.links.ignores().ignores(targetId, senderId), acceptsRequests, acceptsPulls);
         Arg targetName = Arg.text("name", target.getName());
         switch (verdict) {
             case SELF -> messenger().send(sender, CoreMessages.NOT_YOURSELF);
@@ -135,6 +166,7 @@ final class TpaService {
             }
             case IGNORED -> messenger().send(sender, TpaMessages.BLOCKED, targetName);
             case REQUESTS_OFF -> messenger().send(sender, TpaMessages.TARGET_DISABLED, targetName);
+            case PULLS_OFF -> messenger().send(sender, TpaMessages.TARGET_DISABLED_HERE, targetName);
             case ALLOWED -> send(sender, target, kind);
         }
     }
@@ -164,8 +196,30 @@ final class TpaService {
             ? (afk ? TpaMessages.SENT_AFK : TpaMessages.SENT)
             : (afk ? TpaMessages.SENT_HERE_AFK : TpaMessages.SENT_HERE);
         messenger().send(sender, sent, Arg.text("name", target.getName()), Arg.time("time", s.expireAfter()));
+        String senderName = sender.getName();
         messenger().send(target, kind == Kind.TO_TARGET ? TpaMessages.INCOMING : TpaMessages.INCOMING_HERE,
-            Arg.text("name", sender.getName()), Arg.component("answer", answerLink(target, request, sender.getName())));
+            Arg.text("name", senderName), Arg.component("answer", answerLink(target, request, senderName)));
+        if (playerSettings().get(targetId, TpaFeature.POPUP)) {
+            this.services.scheduler().entity(target, () -> popUp(target, request, senderName), null);
+        }
+    }
+
+    /**
+     * "Requests open a pop-up": opens the accept/deny window for a request that just arrived, unless the target is in
+     * combat, AFK or busy in a window, and only while it still waits. The chat line with its "Click to answer" is there
+     * either way. Target's thread.
+     * <p>
+     * A window the server opened (a chest, a SiftCore menu, an anvil...) is always seen. The player's own inventory
+     * is opened by the client alone, so the server only sees it in use: a click in it within the last seconds
+     * ({@link InventoryUse}). A player who just opened it, or who looks at another dialog, can't be detected.
+     */
+    private void popUp(Player target, Request request, String senderName) {
+        UUID id = target.getUniqueId();
+        boolean window = !InventoryUse.own(target.getOpenInventory().getType()) || this.inventories.inUse(id);
+        if (target.isOnline() && TpaGate.popsUp(true, this.links.combat().tagged(id), this.links.afk().afk(id), window)
+            && waiting(id, request.sender(), request.id())) {
+            this.services.dialogs().show(target, answerView(request, senderName));
+        }
     }
 
     /** A friend the target lets in without asking: no request, the sender's warmup starts at once. Sender's thread. */
@@ -187,16 +241,26 @@ final class TpaService {
             .hoverEvent(HoverEvent.showText(lang.get(TpaMessages.ANSWER_HOVER, Arg.text("name", senderName))));
     }
 
+    /**
+     * The accept/deny window of one request (from chat, the pop-up, or the confirmation of /tpaccept on a /tpahere).
+     * Both buttons finish, so the window closes as soon as one is clicked.
+     */
     private View answerView(Request request, String senderName) {
         Lang lang = this.services.lang();
         List<Component> lines = new ArrayList<>();
-        lines.add(lang.get(request.kind() == Kind.TO_TARGET ? TpaMessages.ANSWER_BODY : TpaMessages.ANSWER_BODY_HERE,
-            Arg.text("name", senderName)));
+        Arg name = Arg.text("name", senderName);
+        lines.add(lang.get(request.kind() == Kind.TO_TARGET ? TpaMessages.ANSWER_BODY : TpaMessages.ANSWER_BODY_HERE, name));
+        if (request.kind() == Kind.TO_SENDER) {
+            lines.add(lang.get(TpaMessages.ANSWER_MOVES_YOU, name));
+        }
         lines.add(lang.get(TpaMessages.ANSWER_EXPIRES, Arg.time("time", this.settings.get().expireAfter())));
-        return this.services.templates().confirm(lang.get(TpaMessages.ANSWER_TITLE), lines, lang.get(TpaMessages.ACCEPT),
+        View confirm = this.services.templates().confirm(lang.get(TpaMessages.ANSWER_TITLE), lines, lang.get(TpaMessages.ACCEPT),
             lang.get(TpaMessages.DENY),
             yes -> accept(yes.player(), request.sender(), request.id()),
             no -> deny(no.player(), request.sender(), request.id()));
+        List<Button> closing = confirm.buttons().stream().map(Button::closes).toList();
+        return new View(confirm.kind(), confirm.title(), confirm.body(), confirm.inputs(), closing, confirm.exit(), confirm.columns(),
+            confirm.escapable());
     }
 
     // ------------------------------------------------------------------ answering
@@ -314,51 +378,68 @@ final class TpaService {
     }
 
     private void answerCommand(Player target, String senderName, boolean accept) {
+        Request chosen;
         if (senderName != null) {
             Optional<Request> request = incomingFrom(target, senderName);
             if (request.isEmpty()) {
                 messenger().send(target, TpaMessages.NO_REQUEST_FROM, Arg.text("name", senderName));
-            } else if (accept) {
-                accept(target, request.get().sender(), request.get().id());
-            } else {
-                deny(target, request.get().sender(), request.get().id());
+                return;
             }
-            return;
-        }
-        List<Request> incoming = this.requests.incoming(target.getUniqueId());
-        if (incoming.isEmpty()) {
-            messenger().send(target, TpaMessages.NO_REQUESTS);
-        } else if (incoming.size() == 1) {
-            Request only = incoming.getFirst();
-            if (accept) {
-                accept(target, only.sender(), only.id());
-            } else {
-                deny(target, only.sender(), only.id());
-            }
+            chosen = request.get();
         } else {
-            openChoice(target, incoming, accept);
+            List<Request> incoming = this.requests.incoming(target.getUniqueId());
+            if (incoming.isEmpty()) {
+                messenger().send(target, TpaMessages.NO_REQUESTS);
+                return;
+            }
+            if (incoming.size() > 1) {
+                openChoice(target, incoming, accept);
+                return;
+            }
+            chosen = incoming.getFirst();
+        }
+        switch (answerOf(target, chosen, accept)) {
+            case DENY -> deny(target, chosen.sender(), chosen.id());
+            case ASK_FIRST -> this.services.dialogs().show(target, answerView(chosen, name(chosen.sender())));
+            case ACCEPT -> accept(target, chosen.sender(), chosen.id());
         }
     }
 
+    /**
+     * What answering {@code request} with /tpaccept or /tpdeny does (typed, named, or picked in the window of several
+     * requests): "Confirm before being pulled" asks once more before accepting a /tpahere that still waits.
+     */
+    private TpaGate.Answer answerOf(Player target, Request request, boolean accept) {
+        return TpaGate.answer(accept, request.kind(), playerSettings().get(target, TpaFeature.CONFIRM_HERE),
+            waiting(target.getUniqueId(), request.sender(), request.id()));
+    }
+
+    /**
+     * The window of /tpaccept or /tpdeny with several requests waiting: one button per sender. Picking a /tpahere to
+     * accept while "Confirm before being pulled" is on opens that request's own window (the second question), like a
+     * typed /tpaccept of it would; every other pick finishes, so its button closes the window at once.
+     */
     private void openChoice(Player target, List<Request> incoming, boolean accept) {
         Lang lang = this.services.lang();
         List<Button> buttons = new ArrayList<>();
         for (Request request : incoming) {
             Component tooltip = lang.get(request.kind() == Kind.TO_TARGET ? TpaMessages.CHOICE_TOOLTIP : TpaMessages.CHOICE_TOOLTIP_HERE);
-            buttons.add(Button.of(Component.text(name(request.sender())), tooltip, s -> {
-                if (accept) {
-                    accept(s.player(), request.sender(), request.id());
-                } else {
-                    deny(s.player(), request.sender(), request.id());
+            Button pick = Button.of(Component.text(name(request.sender())), tooltip, s -> {
+                switch (answerOf(s.player(), request, accept)) {
+                    case DENY -> deny(s.player(), request.sender(), request.id());
+                    case ASK_FIRST -> s.show(answerView(request, name(request.sender())));
+                    case ACCEPT -> accept(s.player(), request.sender(), request.id());
                 }
-            }).width(150));
+            }).width(150);
+            // A pick that opens the next window keeps this one up until it does; a finishing pick closes at once.
+            buttons.add(answerOf(target, request, accept) == TpaGate.Answer.ASK_FIRST ? pick : pick.closes());
         }
         if (!accept) {
             buttons.add(Button.of(lang.get(TpaMessages.DENY_ALL), s -> {
                 for (Request request : this.requests.incoming(s.player().getUniqueId())) {
                     deny(s.player(), request.sender(), request.id());
                 }
-            }).width(150));
+            }).width(150).closes());
         }
         this.services.dialogs().show(target, this.services.templates().list(lang.get(TpaMessages.CHOICE_TITLE),
             lang.lines(accept ? TpaMessages.CHOICE_ACCEPT_BODY : TpaMessages.CHOICE_DENY_BODY), buttons, 2, null));
@@ -411,24 +492,89 @@ final class TpaService {
 
     void forget(UUID player) {
         this.requests.removeAll(player);
+        this.inventories.forget(player);
     }
 
-    /** /tpatoggle: turns incoming requests off (declined automatically) or back on. */
+    /**
+     * /tpatoggle: "Teleport requests from" goes to nobody (requests are declined), or back to everyone from nobody.
+     * Any other choice (friends...) counts as on, so it goes to nobody. Says so when the server decides the setting.
+     */
     void toggle(Player player) {
-        boolean on = !this.services.settings().enabled(player.getUniqueId(), this.toggle);
-        this.services.settings().set(player.getUniqueId(), this.toggle, on);
-        messenger().send(player, on ? TpaMessages.TOGGLED_ON : TpaMessages.TOGGLED_OFF);
+        boolean on = playerSettings().get(player, TpaFeature.REQUESTS) == Audience.NOBODY;
+        SetResult result = playerSettings().set(player, TpaFeature.REQUESTS, on ? Audience.EVERYONE : Audience.NOBODY, Change.feature());
+        report(player, result, TpaFeature.REQUESTS, on ? TpaMessages.TOGGLED_ON : TpaMessages.TOGGLED_OFF);
     }
 
-    /** /tpatoggle friends: lets friends come without a request, or makes them ask again. */
-    void toggleFriends(Player player) {
-        if (this.friendsToggle == null) {
+    /**
+     * /tpatoggle friends [choice]: "Auto-accept /tpa from" goes from nobody to all friends and from anything else back
+     * to nobody; with a choice (nobody, favourites, all, friends-team) it is set to that.
+     */
+    void toggleFriends(Player player, String typed) {
+        if (!this.services.relations().friendsAvailable()) {
             messenger().send(player, TpaMessages.NO_FRIENDS);
             return;
         }
-        boolean on = !this.services.settings().enabled(player.getUniqueId(), this.friendsToggle);
-        this.services.settings().set(player.getUniqueId(), this.friendsToggle, on);
-        messenger().send(player, on ? TpaMessages.FRIENDS_ON : TpaMessages.FRIENDS_OFF);
+        Choice<AutoAccept> setting = SharedSettings.FRIENDS_TPA;
+        AutoAccept next = typed == null
+            ? (playerSettings().get(player, setting) == AutoAccept.NOBODY ? AutoAccept.ALL : AutoAccept.NOBODY)
+            : setting.decodeOrNull(typed);
+        List<String> offered = autoAcceptOptions(player);
+        Arg name = Arg.text("setting", this.services.lang().plain(setting.label()));
+        boolean server = playerSettings().locked(setting) || playerSettings().hidden(setting);
+        switch (TpaGate.typedChoice(server, next != null, !offered.isEmpty())) {
+            case SERVER -> {
+                messenger().send(player, TpaMessages.SETTING_FIXED, name);
+                return;
+            }
+            case NOT_OFFERED -> {
+                messenger().send(player, TpaMessages.SETTING_REFUSED, name);
+                return;
+            }
+            case UNKNOWN -> {
+                messenger().send(player, TpaMessages.FRIENDS_UNKNOWN, Arg.text("values", String.join(", ", offered)));
+                return;
+            }
+            case CHANGE -> {
+            }
+        }
+        SetResult result = playerSettings().set(player, setting, next, Change.feature());
+        switch (next) {
+            case NOBODY -> report(player, result, setting, TpaMessages.FRIENDS_OFF);
+            case ALL -> report(player, result, setting, TpaMessages.FRIENDS_ON);
+            default -> report(player, result, setting, TpaMessages.FRIENDS_SET,
+                Arg.text("value", setting.display(this.services.lang(), next)));
+        }
+    }
+
+    /** The "Auto-accept /tpa from" choices the player may pick now (for suggestions), as typed ids. */
+    List<String> autoAcceptOptions(Player player) {
+        Registry.Entry<?> entry = playerSettings().registry().entry(SharedSettings.FRIENDS_TPA.id());
+        if (entry == null || !playerSettings().visible(entry, player::hasPermission)) {
+            return List.of();
+        }
+        return optionIds(entry, player);
+    }
+
+    private <T> List<String> optionIds(Registry.Entry<T> entry, Player player) {
+        List<String> ids = new ArrayList<>();
+        for (Choice.Option<T> option : playerSettings().options(entry, player::hasPermission)) {
+            ids.add(option.id());
+        }
+        return ids;
+    }
+
+    /**
+     * Tells the player how a /tpatoggle went: the result line, "set by the server" when the server locked or hides the
+     * setting, or that it couldn't be changed (an option not offered now, another plugin said no).
+     */
+    private void report(Player player, SetResult result, PlayerSetting<?> setting, MessageKey done, Arg... args) {
+        if (result.succeeded()) {
+            messenger().send(player, done, args);
+            return;
+        }
+        Arg name = Arg.text("setting", this.services.lang().plain(setting.label()));
+        boolean fixed = result == SetResult.LOCKED || playerSettings().hidden(setting);
+        messenger().send(player, fixed ? TpaMessages.SETTING_FIXED : TpaMessages.SETTING_REFUSED, name);
     }
 
     // ------------------------------------------------------------------ hub form

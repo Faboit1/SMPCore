@@ -29,6 +29,7 @@ public final class TpaMessages {
     public static final MessageKey NO_OUTGOING = MessageKey.error("tpa.no-outgoing");
     public static final MessageKey NO_OUTGOING_TO = MessageKey.error("tpa.no-outgoing-to", "name");
     public static final MessageKey TARGET_DISABLED = MessageKey.error("tpa.target-disabled", "name");
+    public static final MessageKey TARGET_DISABLED_HERE = MessageKey.error("tpa.target-disabled-here", "name");
     public static final MessageKey BLOCKED = MessageKey.error("tpa.blocked", "name");
     public static final MessageKey IN_COMBAT = MessageKey.error("tpa.in-combat", "time");
     public static final MessageKey OTHER_IN_COMBAT = MessageKey.error("tpa.other-in-combat", "name");
@@ -40,12 +41,21 @@ public final class TpaMessages {
     public static final MessageKey TOGGLED_OFF = MessageKey.success("tpa.toggled-off");
     public static final MessageKey FRIENDS_ON = MessageKey.success("tpa.friends-on");
     public static final MessageKey FRIENDS_OFF = MessageKey.success("tpa.friends-off");
+    /** /tpatoggle friends &lt;choice&gt; picked something other than nobody or all friends. */
+    public static final MessageKey FRIENDS_SET = MessageKey.success("tpa.friends-set", "value");
+    public static final MessageKey FRIENDS_UNKNOWN = MessageKey.error("tpa.friends-unknown", "values");
     public static final MessageKey NO_FRIENDS = MessageKey.error("tpa.no-friends");
+    /** A /tpatoggle the server fixed (locked or hidden in features/settings.yml). */
+    public static final MessageKey SETTING_FIXED = MessageKey.error("tpa.setting-fixed", "setting");
+    /** A /tpatoggle that was refused otherwise (an option that isn't offered now, another plugin). */
+    public static final MessageKey SETTING_REFUSED = MessageKey.error("tpa.setting-refused", "setting");
 
     public static final MessageKey ANSWER_TITLE = MessageKey.ui("tpa.dialog.title");
     public static final MessageKey ANSWER_BODY = MessageKey.ui("tpa.dialog.body", "name");
     public static final MessageKey ANSWER_BODY_HERE = MessageKey.ui("tpa.dialog.body-here", "name");
     public static final MessageKey ANSWER_EXPIRES = MessageKey.ui("tpa.dialog.expires", "time");
+    /** The extra line of a /tpahere's window: accepting moves the player who answers. */
+    public static final MessageKey ANSWER_MOVES_YOU = MessageKey.ui("tpa.dialog.moves-you", "name");
     public static final MessageKey ACCEPT = MessageKey.ui("tpa.dialog.accept");
     public static final MessageKey DENY = MessageKey.ui("tpa.dialog.deny");
     public static final MessageKey CHOICE_TITLE = MessageKey.ui("tpa.dialog.choice-title");
@@ -66,8 +76,12 @@ public final class TpaMessages {
 
     public static final MessageKey SETTING_LABEL = MessageKey.ui("tpa.settings.requests");
     public static final MessageKey SETTING_DESCRIPTION = MessageKey.ui("tpa.settings.requests-description");
-    public static final MessageKey SETTING_FRIENDS_LABEL = MessageKey.ui("tpa.settings.friends");
-    public static final MessageKey SETTING_FRIENDS_DESCRIPTION = MessageKey.ui("tpa.settings.friends-description");
+    public static final MessageKey SETTING_HERE = MessageKey.ui("tpa.settings.here");
+    public static final MessageKey SETTING_HERE_DESCRIPTION = MessageKey.ui("tpa.settings.here-description");
+    public static final MessageKey SETTING_POPUP = MessageKey.ui("tpa.settings.popup");
+    public static final MessageKey SETTING_POPUP_DESCRIPTION = MessageKey.ui("tpa.settings.popup-description");
+    public static final MessageKey SETTING_CONFIRM_HERE = MessageKey.ui("tpa.settings.confirm-here");
+    public static final MessageKey SETTING_CONFIRM_HERE_DESCRIPTION = MessageKey.ui("tpa.settings.confirm-here-description");
 
     public static final MessageKey HUB_LABEL = MessageKey.ui("tpa.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("tpa.hub.description");

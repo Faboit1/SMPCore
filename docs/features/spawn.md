@@ -14,7 +14,7 @@ returns `WorldBorders`, which random teleport uses to keep its rings inside the 
 
 | Command | Who | What it does |
 |---|---|---|
-| `/spawn` | everyone | Teleports to spawn after the warmup (also the main menu entry `spawn`, order 65) |
+| `/spawn` | everyone | Teleports to spawn after the warmup (also the main menu entry `spawn`, order 65). The countdown and "Teleported." show where the player's "Teleport countdown" setting (`teleport-display`, Settings > Teleports & homes) says |
 | `/spawn <player>` | `siftcore.admin.spawn`, console | Sends a player to spawn at once (audit log `spawn.send`) |
 | `/setspawn` | `siftcore.admin.setspawn` | Sets the spawn where the player stands |
 | `/setspawn <world> <x> <y> <z> [yaw pitch]` | `siftcore.admin.setspawn`, console | Sets it to exact coordinates (audit log `spawn.set`) |

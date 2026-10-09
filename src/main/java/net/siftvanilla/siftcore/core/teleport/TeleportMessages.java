@@ -14,6 +14,10 @@ public final class TeleportMessages {
     public static final MessageKey DONE = MessageKey.success("teleport.done");
     public static final MessageKey FAILED = MessageKey.error("teleport.failed");
 
+    /** The teleport-display setting (Settings > Teleports &amp; homes). */
+    public static final MessageKey SETTING_DISPLAY = MessageKey.ui("teleport.settings.display");
+    public static final MessageKey SETTING_DISPLAY_DESCRIPTION = MessageKey.ui("teleport.settings.display-description");
+
     private TeleportMessages() {
     }
 }

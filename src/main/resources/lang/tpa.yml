@@ -25,6 +25,8 @@ tpa:
   no-outgoing: "<primary>You have no requests waiting."
   no-outgoing-to: "<primary>You have no request waiting for <name>."
   target-disabled: "<primary><name> isn't taking teleport requests."
+  # A /tpahere the target doesn't take from the sender (their "Pull requests from" setting).
+  target-disabled-here: "<primary><name> isn't taking requests to come to you. <secondary>Ask with /tpa instead."
   blocked: "<primary>You can't send <name> a teleport request."
   in-combat: "<primary>You can't use teleport requests in combat. <time> left."
   other-in-combat: "<primary><name> is in combat. <secondary>Their request waits; accept it once the fight is over."
@@ -36,12 +38,19 @@ tpa:
   toggled-off: "<primary>Teleport requests to you are now declined."
   friends-on: "<primary>Friends can now teleport to you without asking."
   friends-off: "<primary>Friends have to ask before teleporting to you again."
+  # /tpatoggle friends <choice>: <value> is the choice's name, like "Favourite friends".
+  friends-set: "<primary>Accepting /tpa without asking from: <value>."
+  friends-unknown: "<primary>Use one of these: <values>."
   no-friends: "<primary>There is no friends list on this server."
+  # /tpatoggle when the server decides the setting. <setting> is the setting's name.
+  setting-fixed: "<primary><setting> is set by the server."
+  setting-refused: "<primary><setting> couldn't be changed."
   dialog:
     title: "Teleport request"
     body: "<primary><name> wants to teleport to you."
     body-here: "<primary><name> wants you to teleport to them."
     expires: "<secondary>Requests expire after <time>."
+    moves-you: "<secondary>Accepting teleports you to <name>."
     accept: "Accept"
     deny: "Deny"
     choice-title: "Teleport requests"
@@ -59,11 +68,17 @@ tpa:
     to-them: "I go to them"
     here: "They come to me"
     submit: "Send request"
+  # The settings in Settings, Teleports & homes: a label, then one line that says what it does ("Everyone", "Friends"
+  # and the other option names are the shared names in settings.yml).
   settings:
-    requests: "Teleport requests"
-    requests-description: "Let players ask to teleport to me"
-    friends: "Friends skip requests"
-    friends-description: "Friends can teleport to me without asking"
+    requests: "Teleport requests from"
+    requests-description: "Who can send you /tpa and /tpahere requests. Staff with the bypass always can."
+    here: "Pull requests from"
+    here-description: "Who can ask you to come to them with /tpahere. Applies on top of Teleport requests from."
+    popup: "Requests open a pop-up"
+    popup-description: "Open the accept/deny window when a teleport request arrives. Never in combat, while AFK or over another window."
+    confirm-here: "Confirm before being pulled"
+    confirm-here-description: "When /tpaccept would move you to someone (a /tpahere), ask once more."
   hub:
     label: "Teleport to a player"
     description: "Ask a player to teleport"

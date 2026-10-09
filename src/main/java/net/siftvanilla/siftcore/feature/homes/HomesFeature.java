@@ -22,7 +22,13 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
+import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.player.Limits;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
@@ -49,6 +55,15 @@ public final class HomesFeature implements Feature, Listener {
     public static final String DELHOME = "siftcore.command.delhome";
     public static final String HOMES = "siftcore.command.homes";
     public static final String ADMIN = "siftcore.admin.homes";
+    /** "Confirm moving a home": /sethome (and the form) ask before moving a home that already exists. */
+    public static final Toggle CONFIRM_OVERWRITE = new Toggle("homes-confirm-overwrite", true, HomesMessages.SETTING_CONFIRM_OVERWRITE,
+        HomesMessages.SETTING_CONFIRM_OVERWRITE_DESCRIPTION, null);
+    /** "/home with no name": the only home or the list, the home named 'home', or always the list. */
+    public static final Choice<BareHome> BARE_COMMAND = Choice.ofEnum("homes-bare-command", BareHome.class, BareHome::id, BareHome.SMART)
+        .option(BareHome.SMART, HomesMessages.SETTING_BARE_SMART)
+        .option(BareHome.DEFAULT_HOME, HomesMessages.SETTING_BARE_DEFAULT)
+        .option(BareHome.LIST, HomesMessages.SETTING_BARE_LIST)
+        .text(HomesMessages.SETTING_BARE, HomesMessages.SETTING_BARE_DESCRIPTION).build();
     private static final Duration SWEEP = Duration.ofMinutes(5);
     private static final long LOGIN_LOAD_SECONDS = 10;
 
@@ -69,6 +84,7 @@ public final class HomesFeature implements Feature, Listener {
         this.settings = services.configs().register("features/homes.yml",
             reader -> HomesSettings.parse(reader, name -> Bukkit.getWorld(name) != null), problems);
         services.lang().register(HomesMessages.class);
+        registerSettings(services.settings());
         var perms = services.permissions();
         perms.declare(SETHOME, "Use /sethome", true);
         perms.declare(HOME, "Use /home", true);
@@ -77,6 +93,16 @@ public final class HomesFeature implements Feature, Listener {
         perms.declare(ADMIN, "See, use and delete other players' homes with /homes <player>", false);
         this.store = new HomeStore(services.database());
         this.service = new HomesService(services, this.settings, this.store, spawn, combat);
+    }
+
+    /**
+     * Registers the homes settings in Settings &gt; Teleports &amp; homes, in the catalog's order (3rd and 5th), and
+     * declares that the homes list, the delete and move windows read the shared hide-coordinates (streamer mode).
+     */
+    public static void registerSettings(PlayerSettings settings) {
+        settings.register(SettingCategories.TELEPORT, CONFIRM_OVERWRITE, SettingOptions.<Boolean>builder().order(3).build());
+        settings.register(SettingCategories.TELEPORT, BARE_COMMAND, SettingOptions.<BareHome>builder().order(5).build());
+        settings.reads(SharedSettings.HIDE_COORDINATES);
     }
 
     /** Whether homes are turned off in a world ({@code disabled-worlds}, follows reloads). Any thread. */
