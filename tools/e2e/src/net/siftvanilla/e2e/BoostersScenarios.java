@@ -551,9 +551,10 @@ final class BoostersScenarios {
             e2e.sleep(700);
             seller.command("sell hand");
             e2e.eventually(() -> row(e2e, id).equals("ACTIVE/20/12/0/100/800"), "the order took all 12: " + row(e2e, id));
-            e2e.eventually(() -> e2e.money(sellerName) == 12 * 100 - 24, "the seller got $1,176 after tax (" + money(e2e.money(sellerName)) + ")");
+            e2e.eventually(() -> e2e.money(sellerName) == 12 * 100, "the seller got $1,200, the order's price (no tax) ("
+                + money(e2e.money(sellerName)) + ")");
             e2e.sleep(500);
-            e2e.expect(e2e.money(sellerName) == 12 * 100 - 24, "nothing on top of the order's price: " + money(e2e.money(sellerName)));
+            e2e.expect(e2e.money(sellerName) == 12 * 100, "nothing on top of the order's price: " + money(e2e.money(sellerName)));
             e2e.eventually(() -> seller.chatContains("You sold"), "a receipt: " + seller.chat());
             e2e.expect(!seller.chatContains("booster"), "an order sale names no booster: " + seller.chat());
 
@@ -567,8 +568,8 @@ final class BoostersScenarios {
             e2e.sleep(700);
             seller.command("sell hand");
             e2e.eventually(() -> row(e2e, id).equals("FILLED/20/20/0/100/0"), "the last 8 filled the order: " + row(e2e, id));
-            e2e.eventually(() -> e2e.money(sellerName) - paid == 8 * 100 - 16 + serverFor24,
-                "8 to the order ($784) and 24 to the server (" + money(serverFor24) + "): got " + money(e2e.money(sellerName) - paid));
+            e2e.eventually(() -> e2e.money(sellerName) - paid == 8 * 100 + serverFor24,
+                "8 to the order ($800) and 24 to the server (" + money(serverFor24) + "): got " + money(e2e.money(sellerName) - paid));
             e2e.eventually(() -> seller.chatContains("incl. +25% booster"), "the receipt names the booster for the server's part: " + seller.chat());
         } finally {
             if (order > 0 && row(e2e, order).startsWith("ACTIVE/")) {

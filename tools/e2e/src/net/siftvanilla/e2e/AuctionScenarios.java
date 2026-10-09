@@ -679,7 +679,7 @@ final class AuctionScenarios {
         e2e.sleep(1_000);
         e2e.expect(e2e.money(buyerName) == 900, "paid exactly once: " + e2e.money(buyerName));
         e2e.expect(count(e2e, buyerName, Material.DIAMOND) == 1, "received exactly one diamond");
-        e2e.expect(e2e.money(sellerName) == 95, "the seller was paid once: " + e2e.money(sellerName));
+        e2e.expect(e2e.money(sellerName) == 100, "the seller was paid once, in full (no tax): " + e2e.money(sellerName));
     }
 
     static void buyRace(E2E e2e) throws Exception {
@@ -714,7 +714,7 @@ final class AuctionScenarios {
             "exactly one ingot exists");
         e2e.expect(e2e.money(winnerName) == 900 && e2e.money(loserName) == 1_000, "only the winner paid: "
             + e2e.money(winnerName) + " / " + e2e.money(loserName));
-        e2e.expect(e2e.money(sellerName) == 95, "the seller was paid once: " + e2e.money(sellerName));
+        e2e.expect(e2e.money(sellerName) == 100, "the seller was paid once, in full (no tax): " + e2e.money(sellerName));
         e2e.eventually(() -> loser.actionBarContains("That listing is gone."), "the other buyer is told: " + loser.actionBar());
         e2e.expect("SOLD".equals(state(e2e, id)), "the row is SOLD once");
         ledgerHealthy(e2e);
@@ -1045,7 +1045,8 @@ final class AuctionScenarios {
         int slot = slotWith(e2e, buyer, "Seller " + sellerName);
         buyer.clickSlot(slot);
         Bot.SeenDialog confirm = e2e.dialog(buyer, "Buy item");
-        e2e.expect(confirm.bodyText().contains("Buy 2 Persist marker for $777?"), "the persisted item and price: " + confirm.body());
+        e2e.expect(confirm.bodyText().contains("Buy 2 Persist marker from " + sellerName + " for $777?"), "the persisted item, seller and price: "
+            + confirm.body());
         e2e.click(buyer, "Buy");
         e2e.eventually(() -> count(e2e, buyerName, Material.GOLDEN_APPLE) == 2, "the golden apples arrived");
         e2e.expect("SOLD".equals(state(e2e, id)), "sold");
