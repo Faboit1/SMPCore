@@ -99,7 +99,7 @@ shared-settings:
     description: "Play a click when you use buttons in menus."
   sound-success:
     label: "Success chimes"
-    description: "Chime when something works, like a sale, purchase or saved setting."
+    description: "Chime when something works, like a sale or a purchase."
   sound-errors:
     label: "Error sounds"
     description: "Play a low note when something can't be done. Errors stay readable without it."
@@ -108,7 +108,7 @@ shared-settings:
     description: "Play a sound when a teammate writes in team chat."
   quiet-in-combat:
     label: "Quiet during combat"
-    description: "While you are in combat: no notification pings, chimes or pop-ups from other features. Chat lines and error sounds stay."
+    description: "While you are in combat: no notification pings, chimes or pop-ups. Chat lines and error sounds stay."
   feedback-channel:
     label: "Quick results and errors"
     description: "Where short results and errors appear: above the hotbar, in chat, or both. Repeating status lines (combat timer, AFK) stay above the hotbar."

@@ -227,6 +227,9 @@ every word, then the rest, each in dialog order. They show as the same buttons (
 clicks change settings in place, and Back returns to the form with the query kept. No match shows "No setting matches
 zzz." with Back to the form.
 
+**Bedrock players** (Floodgate) get the same buttons as a form; forms have no tooltips, so they see the labels and
+values only, and a number's slider form.
+
 ## /settings
 
 | Command | Does |
