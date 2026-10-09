@@ -11,13 +11,16 @@ public final class KitsMessages {
     // ------------------------------------------------------------------ the kits dialog
 
     public static final MessageKey LIST_TITLE = MessageKey.ui("kits.list.title");
-    public static final MessageKey LIST_LINE = MessageKey.ui("kits.list.line", "name", "status");
     public static final MessageKey LIST_EMPTY = MessageKey.ui("kits.list.empty");
     public static final MessageKey LIST_WAITING = MessageKey.ui("kits.list.waiting");
     public static final MessageKey LIST_CLAIM_ONE = MessageKey.ui("kits.list.claim-one", "name");
     public static final MessageKey LIST_CLAIM_READY = MessageKey.ui("kits.list.claim-ready", "count");
+    public static final MessageKey LIST_CLAIM_TOOLTIP = MessageKey.ui("kits.list.claim-tooltip");
+    /** The last line of a kit button's tooltip. */
+    public static final MessageKey LIST_OPEN_TOOLTIP = MessageKey.ui("kits.list.open-tooltip");
     public static final MessageKey LIST_COLLECT = MessageKey.ui("kits.list.collect");
     public static final MessageKey LIST_PERKS = MessageKey.ui("kits.list.perks");
+    public static final MessageKey LIST_PERKS_TOOLTIP = MessageKey.ui("kits.list.perks-tooltip");
 
     public static final MessageKey STATUS_READY = MessageKey.ui("kits.status.ready");
     public static final MessageKey STATUS_WAITING = MessageKey.ui("kits.status.waiting", "time");
@@ -36,6 +39,8 @@ public final class KitsMessages {
     public static final MessageKey KIT_ITEM_MANY = MessageKey.ui("kits.kit.item-many", "name", "amount");
     public static final MessageKey KIT_KEYS = MessageKey.ui("kits.kit.keys", "keys");
     public static final MessageKey KIT_CLAIM = MessageKey.ui("kits.kit.claim");
+    /** The Claim button while the kit isn't ready (clicking it says why). */
+    public static final MessageKey KIT_CLAIM_LATER = MessageKey.ui("kits.kit.claim-later");
 
     public static final MessageKey KEYS_ONE = MessageKey.ui("kits.keys.one", "crate");
     public static final MessageKey KEYS_MANY = MessageKey.ui("kits.keys.many", "count", "crate");
@@ -116,7 +121,6 @@ public final class KitsMessages {
     // ------------------------------------------------------------------ perks
 
     public static final MessageKey PERKS_TITLE = MessageKey.ui("kits.perks.title");
-    public static final MessageKey PERKS_BODY = MessageKey.ui("kits.perks.body");
     public static final MessageKey PERK_COMMAND = MessageKey.ui("kits.perks.command", "command");
     public static final MessageKey PERK_EC = MessageKey.ui("kits.perks.names.ec");
     public static final MessageKey PERK_CRAFT = MessageKey.ui("kits.perks.names.craft");

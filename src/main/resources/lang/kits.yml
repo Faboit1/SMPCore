@@ -10,41 +10,46 @@ kits:
     label: "Kits"
     description: "Starter, daily and rank kits, and your perks"
 
+  # The kits dialog: a button per kit reading "Daily: ready" (what the kit is in its tooltip), then Claim, Collect and
+  # Perks when they apply.
   list:
     title: "Kits"
-    # One line per kit in the kits dialog: "Daily: in 3h 20m".
-    line: "<primary><name><secondary>: <status>"
     empty: "<secondary>There are no kits for you yet."
-    # Shown when kit items that didn't fit are still waiting.
-    waiting: "<secondary><icon:info> Some kit items are waiting for room in your inventory."
+    open-tooltip: "<primary>Click to see what it gives."
     # The claim button when one kit is ready, and when several are.
-    claim-one: "Claim <name>"
-    claim-ready: "Claim <count> ready kits"
+    claim-one: "<on>Claim <name>"
+    claim-ready: "<on>Claim <count> ready kits"
+    claim-tooltip: "<primary>Claim every kit that is ready now."
     collect: "Collect waiting items"
+    # The Collect button's tooltip.
+    waiting: "<primary>Some kit items are waiting for room in your inventory."
     perks: "Perks"
+    perks-tooltip: "<primary>Ender chest, crafting table and more, anywhere."
 
   # A kit's status, used in the kits dialog, /kits check and the kit_<id> placeholder.
   status:
-    ready: "<primary>ready"
-    waiting: "<secondary>in <primary><time>"
-    claimed: "<secondary>claimed"
-    locked: "<secondary>locked"
+    ready: "<on>ready"
+    waiting: "<secondary>in <accent><time>"
+    claimed: "<off>claimed"
+    locked: "<off>locked"
 
   kit:
     title: "<name> kit"
-    description: "<secondary><description>"
+    description: "<primary><description>"
     once: "<secondary>One claim per player"
-    every: "<secondary>Claim it every <primary><time>"
-    ready: "<primary>Ready to claim"
-    waiting: "<secondary><icon:playtime> Ready again in <primary><time>"
+    every: "<secondary>Claim it every <accent><time>"
+    # The one status line above what the kit gives.
+    ready: "<on>Ready to claim"
+    waiting: "<secondary><icon:playtime> Ready again in <accent><time>"
     claimed: "<secondary>You already claimed this kit."
     locked: "<secondary>You haven't unlocked this kit."
     # Next to each item of the kit.
     item: "<primary><name>"
-    item-many: "<primary><name> <secondary>x<amount>"
+    item-many: "<primary><name> <secondary>x<accent><amount>"
     keys: "<secondary><icon:key> Also gives <primary><keys>"
-    claim: "Claim"
-
+    claim: "<on>Claim"
+    # The Claim button while the kit isn't ready yet: clicking it says why.
+    claim-later: "Claim"
   # Crate keys a kit gives: "1 Basic key", "2 Rare keys".
   keys:
     one: "1 <crate> key"
@@ -94,7 +99,7 @@ kits:
     auto-equip: "Auto-equip kit armour"
     auto-equip-description: "Put armour from claimed kits straight into empty armour slots. Worn armour is never replaced."
     trash-protect: "Trash protection"
-    trash-protect-description: "Give back valuable items put in /trash instead of deleting them: gear (enchanted, named, shulker boxes, spawners, trial keys), also anything worth more than the server's threshold, or nothing."
+    trash-protect-description: "Give back valuable items you put in /trash instead of deleting them: gear (enchanted, named, shulker boxes, spawners, trial keys), gear and other valuable items, or nothing."
     trash-mode: "Trash bin mode"
     trash-mode-description: "Delete items when the bin closes, or only when you click Delete (closing gives them back)."
     options:
@@ -126,9 +131,8 @@ kits:
 
   perks:
     title: "Perks"
-    body: "<secondary>Your perks work anywhere, and each has its own command."
-    # Below each perk's button.
-    command: "<secondary>/<command>"
+    # A perk button's tooltip.
+    command: "<secondary>Works anywhere, also with <accent>/<command>"
     names:
       ec: "Ender chest"
       craft: "Crafting table"

@@ -12,6 +12,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.api.event.TeleportRequestEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
@@ -247,18 +248,18 @@ final class TpaService {
      */
     private View answerView(Request request, String senderName) {
         Lang lang = this.services.lang();
-        List<Component> lines = new ArrayList<>();
         Arg name = Arg.text("name", senderName);
-        lines.add(lang.get(request.kind() == Kind.TO_TARGET ? TpaMessages.ANSWER_BODY : TpaMessages.ANSWER_BODY_HERE, name));
-        if (request.kind() == Kind.TO_SENDER) {
-            lines.add(lang.get(TpaMessages.ANSWER_MOVES_YOU, name));
-        }
-        lines.add(lang.get(TpaMessages.ANSWER_EXPIRES, Arg.time("time", this.settings.get().expireAfter())));
+        boolean toYou = request.kind() == Kind.TO_TARGET;
+        // One line: who and which way. What each answer does, and when the request expires, are on the buttons.
+        List<Component> lines = List.of(lang.get(toYou ? TpaMessages.ANSWER_BODY : TpaMessages.ANSWER_BODY_HERE, name));
         View confirm = this.services.templates().confirm(lang.get(TpaMessages.ANSWER_TITLE), lines, lang.get(TpaMessages.ACCEPT),
             lang.get(TpaMessages.DENY),
             yes -> accept(yes.player(), request.sender(), request.id()),
             no -> deny(no.player(), request.sender(), request.id()));
-        List<Button> closing = confirm.buttons().stream().map(Button::closes).toList();
+        Component acceptTooltip = Templates.lines(List.of(lang.get(toYou ? TpaMessages.ACCEPT_TOOLTIP : TpaMessages.ACCEPT_TOOLTIP_HERE, name),
+            lang.get(TpaMessages.ANSWER_EXPIRES, Arg.text("time", Durations.format(this.settings.get().expireAfter())))));
+        List<Button> closing = List.of(confirm.buttons().get(0).tooltip(acceptTooltip).closes(),
+            confirm.buttons().get(1).tooltip(lang.get(TpaMessages.DENY_TOOLTIP, name)).closes());
         return new View(confirm.kind(), confirm.title(), confirm.body(), confirm.inputs(), closing, confirm.exit(), confirm.columns(),
             confirm.escapable());
     }
@@ -430,19 +431,20 @@ final class TpaService {
                     case ASK_FIRST -> s.show(answerView(request, name(request.sender())));
                     case ACCEPT -> accept(s.player(), request.sender(), request.id());
                 }
-            }).width(150);
+            });
             // A pick that opens the next window keeps this one up until it does; a finishing pick closes at once.
             buttons.add(answerOf(target, request, accept) == TpaGate.Answer.ASK_FIRST ? pick : pick.closes());
         }
         if (!accept) {
-            buttons.add(Button.of(lang.get(TpaMessages.DENY_ALL), s -> {
+            buttons.add(Button.of(lang.get(TpaMessages.DENY_ALL), lang.get(TpaMessages.DENY_ALL_TOOLTIP), s -> {
                 for (Request request : this.requests.incoming(s.player().getUniqueId())) {
                     deny(s.player(), request.sender(), request.id());
                 }
-            }).width(150).closes());
+            }).closes());
         }
-        this.services.dialogs().show(target, this.services.templates().list(lang.get(TpaMessages.CHOICE_TITLE),
-            lang.lines(accept ? TpaMessages.CHOICE_ACCEPT_BODY : TpaMessages.CHOICE_DENY_BODY), buttons, 2, null));
+        // Nothing above the names: the title says whether a pick accepts or denies.
+        this.services.dialogs().show(target, this.services.templates().grid(
+            lang.get(accept ? TpaMessages.CHOICE_TITLE_ACCEPT : TpaMessages.CHOICE_TITLE_DENY), buttons, null));
     }
 
     /** /tpacancel [player]: cancels the named outgoing request, or all of them. Sender's thread. */
@@ -584,12 +586,13 @@ final class TpaService {
         Lang lang = this.services.lang();
         List<Input.Option> options = List.of(new Input.Option("to", lang.get(TpaMessages.FORM_TO_THEM)),
             new Input.Option("here", lang.get(TpaMessages.FORM_HERE)));
-        List<Component> lines = new ArrayList<>(lang.lines(TpaMessages.FORM_BODY));
+        // Only a short status above the inputs: requests waiting for this player.
+        List<Component> lines = new ArrayList<>(1);
         int waiting = pending(player.getUniqueId());
         if (waiting > 0) {
-            lines.add(lang.get(TpaMessages.FORM_WAITING, Arg.number("count", waiting)));
+            lines.add(lang.get(TpaMessages.FORM_WAITING, Arg.text("count", Lang.number(waiting))));
         }
-        this.services.dialogs().show(player, this.services.templates().form(lang.get(TpaMessages.FORM_TITLE), lines,
+        View form = this.services.templates().form(lang.get(TpaMessages.FORM_TITLE), lines,
             List.of(Templates.text("player", lang.get(TpaMessages.FORM_PLAYER), "", 16),
                 Templates.choice("direction", lang.get(TpaMessages.FORM_DIRECTION), options, "to")),
             lang.get(TpaMessages.FORM_SUBMIT),
@@ -607,6 +610,9 @@ final class TpaService {
                 submission.close();
                 request(submission.player(), target, "here".equals(submission.values().choice("direction")) ? Kind.TO_SENDER : Kind.TO_TARGET);
             },
-            back));
+            back);
+        List<Button> buttons = List.of(form.buttons().get(0).tooltip(lang.get(TpaMessages.FORM_SUBMIT_TOOLTIP)), form.buttons().get(1));
+        this.services.dialogs().show(player, new View(form.kind(), form.title(), form.body(), form.inputs(), buttons, form.exit(),
+            form.columns(), form.escapable()));
     }
 }

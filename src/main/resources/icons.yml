@@ -138,3 +138,25 @@ icons:
   staff:
     atlas: minecraft:items
     sprite: item/comparator
+  # The buttons of the main menu and the pause-screen menu (features/hub.yml buttons; most icons above are used too).
+  settings:
+    atlas: minecraft:items
+    sprite: item/comparator
+  kit:
+    atlas: minecraft:items
+    sprite: item/iron_chestplate
+  bundle:
+    atlas: minecraft:items
+    sprite: item/bundle
+  paper:
+    atlas: minecraft:items
+    sprite: item/paper
+  book:
+    atlas: minecraft:items
+    sprite: item/book
+  compass:
+    atlas: minecraft:items
+    sprite: item/compass_00
+  map:
+    atlas: minecraft:items
+    sprite: item/map

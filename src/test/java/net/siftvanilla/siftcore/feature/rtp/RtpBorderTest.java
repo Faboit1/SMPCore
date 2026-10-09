@@ -96,14 +96,36 @@ class RtpBorderTest {
         RtpSettings.Region nether = settings.regions().get("nether");
         assertEquals(200, nether.minRadius());
         assertEquals(2_300, nether.maxRadius());
-        assertEquals(2_500, nether.cost());
+        assertEquals(0, nether.cost(), "every shipped place is free");
         RtpSettings.Region end = settings.regions().get("end");
         assertEquals(1_000, end.minRadius());
         assertEquals(2_800, end.maxRadius());
-        assertEquals(5_000, end.cost());
+        assertEquals(0, end.cost());
+        assertEquals(net.kyori.adventure.text.format.TextColor.color(0xFF8A65), nether.color(), "each place has its button colour");
+        assertNotNull(overworld.color());
+        assertNotNull(end.color());
+        assertTrue(!RtpFeature.anyPaidRegion(settings.regions().values()), "so the price confirmation isn't offered");
         assertEquals("world_the_end", end.world());
         assertEquals(nether, settings.find("world_nether").orElseThrow(), "regions can be named by their world");
         assertEquals(end, settings.find("END").orElseThrow());
+    }
+
+    @Test
+    void aCostAndAColourCanStillBeSet() throws Exception {
+        YamlConfiguration yaml = yaml("features/rtp.yml");
+        yaml.set("regions.end.cost", "5k");
+        yaml.set("colors.end", "#123456");
+        yaml.set("colors.nether", "not a colour");
+        yaml.set("colors.gone", "#FFFFFF");
+        List<ConfigProblem> problems = new java.util.ArrayList<>();
+        RtpSettings settings = parse(yaml, LIVE, problems);
+        assertEquals(1, problems.size(), problems.toString());
+        assertTrue(problems.getFirst().toString().contains("'colors.nether'"), problems.toString());
+        assertEquals(5_000, settings.regions().get("end").cost());
+        assertEquals(net.kyori.adventure.text.format.TextColor.color(0x123456), settings.regions().get("end").color());
+        assertNull(settings.regions().get("nether").color(), "a bad colour leaves the button white");
+        assertEquals(3, settings.regions().size(), "a colour for a place that doesn't exist adds nothing");
+        assertTrue(RtpFeature.anyPaidRegion(settings.regions().values()), "the price confirmation is offered again");
     }
 
     @Test

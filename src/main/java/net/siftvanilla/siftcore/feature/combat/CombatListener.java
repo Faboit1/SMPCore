@@ -18,6 +18,7 @@ import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import org.bukkit.Bukkit;
@@ -324,8 +325,8 @@ final class CombatListener implements Listener {
         if (line == CombatMessages.DEATH_LOCATION_HIDDEN) {
             this.messenger.chat(victim, line, world);
         } else {
-            this.messenger.chat(victim, line, world, Arg.number("x", at.getBlockX()), Arg.number("y", at.getBlockY()),
-                Arg.number("z", at.getBlockZ()));
+            this.messenger.chat(victim, line, world, Arg.text("x", Lang.number(at.getBlockX())), Arg.text("y", Lang.number(at.getBlockY())),
+                Arg.text("z", Lang.number(at.getBlockZ())));
         }
     }
 
@@ -356,7 +357,7 @@ final class CombatListener implements Listener {
         }
         Arg name = Arg.component("name", this.deathMessages.name(victim.getUniqueId(), victim.getName()));
         switch (notice) {
-            case COUNTED -> this.messenger.alert(killer, style, false, key, name, Arg.number("streak", streak));
+            case COUNTED -> this.messenger.alert(killer, style, false, key, name, Arg.text("streak", Lang.number(streak)));
             case NOT_COUNTED -> this.messenger.alert(killer, style, false, key, name,
                 Arg.text("reason", this.messenger.lang().plain(CombatMessages.reason(decision.reason()))));
             case NOT_COUNTED_PLAIN -> this.messenger.alert(killer, style, false, key, name);
@@ -375,7 +376,7 @@ final class CombatListener implements Listener {
             if (killer.isDead() || !killer.isValid()) {
                 return;
             }
-            Arg hearts = Arg.decimal("hearts", hearts(killer.getHealth(), killer.getAbsorptionAmount()));
+            Arg hearts = Arg.text("hearts", heartsText(hearts(killer.getHealth(), killer.getAbsorptionAmount())));
             if (weapon == null) {
                 this.messenger.chat(victim, CombatMessages.DEATH_RECAP, Arg.component("killer", killerName), hearts);
             } else {
@@ -388,6 +389,12 @@ final class CombatListener implements Listener {
     /** Health plus absorption in hearts (two health points each), to one decimal. */
     static double hearts(double health, double absorption) {
         return Math.round((Math.max(0, health) + Math.max(0, absorption)) * 5) / 10.0;
+    }
+
+    /** Hearts as the recap writes them: "6.5", or "10" without a needless ".0". */
+    static String heartsText(double hearts) {
+        long whole = Math.round(hearts * 10);
+        return whole % 10 == 0 ? Long.toString(whole / 10) : (whole / 10) + "." + Math.abs(whole % 10);
     }
 
     // ------------------------------------------------------------------ leaving

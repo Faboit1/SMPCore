@@ -24,7 +24,6 @@ public final class HomesMessages {
 
     public static final MessageKey UNSAFE_TITLE = MessageKey.ui("homes.unsafe.title");
     public static final MessageKey UNSAFE_BODY = MessageKey.ui("homes.unsafe.body", "name", "reason");
-    public static final MessageKey UNSAFE_QUESTION = MessageKey.ui("homes.unsafe.question");
     public static final MessageKey UNSAFE_LAVA = MessageKey.ui("homes.unsafe.lava");
     public static final MessageKey UNSAFE_FIRE = MessageKey.ui("homes.unsafe.fire");
     public static final MessageKey UNSAFE_BLOCKED = MessageKey.ui("homes.unsafe.blocked");
@@ -32,17 +31,16 @@ public final class HomesMessages {
 
     public static final MessageKey LIST_TITLE = MessageKey.ui("homes.list.title");
     public static final MessageKey LIST_HEADER = MessageKey.ui("homes.list.header", "count", "limit");
-    public static final MessageKey LIST_EMPTY = MessageKey.ui("homes.list.empty");
-    public static final MessageKey LIST_LINE = MessageKey.ui("homes.list.line", "name", "world", "x", "y", "z");
-    /** A list line while the player hides coordinates (streamer mode). */
-    public static final MessageKey LIST_LINE_HIDDEN = MessageKey.ui("homes.list.line-hidden", "name", "world");
-    public static final MessageKey LIST_PAGE = MessageKey.ui("homes.list.page", "page", "pages");
+    /** A home's button in the list (its name). */
+    public static final MessageKey LIST_HOME = MessageKey.ui("homes.list.home", "name");
+    /** Where a home is, in its button's tooltip; the second while the player hides coordinates (streamer mode). */
+    public static final MessageKey LIST_WHERE = MessageKey.ui("homes.list.where", "world", "x", "y", "z");
+    public static final MessageKey LIST_WHERE_HIDDEN = MessageKey.ui("homes.list.where-hidden", "world");
     public static final MessageKey LIST_DELETE = MessageKey.ui("homes.list.delete");
     public static final MessageKey LIST_TELEPORT_TOOLTIP = MessageKey.ui("homes.list.teleport-tooltip", "name");
     public static final MessageKey LIST_DELETE_TOOLTIP = MessageKey.ui("homes.list.delete-tooltip", "name");
     public static final MessageKey LIST_SET_HERE = MessageKey.ui("homes.list.set-here");
-    public static final MessageKey LIST_NEXT = MessageKey.ui("homes.list.next");
-    public static final MessageKey LIST_PREVIOUS = MessageKey.ui("homes.list.previous");
+    public static final MessageKey LIST_SET_HERE_TOOLTIP = MessageKey.ui("homes.list.set-here-tooltip");
 
     public static final MessageKey DELETE_TITLE = MessageKey.ui("homes.delete.title");
     public static final MessageKey DELETE_BODY = MessageKey.ui("homes.delete.body", "name", "world", "x", "y", "z");
@@ -67,9 +65,9 @@ public final class HomesMessages {
     public static final MessageKey SETTING_BARE_LIST = MessageKey.ui("homes.settings.bare-list");
 
     public static final MessageKey FORM_TITLE = MessageKey.ui("homes.form.title");
-    public static final MessageKey FORM_BODY = MessageKey.ui("homes.form.body");
     public static final MessageKey FORM_NAME = MessageKey.ui("homes.form.name");
     public static final MessageKey FORM_SUBMIT = MessageKey.ui("homes.form.submit");
+    public static final MessageKey FORM_SUBMIT_TOOLTIP = MessageKey.ui("homes.form.submit-tooltip");
 
     public static final MessageKey OTHER_TITLE = MessageKey.ui("homes.other.title", "name");
     public static final MessageKey OTHER_HEADER = MessageKey.ui("homes.other.header", "name", "count");

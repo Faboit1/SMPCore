@@ -47,36 +47,42 @@ tpa:
   # /tpatoggle when the server decides the setting. <setting> is the setting's name.
   setting-fixed: "<primary><setting> is set by the server."
   setting-refused: "<primary><setting> couldn't be changed."
+  # The accept/deny window: one line, and what each button does in its tooltip.
   dialog:
     title: "Teleport request"
-    body: "<primary><name> wants to teleport to you."
-    body-here: "<primary><name> wants you to teleport to them."
-    expires: "<secondary>Requests expire after <time>."
-    moves-you: "<secondary>Accepting teleports you to <name>."
-    accept: "Accept"
-    deny: "Deny"
-    choice-title: "Teleport requests"
-    choice-accept: "<secondary>Pick the request to accept."
-    choice-deny: "<secondary>Pick the request to deny."
+    body: "<accent><name></accent><primary> wants to teleport to you."
+    body-here: "<accent><name></accent><primary> wants you to teleport to them."
+    accept: "<on>Accept"
+    deny: "<off>Deny"
+    accept-tooltip: "<primary><name> teleports to you."
+    accept-tooltip-here: "<primary>You teleport to <name>."
+    deny-tooltip: "<primary><name> is told you said no."
+    # The second line of Accept's tooltip.
+    expires: "<secondary>Requests expire after <accent><time></accent>."
+    # The window of several requests (/tpaccept or /tpdeny without a name): a button per player.
+    choice-title-accept: "Accept a request"
+    choice-title-deny: "Deny a request"
     choice-tooltip: "<secondary>Wants to teleport to you"
     choice-tooltip-here: "<secondary>Wants you to teleport to them"
-    deny-all: "Deny all"
+    deny-all: "<off>Deny all"
+    deny-all-tooltip: "<primary>Deny every request waiting for you."
   form:
     title: "Teleport request"
-    body: "<secondary>Ask a player who is online. They get a message to accept or deny."
-    waiting: "<primary>Requests waiting for you: <count>. <secondary>Answer with /tpaccept or /tpdeny."
+    # The one line above the form, only while requests wait for you.
+    waiting: "<primary>Requests waiting for you: <accent><count></accent> <secondary>(/tpaccept)"
     player: "Player name"
     direction: "Who moves"
     to-them: "I go to them"
     here: "They come to me"
     submit: "Send request"
-  # The settings in Settings, Teleports & homes: a label, then one line that says what it does ("Everyone", "Friends"
-  # and the other option names are the shared names in settings.yml).
+    submit-tooltip: "<primary>They get a message to accept or deny."
+  # The settings in Settings, Teleports & homes: a label, and what it does (shown when hovering its button). "Everyone",
+  # "Friends" and the other option names are the shared names in settings.yml.
   settings:
     requests: "Teleport requests from"
-    requests-description: "Who can send you /tpa and /tpahere requests. Staff with the bypass always can."
+    requests-description: "Who can send you /tpa and /tpahere requests."
     here: "Pull requests from"
-    here-description: "Who can ask you to come to them with /tpahere. Applies on top of Teleport requests from."
+    here-description: "Who can ask you to come to them with /tpahere."
     popup: "Requests open a pop-up"
     popup-description: "Open the accept/deny window when a teleport request arrives. Never in combat, while AFK or over another window."
     confirm-here: "Confirm before being pulled"

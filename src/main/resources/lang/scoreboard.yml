@@ -16,7 +16,7 @@ scoreboard:
     # Every line features/scoreboard.yml can use, by name.
     lines:
       balance: "<primary><icon:money> <secondary>Money <money>{balance}"
-      shards: "<primary><icon:shard> <secondary>Shards <primary>{shards}"
+      shards: "<primary><icon:shard> <shards>Shards {shards}"
       kills: "<primary><icon:kill> <secondary>Kills <primary>{kills}"
       deaths: "<primary><icon:death> <secondary>Deaths <primary>{deaths}"
       kdr: "<primary><icon:kdr> <secondary>KDR <primary>{stats_kdr}"
@@ -72,7 +72,8 @@ scoreboard:
   already-shown: "<primary>Your sidebar is already shown."
   already-hidden: "<primary>Your sidebar is already hidden."
   off-on-server: "<primary>The sidebar is turned off on this server."
-  yielded: "<primary>The sidebar on this server comes from <plugin>."
+  # /sidebar while another part of the server draws the sidebar.
+  yielded: "<primary>The sidebar on this server can't be hidden with /sidebar."
   # /sidebar while the server sets the switch for everyone (features/settings.yml).
   fixed: "<primary>Your sidebar is set by the server."
 

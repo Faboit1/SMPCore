@@ -24,13 +24,17 @@ displays:
   confirm-console: "<primary>Run /displays delete <id> confirm to delete it."
   click-unavailable: "<primary>That leaderboard isn't available right now."
   where: "<world> <x> <y> <z>"
+  # /displays list: a button per display (in chat from the console); what it shows and where is in its tooltip.
   list:
     title: "Displays"
     header: "<primary>Displays <secondary>(<count>)"
-    line: "<primary><id><secondary>, template <template>, <where>, <state>"
-    line-unplaced: "<primary><id><secondary>, template <template>, not placed yet"
+    line: "<primary><id><secondary>, template <accent><template></accent>, <where>, <state>"
+    line-unplaced: "<primary><id><secondary>, template <accent><template></accent>, not placed yet"
     empty: "<secondary>No displays yet. Stand where one should go and use /displays create."
     go: "Go to <id>"
+    go-tooltip: "<primary>Click to teleport there."
+    unplaced: "<id> <secondary>(not placed)"
+    place-tooltip: "<primary>Stand where it should go and use /displays move <id>."
   state:
     shown: "shown"
     missing: "not spawned yet"

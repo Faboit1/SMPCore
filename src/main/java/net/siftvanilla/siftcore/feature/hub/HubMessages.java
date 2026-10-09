@@ -6,7 +6,7 @@ import net.siftvanilla.siftcore.core.text.MessageKey;
 public final class HubMessages {
 
     public static final MessageKey TITLE = MessageKey.ui("hub.title");
-    public static final MessageKey BODY = MessageKey.ui("hub.body", "name", "balance", "shards");
+    public static final MessageKey BODY = MessageKey.ui("hub.body", "balance", "amount");
     public static final MessageKey LINKS = MessageKey.ui("hub.links.label");
     public static final MessageKey LINKS_DESCRIPTION = MessageKey.ui("hub.links.description");
     public static final MessageKey LINKS_TITLE = MessageKey.ui("hub.links.title");

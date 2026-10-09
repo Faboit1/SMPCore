@@ -6,14 +6,14 @@
 
 integrations:
   status:
-    header: "<primary>SiftCore <version> integrations"
+    header: "<primary>Integrations <secondary>(version <version>)"
     line: "<secondary><name>: <primary><state>"
     active: "active"
     active-detail: "active, <detail>"
     missing: "not installed"
     "off": "turned off in integrations.yml"
     failed: "failed to start, see the server log"
-    overridden: "installed, but another plugin is registered above SiftCore"
+    overridden: "installed, but another plugin's economy is used instead"
 
   backup:
     started: "<secondary>Backing up the database..."
@@ -87,7 +87,7 @@ integrations:
       booster-over: "The booster had already run, so nothing was ended."
     what:
       money: "<amount>"
-      shards: "<amount> shards"
+      shards: "<shards><amount> shards</shards>"
       keys: "<keys>"
       rank: "<rank> for <time>"
       rank-permanent: "<rank> permanently"
@@ -120,7 +120,7 @@ integrations:
       no-boosters: "boosters are not available on this server"
     notify:
       money: "<primary>Your store purchase arrived: <amount> was added to your balance. <secondary>Thank you for supporting the server."
-      shards: "<primary>Your store purchase arrived: <amount> shards. <secondary>Thank you for supporting the server."
+      shards: "<primary>Your store purchase arrived: <shards><amount> shards</shards>. <secondary>Thank you for supporting the server."
       keys: "<primary>Your store purchase arrived: <keys>. <secondary>Open them with /crates."
       rank: "<primary>Your store purchase arrived: you are <rank> for <time>. <secondary>Thank you for supporting the server."
       rank-permanent: "<primary>Your store purchase arrived: you are <rank> for good. <secondary>Thank you for supporting the server."
@@ -133,22 +133,27 @@ integrations:
   purchases:
     title: "Your purchases"
     title-other: "<name>'s purchases"
-    page: "<secondary><count> purchases, page <page> of <pages>"
+    # The one line above the list: how many purchases, or that only the newest show.
+    count: "<secondary>Purchases: <accent><count></accent>, newest first"
+    newest: "<secondary>Your newest <accent><count></accent> purchases"
     empty: "<primary>You have no store purchases yet."
     empty-other: "<primary><name> has no store purchases."
+    # A purchase's button: what it gave.
     what: "<primary><what>"
-    # <date> is the day of the purchase (UTC), <time> how long ago, <ref> the store reference, shortened.
+    # A purchase's tooltip. <date> is the day of the purchase (UTC), <time> how long ago, <ref> the order id, shortened.
+    when: "<secondary>Bought <accent><date></accent> (<time> ago)"
+    status: "<secondary>Status: <state>"
+    ref: "<secondary>Order id: <primary><ref>"
+    help: "<secondary>Missing something? Ask staff with the order id."
+    # One purchase in the console (/purchases <player>).
     detail: "<secondary><date> (<time> ago), <state>, ref <ref>"
     state:
-      delivered: "delivered"
-      pending: "being delivered"
-      revoking: "being taken back"
-      revoked: "taken back (<reason>)"
-      running: "running now, <time> left"
-      queued: "waiting, number <position> in line"
-    previous: "Previous page"
-    next: "Next page"
-    help: "<secondary>Missing a purchase? Ask staff with its store order id."
+      delivered: "<on>delivered"
+      pending: "<accent>being delivered"
+      revoking: "<off>being taken back"
+      revoked: "<off>taken back <secondary>(<reason>)"
+      running: "<on>running now<secondary>, <accent><time></accent> left"
+      queued: "<accent>waiting<secondary>, number <accent><position></accent> in line"
     header: "<primary>Store purchases of <name> <secondary>(<count>)"
 
   forms:
@@ -157,4 +162,4 @@ integrations:
   # The switch in /settings (Privacy group), for players with siftcore.settings.hide-rank.
   settings:
     show-my-rank: "Show my rank"
-    show-my-rank-description: "Show your rank tag next to your name in chat, the tab list, nametags and placeholders."
+    show-my-rank-description: "Show your rank tag next to your name in chat, the player list and above your head."

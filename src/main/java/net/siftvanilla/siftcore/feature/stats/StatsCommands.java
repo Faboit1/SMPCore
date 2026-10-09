@@ -123,7 +123,7 @@ final class StatsCommands {
             return CommandSupport.OK;
         }
         if (sender instanceof Player player) {
-            this.views.openBoard(player, board.get(), page, null);
+            this.views.openBoard(player, board.get(), null);
         } else {
             this.views.printBoard(sender, board.get(), page);
         }

@@ -17,8 +17,8 @@ combat:
     started-staff-title: "<error>In combat"
   # The killer's own result after a player kill (Kill confirmation setting).
   kill:
-    counted: "<primary>Your kill on <name> counted. <secondary>Kill streak <streak><secondary>."
-    counted-title: "<primary>Kill counted <secondary>streak <streak>"
+    counted: "<primary>Your kill on <name> counted. <secondary>Kill streak <accent><streak></accent>."
+    counted-title: "<primary>Kill counted <secondary>streak <accent><streak>"
     not-counted: "<primary>Your kill on <name> didn't count: <secondary><reason>."
     # Used when the reason must stay private (same IP address) or came from another plugin.
     not-counted-plain: "<primary>Your kill on <name> didn't count."
@@ -35,14 +35,14 @@ combat:
     killed: "<primary><victim> <secondary>was killed by <primary><killer><secondary>."
     killed-using: "<primary><victim> <secondary>was killed by <primary><killer> <secondary>using <primary><item><secondary>."
     # Only the player who died sees these (Death location and Death recap settings).
-    location: "<secondary>You died at <primary><x>, <y>, <z> <secondary>in <primary><world><secondary>."
+    location: "<secondary>You died at <accent><x>, <y>, <z></accent> in <primary><world><secondary>."
     # The same while Streamer mode hides coordinates.
     location-hidden: "<secondary>You died in <primary><world><secondary>."
-    recap: "<primary><killer> <secondary>had <hearts> <secondary>hearts left."
-    recap-using: "<primary><killer> <secondary>had <hearts> <secondary>hearts left, using <primary><item><secondary>."
+    recap: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left."
+    recap-using: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left, using <primary><item><secondary>."
   streak:
-    reached: "<primary><name> <secondary>is on a kill streak of <count><secondary>."
-    ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <count><secondary>."
+    reached: "<primary><name> <secondary>is on a kill streak of <accent><count></accent>."
+    ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <accent><count></accent>."
   status:
     tagged: "<primary>You are in combat for <time>."
     clear: "<primary>You are not in combat."

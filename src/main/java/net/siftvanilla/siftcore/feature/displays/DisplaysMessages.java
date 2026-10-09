@@ -31,6 +31,10 @@ public final class DisplaysMessages {
     public static final MessageKey LIST_LINE_UNPLACED = MessageKey.chat("displays.list.line-unplaced", "id", "template");
     public static final MessageKey LIST_EMPTY = MessageKey.chat("displays.list.empty");
     public static final MessageKey LIST_GO = MessageKey.ui("displays.list.go", "id");
+    public static final MessageKey LIST_GO_TOOLTIP = MessageKey.ui("displays.list.go-tooltip");
+    /** A display without a position yet, and how to place it. */
+    public static final MessageKey LIST_UNPLACED = MessageKey.ui("displays.list.unplaced", "id");
+    public static final MessageKey LIST_PLACE_TOOLTIP = MessageKey.ui("displays.list.place-tooltip", "id");
 
     public static final MessageKey STATE_SHOWN = MessageKey.ui("displays.state.shown");
     public static final MessageKey STATE_MISSING = MessageKey.ui("displays.state.missing");

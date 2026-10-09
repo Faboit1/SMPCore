@@ -38,7 +38,6 @@ final class HomesService {
     static final String LIMIT_PREFIX = "siftcore.homes";
     static final String BYPASS_COOLDOWN = "siftcore.bypass.cooldown";
     private static final String COOLDOWN_KEY = "homes:teleport";
-    private static final int PAGE_SIZE = 8;
 
     /**
      * A message to show for an action: the key, its arguments and whether the action worked; or, when
@@ -191,7 +190,7 @@ final class HomesService {
             case NONE -> this.services.messenger().send(player, HomesMessages.NONE);
             case ONLY -> teleport(player, all.keySet().iterator().next());
             case DEFAULT -> teleport(player, HomeNames.DEFAULT);
-            case LIST -> openList(player, 1, null);
+            case LIST -> openList(player, null);
         }
     }
 
@@ -296,8 +295,7 @@ final class HomesService {
             default -> HomesMessages.UNSAFE_BLOCKED;
         };
         this.services.dialogs().show(player, this.services.templates().confirm(lang.get(HomesMessages.UNSAFE_TITLE),
-            List.of(lang.get(HomesMessages.UNSAFE_BODY, Arg.text("name", home.name()), Arg.component("reason", lang.get(reason))),
-                lang.get(HomesMessages.UNSAFE_QUESTION)),
+            List.of(lang.get(HomesMessages.UNSAFE_BODY, Arg.text("name", home.name()), Arg.component("reason", lang.get(reason)))),
             lang.get(HomesMessages.UNSAFE_GO), lang.get(CoreMessages.UI_CANCEL),
             yes -> teleport(yes.player(), home.name(), false),
             null).closing());
@@ -362,60 +360,24 @@ final class HomesService {
 
     // ------------------------------------------------------------------ dialogs
 
-    /** The homes list: a teleport and a delete button per home, paged, plus "set a home here". */
-    void openList(Player player, int page, Button.Handler back) {
+    /**
+     * The homes list ({@link HomesViews#list}): a button per home that teleports there and a Delete next to it, then
+     * "Set a home here". No pages: the dialog scrolls.
+     */
+    void openList(Player player, Button.Handler back) {
         Optional<Map<String, Home>> loaded = this.store.homes(player.getUniqueId());
         if (loaded.isEmpty()) {
             this.services.messenger().send(player, HomesMessages.LOADING);
             return;
         }
-        Lang lang = this.services.lang();
         List<Home> all = new ArrayList<>(loaded.get().values());
-        int pages = Math.max(1, (all.size() + PAGE_SIZE - 1) / PAGE_SIZE);
-        int current = Math.clamp(page, 1, pages);
-        List<Home> slice = all.subList((current - 1) * PAGE_SIZE, Math.min(all.size(), current * PAGE_SIZE));
-        int limit = limit(player);
-        List<Component> lines = new ArrayList<>();
-        lines.add(lang.get(HomesMessages.LIST_HEADER, Arg.number("count", all.size()), limitArg(limit)));
-        if (all.isEmpty()) {
-            lines.add(lang.get(HomesMessages.LIST_EMPTY));
-        }
-        boolean hidden = hidesCoordinates(player);
-        for (Home home : slice) {
-            lines.add(line(home, hidden));
-        }
-        if (pages > 1) {
-            lines.add(lang.get(HomesMessages.LIST_PAGE, Arg.number("page", current), Arg.number("pages", pages)));
-        }
-        List<Button> buttons = new ArrayList<>();
-        for (Home home : slice) {
-            String name = home.name();
-            // Teleporting finishes with the list: the window closes as soon as a home is picked.
-            buttons.add(Button.of(Component.text(name), lang.get(HomesMessages.LIST_TELEPORT_TOOLTIP, Arg.text("name", name)),
-                s -> teleport(s.player(), name)).width(150).closes());
-            buttons.add(Button.of(lang.get(HomesMessages.LIST_DELETE), lang.get(HomesMessages.LIST_DELETE_TOOLTIP, Arg.text("name", name)),
-                s -> confirmDelete(s.player(), name, () -> openList(s.player(), current, back))).width(150));
-        }
-        if (current > 1) {
-            buttons.add(Button.of(lang.get(HomesMessages.LIST_PREVIOUS), s -> openList(s.player(), current - 1, back)).width(150));
-        }
-        if (current < pages) {
-            buttons.add(Button.of(lang.get(HomesMessages.LIST_NEXT), s -> openList(s.player(), current + 1, back)).width(150));
-        }
-        buttons.add(Button.of(lang.get(HomesMessages.LIST_SET_HERE), s -> openSetForm(s.player(), back)).width(150));
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(HomesMessages.LIST_TITLE), lines, buttons, 2, back));
-    }
-
-    /**
-     * One home in a list: name, world and position, or name and world while the viewer hides coordinates (staff views
-     * of another player's homes always show the position).
-     */
-    private Component line(Home home, boolean hidden) {
-        if (hidden) {
-            return this.services.lang().get(HomesMessages.LIST_LINE_HIDDEN, Arg.text("name", home.name()), Arg.text("world", home.world()));
-        }
-        return this.services.lang().get(HomesMessages.LIST_LINE, Arg.text("name", home.name()), Arg.text("world", home.world()),
-            Arg.number("x", home.blockX()), Arg.number("y", home.blockY()), Arg.number("z", home.blockZ()));
+        HomesViews.Actions actions = new HomesViews.Actions(
+            home -> s -> teleport(s.player(), home.name()),
+            home -> s -> confirmDelete(s.player(), home.name(), () -> openList(s.player(), back)),
+            s -> openSetForm(s.player(), back),
+            back);
+        this.services.dialogs().show(player, HomesViews.list(this.services.lang(), this.services.templates(), all, limit(player),
+            hidesCoordinates(player), actions));
     }
 
     /**
@@ -425,8 +387,7 @@ final class HomesService {
     void openSetForm(Player player, Button.Handler back) {
         Lang lang = this.services.lang();
         String suggestion = HomeNames.suggest(this.store.homes(player.getUniqueId()).orElse(Map.of()));
-        this.services.dialogs().show(player, this.services.templates().form(lang.get(HomesMessages.FORM_TITLE),
-            lang.lines(HomesMessages.FORM_BODY),
+        View form = this.services.templates().form(lang.get(HomesMessages.FORM_TITLE), List.of(),
             List.of(Templates.text("name", lang.get(HomesMessages.FORM_NAME), suggestion, HomeNames.MAX_LENGTH)),
             lang.get(HomesMessages.FORM_SUBMIT),
             submission -> {
@@ -437,7 +398,7 @@ final class HomesService {
                         Result moved = trySet(yes.player(), name, true);
                         tell(yes.player(), moved);
                         if (moved.ok()) {
-                            openList(yes.player(), 1, back);
+                            openList(yes.player(), back);
                         } else {
                             openSetForm(yes.player(), back);
                         }
@@ -449,65 +410,49 @@ final class HomesService {
                     return;
                 }
                 tell(submission.player(), result);
-                openList(submission.player(), 1, back);
+                openList(submission.player(), back);
             },
-            submission -> openList(submission.player(), 1, back)));
+            submission -> openList(submission.player(), back));
+        // What the form does is on its button: the home is set where you stand; the name rule shows if one is refused.
+        List<Button> buttons = List.of(form.buttons().get(0).tooltip(lang.get(HomesMessages.FORM_SUBMIT_TOOLTIP)), form.buttons().get(1));
+        this.services.dialogs().show(player, new View(form.kind(), form.title(), form.body(), form.inputs(), buttons, form.exit(),
+            form.columns(), form.escapable()));
     }
 
     // ------------------------------------------------------------------ staff
 
     /** Staff: another player's homes (online or offline) with teleport and delete buttons. */
-    void openOther(Player staff, UUID target, String targetName, int page) {
+    void openOther(Player staff, UUID target, String targetName) {
         this.store.fetch(target).whenComplete((homes, error) -> this.services.scheduler().entity(staff, () -> {
             if (error != null) {
                 this.services.messenger().send(staff, CoreMessages.ACTION_FAILED);
                 return;
             }
-            showOther(staff, target, targetName, homes, page);
+            showOther(staff, target, targetName, homes);
         }, null));
     }
 
-    private void showOther(Player staff, UUID target, String targetName, Map<String, Home> homes, int page) {
-        Lang lang = this.services.lang();
-        List<Home> all = new ArrayList<>(homes.values());
-        int pages = Math.max(1, (all.size() + PAGE_SIZE - 1) / PAGE_SIZE);
-        int current = Math.clamp(page, 1, pages);
-        List<Home> slice = all.subList((current - 1) * PAGE_SIZE, Math.min(all.size(), current * PAGE_SIZE));
-        List<Component> lines = new ArrayList<>();
-        lines.add(lang.get(HomesMessages.OTHER_HEADER, Arg.text("name", targetName), Arg.number("count", all.size())));
-        for (Home home : slice) {
-            lines.add(line(home, false));
-        }
-        if (pages > 1) {
-            lines.add(lang.get(HomesMessages.LIST_PAGE, Arg.number("page", current), Arg.number("pages", pages)));
-        }
-        List<Button> buttons = new ArrayList<>();
-        for (Home home : slice) {
-            buttons.add(Button.of(Component.text(home.name()), lang.get(HomesMessages.LIST_TELEPORT_TOOLTIP, Arg.text("name", home.name())),
-                s -> this.services.teleports().teleport(s.player(), "home-staff", Duration.ZERO, () -> {
-                    Location location = home.toLocation();
-                    if (location == null) {
-                        this.services.messenger().send(s.player(), HomesMessages.WORLD_MISSING, Arg.text("name", home.name()));
-                    }
-                    return CompletableFuture.completedFuture(location);
-                }, ok -> {
-                    // A staff member visiting a player's base is written down like invsee and whois are.
-                    if (ok) {
-                        this.services.audit().record(s.player().getUniqueId().toString(), "homes.teleport", target.toString(),
-                            staffTeleportDetails(home));
-                    }
-                })).width(150).closes());
-            buttons.add(Button.of(lang.get(HomesMessages.LIST_DELETE), lang.get(HomesMessages.LIST_DELETE_TOOLTIP, Arg.text("name", home.name())),
-                s -> confirmOtherDelete(s.player(), target, targetName, home)).width(150));
-        }
-        if (current > 1) {
-            buttons.add(Button.of(lang.get(HomesMessages.LIST_PREVIOUS), s -> openOther(s.player(), target, targetName, current - 1)).width(150));
-        }
-        if (current < pages) {
-            buttons.add(Button.of(lang.get(HomesMessages.LIST_NEXT), s -> openOther(s.player(), target, targetName, current + 1)).width(150));
-        }
-        this.services.dialogs().show(staff, this.services.templates().list(lang.get(HomesMessages.OTHER_TITLE, Arg.text("name", targetName)),
-            lines, buttons, 2, null));
+    private void showOther(Player staff, UUID target, String targetName, Map<String, Home> homes) {
+        HomesViews.Actions actions = new HomesViews.Actions(
+            home -> s -> this.services.teleports().teleport(s.player(), "home-staff", Duration.ZERO, () -> {
+                Location location = home.toLocation();
+                if (location == null) {
+                    this.services.messenger().send(s.player(), HomesMessages.WORLD_MISSING, Arg.text("name", home.name()));
+                }
+                return CompletableFuture.completedFuture(location);
+            }, ok -> {
+                // A staff member visiting a player's base is written down like invsee and whois are.
+                if (ok) {
+                    this.services.audit().record(s.player().getUniqueId().toString(), "homes.teleport", target.toString(),
+                        staffTeleportDetails(home));
+                }
+            }),
+            home -> s -> confirmOtherDelete(s.player(), target, targetName, home),
+            null,
+            null);
+        // Shown after a database read, outside the command's scope: written for the staff member.
+        this.services.dialogs().show(staff, () ->
+            HomesViews.other(this.services.lang(), this.services.templates(), targetName, new ArrayList<>(homes.values()), actions));
     }
 
     /** The audit details of a staff teleport to a home: its name, world and block position. */
@@ -521,8 +466,8 @@ final class HomesService {
             lang.lines(HomesMessages.DELETE_BODY, Arg.text("name", home.name()), Arg.text("world", home.world()),
                 Arg.number("x", home.blockX()), Arg.number("y", home.blockY()), Arg.number("z", home.blockZ())),
             lang.get(HomesMessages.DELETE_BUTTON), lang.get(CoreMessages.UI_CANCEL),
-            yes -> deleteOther(yes.player(), target, targetName, home.name(), () -> openOther(yes.player(), target, targetName, 1)),
-            no -> openOther(no.player(), target, targetName, 1)));
+            yes -> deleteOther(yes.player(), target, targetName, home.name(), () -> openOther(yes.player(), target, targetName)),
+            no -> openOther(no.player(), target, targetName)));
     }
 
     /** Staff: deletes another player's home (works offline too). {@code then} runs on the sender's thread afterwards. */

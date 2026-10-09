@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 
@@ -29,7 +30,7 @@ final class KitText {
         }
         return switch (status) {
             case KitStatus.Ready ready -> this.lang.get(KitsMessages.STATUS_READY);
-            case KitStatus.Waiting waiting -> this.lang.get(KitsMessages.STATUS_WAITING, Arg.time("time", waiting.shown()));
+            case KitStatus.Waiting waiting -> this.lang.get(KitsMessages.STATUS_WAITING, Arg.text("time", Durations.format(waiting.shown())));
             case KitStatus.Claimed claimed -> this.lang.get(KitsMessages.STATUS_CLAIMED);
         };
     }

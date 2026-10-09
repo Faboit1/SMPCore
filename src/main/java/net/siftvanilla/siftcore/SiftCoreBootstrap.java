@@ -23,19 +23,23 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
+import net.siftvanilla.siftcore.core.text.Icons;
+import net.siftvanilla.siftcore.feature.hub.HubSettings;
+import net.siftvanilla.siftcore.feature.hub.MenuButtons;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
  * Runs before the server loads its registries. Registers the SiftVanilla menu dialog ({@code siftcore:hub}) and adds
  * it to the pause screen and the quick actions key, so players can open it without typing a command. The buttons
  * only send {@code siftcore:hub/<entry>}; the plugin's router opens the real, permission-checked screen at runtime.
- * Its labels are read once here from {@code lang/hub.yml} and {@code features/hub.yml}, so changing them needs a
- * restart.
+ * Its labels, colours and icons are read once here from {@code lang/hub.yml}, {@code features/hub.yml} and
+ * {@code icons.yml} (as the plugin will update them), so changing them needs a restart.
  */
 public final class SiftCoreBootstrap implements PluginBootstrap {
 
@@ -70,13 +74,16 @@ public final class SiftCoreBootstrap implements PluginBootstrap {
     record PauseMenu(boolean enabled, Component title, Component body, List<ActionButton> buttons) {
 
         static PauseMenu load(Path dataDirectory, BootstrapContext context) {
-            YamlConfiguration config = read(dataDirectory.resolve("features/hub.yml"), "features/hub.yml", context);
-            YamlConfiguration lang = read(dataDirectory.resolve("lang/hub.yml"), "lang/hub.yml", context);
+            YamlConfiguration config = effective(dataDirectory, "features/hub.yml", context);
+            YamlConfiguration lang = effective(dataDirectory, "lang/hub.yml", context);
+            Icons icons = icons(dataDirectory, context);
             boolean enabled = config.getBoolean("pause-menu.enabled", true);
             Component title = Component.text(lang.getString("hub.pause-menu.title", "SiftVanilla"));
             String bodyText = lang.getString("hub.pause-menu.body", "");
             TextColor gray = NamedTextColor.GRAY;
+            // Buttons, not paragraphs: a line shows above them only when the owner writes one.
             Component body = bodyText.isBlank() ? null : Component.text(bodyText, gray);
+            Map<String, HubSettings.Look> looks = MenuButtons.looks(config.getConfigurationSection("buttons"));
             List<ActionButton> buttons = new ArrayList<>();
             for (String id : config.getStringList("pause-menu.entries")) {
                 if (!id.matches("[a-z0-9_-]{1,32}")) {
@@ -85,7 +92,9 @@ public final class SiftCoreBootstrap implements PluginBootstrap {
                 }
                 String label = lang.getString("hub.entries." + id + ".label", id);
                 String tooltip = lang.getString("hub.entries." + id + ".description", "");
-                buttons.add(ActionButton.builder(Component.text(label))
+                Component shown = MenuButtons.label(label, looks.getOrDefault(id, HubSettings.Look.PLAIN), icons::component,
+                    NamedTextColor.WHITE);
+                buttons.add(ActionButton.builder(shown)
                     .tooltip(tooltip.isBlank() ? null : Component.text(tooltip, gray))
                     .width(150)
                     .action(DialogAction.customClick(Key.key("siftcore", "hub/" + id), null))
@@ -100,22 +109,55 @@ public final class SiftCoreBootstrap implements PluginBootstrap {
             return new PauseMenu(enabled, title, body, buttons);
         }
 
-        private static YamlConfiguration read(Path file, String resource, BootstrapContext context) {
+        /**
+         * A file as it will read once the plugin has updated it ({@link MenuButtons#effective}), from the server's copy,
+         * the copy the last version shipped ({@code data/shipped/}) and the one in this jar.
+         */
+        private static YamlConfiguration effective(Path dataDirectory, String resource, BootstrapContext context) {
+            YamlConfiguration jar = bundled(resource, context);
+            YamlConfiguration server = file(dataDirectory.resolve(resource), resource, context);
+            YamlConfiguration previous = file(dataDirectory.resolve("data").resolve("shipped").resolve(resource), resource, context);
+            return MenuButtons.effective(server, previous, jar);
+        }
+
+        /** The icons of {@code icons.yml}, checked against the sprites of this game version (none if they can't be read). */
+        private static Icons icons(Path dataDirectory, BootstrapContext context) {
+            try (InputStream in = SiftCoreBootstrap.class.getClassLoader().getResourceAsStream("atlas-index.txt")) {
+                Icons icons = new Icons(Icons.readIndex(in));
+                icons.load(MenuButtons.sprites(effective(dataDirectory, "icons.yml", context).getConfigurationSection("icons")));
+                return icons;
+            } catch (IOException | RuntimeException e) {
+                context.getLogger().warn("The pause menu shows no icons: {}", e.getMessage());
+                return new Icons(Set.of());
+            }
+        }
+
+        /** A file of the data folder, or null when there is none or it can't be read. */
+        private static YamlConfiguration file(Path file, String resource, BootstrapContext context) {
+            if (!Files.isRegularFile(file)) {
+                return null;
+            }
             YamlConfiguration yaml = new YamlConfiguration();
             try {
-                if (Files.isRegularFile(file)) {
-                    yaml.loadFromString(Files.readString(file, StandardCharsets.UTF_8));
-                    return yaml;
-                }
-                try (InputStream in = SiftCoreBootstrap.class.getClassLoader().getResourceAsStream(resource)) {
-                    if (in != null) {
-                        try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-                            yaml.load(reader);
-                        }
+                yaml.loadFromString(Files.readString(file, StandardCharsets.UTF_8));
+                return yaml;
+            } catch (IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+                context.getLogger().error("Could not read {} for the pause menu; using defaults ({})", file, e.getMessage());
+                return null;
+            }
+        }
+
+        /** The copy of a file bundled in the jar (empty if it can't be read). */
+        private static YamlConfiguration bundled(String resource, BootstrapContext context) {
+            YamlConfiguration yaml = new YamlConfiguration();
+            try (InputStream in = SiftCoreBootstrap.class.getClassLoader().getResourceAsStream(resource)) {
+                if (in != null) {
+                    try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                        yaml.load(reader);
                     }
                 }
             } catch (IOException | org.bukkit.configuration.InvalidConfigurationException e) {
-                context.getLogger().error("Could not read {} for the pause menu; using defaults ({})", resource, e.getMessage());
+                context.getLogger().error("Could not read the bundled {} for the pause menu ({})", resource, e.getMessage());
             }
             return yaml;
         }

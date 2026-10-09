@@ -2,11 +2,14 @@
 # Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
 # <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
 # (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# <region> is the name of a place from features/rtp.yml (Overworld, Nether, End).
 
 rtp:
   searching: "<secondary>Looking for a safe spot..."
   already-searching: "<primary>Still looking for a spot. Hold on."
-  no-spot: "<primary>No safe spot found this time. Nothing was charged. Try again."
+  no-spot: "<primary>No safe spot found this time. Try again."
+  # The same for a place that costs money.
+  no-spot-paid: "<primary>No safe spot found this time. Nothing was charged. Try again."
   landed: "<primary>Welcome to <region> at <x>, <z>."
   landed-paid: "<primary>Welcome to <region> at <x>, <z>. <secondary>Paid <amount>."
   # The same lines while the player hides coordinates (Settings > Privacy > Streamer mode).
@@ -22,29 +25,31 @@ rtp:
   none: "<primary>There is nowhere to random teleport to right now."
   sent: "<primary>Sent <name> to <region> at <x>, <z>."
   sent-failed: "<primary>Couldn't send <name> to <region>. No safe spot was found."
+  # The picker: one button per place, in its colour (features/rtp.yml), and what it is in the button's tooltip.
   menu:
     title: "Random teleport"
-    intro: "<secondary>Pick where to go. You land on a random safe spot."
-    line-free: "<primary><region> <secondary><min> to <max> blocks out, free."
-    line-cost: "<primary><region> <secondary><min> to <max> blocks out, <amount>."
-    ready: "<secondary>Ready."
-    wait: "<secondary>Ready in <primary><time><secondary>."
-    tooltip-free: "<secondary><min> to <max> blocks out. Free."
-    tooltip-cost: "<secondary><min> to <max> blocks out. Costs <amount>."
+    # After a place's name while it can't be used yet.
+    button-wait: "<secondary> (<time>)"
+    range: "<secondary>Lands <accent><min></accent> to <accent><max></accent> blocks out"
+    # Only for a place that costs money.
+    cost: "<primary>Costs <amount>, <secondary>paid once a safe spot is found"
+    ready: "<on>Ready, click to go"
+    wait: "<secondary>Ready again in <accent><time>"
   # Asked before a /rtp <region> that costs money, unless the player turned that off (the picker shows the price).
   confirm:
     title: "Confirm random teleport"
-    body: "<primary>A random teleport to <region> costs <amount>."
+    body: "<primary>A random teleport to <accent><region></accent> costs <amount>."
+    # The Teleport button's tooltip.
     note: "<secondary>You pay only once a safe spot is found."
     button: "Teleport"
-  # The settings in Settings, Teleports & homes: a label, then one line that says what it does.
+  # The settings in Settings, Teleports & homes: a label, and what it does (shown when hovering its button).
   settings:
     confirm-cost: "Confirm paid random teleports"
-    confirm-cost-description: "Show the price and ask first when a /rtp you type costs money. The region picker already shows prices."
-    default: "/rtp with no region"
-    default-description: "Open the region picker, or go straight to the region you used last."
+    confirm-cost-description: "Show the price and ask first when a /rtp you type costs money."
+    default: "/rtp on its own"
+    default-description: "Open the picker, or go straight back to where you went last time."
     default-menu: "Open the picker"
-    default-last: "Last region"
+    default-last: "Same place as last time"
   hub:
     label: "Random teleport"
     description: "Go somewhere new"

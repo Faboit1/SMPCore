@@ -23,10 +23,11 @@ border-margin: 32
 # Each region is a ring around a centre in one world. Players land between min-radius and max-radius blocks from
 # the centre. Rings must fit inside the world border (features/spawn.yml) minus border-margin; /sift reload
 # refuses a ring that doesn't and says by how much.
-#   name:        shown in the picker
+#   name:        shown on its button in the picker and in messages
 #   enabled:     false hides the region
 #   permission:  extra permission needed to use it ("" = everyone who can use /rtp)
-#   cost:        money taken per teleport (0 = free), like 2500 or 2.5k
+#   cost:        money taken per teleport, like 2500 or 2.5k. 0 = free (the shipped places are all free), and then
+#                the picker and messages say nothing about money
 #   cooldown:    time before the same player can use this region again (siftcore.bypass.cooldown skips it)
 regions:
   overworld:
@@ -45,7 +46,7 @@ regions:
     enabled: true
     world: world_nether
     permission: ""
-    cost: 2500
+    cost: 0
     cooldown: 60s
     center-x: 0
     center-z: 0
@@ -56,10 +57,16 @@ regions:
     enabled: true
     world: world_the_end
     permission: ""
-    cost: 5000
+    cost: 0
     cooldown: 60s
     center-x: 0
     center-z: 0
     # The outer end islands start about 1000 blocks out; the main island and the void around it are skipped.
     min-radius: 1000
     max-radius: 2800
+
+# The colour of each place's button in the picker, by region id ("#RRGGBB"). A place left out is white.
+colors:
+  overworld: "#86EFAC"
+  nether: "#FF8A65"
+  end: "#F5F0A8"

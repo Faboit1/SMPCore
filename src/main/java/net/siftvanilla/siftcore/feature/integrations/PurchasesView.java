@@ -14,11 +14,13 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.CommandSupport;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.link.ServerBoosters;
 import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.Templates;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -31,9 +33,9 @@ import org.bukkit.entity.Player;
 final class PurchasesView {
 
     static final String COMMAND = "siftcore.command.purchases";
-    /** Purchases per dialog page (two lines each). */
-    static final int PAGE_SIZE = 6;
-    /** The most purchases listed. */
+    /** The most purchases the dialog lists (the newest; the console lists up to {@link #LIMIT}). */
+    static final int SHOWN = 100;
+    /** The most purchases listed in the console. */
     static final int LIMIT = 200;
 
     private final Services services;
@@ -60,7 +62,7 @@ final class PurchasesView {
                 .executes(ctx -> {
                     Player player = this.services.commands().player(ctx);
                     if (player != null) {
-                        open(player, player.getUniqueId(), 1);
+                        open(player, player.getUniqueId());
                     }
                     return CommandSupport.OK;
                 })
@@ -77,7 +79,7 @@ final class PurchasesView {
                             return CommandSupport.OK;
                         }
                         if (sender instanceof Player viewer) {
-                            open(viewer, target.get(), 1);
+                            open(viewer, target.get());
                         } else {
                             print(sender, target.get());
                         }
@@ -91,8 +93,12 @@ final class PurchasesView {
             : this.services.directory().name(owner);
     }
 
-    /** One page of {@code owner}'s purchases for {@code viewer} (their own, or anyone's for staff). */
-    void open(Player viewer, UUID owner, int page) {
+    /**
+     * {@code owner}'s purchases for {@code viewer} (their own, or anyone's for staff), newest first: one button per
+     * purchase showing what it gave, with when, what became of it and its order id in the tooltip. No pages: the
+     * newest {@value #SHOWN} show and the dialog scrolls.
+     */
+    void open(Player viewer, UUID owner) {
         Lang lang = this.services.lang();
         boolean own = viewer.getUniqueId().equals(owner);
         if (!own && !viewer.hasPermission(StoreCommands.PERMISSION)) {
@@ -100,34 +106,26 @@ final class PurchasesView {
             own = true;
         }
         String name = name(owner);
-        List<Delivery> purchases = this.store.history(owner, LIMIT);
-        List<Component> lines = new ArrayList<>();
-        int pages = PurchaseText.pages(purchases.size(), PAGE_SIZE);
-        int current = Math.clamp(page, 1, pages);
+        List<Delivery> purchases = this.store.history(owner, SHOWN + 1);
+        List<Component> lines = new ArrayList<>(1);
         if (purchases.isEmpty()) {
             lines.addAll(own ? lang.lines(IntegrationsMessages.PURCHASES_EMPTY)
                 : lang.lines(IntegrationsMessages.PURCHASES_EMPTY_OTHER, Arg.text("name", name)));
+        } else if (purchases.size() > SHOWN) {
+            lines.addAll(lang.lines(IntegrationsMessages.PURCHASES_NEWEST, Arg.text("count", Lang.number(SHOWN))));
         } else {
-            lines.addAll(lang.lines(IntegrationsMessages.PURCHASES_PAGE, Arg.number("page", current), Arg.number("pages", pages),
-                Arg.number("count", purchases.size())));
-            for (Delivery delivery : PurchaseText.page(purchases, current, PAGE_SIZE)) {
-                lines.add(Component.empty());
-                lines.addAll(entry(delivery));
-            }
+            lines.addAll(lang.lines(IntegrationsMessages.PURCHASES_COUNT, Arg.text("count", Lang.number(purchases.size()))));
         }
-        lines.add(Component.empty());
-        lines.addAll(lang.lines(IntegrationsMessages.PURCHASES_HELP));
         UUID shown = owner;
-        List<Button> buttons = new ArrayList<>(2);
-        if (current > 1) {
-            buttons.add(Button.of(lang.get(IntegrationsMessages.PURCHASES_PREVIOUS), s -> open(s.player(), shown, current - 1)).width(150));
-        }
-        if (current < pages) {
-            buttons.add(Button.of(lang.get(IntegrationsMessages.PURCHASES_NEXT), s -> open(s.player(), shown, current + 1)).width(150));
+        List<Button> buttons = new ArrayList<>(Math.min(SHOWN, purchases.size()));
+        for (Delivery delivery : PurchaseText.newest(purchases, SHOWN)) {
+            // Nothing to do with a purchase: clicking shows the list again.
+            buttons.add(Button.of(lang.get(IntegrationsMessages.PURCHASES_WHAT, Arg.component("what", this.what.apply(delivery))),
+                Templates.lines(details(delivery)), s -> open(s.player(), shown)));
         }
         Component title = own ? lang.get(IntegrationsMessages.PURCHASES_TITLE)
             : lang.get(IntegrationsMessages.PURCHASES_TITLE_OTHER, Arg.text("name", name));
-        this.services.dialogs().show(viewer, this.services.templates().list(title, lines, buttons, 2, null));
+        this.services.dialogs().show(viewer, this.services.templates().column(title, lines, buttons, null));
     }
 
     /** Every purchase of a player in chat (the console). */
@@ -140,23 +138,34 @@ final class PurchasesView {
         }
         this.services.messenger().chat(sender, IntegrationsMessages.PURCHASES_HEADER, Arg.text("name", name),
             Arg.number("count", purchases.size()));
+        Lang lang = this.services.lang();
         for (Delivery delivery : purchases) {
-            for (Component line : entry(delivery)) {
-                sender.sendMessage(line);
-            }
+            sender.sendMessage(lang.get(IntegrationsMessages.PURCHASES_WHAT, Arg.component("what", this.what.apply(delivery))));
+            sender.sendMessage(lang.get(IntegrationsMessages.PURCHASES_DETAIL, detailArgs(delivery)));
         }
     }
 
-    /** One purchase: what it gave, then when, what became of it and its reference. */
-    private List<Component> entry(Delivery delivery) {
+    /** A purchase's tooltip: when, what became of it, its order id, and what to do when something is missing. */
+    private List<Component> details(Delivery delivery) {
         Lang lang = this.services.lang();
-        List<Component> lines = new ArrayList<>(2);
-        lines.addAll(lang.lines(IntegrationsMessages.PURCHASES_WHAT, Arg.component("what", this.what.apply(delivery))));
-        Duration age = Duration.between(Instant.ofEpochMilli(delivery.time()), Instant.now());
-        lines.addAll(lang.lines(IntegrationsMessages.PURCHASES_DETAIL, Arg.text("date", PurchaseText.date(delivery.time())),
-            Arg.time("time", age.isNegative() ? Duration.ZERO : age), Arg.component("state", state(delivery)),
-            Arg.text("ref", PurchaseText.shortRef(delivery.ref()))));
+        List<Component> lines = new ArrayList<>(4);
+        Arg[] args = detailArgs(delivery);
+        lines.add(lang.get(IntegrationsMessages.PURCHASES_WHEN, args[0], args[1]));
+        lines.add(lang.get(IntegrationsMessages.PURCHASES_STATUS, args[2]));
+        lines.add(lang.get(IntegrationsMessages.PURCHASES_REF, args[3]));
+        lines.add(lang.get(IntegrationsMessages.PURCHASES_HELP));
         return lines;
+    }
+
+    /** The day, how long ago, the state and the shortened reference of a purchase. */
+    private Arg[] detailArgs(Delivery delivery) {
+        Duration age = Duration.between(Instant.ofEpochMilli(delivery.time()), Instant.now());
+        return new Arg[] {
+            Arg.text("date", PurchaseText.date(delivery.time())),
+            Arg.text("time", Durations.format(age.isNegative() ? Duration.ZERO : age)),
+            Arg.component("state", state(delivery)),
+            Arg.text("ref", PurchaseText.shortRef(delivery.ref()))
+        };
     }
 
     private Component state(Delivery delivery) {
@@ -170,8 +179,8 @@ final class PurchasesView {
                 Optional<ServerBoosters.Status> booster = this.store.boosterStatus(delivery.ref());
                 if (booster.isPresent()) {
                     yield booster.get().running()
-                        ? lang.get(IntegrationsMessages.PURCHASES_STATE_RUNNING, Arg.time("time", booster.get().left()))
-                        : lang.get(IntegrationsMessages.PURCHASES_STATE_QUEUED, Arg.number("position", booster.get().position()));
+                        ? lang.get(IntegrationsMessages.PURCHASES_STATE_RUNNING, Arg.text("time", Durations.format(booster.get().left())))
+                        : lang.get(IntegrationsMessages.PURCHASES_STATE_QUEUED, Arg.text("position", Lang.number(booster.get().position())));
                 }
                 yield lang.get(IntegrationsMessages.PURCHASES_STATE_DELIVERED);
             }

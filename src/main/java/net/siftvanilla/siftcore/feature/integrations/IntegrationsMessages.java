@@ -140,19 +140,23 @@ public final class IntegrationsMessages {
     // ------------------------------------------------------------------ /purchases
     public static final MessageKey PURCHASES_TITLE = MessageKey.ui("integrations.purchases.title");
     public static final MessageKey PURCHASES_TITLE_OTHER = MessageKey.ui("integrations.purchases.title-other", "name");
-    public static final MessageKey PURCHASES_PAGE = MessageKey.ui("integrations.purchases.page", "page", "pages", "count");
+    /** The one line above the purchases: how many there are, or that only the newest show. */
+    public static final MessageKey PURCHASES_COUNT = MessageKey.ui("integrations.purchases.count", "count");
+    public static final MessageKey PURCHASES_NEWEST = MessageKey.ui("integrations.purchases.newest", "count");
     public static final MessageKey PURCHASES_EMPTY = MessageKey.ui("integrations.purchases.empty");
     public static final MessageKey PURCHASES_EMPTY_OTHER = MessageKey.ui("integrations.purchases.empty-other", "name");
     public static final MessageKey PURCHASES_WHAT = MessageKey.ui("integrations.purchases.what", "what");
     public static final MessageKey PURCHASES_DETAIL = MessageKey.ui("integrations.purchases.detail", "date", "time", "state", "ref");
+    /** The lines of a purchase's tooltip. */
+    public static final MessageKey PURCHASES_WHEN = MessageKey.ui("integrations.purchases.when", "date", "time");
+    public static final MessageKey PURCHASES_STATUS = MessageKey.ui("integrations.purchases.status", "state");
+    public static final MessageKey PURCHASES_REF = MessageKey.ui("integrations.purchases.ref", "ref");
     public static final MessageKey PURCHASES_STATE_DELIVERED = MessageKey.ui("integrations.purchases.state.delivered");
     public static final MessageKey PURCHASES_STATE_PENDING = MessageKey.ui("integrations.purchases.state.pending");
     public static final MessageKey PURCHASES_STATE_REVOKING = MessageKey.ui("integrations.purchases.state.revoking");
     public static final MessageKey PURCHASES_STATE_REVOKED = MessageKey.ui("integrations.purchases.state.revoked", "reason");
     public static final MessageKey PURCHASES_STATE_RUNNING = MessageKey.ui("integrations.purchases.state.running", "time");
     public static final MessageKey PURCHASES_STATE_QUEUED = MessageKey.ui("integrations.purchases.state.queued", "position");
-    public static final MessageKey PURCHASES_PREVIOUS = MessageKey.ui("integrations.purchases.previous");
-    public static final MessageKey PURCHASES_NEXT = MessageKey.ui("integrations.purchases.next");
     public static final MessageKey PURCHASES_HEADER = MessageKey.chat("integrations.purchases.header", "name", "count");
     public static final MessageKey PURCHASES_HELP = MessageKey.ui("integrations.purchases.help");
 

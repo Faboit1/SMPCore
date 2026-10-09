@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** /purchases: shortened references, UTC dates and pages. */
+/** /purchases: shortened references, UTC dates and the dialog's cap. */
 class PurchaseTextTest {
 
     @Test
@@ -23,14 +23,12 @@ class PurchaseTextTest {
     }
 
     @Test
-    void pagesHoldAFixedNumberAndClamp() {
+    void theDialogListsTheNewestUpToItsCap() {
         List<Integer> entries = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
-        assertEquals(3, PurchaseText.pages(entries.size(), 6));
-        assertEquals(1, PurchaseText.pages(0, 6));
-        assertEquals(List.of(1, 2, 3, 4, 5, 6), PurchaseText.page(entries, 1, 6));
-        assertEquals(List.of(13), PurchaseText.page(entries, 3, 6));
-        assertEquals(List.of(13), PurchaseText.page(entries, 9, 6), "past the end shows the last page");
-        assertEquals(List.of(1, 2, 3, 4, 5, 6), PurchaseText.page(entries, 0, 6));
-        assertEquals(List.of(), PurchaseText.page(List.of(), 1, 6));
+        assertEquals(List.of(1, 2, 3, 4, 5, 6), PurchaseText.newest(entries, 6), "the first (newest) six");
+        assertEquals(entries, PurchaseText.newest(entries, PurchasesView.SHOWN), "all when there are fewer than the cap");
+        assertEquals(List.of(), PurchaseText.newest(List.of(), 6));
+        assertEquals(List.of(), PurchaseText.newest(entries, -1));
+        assertEquals(100, PurchasesView.SHOWN, "the dialog's cap");
     }
 }

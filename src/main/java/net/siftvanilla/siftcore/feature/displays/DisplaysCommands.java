@@ -24,6 +24,7 @@ import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -319,21 +320,24 @@ final class DisplaysCommands {
         var messenger = this.services.messenger();
         var all = this.feature.displays().values();
         if (sender instanceof Player player) {
-            List<Component> lines = new ArrayList<>();
+            // A button per display: placed ones teleport there, the others say how to place them. What each shows,
+            // where it stands and its state are in the tooltip.
+            List<Component> lines = all.isEmpty() ? List.of(lang.get(DisplaysMessages.LIST_EMPTY)) : List.of();
             List<Button> buttons = new ArrayList<>();
-            if (all.isEmpty()) {
-                lines.add(lang.get(DisplaysMessages.LIST_EMPTY));
-            }
             for (DisplayDef def : all) {
-                lines.add(line(def));
+                String id = def.id();
                 if (def.position() != null && Bukkit.getWorld(def.position().world()) != null) {
-                    String id = def.id();
-                    // Go teleports and shows nothing next: with Close the only other button, the list closes on the click.
-                    buttons.add(Button.of(lang.get(DisplaysMessages.LIST_GO, Arg.text("id", id)), submission -> go(submission.player(), id))
-                        .width(150).closes());
+                    // Go teleports and shows nothing next, so the list closes on the click.
+                    buttons.add(Button.of(lang.get(DisplaysMessages.LIST_GO, Arg.text("id", id)),
+                        Templates.lines(List.of(line(def), lang.get(DisplaysMessages.LIST_GO_TOOLTIP))),
+                        submission -> go(submission.player(), id)).closes());
+                } else {
+                    buttons.add(Button.of(lang.get(DisplaysMessages.LIST_UNPLACED, Arg.text("id", id)),
+                        Templates.lines(List.of(line(def), lang.get(DisplaysMessages.LIST_PLACE_TOOLTIP, Arg.text("id", id)))),
+                        submission -> list(submission.player())));
                 }
             }
-            this.services.dialogs().show(player, this.services.templates().list(lang.get(DisplaysMessages.LIST_TITLE), lines, buttons, 2, null));
+            this.services.dialogs().show(player, this.services.templates().column(lang.get(DisplaysMessages.LIST_TITLE), lines, buttons, null));
             return CommandSupport.OK;
         }
         messenger.chat(sender, DisplaysMessages.LIST_HEADER, Arg.number("count", all.size()));
