@@ -16,13 +16,13 @@ import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.key.Key;
@@ -51,9 +51,17 @@ import org.bukkit.inventory.Inventory;
  * <p>
  * Dialogs stay on screen after a click until the server shows the next one (no "waiting for response" screen), so
  * moving between screens feels instant. Every click therefore ends in a new dialog or a close: when a handler shows
- * nothing (within a short grace, for screens that load data first), the router closes the dialog. A dialog with a {@link Button#waits() waiting} button (searches) shows the
- * client's waiting screen instead, and one whose buttons all close does so on the client at once. A second click
- * that lands before the next dialog arrives hits a consumed session and is ignored without a message.
+ * nothing (within a short grace, for screens that load data first), the router closes the dialog. A button that
+ * {@link Button#closes() closes} finishes something: when its handler shows nothing the dialog closes at once, without
+ * the grace, also in a dialog whose other buttons lead on. A dialog with a {@link Button#waits() waiting} button
+ * (searches) shows the client's waiting screen instead, and one whose buttons all close does so on the client at once.
+ * A second click that lands before the next dialog arrives hits a consumed session and is ignored without a message.
+ * A click on a dialog whose session is gone (it aged out, or the plugin reloaded) is told the menu expired and
+ * closes every screen, so a waiting dialog never leaves the player on its waiting screen.
+ * <p>
+ * Sessions of dialogs on screen and of dialogs embedded in chat are kept apart ({@link DialogSessions}): browsing
+ * menus never expires a teleport request's answer waiting in chat, and a burst of requests never expires the dialog
+ * on screen. A dialog in chat also stays clickable as long as the longest request it can answer (an hour).
  * <p>
  * A player frozen by staff can't use any of it: every click except a plain close button is refused (and the dialog
  * closed) before a route or handler runs, so the pause-menu hub and dialogs opened from chat can't pay, trade or
@@ -63,8 +71,14 @@ public final class Dialogs implements Listener {
 
     public static final String NAMESPACE = "siftcore";
     private static final String UI_PREFIX = "ui/";
-    private static final int MAX_SESSIONS_PER_PLAYER = 8;
-    private static final long SESSION_TTL_MILLIS = 15 * 60 * 1000L;
+    /** How long a dialog put on screen stays clickable. */
+    static final long SCREEN_TTL_MILLIS = 15 * 60 * 1000L;
+    /**
+     * How long a dialog embedded in chat stays clickable: as long as the longest request one answers can be configured
+     * to last (a team invite's {@code invites.expire-after}, at most an hour), so the answer never expires before the
+     * request. The handler still checks the request itself; {@link DialogSessions#MAX_CHAT} bounds the memory.
+     */
+    static final long CHAT_TTL_MILLIS = 60 * 60 * 1000L;
     /**
      * How long the router waits for a handler's screen before closing the dialog it was clicked in. Many handlers
      * show their next screen after loading something (a database read), so the close waits a moment instead of
@@ -74,15 +88,12 @@ public final class Dialogs implements Listener {
     /** How long after a click a second click on the same dialog counts as a double click (ignored silently). */
     private static final long DOUBLE_CLICK_MILLIS = 5_000L;
 
-    /** @param consumedAt when the session's one click was accepted, 0 while it is unused */
-    private record Session(long token, View view, long created, AtomicLong consumedAt) {
-    }
-
     private final Scheduler scheduler;
     private final Messenger messenger;
     private final Logger logger;
+    private final LongSupplier clock;
     private final SecureRandom random = new SecureRandom();
-    private final Map<UUID, Map<Long, Session>> sessions = new ConcurrentHashMap<>();
+    private final DialogSessions sessions;
     private final Map<String, Consumer<Player>> routes = new ConcurrentHashMap<>();
     private final Map<UUID, AtomicLong> shown = new ConcurrentHashMap<>();
     private final AtomicLong rejected = new AtomicLong();
@@ -91,9 +102,16 @@ public final class Dialogs implements Listener {
     private volatile FreezeStatus freezes = FreezeStatus.NONE;
 
     public Dialogs(Scheduler scheduler, Messenger messenger, Logger logger) {
+        this(scheduler, messenger, logger, System::currentTimeMillis);
+    }
+
+    /** @param clock the wall clock in milliseconds (tests age sessions with their own) */
+    Dialogs(Scheduler scheduler, Messenger messenger, Logger logger, LongSupplier clock) {
         this.scheduler = scheduler;
         this.messenger = messenger;
         this.logger = logger;
+        this.clock = clock;
+        this.sessions = new DialogSessions(SCREEN_TTL_MILLIS, CHAT_TTL_MILLIS, clock);
     }
 
     /** Installs who is frozen by staff (the staff feature, wired once at startup): frozen players can't use menus. */
@@ -143,11 +161,11 @@ public final class Dialogs implements Listener {
         markShown(player);
         FormBridge bridge = this.bedrock;
         if (bridge != null && bridge.handles(player)) {
-            long token = register(player, view);
+            long token = register(player, view, false);
             bridge.show(player, view, (buttonIndex, values) -> dispatch(player, token, buttonIndex, values));
             return;
         }
-        Dialog dialog = render(view, register(player, view), this.messenger.lang().style().palette());
+        Dialog dialog = render(view, register(player, view, false), this.messenger.lang().style().palette());
         if (this.scheduler.owns(player)) {
             player.showDialog(dialog);
         } else {
@@ -156,11 +174,12 @@ public final class Dialogs implements Listener {
     }
 
     /**
-     * Builds a dialog to embed in a chat click event ({@code ClickEvent.showDialog}). The session stays valid for a
-     * while, so the player can open it from chat later.
+     * Builds a dialog to embed in a chat click event ({@code ClickEvent.showDialog}). The session stays valid for an
+     * hour (as long as the longest request it can answer), so the player can open it from chat later, however many
+     * other menus they open meanwhile; the handler tells them if the request itself is over.
      */
     public Dialog inline(Player viewer, View view) {
-        return render(view, register(viewer, view), this.messenger.lang().style().palette());
+        return render(view, register(viewer, view, true), this.messenger.lang().style().palette());
     }
 
     public void close(Player player) {
@@ -180,22 +199,20 @@ public final class Dialogs implements Listener {
         closeAfterClick(player);
     }
 
-    private long register(Player player, View view) {
+    /**
+     * Opens a session for a view and returns its token (the buttons send {@code siftcore:ui/<token>/<button>}).
+     *
+     * @param inline whether the view is embedded in chat rather than put on screen
+     */
+    long register(Player player, View view, boolean inline) {
         long token = this.random.nextLong() & Long.MAX_VALUE;
-        Map<Long, Session> map = this.sessions.computeIfAbsent(player.getUniqueId(), k -> java.util.Collections.synchronizedMap(
-            new LinkedHashMap<>(16, 0.75f, false) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<Long, Session> eldest) {
-                    return size() > MAX_SESSIONS_PER_PLAYER;
-                }
-            }));
-        map.put(token, new Session(token, view, System.currentTimeMillis(), new AtomicLong()));
+        this.sessions.add(player.getUniqueId(), token, view, inline);
         return token;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        this.sessions.remove(event.getPlayer().getUniqueId());
+        this.sessions.forget(event.getPlayer().getUniqueId());
         this.shown.remove(event.getPlayer().getUniqueId());
     }
 
@@ -238,20 +255,26 @@ public final class Dialogs implements Listener {
             this.rejected.incrementAndGet();
             return;
         }
-        Session session = session(player, token);
+        DialogSessions.Session session = this.sessions.get(player.getUniqueId(), token);
         if (session == null) {
             this.rejected.incrementAndGet();
             this.messenger.send(player, CoreMessages.UI_EXPIRED);
-            close(player);
+            // The session is gone, so how the client took the click is unknown: a waiting dialog left it on its
+            // waiting screen, which only the container close of closeAfterClick leaves.
+            closeAfterClick(player);
             return;
         }
         long consumedAt = session.consumedAt().get();
         if (consumedAt != 0) {
             this.rejected.incrementAndGet();
-            if (System.currentTimeMillis() - consumedAt > DOUBLE_CLICK_MILLIS) {
+            if (this.clock.getAsLong() - consumedAt > DOUBLE_CLICK_MILLIS) {
                 // Not a double click: an old dialog opened again (from chat, say) whose one click was already used.
                 this.messenger.send(player, CoreMessages.UI_EXPIRED);
-                close(player);
+                if (afterAction(session.view().allButtons()) == DialogBase.DialogAfterAction.WAIT_FOR_RESPONSE) {
+                    closeAfterClick(player);
+                } else {
+                    close(player);
+                }
             }
             // Otherwise a second click while the first click's answer is on its way: nothing to do.
             return;
@@ -278,31 +301,19 @@ public final class Dialogs implements Listener {
         closeUnlessAnswered(player, shownBefore, screenBefore);
     }
 
-    private Session session(Player player, long token) {
-        Map<Long, Session> map = this.sessions.get(player.getUniqueId());
-        if (map == null) {
-            return null;
-        }
-        Session session = map.get(token);
-        if (session == null || System.currentTimeMillis() - session.created() > SESSION_TTL_MILLIS) {
-            return null;
-        }
-        return session;
-    }
-
     /** Validates and runs one click. {@code values} holds raw client values (String, Boolean or Float). */
     void dispatch(Player player, long token, int buttonIndex, Map<String, Object> values) {
-        Session session = session(player, token);
+        DialogSessions.Session session = this.sessions.get(player.getUniqueId(), token);
         if (session != null && this.freezes.frozen(player.getUniqueId()) && !closesOnly(session.view(), buttonIndex)) {
             refuseFrozen(player);
             return;
         }
-        if (session == null || !session.consumedAt().compareAndSet(0, Math.max(1, System.currentTimeMillis()))) {
+        if (session == null || !session.consumedAt().compareAndSet(0, Math.max(1, this.clock.getAsLong()))) {
             this.rejected.incrementAndGet();
             return;
         }
-        // The consumed session stays (until it ages out or is pushed out by newer ones), so a late second click on
-        // the same dialog is recognised and ignored instead of being answered with "this menu expired".
+        // The consumed session stays (until it ages out or is pushed out by newer ones of its pool), so a late second
+        // click on the same dialog is recognised and ignored instead of being answered with "this menu expired".
         View view = session.view();
         List<Button> buttons = view.allButtons();
         if (buttonIndex < 0 || buttonIndex >= buttons.size()) {
@@ -336,7 +347,11 @@ public final class Dialogs implements Listener {
                 submission.close();
             }
             if (!submission.responded) {
-                closeUnlessAnswered(player, shownBefore, screenBefore);
+                if (button.after() == Button.After.CLOSE) {
+                    closeNowUnlessAnswered(player, shownBefore, screenBefore);
+                } else {
+                    closeUnlessAnswered(player, shownBefore, screenBefore);
+                }
             }
         };
         if (this.scheduler.owns(player)) {
@@ -374,6 +389,17 @@ public final class Dialogs implements Listener {
                 closeAfterClick(player, screenBefore);
             }
         }, null, CLOSE_GRACE_TICKS);
+    }
+
+    /**
+     * Closes the dialog a {@link Button#closes() closing} button was clicked in right away, unless its handler showed
+     * something new: the button finished what the dialog was for, so there is no next screen to wait for (a dialog
+     * whose other buttons lead on renders without a client-side close, so the server closes it). Player's thread.
+     */
+    private void closeNowUnlessAnswered(Player player, long shownBefore, Inventory screenBefore) {
+        if (shownCount(player) == shownBefore) {
+            closeAfterClick(player, screenBefore);
+        }
     }
 
     private void closeAfterClick(Player player) {
@@ -653,10 +679,6 @@ public final class Dialogs implements Listener {
 
     /** Number of live sessions (metrics). */
     public int sessionCount() {
-        int count = 0;
-        for (Map<Long, Session> map : this.sessions.values()) {
-            count += map.size();
-        }
-        return count;
+        return this.sessions.size();
     }
 }

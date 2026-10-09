@@ -7,14 +7,21 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -27,10 +34,18 @@ import org.bukkit.entity.Player;
  * Shared helpers for feature commands: permission predicates, player-only checks, cooldowns from
  * {@code commands.yml}, and arguments for player names and money amounts. Player-name arguments are plain words
  * with suggestions (never entity selectors), so regular players cannot target {@code @a}.
+ * <p>
+ * Vanished staff stay hidden: player-name suggestions ({@link #onlinePlayer} and {@link #knownPlayer}) and
+ * {@link #online} only offer or find online players the sender {@link #canSee may see}, which asks the staff feature's
+ * vanish (bound once it is built, see {@link #vanish(VanishStatus)}) as well as the server's own hide list.
  */
 public final class CommandSupport {
 
     public static final int OK = Command.SINGLE_SUCCESS;
+    /** Players with this node see vanished staff (granted by the staff feature, which declares it). */
+    public static final String SEE_VANISHED = "siftcore.staff.vanish.see";
+    /** At most this many names are suggested for a player argument. */
+    static final int MAX_SUGGESTIONS = 20;
 
     /** The player and command whose cooldown the command running on this thread was charged for. */
     private record Charged(UUID player, String command) {
@@ -42,6 +57,12 @@ public final class CommandSupport {
     private final Cooldowns cooldowns;
     private final Setting<CommandSettings> settings;
     private final Supplier<MoneyFormat> money;
+    private volatile VanishStatus vanish = VanishStatus.NONE;
+    /**
+     * The vanish bound last, for the static {@link #onlinePlayer} suggestions, which features build without an
+     * instance. The plugin has one CommandSupport, so this is its binding.
+     */
+    private static volatile VanishStatus boundVanish = VanishStatus.NONE;
 
     public CommandSupport(Messenger messenger, PlayerDirectory directory, Cooldowns cooldowns,
                           Setting<CommandSettings> settings, Supplier<MoneyFormat> money) {
@@ -50,6 +71,50 @@ public final class CommandSupport {
         this.cooldowns = cooldowns;
         this.settings = settings;
         this.money = money;
+    }
+
+    /**
+     * Binds who is vanished (the staff feature is built after the commands, so the composition root binds it once it
+     * exists). Until then, and on servers without it, only the server's hide list counts. It also binds the static
+     * {@link #onlinePlayer} suggestions.
+     */
+    public void vanish(VanishStatus vanish) {
+        this.vanish = Objects.requireNonNull(vanish);
+        boundVanish = vanish;
+    }
+
+    /** Who is vanished, as bound by {@link #vanish(VanishStatus)}. */
+    public VanishStatus vanish() {
+        return this.vanish;
+    }
+
+    /**
+     * Whether {@code viewer} may know that the online {@code target} is online: the console (and command blocks) and
+     * the target themselves always may; a player only when the server shows them the target and the target is not
+     * vanished, unless they see vanished staff. The vanish check also covers the moment before a vanish reaches the
+     * server's hide list. Thread-safe (suggestions are computed off the main threads).
+     */
+    public boolean canSee(CommandSender viewer, Player target) {
+        return canSee(viewer, target, this.vanish);
+    }
+
+    /** {@link #canSee(CommandSender, Player)} with the given vanish. */
+    static boolean canSee(CommandSender viewer, Player target, VanishStatus vanish) {
+        if (!(viewer instanceof Player player) || player.getUniqueId().equals(target.getUniqueId())) {
+            return true;
+        }
+        return visible(player.canSee(target), vanish.vanished(target.getUniqueId()), player.hasPermission(SEE_VANISHED));
+    }
+
+    /** The visibility rule on its own: shown by the server, and not vanished unless the viewer sees vanished staff. */
+    static boolean visible(boolean serverShows, boolean vanished, boolean seesVanished) {
+        return serverShows && (!vanished || seesVanished);
+    }
+
+    /** The online player with this id if {@code viewer} {@link #canSee may see} them, otherwise null. */
+    public Player visibleOnline(CommandSender viewer, UUID player) {
+        Player online = Bukkit.getPlayer(player);
+        return online != null && canSee(viewer, online) ? online : null;
     }
 
     public Messenger messenger() {
@@ -159,39 +224,76 @@ public final class CommandSupport {
         return false;
     }
 
-    /** A player-name word argument suggesting online players the sender can see. */
+    /**
+     * A player-name word argument suggesting the online players the sender {@link #canSee may see}: the server's hide
+     * list and the vanish {@link #vanish(VanishStatus) bound} to the plugin's CommandSupport, so a vanished staff member
+     * is never offered, also in the moment before the server hides them.
+     */
     public static RequiredArgumentBuilder<CommandSourceStack, String> onlinePlayer(String name) {
         return Commands.argument(name, StringArgumentType.word()).suggests((context, builder) -> {
-            String remaining = builder.getRemainingLowerCase();
-            CommandSender sender = context.getSource().getSender();
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(Locale.ROOT).startsWith(remaining)
-                    && (!(sender instanceof Player viewer) || viewer.canSee(online))) {
-                    builder.suggest(online.getName());
-                }
+            for (String suggestion : onlineNames(context.getSource().getSender(), builder.getRemainingLowerCase(), Bukkit.getOnlinePlayers())) {
+                builder.suggest(suggestion);
             }
             return builder.buildFuture();
         });
     }
 
-    /** A player-name argument suggesting online players first, then known offline names. */
+    /** The names {@link #onlinePlayer} suggests for what was typed: online players the sender may see, in order. */
+    static List<String> onlineNames(CommandSender sender, String typed, Collection<? extends Player> online) {
+        String remaining = typed.toLowerCase(Locale.ROOT);
+        VanishStatus vanish = boundVanish;
+        List<String> names = new ArrayList<>();
+        for (Player player : online) {
+            if (player.getName().toLowerCase(Locale.ROOT).startsWith(remaining) && canSee(sender, player, vanish)) {
+                names.add(player.getName());
+            }
+        }
+        return names;
+    }
+
+    /**
+     * A player-name argument for anyone who ever joined: suggests the online players the sender {@link #canSee may see}
+     * (so a vanished staff member never shows up as online), then, from two typed letters on, known names.
+     */
     public RequiredArgumentBuilder<CommandSourceStack, String> knownPlayer(String name) {
         return Commands.argument(name, StringArgumentType.word()).suggests((context, builder) -> {
-            String remaining = builder.getRemainingLowerCase();
-            int count = 0;
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(Locale.ROOT).startsWith(remaining)) {
-                    builder.suggest(online.getName());
-                    count++;
-                }
-            }
-            if (remaining.length() >= 2 && count < 20) {
-                for (String known : this.directory.namesStartingWith(remaining, 20 - count)) {
-                    builder.suggest(known);
-                }
+            for (String suggestion : knownNames(context.getSource().getSender(), builder.getRemainingLowerCase(), Bukkit.getOnlinePlayers())) {
+                builder.suggest(suggestion);
             }
             return builder.buildFuture();
         });
+    }
+
+    /**
+     * The names {@link #knownPlayer} suggests for what was typed: online players the sender may see, then (from two
+     * letters on, so an empty prefix lists exactly who is visibly online) names from the directory, each name once and
+     * at most {@link #MAX_SUGGESTIONS}. A hidden player can only come up as an ordinary known name, which says nothing
+     * about whether they are online (suggestions are shown sorted).
+     */
+    List<String> knownNames(CommandSender sender, String typed, Collection<? extends Player> online) {
+        String remaining = typed.toLowerCase(Locale.ROOT);
+        List<String> names = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Player player : online) {
+            if (names.size() >= MAX_SUGGESTIONS) {
+                return names;
+            }
+            String lower = player.getName().toLowerCase(Locale.ROOT);
+            if (lower.startsWith(remaining) && canSee(sender, player) && seen.add(lower)) {
+                names.add(player.getName());
+            }
+        }
+        if (remaining.length() >= 2) {
+            for (String known : this.directory.namesStartingWith(remaining, MAX_SUGGESTIONS)) {
+                if (names.size() >= MAX_SUGGESTIONS) {
+                    break;
+                }
+                if (seen.add(known.toLowerCase(Locale.ROOT))) {
+                    names.add(known);
+                }
+            }
+        }
+        return names;
     }
 
     /** A money amount argument (word, so 1.5k works). */
@@ -199,16 +301,24 @@ public final class CommandSupport {
         return Commands.argument(name, StringArgumentType.word());
     }
 
-    /** Resolves an online player by exact name, telling the sender if not found. */
+    /**
+     * Resolves an online player by exact name, telling the sender if not found. A player the sender may not
+     * {@link #canSee see} (vanished staff) is not found, with the same message as someone offline.
+     */
     public Player online(CommandContext<CommandSourceStack> context, String argument) {
         String name = StringArgumentType.getString(context, argument);
-        Player player = Bukkit.getPlayerExact(name);
         CommandSender sender = context.getSource().getSender();
-        if (player == null || (sender instanceof Player viewer && !viewer.canSee(player))) {
+        Player player = online(sender, name);
+        if (player == null) {
             this.messenger.send(sender, CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", name));
-            return null;
         }
         return player;
+    }
+
+    /** The online player of that exact name if {@code sender} {@link #canSee may see} them, otherwise null. */
+    public Player online(CommandSender sender, String name) {
+        Player player = Bukkit.getPlayerExact(name);
+        return player != null && canSee(sender, player) ? player : null;
     }
 
     /** Resolves any player who ever joined, telling the sender if unknown. */

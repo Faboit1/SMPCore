@@ -82,6 +82,20 @@ public record View(Kind kind, Component title, List<Body> body, List<Input> inpu
             this.columns, this.escapable);
     }
 
+    /**
+     * A copy whose buttons all {@link Button#closes() close}, for dialogs where every answer finishes something (a
+     * teleport request's Accept and Deny, a payment's Pay and Cancel): the client closes the dialog at once on any
+     * click. A handler that still shows something (an error) opens it as a new dialog.
+     */
+    public View closing() {
+        List<Button> closing = new ArrayList<>(this.buttons.size());
+        for (Button button : this.buttons) {
+            closing.add(button.closes());
+        }
+        return new View(this.kind, this.title, this.body, this.inputs, closing, this.exit == null ? null : this.exit.closes(),
+            this.columns, this.escapable);
+    }
+
     /** A copy with an error line appended to the body and inputs pre-filled with what the player typed. */
     public View withError(Component error, FormValues typed) {
         List<Body> newBody = new ArrayList<>();

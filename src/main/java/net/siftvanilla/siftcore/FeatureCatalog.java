@@ -73,6 +73,8 @@ final class FeatureCatalog {
         // A frozen player can't teleport or use any menu: the shared teleports and the dialog router ask the staff feature.
         this.services.teleports().freezes(staff.freezes());
         this.services.dialogs().freezes(staff.freezes());
+        // Player-name arguments never offer or find vanished staff for players who can't see them.
+        this.services.commands().vanish(staff.vanish());
         SpawnFeature spawn = new SpawnFeature(this.services, this.problems, this.combatTags);
         AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
         StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin, staff.vanish());

@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.api.event.EconomyTransactionCommittedEvent;
@@ -66,6 +67,7 @@ import net.siftvanilla.siftcore.ui.gui.MenuContext;
 import net.siftvanilla.siftcore.ui.gui.MenuListener;
 import net.siftvanilla.siftcore.ui.hub.HubRegistry;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -406,6 +408,7 @@ public final class SiftCore implements CoreControl {
 
     /** Stops features in reverse order, then flushes and closes storage. */
     public void stop() {
+        recordOnlineSeen();
         for (int i = this.enabled.size() - 1; i >= 0; i--) {
             Feature feature = this.enabled.get(i);
             try {
@@ -430,6 +433,26 @@ public final class SiftCore implements CoreControl {
         if (this.database != null) {
             this.database.close();
             this.logger.info("Storage flushed and closed (" + this.database.committedWrites() + " writes this session).");
+        }
+    }
+
+    /**
+     * Players get no quit event at shutdown (the server disables plugins before it removes its players), so the
+     * last-seen time of everyone still online is written here, first, while storage still takes writes; its final
+     * flush commits it. Without it /seen, friends and teams would show when they joined instead of when they left.
+     */
+    private void recordOnlineSeen() {
+        if (this.services == null) {
+            return;
+        }
+        List<UUID> online = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            online.add(player.getUniqueId());
+        }
+        try {
+            this.services.directory().recordQuitAll(online);
+        } catch (RuntimeException e) {
+            this.logger.log(Level.WARNING, "Could not record when the " + online.size() + " online players were last seen", e);
         }
     }
 }

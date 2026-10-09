@@ -7,6 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -101,18 +102,35 @@ public final class PlayerDirectory {
 
     /** Updates last-seen on quit. */
     public void recordQuit(UUID uuid) {
-        this.previousSeen.remove(uuid);
-        Known known = this.byUuid.get(uuid);
-        if (known == null) {
+        recordQuitAll(List.of(uuid));
+    }
+
+    /**
+     * Updates last-seen of several players leaving at once, in one write: the players still online when the server
+     * stops, who get no quit event (call it before storage closes, whose final flush then commits it).
+     */
+    public void recordQuitAll(Collection<UUID> players) {
+        long now = System.currentTimeMillis();
+        List<UUID> known = new ArrayList<>(players.size());
+        for (UUID uuid : players) {
+            this.previousSeen.remove(uuid);
+            Known entry = this.byUuid.get(uuid);
+            if (entry != null) {
+                this.byUuid.put(uuid, new Known(uuid, entry.name(), entry.firstJoin(), now, entry.ipHash()));
+                known.add(uuid);
+            }
+        }
+        if (known.isEmpty()) {
             return;
         }
-        long now = System.currentTimeMillis();
-        this.byUuid.put(uuid, new Known(uuid, known.name(), known.firstJoin(), now, known.ipHash()));
         this.database.write(c -> {
             try (PreparedStatement ps = c.prepareStatement("UPDATE players SET last_seen = ? WHERE uuid = ?")) {
-                ps.setLong(1, now);
-                ps.setString(2, uuid.toString());
-                ps.executeUpdate();
+                for (UUID uuid : known) {
+                    ps.setLong(1, now);
+                    ps.setString(2, uuid.toString());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
             }
             return null;
         });

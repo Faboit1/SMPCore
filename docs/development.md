@@ -67,7 +67,7 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - `Bukkit.dispatchCommand` works only on the global thread and throws on parse errors (wrap in try/catch).
 - No world/entity scans on timers. Track what you need from events (chunk load/unload, place/break).
 - `onDisable` runs after the region scheduler stopped and players never get a quit event at shutdown: flush
-  online players' data directly in `disable()`.
+  online players' data directly in `disable()` (core already records their last-seen time before features stop).
 - Shared in-memory state must be thread-safe (`ConcurrentHashMap`, immutable snapshots, or the economy lock).
 
 ## Money, items and crash safety
@@ -121,7 +121,15 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
   (`notice`, `confirm`, `list`, `form`, plus input helpers `text`, `toggle`, `choice`, `range`) and show them with
   `services.dialogs().show(player, view)`. Buttons are plain labels from lang; handlers get a `Submission`
   (`values()`, `show(next)`, `error(message)` to re-open with typed values kept, `close()`).
-- Chat messages may embed a dialog: `ClickEvent.showDialog(services.dialogs().inline(viewer, view))`.
+- After a click a dialog stays on screen until the next one replaces it (`Button` default `After.NEXT`); a handler
+  that shows nothing gets its dialog closed after a short grace. Mark a button that finishes something
+  `.closes()`: the dialog then closes at once when its handler shows nothing (on the client already when every button
+  closes; `view.closing()` marks them all, for confirmations whose answers all finish). Mark slow work (searches)
+  `.waits()` / `view.waiting()`: the client shows its waiting screen until the answer. Errors still re-open the dialog
+  with the red error line (`submission.error(...)`).
+- Chat messages may embed a dialog: `ClickEvent.showDialog(services.dialogs().inline(viewer, view))`. Its session is
+  kept apart from the screens the player opens, so browsing menus never expires it, and stays clickable for an hour
+  (screens: 15 minutes), as long as the longest request it can answer. Check the request itself in the handler.
 - Chest GUIs only where a grid is needed (auction house, sell, order delivery, spawner storage, crate preview).
   Extend `ui.gui.Menu` or `ui.gui.PagedMenu` (standard layout: rows 1-5 entries; 45 prev, 46 back, 47 sort,
   48 filter, 49 search, 50-52 extras, 53 next). Buttons: white name, gray description. Sort/filter buttons use
@@ -144,6 +152,10 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - `CommandSupport`: `permission(node)` / `playerPermission(node)` predicates (players only see what they can use),
   `player(ctx)`, `cooldown(player, name[, duration])`, `onlinePlayer(arg)` / `knownPlayer(arg)` (word arguments with
   suggestions, never selectors), `online(ctx, arg)`, `known(ctx, arg)`, `amount(arg)` + `money(ctx, arg)`.
+- Vanished staff stay hidden: `onlinePlayer` and `knownPlayer` suggest and `online` finds only online players the
+  sender may see (`support.canSee(viewer, target)`: the server's hide list plus the staff feature's vanish, unless the
+  viewer has `siftcore.staff.vanish.see`). Use `canSee` / `visibleOnline(viewer, uuid)` wherever you tell a player
+  that someone is online.
 - The `commands.yml` cooldown of a command applies to every player who runs it or any of its subcommands
   (`CommandService` gates every node). Call `cooldown(player, name)` only for paths outside the command that do the
   same thing (a dialog button); inside the command's own run it passes without charging twice. For an action on a

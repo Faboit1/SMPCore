@@ -165,7 +165,14 @@ The `Dialogs` router secures every click:
 - Every input is re-validated against its own definition (length, options, range, step), and handlers run on
   the player's thread.
 - Invalid input re-opens the dialog with the typed values kept.
-- Dialogs wait for the server's response, so the client can't submit twice.
+- After a click the dialog stays on screen until the next one replaces it, so moving between screens is instant; a
+  second click before the answer arrives hits the consumed token and is ignored. A click whose handler shows nothing
+  closes the dialog after a short grace, or at once for a button marked `closes()` (finishing buttons). Searches and
+  other slow work use `waits()`, which shows the client's waiting screen.
+- Sessions of dialogs on screen (newest 8, for 15 minutes) and of dialogs embedded in chat (32, answered ones dropped
+  first, for an hour: the longest a request they answer can last) are kept apart: browsing menus never expires a
+  teleport request's answer in chat, and many requests never expire the dialog on screen. A click whose session is
+  gone says the menu expired and closes every screen, the waiting screen included.
 - Static routes (`siftcore:hub/<id>`) serve the pause-screen dialog registered by the bootstrapper.
 
 Bedrock players (when Floodgate is installed) get the same `View`s as Cumulus forms through `FormBridge`.
