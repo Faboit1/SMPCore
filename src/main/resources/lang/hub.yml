@@ -92,3 +92,12 @@ hub:
     rules:
       label: "Rules"
       description: "The server rules"
+    cosmetics:
+      label: "Cosmetics"
+      description: "Chat colour, nickname, tags and more"
+    booster:
+      label: "Sell booster"
+      description: "The server-wide sell booster and what comes next"
+    links:
+      label: "Links"
+      description: "Rules, Discord and the store"

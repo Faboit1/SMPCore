@@ -161,7 +161,7 @@ public final class FriendsFeature implements Feature {
         this.store.write(this.store.sweep(s.rules(), s.logKeep().toMillis())).whenComplete((deleted, error) -> {
             if (error != null) {
                 this.logger.log(Level.WARNING, "The friends sweep failed", error);
-            } else if (deleted > 0 && this.services.core().get().debug()) {
+            } else if (deleted > 0 && this.services.debug()) {
                 this.logger.info("Friends sweep removed " + deleted + " old rows");
             }
         });

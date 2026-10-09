@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * Friendships. Implemented by the friends feature; used by TPA (auto-accept from friends), combat (no kill credit or
- * bounty claims between friends), chat and the scoreboard. Thread-safe and cheap: answers from memory, exact for
+ * bounty claims between friends) and chat. Thread-safe and cheap: answers from memory, exact for
  * online players.
  */
 public interface FriendLookup {

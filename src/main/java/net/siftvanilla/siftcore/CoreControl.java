@@ -11,6 +11,15 @@ public interface CoreControl {
 
     List<ConfigProblem> reload();
 
+    /**
+     * Whether the last {@link #reload()} applied the config files. A reload whose config files are broken applies
+     * nothing; one whose config files are fine applies them even when icons or lang entries have problems (those
+     * entries keep their shipped values).
+     */
+    default boolean lastReloadApplied() {
+        return false;
+    }
+
     SelfTest selfTest();
 
     boolean debug();

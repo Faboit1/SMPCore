@@ -313,7 +313,7 @@ public final class Ledger {
         if (failures >= FAILURES_BEFORE_READ_ONLY && this.available) {
             this.available = false;
             this.logger.severe("The economy is now read-only after " + failures
-                + " storage failures. Fix the database, then run /sift economy resume.");
+                + " storage failures. Fix the database, then run /eco resume.");
         }
     }
 

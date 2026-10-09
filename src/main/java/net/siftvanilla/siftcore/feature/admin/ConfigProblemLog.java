@@ -13,9 +13,8 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
  * ("Config problem alerts", {@link AdminFeature#CONFIG_ALERTS}).
  * <p>
  * A reload hands its problems over directly ({@link #reloaded}), and so does the startup when the plugin keeps its
- * list ({@link #startup}, from {@code CoreControl#startupProblems}). Until it does, startup problems are only written
- * to the log, so this also listens to SiftCore's own logger: every {@code Config problem: ...} line the startup writes
- * ({@link #STARTUP_PREFIX}), and the {@code features/settings.yml: ...} warnings the settings feature writes for bad
+ * list ({@link #startup}, from {@code CoreControl#startupProblems}, which SiftCore keeps). This also listens to
+ * SiftCore's own logger: every {@code Config problem: ...} line the startup writes ({@link #STARTUP_PREFIX}), and the {@code features/settings.yml: ...} warnings the settings feature writes for bad
  * server overrides after startup and on each reload ({@link #SETTINGS_PREFIX}). Both log formats are pinned by a test
  * against their sources. The same problem from two sources counts once. Thread-safe: records arrive from any thread.
  */

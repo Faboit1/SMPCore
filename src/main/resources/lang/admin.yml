@@ -7,6 +7,8 @@ admin:
   reload:
     done: "<primary>Reloaded <files> files in <time>."
     failed: "<primary>Nothing was reloaded. Fix these <count> problems first:"
+    # The config files were applied, but some icons or texts have problems; those keep their shipped values.
+    partial: "<primary>Reloaded <files> files in <time>. <count> problems use the shipped values until fixed:"
   problem: "<secondary><file> <primary><path><secondary>: <message>"
   debug: "<primary>Debug logging is <state>."
   version: "<primary>SiftCore <version> <secondary>on <server>, <threading>"

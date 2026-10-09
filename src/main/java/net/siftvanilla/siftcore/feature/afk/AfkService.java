@@ -431,7 +431,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
             .build();
         TransactionResult result = this.services.ledger().execute(tx);
         if (!result.success()) {
-            if (this.services.core().get().debug()) {
+            if (this.services.debug()) {
                 this.logger.info("AFK zone reward for " + player.getName() + " not paid: " + result.status());
             }
             return;

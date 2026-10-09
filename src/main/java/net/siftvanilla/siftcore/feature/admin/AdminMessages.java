@@ -7,6 +7,7 @@ public final class AdminMessages {
 
     public static final MessageKey RELOADED = MessageKey.chat("admin.reload.done", "files", "time");
     public static final MessageKey RELOAD_FAILED = MessageKey.chat("admin.reload.failed", "count");
+    public static final MessageKey RELOAD_PARTIAL = MessageKey.chat("admin.reload.partial", "files", "time", "count");
     public static final MessageKey PROBLEM = MessageKey.chat("admin.problem", "file", "path", "message");
     public static final MessageKey DEBUG = MessageKey.chat("admin.debug", "state");
     public static final MessageKey VERSION = MessageKey.chat("admin.version", "version", "server", "threading");

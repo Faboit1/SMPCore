@@ -115,8 +115,8 @@ public final class StaffFeature implements Feature {
     /**
      * Rank join and leave lines and nicknames (the cosmetics feature, built after this one), so a fake join or leave
      * line on vanish looks exactly like the real one. The composition root calls it once cosmetics is built
-     * ({@code staff.cosmetics(cosmetics.cosmetics())} in FeatureCatalog, wired in the settings integration pass);
-     * until then fake lines imitate only the plain join and leave lines of the extras feature.
+     * ({@code staff.cosmetics(cosmetics.cosmetics())} in FeatureCatalog); without it fake lines imitate only the plain
+     * join and leave lines of the extras feature.
      */
     public void cosmetics(Cosmetics cosmetics) {
         this.fakeLines.cosmetics(cosmetics);

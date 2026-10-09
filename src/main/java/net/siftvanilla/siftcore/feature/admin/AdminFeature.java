@@ -118,7 +118,7 @@ public final class AdminFeature implements Feature, Listener {
 
     /**
      * The problems of the last startup or reload, with the startup's own list taken over once the plugin keeps one
-     * ({@link CoreControl#startupProblems}); until then the startup's are read from the log.
+     * ({@link CoreControl#startupProblems}); SiftCore keeps that list, and the log is read as well (problems count once).
      */
     private ConfigProblemLog problems() {
         this.control.startupProblems().ifPresent(this.problems::startup);
@@ -196,7 +196,14 @@ public final class AdminFeature implements Feature, Listener {
             this.services.audit().record(actor(sender), "admin.reload", null, null);
             return CommandSupport.OK;
         }
-        this.services.messenger().chat(sender, AdminMessages.RELOAD_FAILED, Arg.number("count", problems.size()));
+        if (this.control.lastReloadApplied()) {
+            this.services.messenger().chat(sender, AdminMessages.RELOAD_PARTIAL,
+                Arg.number("files", this.services.configs().fileNames().size()),
+                Arg.time("time", Duration.ofNanos(System.nanoTime() - start)), Arg.number("count", problems.size()));
+            this.services.audit().record(actor(sender), "admin.reload", null, problems.size() + " problems");
+        } else {
+            this.services.messenger().chat(sender, AdminMessages.RELOAD_FAILED, Arg.number("count", problems.size()));
+        }
         for (ConfigProblem problem : problems) {
             this.services.messenger().chat(sender, AdminMessages.PROBLEM, Arg.text("file", problem.file()),
                 Arg.text("path", problem.path()), Arg.text("message", problem.message()));

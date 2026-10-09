@@ -58,7 +58,13 @@ public record Services(
     Permissions permissions,
     Teleports teleports,
     Relations relations,
-    StatusBars statusBars) {
+    StatusBars statusBars,
+    java.util.function.BooleanSupplier debugFlag) {
+
+    /** Whether debug logging is on now: config.yml's {@code debug}, or what /sift debug switched it to since. */
+    public boolean debug() {
+        return this.debugFlag.getAsBoolean();
+    }
 
     /** The current money format (follows reloads). */
     public Supplier<MoneyFormat> money() {

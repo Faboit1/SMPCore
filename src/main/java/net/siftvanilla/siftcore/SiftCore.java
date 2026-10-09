@@ -81,6 +81,8 @@ public final class SiftCore implements CoreControl {
 
     /** The config problems found at startup, for staff alerts on join (null until the startup finished). */
     private volatile List<ConfigProblem> startupProblems;
+    /** Whether the last /sift reload applied the config files (see {@link CoreControl#lastReloadApplied}). */
+    private volatile boolean reloadApplied;
 
     private final JavaPlugin plugin;
     private final Logger logger;
@@ -182,7 +184,7 @@ public final class SiftCore implements CoreControl {
 
         this.services = new Services(this.plugin, this.scheduler, this.configs, this.core, this.database, this.ledger,
             deliveries, directory, playerSettings, audit, cooldowns, this.lang, messenger, this.dialogs, templates,
-            menus, hub, commandSupport, this.placeholders, this.permissions, teleports, relations, this.statusBars);
+            menus, hub, commandSupport, this.placeholders, this.permissions, teleports, relations, this.statusBars, () -> this.debug);
 
         this.features.addAll(new FeatureCatalog(this.services, combatTags, this, problems).create());
 
@@ -373,15 +375,22 @@ public final class SiftCore implements CoreControl {
     /** Reloads every config and lang file; nothing changes unless everything is valid. */
     @Override
     public List<ConfigProblem> reload() {
+        this.reloadApplied = false;
         List<ConfigProblem> problems = new ArrayList<>(this.configs.reload());
         if (!problems.isEmpty()) {
             return problems;
         }
+        this.reloadApplied = true;
         java.util.Set<String> invalid = this.icons.load(this.iconSettings.get().icons());
         reportInvalidIcons(invalid, problems);
         this.style.update(this.core.get().palette(), this.icons);
         problems.addAll(this.langFiles.load(this.lang));
         return problems;
+    }
+
+    @Override
+    public boolean lastReloadApplied() {
+        return this.reloadApplied;
     }
 
     @Override
