@@ -76,6 +76,34 @@ class HomesViewsTest {
         assertEquals("Set a home here", plain(view.buttons().getLast().label()));
     }
 
+    /** The colour of the first text part containing {@code text}, inherited colours included, or null. */
+    private static net.kyori.adventure.text.format.TextColor colourOf(Component component, String text,
+                                                                     net.kyori.adventure.text.format.TextColor inherited) {
+        net.kyori.adventure.text.format.TextColor colour = component.color() != null ? component.color() : inherited;
+        if (component instanceof net.kyori.adventure.text.TextComponent part && part.content().contains(text)) {
+            return colour;
+        }
+        for (Component child : component.children()) {
+            net.kyori.adventure.text.format.TextColor found = colourOf(child, text, colour);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    @Test
+    void valuesAreInTheAccentColour() {
+        View view = HomesViews.list(lang, templates, homes(2), 5, false, actions(new ArrayList<>()));
+        Component header = ((Body.Text) view.body().getFirst()).text();
+        assertEquals(Palette.DEFAULT_ACCENT, colourOf(header, "2", null), "the count: " + header);
+        assertEquals(Palette.DEFAULT_ACCENT, colourOf(header, "5", null), "the limit: " + header);
+        Component tooltip = view.buttons().getFirst().tooltip();
+        assertEquals(Palette.DEFAULT_ACCENT, colourOf(tooltip, "100", null), "the position: " + tooltip);
+        assertEquals(Palette.DEFAULT_ACCENT, colourOf(tooltip, "home0", null), "the name in the tooltip: " + tooltip);
+        assertEquals(Palette.DEFAULT_ON, view.buttons().getLast().label().color(), "Set a home here is green");
+    }
+
     @Test
     void streamerModeHidesPositionsAndUnlimitedReads() {
         View view = HomesViews.list(lang, templates, homes(1), Limits.UNLIMITED, true, actions(new ArrayList<>()));
