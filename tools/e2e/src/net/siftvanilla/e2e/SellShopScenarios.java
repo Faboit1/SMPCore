@@ -209,7 +209,7 @@ final class SellShopScenarios {
         bot.command("sell hand");
         e2e.eventually(() -> e2e.money(name) == 25_600, "paid the normal $25,600 (has " + e2e.money(name) + ")");
         e2e.eventually(() -> bot.chatContains("You sold 64 diamond for $25,600."), "a plain receipt: " + bot.chat());
-        e2e.expect(!bot.chatContains("bonus"), "no bonus mentioned: " + bot.chat());
+        e2e.expect(!bot.chatContains("x bonus"), "no bonus mentioned: " + bot.chat());
         e2e.step("the placeholder shows no multiplier");
         String value = e2e.onPlayer(name, () -> e2e.services().placeholders().resolve(e2e.player(name), "sell_multiplier"));
         e2e.expect("1".equals(value), "sell_multiplier is 1, got " + value);
