@@ -176,8 +176,6 @@ sell:
   toggle:
     confirm: "Ask before /sell all"
     confirm-description: "Show the total before selling everything"
-    receipts: "Sale receipts in chat"
-    receipts-description: "Without them you only see the total on the action bar"
     orders: "Sell to buy orders first"
     orders-description: "Send items to buy orders that pay more than the server"
   hub:

@@ -10,6 +10,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.api.event.EconomyTransactionCommittedEvent;
 import net.siftvanilla.siftcore.api.event.EconomyTransactionEvent;
+import net.siftvanilla.siftcore.api.event.SettingChangeEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.CoreSettings;
 import net.siftvanilla.siftcore.core.Feature;
@@ -24,11 +25,17 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Configs;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.config.YamlFiles;
+import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
 import net.siftvanilla.siftcore.core.player.PlayerLifecycle;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingTexts;
+import net.siftvanilla.siftcore.core.player.SettingsCheck;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.OptionTexts;
 import net.siftvanilla.siftcore.core.scheduler.RegionizedScheduler;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
@@ -40,6 +47,7 @@ import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.LangFiles;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import net.siftvanilla.siftcore.core.text.Sounds;
+import net.siftvanilla.siftcore.core.text.StatusBars;
 import net.siftvanilla.siftcore.core.text.TextStyle;
 import net.siftvanilla.siftcore.economy.CommittedTx;
 import net.siftvanilla.siftcore.economy.Deliveries;
@@ -59,6 +67,7 @@ import net.siftvanilla.siftcore.ui.gui.MenuListener;
 import net.siftvanilla.siftcore.ui.hub.HubRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -83,6 +92,7 @@ public final class SiftCore implements CoreControl {
     private Lang lang;
     private LangFiles langFiles;
     private Sounds sounds;
+    private StatusBars statusBars;
     private Dialogs dialogs;
     private MenuListener menuListener;
     private CommandService commandService;
@@ -120,7 +130,12 @@ public final class SiftCore implements CoreControl {
         this.core.onReload(settings -> this.ledger.maxBalance(settings.money().maxAmount()));
         PlayerDirectory directory = new PlayerDirectory(this.database, ipSalt());
         directory.load();
-        PlayerSettings playerSettings = new PlayerSettings(this.database);
+        // Combat tags come first: the messenger and the sounds read them for quiet in combat.
+        CombatTags combatTags = new CombatTags();
+        PlayerSettings playerSettings = new PlayerSettings(this.database, this.scheduler, this.logger);
+        playerSettings.players(Bukkit::getPlayer);
+        playerSettings.listener(SiftCore::settingChanging);
+        Relations relations = new Relations();
         AuditLog audit = new AuditLog(this.database);
         Deliveries deliveries = new Deliveries(this.database, this.ledger, this.logger);
         deliveries.load();
@@ -132,9 +147,15 @@ public final class SiftCore implements CoreControl {
         this.lang = new Lang(this.style, () -> this.core.get().money());
         this.lang.register(CoreMessages.class);
         this.lang.register(TeleportMessages.class);
-        this.sounds = new Sounds();
+        this.lang.register(SettingCategories.class);
+        this.lang.register(SettingTexts.class);
+        this.lang.register(OptionTexts.class);
+        this.lang.register(SharedSettings.class);
+        SharedSettings.register(playerSettings, relations);
+        this.sounds = new Sounds(playerSettings, combatTags);
         this.sounds.load(this.core.get().sounds());
-        Messenger messenger = new Messenger(this.lang, this.sounds);
+        this.sounds.loadPings(this.core.get().pings());
+        Messenger messenger = new Messenger(this.lang, this.sounds, playerSettings, combatTags);
 
         this.dialogs = new Dialogs(this.scheduler, messenger, this.logger);
         Templates templates = new Templates(this.lang);
@@ -147,12 +168,13 @@ public final class SiftCore implements CoreControl {
         this.commandService = new CommandService(this.plugin, commandSettings, commandSupport);
         this.placeholders = new Placeholders();
         this.permissions = new Permissions();
-        CombatTags combatTags = new CombatTags();
-        Teleports teleports = new Teleports(this.scheduler, messenger, combatTags);
+        declareSettingNodes(this.permissions);
+        Teleports teleports = new Teleports(this.scheduler, messenger, combatTags, playerSettings);
+        this.statusBars = new StatusBars(this.scheduler);
 
         this.services = new Services(this.plugin, this.scheduler, this.configs, this.core, this.database, this.ledger,
             deliveries, directory, playerSettings, audit, cooldowns, this.lang, messenger, this.dialogs, templates,
-            menus, hub, commandSupport, this.placeholders, this.permissions, teleports);
+            menus, hub, commandSupport, this.placeholders, this.permissions, teleports, relations, this.statusBars);
 
         this.features.addAll(new FeatureCatalog(this.services, combatTags, this, problems).create());
 
@@ -184,9 +206,11 @@ public final class SiftCore implements CoreControl {
         listen(this.dialogs);
         listen(this.menuListener);
         listen(teleports);
+        listen(this.statusBars);
         this.commandService.install();
         this.core.onReload(settings -> {
             this.sounds.load(settings.sounds());
+            this.sounds.loadPings(settings.pings());
             this.menuListener.minInterval(settings.guiClickInterval().toMillis());
             this.debug = settings.debug();
         });
@@ -278,6 +302,55 @@ public final class SiftCore implements CoreControl {
             this.database.failedWrites() == 0 ? null : this.database.failedWrites() + " write(s) failed since start");
         this.selfTest.check("core", "economy accepts transactions", () ->
             this.ledger.available() ? null : "the economy is read-only after storage failures");
+        this.selfTest.check("core", "every setting, option and settings group has text", () -> {
+            List<String> missing = SettingsCheck.missingText(this.services.settings().registry(), this.lang::plain);
+            return missing.isEmpty() ? null : "no text for " + String.join(", ", missing);
+        });
+        this.selfTest.check("core", "settings group icons resolve", () -> {
+            List<String> bad = SettingsCheck.badIcons(this.lang.style().icons()::has);
+            return bad.isEmpty() ? null : "unknown icons: " + String.join(", ", bad);
+        });
+        this.selfTest.check("core", "shared settings are registered", () -> {
+            List<String> missing = SettingsCheck.missingShared(this.services.settings().registry());
+            return missing.isEmpty() ? null : "not registered: " + String.join(", ", missing);
+        });
+        this.selfTest.check("core", "settings groups hold " + SettingCategories.MIN_SETTINGS + " to " + SettingCategories.MAX_SETTINGS
+            + " settings", () -> {
+            List<String> problems = SettingsCheck.groupSizes(this.services.settings().registry(), this.services.settings()::hidden);
+            return problems.isEmpty() ? null : String.join("; ", problems);
+        });
+        this.selfTest.check("core", "shared settings are read by a feature", () -> {
+            List<String> unread = SettingsCheck.unread(this.services.settings().registry(), this.services.settings()::hasReader,
+                this.services.settings()::hidden);
+            return unread.isEmpty() ? null : "no feature reads " + String.join(", ", unread);
+        });
+    }
+
+    /**
+     * Fires {@link SettingChangeEvent} for a change about to be stored (only when a plugin listens); false when a listener
+     * cancelled it.
+     */
+    private static boolean settingChanging(PlayerSettings.Pending pending) {
+        if (SettingChangeEvent.getHandlerList().getRegisteredListeners().length == 0) {
+            return true;
+        }
+        SettingChangeEvent event = new SettingChangeEvent(pending.player(), Bukkit.getPlayer(pending.player()), pending.entry().id(),
+            pending.entry().category().id(), pending.oldValue(), pending.newValue(),
+            SettingChangeEvent.Cause.valueOf(pending.change().cause().name()), pending.change().actor());
+        return event.callEvent();
+    }
+
+    /**
+     * The nodes of the shared settings, which nobody has by default (granted to groups: staff and test accounts may hide
+     * from leaderboards, rank groups may hide their rank), and of the staff settings tools (operators, like every
+     * {@code siftcore.admin} node).
+     */
+    private static void declareSettingNodes(Permissions permissions) {
+        permissions.declare(SharedSettings.HIDE_FROM_LEADERBOARDS_NODE, "Offer the 'Hide me from leaderboards' setting (staff and test"
+            + " accounts)", PermissionDefault.FALSE);
+        permissions.declare(SharedSettings.HIDE_RANK_NODE, "Offer the 'Show my rank' setting (rank groups)", PermissionDefault.FALSE);
+        permissions.declare(SharedSettings.ADMIN_NODE, "Staff tools for other players' settings (/sift settings, not in this version"
+            + " yet)", false);
     }
 
     private void listen(Listener listener) {
@@ -344,6 +417,9 @@ public final class SiftCore implements CoreControl {
         this.enabled.clear();
         if (this.dialogs != null) {
             this.dialogs.clear();
+        }
+        if (this.statusBars != null) {
+            this.statusBars.clear();
         }
         if (this.permissions != null) {
             this.permissions.uninstall();

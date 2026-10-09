@@ -23,7 +23,7 @@ import org.bukkit.inventory.ItemStack;
 /**
  * End-to-end scenarios of public chat (format, hover card, [item], mentions, anti-spam, the filter, chat lock and
  * slow mode), private messages (/msg, /r, social spy, /msgtoggle), ignore lists (/ignore and its dialogs, and the
- * teleport requests they block) and the settings dialog.
+ * teleport requests they block). The settings dialog has its own scenarios ({@link SettingsScenarios}).
  */
 final class ChatScenarios {
 
@@ -58,7 +58,6 @@ final class ChatScenarios {
         list.add(of("chat-links", ChatScenarios::links));
         list.add(of("chat-mention", ChatScenarios::mentions));
         list.add(of("chat-admin", ChatScenarios::admin));
-        list.add(of("settings-dialog", ChatScenarios::settings));
         return list;
     }
 
@@ -137,11 +136,7 @@ final class ChatScenarios {
 
     /** The values a settings page shows, keyed like its inputs (what a client sends back when nothing is touched). */
     private static Map<String, Object> inputs(Bot.SeenDialog dialog) {
-        Map<String, Object> values = new HashMap<>();
-        for (Map.Entry<String, String> input : dialog.inputs().entrySet()) {
-            values.put(input.getKey(), dialog.toggleValue(input.getKey()));
-        }
-        return values;
+        return new HashMap<>(dialog.values());
     }
 
     /** Waits for the Chat group's settings page. */
@@ -149,29 +144,6 @@ final class ChatScenarios {
         Bot.SeenDialog dialog = e2e.dialog(bot, "Chat settings");
         e2e.expect(dialog.title().equals("Chat settings"), "the chat group: " + dialog.title());
         return dialog;
-    }
-
-    /** Waits for the list of settings groups (titled just Settings). */
-    private static Bot.SeenDialog settingsList(E2E e2e, Bot bot) {
-        e2e.eventually(() -> bot.dialog() != null && bot.dialog().title().equals("Settings"), bot.name + " sees the settings list: "
-            + (bot.dialog() == null ? "none" : bot.dialog().title()));
-        return bot.dialog();
-    }
-
-    /** Runs {@code body} with one config file changed, then restores it (both reloaded). */
-    private static void withConfig(E2E e2e, String file, String from, String to, Body body) throws Exception {
-        java.nio.file.Path path = org.bukkit.Bukkit.getPluginManager().getPlugin("SiftCore").getDataFolder().toPath().resolve(file);
-        String original = java.nio.file.Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
-        e2e.expect(original.contains(from), file + " contains '" + from + "'");
-        java.nio.file.Files.writeString(path, original.replace(from, to), java.nio.charset.StandardCharsets.UTF_8);
-        List<String> reload = e2e.consoleOutput("sift reload");
-        e2e.expect(String.join(" ", reload).contains("Reloaded"), "the changed " + file + " reloads: " + reload);
-        try {
-            body.run(e2e);
-        } finally {
-            java.nio.file.Files.writeString(path, original, java.nio.charset.StandardCharsets.UTF_8);
-            e2e.console("sift reload");
-        }
     }
 
     private static String placeholder(E2E e2e, String name, String placeholder) {
@@ -698,150 +670,6 @@ final class ChatScenarios {
         } finally {
             e2e.console("chat unlock");
             e2e.console("chat slow off");
-            e2e.console("deop " + staffName);
-        }
-    }
-
-    static void settings(E2E e2e) throws Exception {
-        String name = e2e.name("Setter");
-        String staffName = e2e.name("SetStaff");
-        Bot bot = e2e.bot(name);
-        Bot staff = e2e.bot(staffName);
-        e2e.console("op " + staffName);
-        try {
-            e2e.step("the main menu and the pause menu open the settings list");
-            bot.command("menu");
-            e2e.dialog(bot, "SiftVanilla");
-            e2e.click(bot, "Settings");
-            Bot.SeenDialog fromMenu = settingsList(e2e, bot);
-            e2e.expect(fromMenu.button("Back") != null, "a way back to the menu: " + fromMenu.buttons());
-            e2e.expect("none".equals(fromMenu.after()), "the list stays on screen until the next dialog: " + fromMenu.after());
-            e2e.click(bot, "Back");
-            e2e.dialog(bot, "SiftVanilla");
-            bot.clearLogs();
-            bot.rawClick("siftcore:hub/settings", null);
-            settingsList(e2e, bot);
-
-            e2e.step("switches are grouped: Chat, then General for switches without a group");
-            bot.clearLogs();
-            bot.command("settings");
-            Bot.SeenDialog list = settingsList(e2e, bot);
-            e2e.expect(list.button("Chat") != null && list.button("General") != null, "both groups: " + list.buttons());
-            e2e.expect(list.bodyText().contains("Chat: Mentions, private messages and chat colours"), "group descriptions: " + list.body());
-            e2e.expect(list.bodyText().indexOf("Chat:") < list.bodyText().indexOf("General:"), "Chat comes first: " + list.body());
-            e2e.expect(list.button("Close") != null, "a command opens it with Close: " + list.buttons());
-            e2e.click(bot, "Chat");
-            Bot.SeenDialog chat = chatGroup(e2e, bot);
-            e2e.expect("toggle".equals(chat.inputs().get("mentions")) && "toggle".equals(chat.inputs().get("private_messages")),
-                "the chat switches: " + chat.inputs());
-            e2e.expect(!chat.inputs().containsKey("social_spy"), "no staff switches for players: " + chat.inputs());
-            e2e.expect(chat.bodyText().contains("Private messages: Let players send me private messages"), "descriptions: " + chat.body());
-            e2e.click(bot, "Back");
-            settingsList(e2e, bot);
-            e2e.click(bot, "General");
-            Bot.SeenDialog general = e2e.dialog(bot, "General settings");
-            for (String key : List.of("pay_notifications", "auction_sales", "crate_wins", "death_messages", "tpa_requests")) {
-                e2e.expect("toggle".equals(general.inputs().get(key)), "a switch for " + key + ": " + general.inputs());
-            }
-            e2e.expect(!general.inputs().containsKey("mentions"), "chat switches stay in their group: " + general.inputs());
-
-            e2e.step("saving stores the flipped switches, says so and goes back to the list");
-            bot.clearLogs();
-            Map<String, Object> values = inputs(general);
-            values.put("tpa_requests", false);
-            values.put("pay_notifications", false);
-            e2e.click(bot, "Save", values);
-            expectSaw(e2e, bot, "Saved 2 settings");
-            settingsList(e2e, bot);
-            e2e.expect(!e2e.services().settings().enabled(e2e.uuid(name), e2e.services().settings().toggle("tpa-requests")),
-                "teleport requests off");
-            e2e.expect(!e2e.services().settings().enabled(e2e.uuid(name), e2e.services().settings().toggle("pay-notifications")),
-                "payment messages off");
-            e2e.click(bot, "Chat");
-            Bot.SeenDialog chatAgain = chatGroup(e2e, bot);
-            Map<String, Object> chatValues = inputs(chatAgain);
-            chatValues.put("private_messages", false);
-            bot.clearLogs();
-            e2e.click(bot, "Save", chatValues);
-            expectSaw(e2e, bot, "Private messages turned off");
-            e2e.expect(!setting(e2e, name, ChatFeature.PRIVATE_MESSAGES), "private messages off");
-
-            e2e.step("saving without changes says nothing changed; Back leaves without saving");
-            bot.clearLogs();
-            bot.command("settings chat");
-            Bot.SeenDialog unchanged = chatGroup(e2e, bot);
-            e2e.expect(Boolean.FALSE.equals(unchanged.toggleValue("private_messages")), "the page shows the stored value");
-            e2e.click(bot, "Save", inputs(unchanged));
-            expectSaw(e2e, bot, "Nothing changed");
-            bot.command("settings chat");
-            Bot.SeenDialog discard = chatGroup(e2e, bot);
-            Map<String, Object> discarded = inputs(discard);
-            discarded.put("mentions", false);
-            e2e.click(bot, "Back", discarded);
-            settingsList(e2e, bot);
-            e2e.expect(setting(e2e, name, ChatFeature.MENTIONS), "Back saved nothing");
-
-            e2e.step("a switch changed elsewhere while the page was open is not overwritten");
-            bot.clearLogs();
-            bot.command("settings chat");
-            Bot.SeenDialog open = chatGroup(e2e, bot);
-            Map<String, Object> stale = inputs(open);
-            e2e.expect(Boolean.FALSE.equals(stale.get("private_messages")), "the page shows private messages off");
-            bot.command("msgtoggle");
-            expectSaw(e2e, bot, "Players can send you private messages again");
-            e2e.expect(bot.dialog() == open, "the settings page is still the open one");
-            stale.put("mentions", false);
-            e2e.click(bot, "Save", stale);
-            expectSaw(e2e, bot, "Mention alerts turned off");
-            e2e.expect(setting(e2e, name, ChatFeature.PRIVATE_MESSAGES), "the /msgtoggle change survived the stale page");
-            e2e.expect(!setting(e2e, name, ChatFeature.MENTIONS), "the flipped switch was saved");
-
-            e2e.step("/settings <group> opens a group, and an unknown group is refused");
-            bot.clearLogs();
-            bot.command("settings nosuchgroup");
-            expectSaw(e2e, bot, "There is no settings group called nosuchgroup");
-            bot.command("settings GENERAL");
-            e2e.dialog(bot, "General settings");
-
-            e2e.step("staff see their own switches in the group they belong to");
-            staff.command("settings chat");
-            Bot.SeenDialog staffChat = chatGroup(e2e, staff);
-            e2e.expect("toggle".equals(staffChat.inputs().get("social_spy")), "social spy for staff: " + staffChat.inputs());
-
-            e2e.step("long groups are paged; flips are carried between pages and saved together");
-            withConfig(e2e, "features/settings.yml", "page-size: 8", "page-size: 2", x -> {
-                bot.clearLogs();
-                bot.command("settings general");
-                Bot.SeenDialog page1 = e2e.dialog(bot, "General settings");
-                e2e.expect(page1.inputs().size() == 2 && page1.bodyText().contains("Page 1 of 3"), "page 1 of 3: " + page1.inputs()
-                    + " " + page1.body());
-                e2e.expect(page1.button("Next page") != null && page1.button("Previous page") == null, "only Next: " + page1.buttons());
-                String first = page1.inputs().keySet().stream().sorted().findFirst().orElseThrow();
-                Map<String, Object> flipped = inputs(page1);
-                boolean firstWas = Boolean.TRUE.equals(flipped.get(first));
-                flipped.put(first, !firstWas);
-                e2e.click(bot, "Next page", flipped);
-                Bot.SeenDialog page2 = e2e.dialog(bot, "General settings");
-                e2e.expect(page2.bodyText().contains("Page 2 of 3") && page2.bodyText().contains("Changes on other pages: 1"),
-                    "page 2 knows about the change on page 1: " + page2.body());
-                e2e.expect(page2.button("Previous page") != null && page2.button("Next page") != null, "both ways: " + page2.buttons());
-                String second = page2.inputs().keySet().stream().sorted().findFirst().orElseThrow();
-                Map<String, Object> flipped2 = inputs(page2);
-                boolean secondWas = Boolean.TRUE.equals(flipped2.get(second));
-                flipped2.put(second, !secondWas);
-                e2e.click(bot, "Previous page", flipped2);
-                Bot.SeenDialog back1 = e2e.dialog(bot, "General settings");
-                e2e.expect(back1.bodyText().contains("Page 1 of 3") && Boolean.valueOf(!firstWas).equals(back1.toggleValue(first)),
-                    "page 1 shows the unsaved flip: " + back1.body());
-                bot.clearLogs();
-                e2e.click(bot, "Save", inputs(back1));
-                expectSaw(e2e, bot, "Saved 2 settings");
-                var settings = e2e.services().settings();
-                e2e.expect(settings.enabled(e2e.uuid(name), settings.toggle(first.replace('_', '-'))) == !firstWas
-                    && settings.enabled(e2e.uuid(name), settings.toggle(second.replace('_', '-'))) == !secondWas,
-                    "both flips were saved");
-            });
-        } finally {
             e2e.console("deop " + staffName);
         }
     }

@@ -9,14 +9,19 @@ import java.util.regex.Pattern;
  * A lang file entry. Declares the placeholders the string may use (the lang validator rejects anything else), the
  * channel it is sent on and its sound. Declare keys as {@code static final} fields in a {@code *Messages} class
  * and register that class with {@link Lang#register(Class)}.
+ *
+ * @param status true for a repeating status line on the action bar (a countdown, a timer): it always stays on the
+ *               action bar, whatever the player's feedback channel ({@link #status(String, String...)})
  */
-public record MessageKey(String path, Set<String> placeholders, Channel channel, Feedback feedback) {
+public record MessageKey(String path, Set<String> placeholders, Channel channel, Feedback feedback, boolean status) {
 
     private static final Pattern PATH = Pattern.compile("[a-z0-9_-]+(\\.[a-z0-9_-]+)+");
     private static final Pattern NAME = Pattern.compile("[a-z0-9_-]+");
 
     public MessageKey {
         Objects.requireNonNull(path);
+        Objects.requireNonNull(channel);
+        Objects.requireNonNull(feedback);
         if (!PATH.matcher(path).matches()) {
             throw new IllegalArgumentException("Invalid message path " + path);
         }
@@ -26,6 +31,11 @@ public record MessageKey(String path, Set<String> placeholders, Channel channel,
             }
         }
         placeholders = Set.copyOf(placeholders);
+    }
+
+    /** A key that is not a status line. */
+    public MessageKey(String path, Set<String> placeholders, Channel channel, Feedback feedback) {
+        this(path, placeholders, channel, feedback, false);
     }
 
     private static Set<String> set(String[] names) {
@@ -42,12 +52,12 @@ public record MessageKey(String path, Set<String> placeholders, Channel channel,
         return new MessageKey(path, set(placeholders), Channel.CHAT, Feedback.NOTIFY);
     }
 
-    /** Transient success feedback on the action bar. */
+    /** Transient success feedback on the action bar (or in chat, if the player chose so). */
     public static MessageKey success(String path, String... placeholders) {
         return new MessageKey(path, set(placeholders), Channel.ACTIONBAR, Feedback.SUCCESS);
     }
 
-    /** Transient error feedback on the action bar. */
+    /** Transient error feedback on the action bar (or in chat, if the player chose so), in the error colours. */
     public static MessageKey error(String path, String... placeholders) {
         return new MessageKey(path, set(placeholders), Channel.ACTIONBAR, Feedback.ERROR);
     }
@@ -55,6 +65,14 @@ public record MessageKey(String path, Set<String> placeholders, Channel channel,
     /** Transient neutral information on the action bar. */
     public static MessageKey info(String path, String... placeholders) {
         return new MessageKey(path, set(placeholders), Channel.ACTIONBAR, Feedback.NONE);
+    }
+
+    /**
+     * A repeating status line on the action bar (a combat timer, a countdown): sent again and again, so it never
+     * moves to chat.
+     */
+    public static MessageKey status(String path, String... placeholders) {
+        return new MessageKey(path, set(placeholders), Channel.ACTIONBAR, Feedback.NONE, true);
     }
 
     /** A rare title. */
@@ -68,6 +86,15 @@ public record MessageKey(String path, Set<String> placeholders, Channel channel,
     }
 
     public MessageKey withFeedback(Feedback feedback) {
-        return new MessageKey(this.path, this.placeholders, this.channel, feedback);
+        return new MessageKey(this.path, this.placeholders, this.channel, feedback, this.status);
+    }
+
+    /**
+     * This key as a repeating line: it stays on its channel whatever the player's feedback channel, and keeps its
+     * sound and (for an error) the error colours. For refusals an event repeats many times a second while the player
+     * keeps trying (walking into a border): on the action bar each line replaces the last, in chat they would pile up.
+     */
+    public MessageKey asStatus() {
+        return new MessageKey(this.path, this.placeholders, this.channel, this.feedback, true);
     }
 }

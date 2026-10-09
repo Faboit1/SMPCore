@@ -106,8 +106,6 @@ public final class ChatMessages {
     public static final MessageKey ADMIN_IGNORES_LINE = MessageKey.chat("chat.admin.ignores-line", "name");
     public static final MessageKey ADMIN_IGNORES_NONE = MessageKey.chat("chat.admin.ignores-none", "name");
 
-    public static final MessageKey SETTING_CATEGORY = MessageKey.ui("chat.settings.category");
-    public static final MessageKey SETTING_CATEGORY_DESCRIPTION = MessageKey.ui("chat.settings.category-description");
     public static final MessageKey SETTING_MENTIONS = MessageKey.ui("chat.settings.mentions");
     public static final MessageKey SETTING_MENTIONS_DESCRIPTION = MessageKey.ui("chat.settings.mentions-description");
     public static final MessageKey SETTING_PRIVATE = MessageKey.ui("chat.settings.private-messages");

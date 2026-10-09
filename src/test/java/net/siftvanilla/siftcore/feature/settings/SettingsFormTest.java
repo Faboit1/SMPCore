@@ -1,13 +1,11 @@
 package net.siftvanilla.siftcore.feature.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,71 +14,63 @@ import java.util.stream.Collectors;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
-import net.siftvanilla.siftcore.core.player.PlayerSettings;
-import net.siftvanilla.siftcore.core.player.SettingCategory;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.PlayerSetting.Kind;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingTexts;
+import net.siftvanilla.siftcore.core.player.options.OptionTexts;
 import net.siftvanilla.siftcore.core.text.IconSettings;
 import net.siftvanilla.siftcore.core.text.Icons;
 import net.siftvanilla.siftcore.core.text.Lang;
-import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Palette;
 import net.siftvanilla.siftcore.core.text.TextStyle;
+import net.siftvanilla.siftcore.ui.dialog.Input;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 class SettingsFormTest {
 
-    @Test
-    void toggleIdsBecomeValidUniqueKeys() {
-        List<SettingsForm.Field> fields = SettingsForm.fields(List.of(
-            Map.entry("tpa-requests", true),
-            Map.entry("tpa_requests", false),
-            Map.entry("death-messages", true),
-            Map.entry("tpa-requests", true)));
-        Set<String> keys = new HashSet<>();
-        for (SettingsForm.Field field : fields) {
-            assertTrue(field.key().matches("[A-Za-z0-9_]+"), field.key());
-            assertTrue(keys.add(field.key()), "unique: " + field.key());
-        }
-        assertEquals("tpa_requests", fields.get(0).key());
-        assertEquals("tpa_requests_2", fields.get(1).key());
-        assertEquals("death_messages", fields.get(2).key());
-        assertEquals("tpa_requests_3", fields.get(3).key());
-        assertEquals("tpa_requests", fields.get(1).toggle(), "the field still knows its toggle");
+    private static SettingsForm.Field toggle(String id, boolean shown) {
+        return new SettingsForm.Field(SettingsForm.key(id), id, Kind.TOGGLE, Boolean.toString(shown));
+    }
+
+    private static SettingsForm.Field choice(String id, String shown) {
+        return new SettingsForm.Field(SettingsForm.key(id), id, Kind.CHOICE, shown);
+    }
+
+    private static SettingsForm.Field number(String id, long shown) {
+        return new SettingsForm.Field(SettingsForm.key(id), id, Kind.NUMBER, Long.toString(shown));
     }
 
     @Test
-    void onlyFlippedSwitchesAreSaved() {
-        List<SettingsForm.Field> fields = SettingsForm.fields(List.of(
-            Map.entry("mentions", true),
-            Map.entry("private-messages", true),
-            Map.entry("death-messages", false)));
-        Map<String, Boolean> changes = SettingsForm.changes(fields, Map.of(
+    void idsBecomeValidInputKeys() {
+        assertEquals("tpa_requests", SettingsForm.key("tpa-requests"));
+        assertEquals("orders_announce", SettingsForm.key("orders_announce"));
+        assertTrue(SettingsForm.key("sound-volume").matches("[A-Za-z0-9_]+"));
+    }
+
+    @Test
+    void onlyChangedSettingsOfEveryKindAreSaved() {
+        List<SettingsForm.Field> fields = List.of(toggle("mentions", true), choice("feedback-channel", "actionbar"),
+            number("sound-volume", 100), toggle("death-messages", false));
+        Map<String, String> changes = SettingsForm.changes(fields, Map.of(
             "mentions", true,
-            "private_messages", false,
+            "feedback_channel", "chat",
+            "sound_volume", 60L,
             "death_messages", true));
-        assertEquals(Map.of("private-messages", false, "death-messages", true), changes);
-        assertEquals(List.of("private-messages", "death-messages"), List.copyOf(changes.keySet()), "in dialog order");
+        assertEquals(Map.of("feedback-channel", "chat", "sound-volume", "60", "death-messages", "true"), changes);
+        assertEquals(List.of("feedback-channel", "sound-volume", "death-messages"), List.copyOf(changes.keySet()), "in dialog order");
     }
 
     @Test
-    void missingOrForgedValuesChangeNothing() {
-        List<SettingsForm.Field> fields = SettingsForm.fields(List.of(Map.entry("mentions", true)));
+    void missingOrWronglyTypedValuesChangeNothing() {
+        List<SettingsForm.Field> fields = List.of(toggle("mentions", true), choice("style", "chat"), number("volume", 50));
         assertTrue(SettingsForm.changes(fields, Map.of()).isEmpty());
-        assertTrue(SettingsForm.changes(fields, Map.of("mentions", "false")).isEmpty(), "only real booleans count");
-        assertTrue(SettingsForm.changes(fields, Map.of("unknown", false)).isEmpty());
-    }
-
-    @Test
-    void groupsFollowTheCategoryOrderWithUnlistedOnesLast() {
-        List<String> items = List.of("mentions", "pay", "tpa", "private", "spy", "crates");
-        Map<String, String> category = Map.of("mentions", "chat", "pay", "general", "tpa", "teleport", "private", "chat",
-            "spy", "chat", "crates", "loot");
-        List<SettingsForm.Group<String>> groups = SettingsForm.group(items, category::get, List.of("chat", "teleport", "empty", "general"));
-        assertEquals(List.of("chat", "teleport", "general", "loot"), groups.stream().map(SettingsForm.Group::category).toList(),
-            "listed order, empty groups left out, unlisted after");
-        assertEquals(List.of("mentions", "private", "spy"), groups.get(0).items(), "registration order inside a group");
-        assertTrue(SettingsForm.group(List.<String>of(), category::get, List.of("chat")).isEmpty());
+        assertTrue(SettingsForm.changes(fields, Map.of("mentions", "false", "style", true, "volume", "40", "unknown", false)).isEmpty(),
+            "a toggle sends a Boolean, a choice a String, a slider a Long");
+        assertEquals("true", SettingsForm.encode(Kind.TOGGLE, Boolean.TRUE));
+        assertEquals("off", SettingsForm.encode(Kind.CHOICE, "off"));
+        assertEquals("70", SettingsForm.encode(Kind.NUMBER, 70L));
+        assertEquals(null, SettingsForm.encode(Kind.NUMBER, 70.0f));
     }
 
     @Test
@@ -97,69 +87,62 @@ class SettingsFormTest {
     }
 
     @Test
-    void flipsAreCarriedBetweenPagesAndSavedOnlyWhenTheyChangeSomething() {
-        // Page 1 shows mentions on and private messages on; the player turns mentions off.
-        List<SettingsForm.Field> page1 = SettingsForm.fields(List.of(Map.entry("mentions", true), Map.entry("private-messages", true)));
-        Map<String, Boolean> pending = SettingsForm.merge(Map.of(), page1, Map.of("mentions", false, "private_messages", true));
-        assertEquals(Map.of("mentions", false), pending);
-        // Page 2: death messages off, the player turns them on.
-        List<SettingsForm.Field> page2 = SettingsForm.fields(List.of(Map.entry("death-messages", false)));
-        pending = SettingsForm.merge(pending, page2, Map.of("death_messages", true));
-        assertEquals(Map.of("mentions", false, "death-messages", true), pending);
-        // Back on page 1 (showing the pending value), the player turns mentions on again.
-        List<SettingsForm.Field> again = SettingsForm.fields(List.of(Map.entry("mentions", false), Map.entry("private-messages", true)));
-        pending = SettingsForm.merge(pending, again, Map.of("mentions", true, "private_messages", true));
-        assertEquals(Map.of("mentions", true, "death-messages", true), pending);
-        // Stored now: mentions on (unchanged), death messages off: only death messages is saved.
-        Map<String, Boolean> stored = Map.of("mentions", true, "death-messages", false);
-        assertEquals(Map.of("death-messages", true), SettingsForm.effective(pending, stored::get));
+    void changesOfEveryKindAreCarriedBetweenPagesAndSavedOnlyWhenTheyChangeSomething() {
+        // Page 1: the player turns mentions off and moves the volume to 40.
+        List<SettingsForm.Field> page1 = List.of(toggle("mentions", true), number("sound-volume", 100));
+        Map<String, String> pending = SettingsForm.merge(Map.of(), page1, Map.of("mentions", false, "sound_volume", 40L));
+        assertEquals(Map.of("mentions", "false", "sound-volume", "40"), pending);
+        // Page 2: the feedback channel goes to chat.
+        List<SettingsForm.Field> page2 = List.of(choice("feedback-channel", "actionbar"));
+        pending = SettingsForm.merge(pending, page2, Map.of("feedback_channel", "chat"));
+        assertEquals(Map.of("mentions", "false", "sound-volume", "40", "feedback-channel", "chat"), pending);
+        // Back on page 1 (showing the pending values), the player turns mentions on again.
+        List<SettingsForm.Field> again = List.of(toggle("mentions", false), number("sound-volume", 40));
+        pending = SettingsForm.merge(pending, again, Map.of("mentions", true, "sound_volume", 40L));
+        assertEquals(Map.of("mentions", "true", "sound-volume", "40", "feedback-channel", "chat"), pending);
+        // Stored now: mentions on, volume 100, channel chat (changed meanwhile): only the volume is saved.
+        Map<String, String> stored = Map.of("mentions", "true", "sound-volume", "100", "feedback-channel", "chat");
+        assertEquals(Map.of("sound-volume", "40"), SettingsForm.effective(pending, stored::get));
+        assertEquals(Map.of(), SettingsForm.effective(Map.of("gone", "1"), id -> null), "settings that are gone are skipped");
     }
 
     @Test
-    void aSwitchChangedElsewhereIsNotOverwrittenByAStalePage() {
+    void aValueChangedElsewhereIsNotOverwrittenByAStalePage() {
         // The page showed private messages off; meanwhile /msgtoggle turned them on. The player touches nothing.
-        List<SettingsForm.Field> page = SettingsForm.fields(List.of(Map.entry("private-messages", false)));
-        Map<String, Boolean> pending = SettingsForm.merge(Map.of(), page, Map.of("private_messages", false));
+        List<SettingsForm.Field> page = List.of(toggle("private-messages", false));
+        Map<String, String> pending = SettingsForm.merge(Map.of(), page, Map.of("private_messages", false));
         assertTrue(pending.isEmpty());
-        assertTrue(SettingsForm.effective(pending, toggle -> true).isEmpty());
+        assertTrue(SettingsForm.effective(pending, toggle -> "true").isEmpty());
     }
 
     @Test
-    void configDefaultsAndLimits() throws Exception {
+    void aSliderBuiltFromANumberSettingRefusesOffStepAndOutOfRangeValues() {
+        Input.Range range = new Input.Range("sound_volume", net.kyori.adventure.text.Component.text("Volume (%)"), 0, 100, 10, 100,
+            null, 250);
+        assertTrue(range.allows(60));
+        assertTrue(!range.allows(65) && !range.allows(110) && !range.allows(-10), "the router re-shows the form for these");
+    }
+
+    @Test
+    void configDefaultsAndOverrides() throws Exception {
         ConfigReader reader = new ConfigReader("features/settings.yml", yaml("features/settings.yml"));
         SettingsConfig config = SettingsConfig.parse(reader);
         assertEquals(List.of(), reader.problems());
-        assertEquals(new SettingsConfig(8, true), config);
-        YamlConfiguration broken = yaml("features/settings.yml");
-        broken.set("page-size", 0);
-        ConfigReader brokenReader = new ConfigReader("features/settings.yml", broken);
-        assertEquals(8, SettingsConfig.parse(brokenReader).pageSize(), "fallback");
-        assertEquals(1, brokenReader.problems().size());
-    }
-
-    @Test
-    void theRegistryKeepsCategories() {
-        PlayerSettings settings = new PlayerSettings(null);
-        MessageKey label = MessageKey.ui("test.label");
-        MessageKey description = MessageKey.ui("test.description");
-        SettingCategory chat = new SettingCategory("chat", 20, label, description);
-        SettingCategory teleport = new SettingCategory("teleport", 10, label, description);
-        Toggle mentions = new Toggle("mentions", true, label, description, null);
-        Toggle requests = new Toggle("tpa-requests", true, label, description, null);
-        Toggle loose = new Toggle("loose", true, label, description, null);
-        settings.register(chat, mentions);
-        settings.register(teleport, requests);
-        settings.register(loose);
-        assertEquals(List.of(teleport, chat), settings.categories(), "by order");
-        assertEquals(chat, settings.category(mentions));
-        assertEquals(null, settings.category(loose), "registered without a category");
-        assertEquals(3, settings.toggles().size());
-        Toggle other = new Toggle("other", true, label, description, null);
-        settings.register(new SettingCategory("chat", 20, label, description), other);
-        assertEquals(chat, settings.category(other), "the same category may be shared");
-        assertThrows(IllegalStateException.class, () -> settings.register(new SettingCategory("chat", 5, label, description),
-            new Toggle("clash", true, label, description, null)), "one id, one category");
-        assertThrows(IllegalArgumentException.class, () -> new SettingCategory("Bad Id", 1, label, description));
+        assertEquals(new SettingsConfig(8, true, Map.of(), Map.of(), Set.of()), config);
+        YamlConfiguration custom = yaml("features/settings.yml");
+        custom.set("page-size", 0);
+        custom.set("defaults.feedback-channel", "chat");
+        custom.set("defaults.Sound-Volume", 60);
+        custom.set("locked.quiet-in-combat", false);
+        custom.set("hidden", List.of("Hide-Coordinates"));
+        ConfigReader customReader = new ConfigReader("features/settings.yml", custom);
+        SettingsConfig parsed = SettingsConfig.parse(customReader);
+        assertEquals(8, parsed.pageSize(), "fallback");
+        assertEquals(1, customReader.problems().size());
+        assertEquals(Map.of("feedback-channel", "chat", "sound-volume", "60"), parsed.defaults(), "YAML numbers read as text, ids lowercased");
+        assertEquals(Map.of("quiet-in-combat", "false"), parsed.locked(), "YAML booleans too");
+        assertEquals(Set.of("hide-coordinates"), parsed.hidden());
+        assertEquals(parsed.defaults(), parsed.overrides().defaults());
     }
 
     @Test
@@ -168,6 +151,9 @@ class SettingsFormTest {
         assertTrue(icons.load(IconSettings.parse(new ConfigReader("icons.yml", yaml("icons.yml"))).icons()).isEmpty());
         Lang lang = new Lang(new TextStyle(Palette.defaults(), icons), MoneyFormat::defaults);
         lang.register(SettingsMessages.class);
+        lang.register(SettingCategories.class);
+        lang.register(SettingTexts.class);
+        lang.register(OptionTexts.class);
         YamlConfiguration langYaml = yaml("lang/settings.yml");
         List<ConfigProblem> problems = lang.load(langYaml, langYaml, "lang/settings.yml");
         assertEquals(List.of(), problems);

@@ -30,6 +30,9 @@ import net.siftvanilla.siftcore.core.item.ContainerItems;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.core.permission.Permissions;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
@@ -116,9 +119,14 @@ public final class SellFeature implements Feature, Listener {
                 + " times the worth (the highest granted tier wins)", PermissionDefault.FALSE);
         }
         services.settings().register(SellService.CONFIRM);
-        services.settings().register(SellService.RECEIPTS);
+        // Sale receipts are a shared setting (spawner storage sales follow it too); selling acts on it.
+        services.settings().reads(SharedSettings.SELL_RECEIPTS);
         ItemHandout handout = new ItemHandout(services.deliveries(), this.logger);
         this.bids = new OrderBids(orders);
+        // "Sell to buy orders first" is offered only while there are buy orders (the orders feature may be off, and it
+        // starts after this one): registered now, so the server's overrides can always name it.
+        services.settings().register(SettingCategories.GENERAL, SellService.ORDERS, SettingOptions.<Boolean>builder()
+            .availableWhen(() -> this.bids.market().available()).build());
         SaleBuilder builder = new SaleBuilder(this.worth, this.bids);
         this.sales = new SellService(services, this.worth, this.settings, handout, builder, this.bids, this.mastery, combat);
         this.menus = new SellMenus(services, this.worth, this.settings, this.sales, handout);
@@ -169,10 +177,6 @@ public final class SellFeature implements Feature, Listener {
         Bukkit.getPluginManager().registerEvents(this, this.services.plugin());
         Bukkit.getPluginManager().registerEvents(this.menus, this.services.plugin());
         Bukkit.getPluginManager().registerEvents(this.trades, this.services.plugin());
-        // "Sell to buy orders first" only exists while there are buy orders. The orders feature may start after this
-        // one, so look again once every feature is up (and on every sale).
-        this.sales.ordersToggle();
-        this.services.scheduler().globalLater(this.sales::ordersToggle, 1);
         this.services.hub().register(new HubEntry("sell", 25, SellMessages.HUB_LABEL, SellMessages.HUB_DESCRIPTION,
             SellCommands.SELL, this.menus::open));
         this.services.hub().register(new HubEntry("prices", 26, SellMessages.HUB_PRICES_LABEL,

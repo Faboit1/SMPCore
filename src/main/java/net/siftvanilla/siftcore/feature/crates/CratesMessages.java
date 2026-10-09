@@ -86,7 +86,7 @@ public final class CratesMessages {
     // ------------------------------------------------------------------ keyall
 
     public static final MessageKey KEYALL_COUNTDOWN = MessageKey.notify("crates.keyall.countdown", "time", "keys");
-    public static final MessageKey KEYALL_ACTIONBAR = MessageKey.info("crates.keyall.action-bar", "time");
+    public static final MessageKey KEYALL_ACTIONBAR = MessageKey.status("crates.keyall.action-bar", "time");
     public static final MessageKey KEYALL_DONE = MessageKey.notify("crates.keyall.done", "keys");
     public static final MessageKey KEYALL_MISSED_AFK = MessageKey.chat("crates.keyall.missed-afk", "keys");
     public static final MessageKey KEYALL_INFO = MessageKey.chat("crates.keyall.info", "time", "keys");

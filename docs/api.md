@@ -153,6 +153,7 @@ from a world thread (the main thread on Paper, a region thread on Folia/Canvas) 
 | `TeleportRequestEvent` | yes | before a `/tpa` or `/tpahere` request reaches its target | the sender is told they can't send one |
 | `PrivateMessageEvent` | yes | before a `/msg` or `/r` message is delivered, after mutes, ignore lists, the receiver's setting, anti-spam and the filter passed | the message is not delivered; the sender is told they can't message that player |
 | `RandomTeleportEvent` | yes | after random teleport found a spot, before charging and teleporting, on the player's thread | nothing is charged |
+| `SettingChangeEvent` | for the player's own changes | before a player's setting changes, only when the value really changes, on the changing thread; has the setting and category ids, old and new value in stored form (old is null for an offline player), the cause (`DIALOG`, `COMMAND`, `FEATURE`, `ADMIN`, `API`, `RESET`) and the actor | for `DIALOG`, `COMMAND` and `API` (`cancellable()`): the setting keeps its value and the dialog says it couldn't be changed. `FEATURE`, `ADMIN` and `RESET` changes are only reported (a reset is always reported as `RESET`, whoever asked for it); react to committed changes at `MONITOR` |
 
 Higher-level events (for example `AuctionPurchaseEvent`) fire before the `EconomyTransactionEvent` of the same action,
 with more context. Transactions that only record internal state (claim box bookkeeping, refunds that must not be

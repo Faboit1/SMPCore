@@ -17,6 +17,7 @@ import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
@@ -47,9 +48,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
  */
 public final class ScoreboardFeature implements Feature, Listener {
 
-    /** The display group of the settings dialog (what is shown on the player's screen). */
-    public static final SettingCategory DISPLAY = new SettingCategory("display", 30, ScoreboardMessages.SETTINGS_CATEGORY,
-        ScoreboardMessages.SETTINGS_CATEGORY_DESCRIPTION);
+    /** The display group of the settings dialog (the shared {@link SettingCategories#DISPLAY}). */
+    public static final SettingCategory DISPLAY = SettingCategories.DISPLAY;
 
     /** The player's sidebar switch, shown in the settings dialog. */
     public static final Toggle TOGGLE = new Toggle("scoreboard", true, ScoreboardMessages.TOGGLE_LABEL,

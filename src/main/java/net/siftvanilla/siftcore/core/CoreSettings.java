@@ -10,6 +10,7 @@ import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
+import net.siftvanilla.siftcore.core.player.options.PingSound;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Palette;
 
@@ -20,6 +21,7 @@ public record CoreSettings(
     String shardsSuffix,
     Palette palette,
     Map<Feedback, Sound> sounds,
+    Map<PingSound, Sound> pings,
     Duration guiClickInterval,
     boolean savePlayerAfterTrade,
     boolean debug) {
@@ -100,11 +102,24 @@ public record CoreSettings(
             sounds.put(feedback, Sound.sound(key, Sound.Source.MASTER, volume, pitch));
         }
 
+        Map<PingSound, Sound> pings = new EnumMap<>(PingSound.class);
+        ConfigReader pingSection = sound.section("pings");
+        pings.put(PingSound.BELL, ping(pingSection, "bell", "block.note_block.bell", 0.6, 1.2));
+        pings.put(PingSound.PLING, ping(pingSection, "pling", "block.note_block.pling", 0.5, 1.4));
+        pings.put(PingSound.CHIME, ping(pingSection, "chime", "block.amethyst_block.chime", 0.9, 1.0));
+
         ConfigReader gui = r.section("gui");
         Duration click = gui.duration("click-interval", Duration.ZERO, Duration.ofSeconds(2), Duration.ofMillis(75));
         boolean save = r.section("crash-safety").bool("save-player-after-trade", true);
         boolean debug = r.bool("debug", false);
-        return new CoreSettings(storage, money, shards, palette, Map.copyOf(sounds), click, save, debug);
+        return new CoreSettings(storage, money, shards, palette, Map.copyOf(sounds), Map.copyOf(pings), click, save, debug);
+    }
+
+    /** One ping sound a player can pick for mentions, private messages and team chat. */
+    private static Sound ping(ConfigReader pings, String name, String sound, double volume, double pitch) {
+        ConfigReader entry = pings.section(name);
+        return Sound.sound(entry.key("sound", Key.key(sound)), Sound.Source.MASTER,
+            (float) entry.decimal("volume", 0.0, 2.0, volume), (float) entry.decimal("pitch", 0.5, 2.0, pitch));
     }
 
     private static TextColor color(ConfigReader r, String path, String fallback) {

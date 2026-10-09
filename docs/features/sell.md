@@ -273,7 +273,7 @@ Top sellers are read from storage in the background (`SUM(sold) GROUP BY uuid` o
 | Toggle | Default | Effect |
 |---|---|---|
 | `sell_all_confirm` "Ask before /sell all" | on | Show the total before selling everything (with `confirm: above`). |
-| `sell_receipts` "Sale receipts in chat" | on | Off: only `+$total` on the action bar and the sound. |
+| `sell_receipts` "Sale receipts" (a shared setting in Money & selling) | chat | `chat`: the detailed receipt; `actionbar`: only `+$total` on the action bar and the sound; `off`: nothing. Old rows read on as chat and off as actionbar. |
 | `sell_orders` "Sell to buy orders first" | on | Only shown once buy orders exist. |
 
 ## Integration

@@ -99,6 +99,11 @@ public final class FriendsFeature implements Feature {
                 public boolean ignores(UUID player, UUID other) {
                     return FriendsFeature.this.links.ignores().ignores(player, other);
                 }
+
+                @Override
+                public boolean favouritesOn() {
+                    return FriendsFeature.this.settings.get().favouritesOn();
+                }
             });
         this.store = new FriendStore(services.database(), System::currentTimeMillis);
         this.alerts = new RequestAlerts(services.scheduler(), services.messenger(), this.settings, this.prefs, this.links,

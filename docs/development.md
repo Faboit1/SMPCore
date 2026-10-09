@@ -32,8 +32,14 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
     Always read `holder.get()` when you need a value so `/sift reload` takes effect.
   - `services.lang().register(XMessages.class)`.
   - `services.permissions().declare(node, description, everyoneByDefault)` for every node.
-  - `services.settings().register(toggle)` for per-player switches. The toggle's MessageKeys must be static
-    fields of your Messages class.
+  - `services.settings().register(SettingCategories.X, setting, options)` for per-player settings: a `Toggle`, a
+    `Choice` (build it with the shared vocabularies in `core.player.options.Choices`) or a `NumberSetting`, always in
+    one of the shared groups of `SettingCategories`. Their MessageKeys must be static fields of your Messages class.
+    Read settings with `settings().get(uuid, setting)` (or `get(player, setting)` to apply permissions). Settings
+    several features read are in `core.player.SharedSettings`; call `settings().reads(SharedSettings.X)` where you act
+    on one, and never import another feature's setting constants. Who-can settings ask `services.relations()`.
+    Deliver notifications with `services.messenger().alert(player, style, key, args)` (quiet in combat and the
+    player's choices apply); see `docs/features/settings.md`.
 - In `enable()`: load state from storage (blocking `.get()` is fine here, it's startup), register listeners with
   `Bukkit.getPluginManager().registerEvents(listener, services.plugin())`, start timers with `services.scheduler()`,
   register the hub entry, placeholders and dialog routes.
@@ -118,6 +124,14 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - Hub: register a `HubEntry` in `enable()`. Pause-menu ids are fixed: `shop`, `sell`, `auction`, `orders`,
   `spawners`, `teams`, `friends`, `homes`, `rtp`, `spawn`, `stats`, `settings`, `money`. Use them if you own that area.
 - Sounds: the messenger plays the key's feedback sound; use `messenger.feedback(player, Feedback.CLICK)` for clicks.
+  Every sound goes through `Sounds`, which applies each player's volume and sound switches; personal pings use
+  `Sounds.ping(player, choice)`. Never add a sound switch of your own.
+- Repeating action-bar lines (timers, countdowns) are `MessageKey.status(...)`: they stay on the action bar whatever
+  the player's feedback channel. One-off results and errors (`success`/`error`) follow the player's choice. A refusal
+  an event repeats many times a second (a move into a border) is `MessageKey.error(...).asStatus()`, so it stays on
+  the action bar in the error colours, and should be told at most once a second; the messenger also shows an error
+  the player keeps repeating in chat only once per burst.
+- Lasting status that may show as a boss bar goes through `services.statusBars()` (one bar per player).
 
 ## Commands and permissions
 

@@ -49,6 +49,7 @@ public final class PlayerLifecycle implements Listener {
         InetSocketAddress address = player.getAddress();
         String ip = address == null || address.getAddress() == null ? null : address.getAddress().getHostAddress();
         this.directory.recordJoin(player.getUniqueId(), player.getName(), ip);
+        this.settings.joined(player.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

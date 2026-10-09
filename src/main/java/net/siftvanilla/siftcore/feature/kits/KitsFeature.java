@@ -10,6 +10,7 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
@@ -50,14 +51,17 @@ public final class KitsFeature implements Feature, Listener {
     private final KitReminders reminders;
     private final KitCommands commands;
     private final CrateKeys crateKeys;
+    private final WorthLookup worth;
 
     /**
      * @param combat    players in combat can't claim kits or use the blocked perks (the combat tags)
      * @param crateKeys gives the crate keys kits include (the crates feature)
+     * @param worth     the server's sell prices, for telling valuable items apart in the trash bin
      */
-    public KitsFeature(Services services, List<ConfigProblem> problems, CombatStatus combat, CrateKeys crateKeys) {
+    public KitsFeature(Services services, List<ConfigProblem> problems, CombatStatus combat, CrateKeys crateKeys, WorthLookup worth) {
         this.services = services;
         this.crateKeys = crateKeys;
+        this.worth = worth;
         this.settings = services.configs().register("features/kits.yml",
             reader -> KitsSettings.parse(reader, KitItems.catalog(crateKeys.crates())), problems);
         services.lang().register(KitsMessages.class);

@@ -149,6 +149,11 @@ public final class FriendGraph implements FriendLookup {
 
         /** Whether {@code player} ignores {@code other}. */
         boolean ignores(UUID player, UUID other);
+
+        /** Whether favourites are on (the friends config gives favourite slots). */
+        default boolean favouritesOn() {
+            return false;
+        }
     }
 
     private final Map<UUID, Node> nodes = new ConcurrentHashMap<>();
@@ -249,6 +254,11 @@ public final class FriendGraph implements FriendLookup {
         }
         Tomb tomb = node.tombs().get(other);
         return tomb != null && tomb.ts() >= since;
+    }
+
+    @Override
+    public boolean favouritesEnabled() {
+        return this.policy.favouritesOn();
     }
 
     @Override

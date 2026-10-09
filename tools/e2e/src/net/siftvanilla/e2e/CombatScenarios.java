@@ -396,6 +396,10 @@ final class CombatScenarios {
             e2e.step("staff read the kill log");
             String log = String.join("\n", output(e2e, "combat kills " + victimName, 1_000));
             e2e.expect(log.contains("killed " + victimName + ", counted") && log.contains("not counted: killed again too soon"), "kill log:\n" + log);
+            // The killer leaves while still tagged and dies at spawn; without this their sword would lie there for
+            // the next scenario's players to pick up.
+            e2e.console("clear " + killerName);
+            e2e.eventually(() -> !holds(e2e, killerName, Material.DIAMOND_SWORD, 1), "the sword is gone");
         });
     }
 
@@ -410,6 +414,10 @@ final class CombatScenarios {
             Bot quiet = e2e.bot(quietName);
             Bot loud = e2e.bot(loudName);
             e2e.sleep(JOIN_PROTECTION_MILLIS);
+            // Bare hands: anything picked up at spawn (items from an earlier scenario's deaths) would add "using".
+            e2e.console("clear " + attackerName);
+            e2e.eventually(() -> e2e.onPlayer(attackerName, () -> e2e.player(attackerName).getInventory().getItemInMainHand().isEmpty()),
+                "the attacker's hand is empty");
             try (Deaths deaths = new Deaths()) {
                 e2e.step("a death after a hit is credited to the attacker");
                 hit(e2e, a, fallerName);

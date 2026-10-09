@@ -51,10 +51,8 @@ scoreboard:
     # In front of names above heads, for players with a rank label.
     prefix: "<secondary><rank> "
 
-  # The switch in the settings menu, in its own group.
+  # The switch in the settings menu (in the shared Display group).
   toggle:
-    category: "Display"
-    category-description: "What is shown on your screen"
     label: "Sidebar"
     description: "Your money and stats on the right of the screen"
 

@@ -43,6 +43,7 @@ final class Scenarios {
         list.add(of("baltop", Scenarios::baltop));
         list.add(of("extras", Scenarios::extras));
         list.add(of("command-cooldown", Scenarios::commandCooldown));
+        list.addAll(SettingsScenarios.all());
         list.addAll(FeatureScenarios.all());
         return list;
     }

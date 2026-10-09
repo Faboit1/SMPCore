@@ -138,12 +138,54 @@ import net.minecraft.world.phys.Vec3;
 public final class Bot {
 
     /**
+     * A slider (number_range input) as the client received it: its range, step (null when the client may pick any
+     * value), the value it starts at, the label format and the label.
+     */
+    public record RangeSeen(float start, float end, Float step, float initial, String labelFormat, String label) {
+    }
+
+    /**
      * A dialog as the client received it. {@code after} is what the client does after a click: close, none (stay until
      * the next dialog) or wait_for_response. {@code initial} holds the text inputs' pre-filled values (what the player
-     * would see typed in the fields), {@code initials} the value each toggle input starts with.
+     * would see typed in the fields), {@code initials} the value each toggle input starts with, {@code options} each
+     * choice's option ids in order, {@code choiceInitial} the option each choice starts on, {@code optionLabels} the
+     * options' labels, and {@code ranges} each slider.
      */
     public record SeenDialog(String type, String title, List<String> body, List<Button> buttons, Map<String, String> inputs, long at,
-                             String after, Map<String, String> initial, Map<String, Boolean> initials) {
+                             String after, Map<String, String> initial, Map<String, Boolean> initials,
+                             Map<String, List<String>> options, Map<String, String> choiceInitial,
+                             Map<String, List<String>> optionLabels, Map<String, RangeSeen> ranges) {
+
+        /**
+         * Every input's shown value, typed like a vanilla client sends it when the player touches nothing: text as a
+         * String, a toggle as a Boolean, a choice as its option id, a slider as a Float. Put changed values over it and
+         * pass it to {@link Bot#clickButton}.
+         */
+        public Map<String, Object> values() {
+            Map<String, Object> values = new java.util.LinkedHashMap<>();
+            for (Map.Entry<String, String> input : this.inputs.entrySet()) {
+                String key = input.getKey();
+                switch (input.getValue()) {
+                    case "text" -> values.put(key, this.initial.getOrDefault(key, ""));
+                    case "toggle" -> values.put(key, this.initials.getOrDefault(key, false));
+                    case "choice" -> values.put(key, this.choiceInitial.get(key));
+                    case "range" -> values.put(key, this.ranges.get(key).initial());
+                    default -> {
+                    }
+                }
+            }
+            return values;
+        }
+
+        /** The option a choice input starts on, or null when there is no such choice. */
+        public String choiceValue(String key) {
+            return this.choiceInitial.get(key);
+        }
+
+        /** A slider input, or null when there is no such slider. */
+        public RangeSeen range(String key) {
+            return this.ranges.get(key);
+        }
 
         /** The pre-filled text of a text input, or null when the dialog has no such input. */
         public String initial(String key) {
@@ -202,6 +244,14 @@ public final class Bot {
     public record SeenTeam(String name, Component prefix, Component suffix, String color, byte options, Set<String> members) {
     }
 
+    /** A sound the server played for this client: its id, volume and pitch. */
+    public record SeenSound(String sound, float volume, float pitch, long at) {
+    }
+
+    /** A boss bar the client shows: its name and progress. */
+    public record SeenBossBar(UUID id, String name, float progress) {
+    }
+
     /** An entity the server added for this client, with its synced data values by data id. */
     public record SeenEntity(int id, UUID uuid, String type, double x, double y, double z, Map<Integer, Object> data) {
     }
@@ -222,12 +272,17 @@ public final class Bot {
     private volatile int screenStateId;
     private volatile SeenDialog dialog;
     private volatile Screen screen;
-    private final Map<Integer, ItemStack> screenItems = new ConcurrentHashMap<>();
+    /** The open screen's items, replaced whole on every change so a reader never sees a half-filled screen. */
+    private volatile Map<Integer, ItemStack> screenItems = Map.of();
+    /** The container whose items arrived last; a screen counts as open only once its items are here. */
+    private volatile int contentFor = -1;
     private final List<String> chat = new CopyOnWriteArrayList<>();
     private final List<Component> chatComponents = new CopyOnWriteArrayList<>();
     private volatile SignEditor signEditor;
     private final List<String> actionBar = new CopyOnWriteArrayList<>();
     private final List<String> titles = new CopyOnWriteArrayList<>();
+    private final List<SeenSound> sounds = new CopyOnWriteArrayList<>();
+    private final Map<UUID, SeenBossBar> bossBars = new ConcurrentHashMap<>();
     private final List<SeenDialog> dialogs = new CopyOnWriteArrayList<>();
     /** Registry entries the server sent in the configuration phase, in network id order, by registry id. */
     private final Map<String, List<String>> registries = new java.util.concurrent.ConcurrentHashMap<>();
@@ -320,12 +375,17 @@ public final class Bot {
         return List.copyOf(this.dialogs);
     }
 
+    /**
+     * The open screen, once its items arrived. The server sends a screen's items right after opening it; a check
+     * between the two would otherwise see the right title over an empty screen.
+     */
     public Screen screen() {
-        return this.screen;
+        Screen current = this.screen;
+        return current != null && current.containerId() == this.contentFor ? current : null;
     }
 
     public Map<Integer, ItemStack> screenItems() {
-        return Map.copyOf(this.screenItems);
+        return this.screenItems;
     }
 
     public List<String> chat() {
@@ -348,6 +408,16 @@ public final class Bot {
 
     public List<String> titles() {
         return List.copyOf(this.titles);
+    }
+
+    /** Sounds played for this client since the logs were last cleared. */
+    public List<SeenSound> sounds() {
+        return List.copyOf(this.sounds);
+    }
+
+    /** The boss bars the client shows now. */
+    public List<SeenBossBar> bossBars() {
+        return List.copyOf(this.bossBars.values());
     }
 
     public int deaths() {
@@ -502,6 +572,7 @@ public final class Bot {
         this.signEditor = null;
         this.actionBar.clear();
         this.titles.clear();
+        this.sounds.clear();
         this.dialogs.clear();
         this.chatDialogs.clear();
         this.dialog = null;
@@ -795,7 +866,7 @@ public final class Bot {
         if (current != null) {
             send(new ServerboundContainerClosePacket(current.containerId()));
             this.screen = null;
-            this.screenItems.clear();
+            this.screenItems = Map.of();
         }
     }
 
@@ -947,36 +1018,41 @@ public final class Bot {
                 }
             }
             case ClientboundOpenScreenPacket os -> {
-                this.screenItems.clear();
+                this.contentFor = -1;
+                this.screenItems = Map.of();
                 this.screen = new Screen(os.getContainerId(), os.getTitle().getString(), System.currentTimeMillis(),
                     String.valueOf(BuiltInRegistries.MENU.getKey(os.getType())), os.getTitle());
             }
             case ClientboundOpenSignEditorPacket se -> this.signEditor = new SignEditor(se.getPos(), se.isFrontText(), System.currentTimeMillis());
             case ClientboundContainerClosePacket cc -> {
                 this.screen = null;
-                this.screenItems.clear();
+                this.screenItems = Map.of();
             }
             case ClientboundContainerSetContentPacket cc -> {
                 if (cc.containerId() == 0) {
                     this.inventoryStateId = cc.stateId();
                 } else {
                     this.screenStateId = cc.stateId();
-                    this.screenItems.clear();
+                    Map<Integer, ItemStack> filled = new java.util.HashMap<>();
                     List<ItemStack> items = cc.items();
                     for (int i = 0; i < items.size(); i++) {
                         if (!items.get(i).isEmpty()) {
-                            this.screenItems.put(i, items.get(i));
+                            filled.put(i, items.get(i));
                         }
                     }
+                    this.screenItems = Map.copyOf(filled);
+                    this.contentFor = cc.containerId();
                 }
             }
             case ClientboundContainerSetSlotPacket slot -> {
                 if (slot.getContainerId() != 0) {
+                    Map<Integer, ItemStack> changed = new java.util.HashMap<>(this.screenItems);
                     if (slot.getItem().isEmpty()) {
-                        this.screenItems.remove(slot.getSlot());
+                        changed.remove(slot.getSlot());
                     } else {
-                        this.screenItems.put(slot.getSlot(), slot.getItem());
+                        changed.put(slot.getSlot(), slot.getItem());
                     }
+                    this.screenItems = Map.copyOf(changed);
                 }
             }
             case ClientboundSystemChatPacket sc -> {
@@ -1000,6 +1076,33 @@ public final class Bot {
             }
             case ClientboundSetActionBarTextPacket ab -> this.actionBar.add(ab.text().getString());
             case ClientboundSetTitleTextPacket t -> this.titles.add(t.text().getString());
+            case net.minecraft.network.protocol.game.ClientboundSoundEntityPacket s -> this.sounds.add(new SeenSound(soundId(s.getSound()),
+                s.getVolume(), s.getPitch(), System.currentTimeMillis()));
+            case net.minecraft.network.protocol.game.ClientboundSoundPacket s -> this.sounds.add(new SeenSound(soundId(s.getSound()),
+                s.getVolume(), s.getPitch(), System.currentTimeMillis()));
+            case net.minecraft.network.protocol.game.ClientboundBossEventPacket boss -> boss.dispatch(
+                new net.minecraft.network.protocol.game.ClientboundBossEventPacket.Handler() {
+                    @Override
+                    public void add(UUID id, Component name, float progress, net.minecraft.world.BossEvent.BossBarColor color,
+                                    net.minecraft.world.BossEvent.BossBarOverlay overlay, boolean darken, boolean music, boolean fog) {
+                        Bot.this.bossBars.put(id, new SeenBossBar(id, name.getString(), progress));
+                    }
+
+                    @Override
+                    public void remove(UUID id) {
+                        Bot.this.bossBars.remove(id);
+                    }
+
+                    @Override
+                    public void updateProgress(UUID id, float progress) {
+                        Bot.this.bossBars.computeIfPresent(id, (k, bar) -> new SeenBossBar(id, bar.name(), progress));
+                    }
+
+                    @Override
+                    public void updateName(UUID id, Component name) {
+                        Bot.this.bossBars.computeIfPresent(id, (k, bar) -> new SeenBossBar(id, name.getString(), bar.progress()));
+                    }
+                });
             case ClientboundSetHealthPacket health -> {
                 // A player who logged in dead gets no death screen packet, only their health: respawn like a client.
                 if (health.getHealth() <= 0) {
@@ -1165,7 +1268,7 @@ public final class Bot {
             }
             default -> {
                 return new SeenDialog(dialog.getClass().getSimpleName(), "", List.of(), List.of(), Map.of(), System.currentTimeMillis(), "",
-                    Map.of(), Map.of());
+                    Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
             }
         }
         List<String> body = new ArrayList<>();
@@ -1179,9 +1282,34 @@ public final class Bot {
         Map<String, String> inputs = new java.util.LinkedHashMap<>();
         Map<String, String> initial = new java.util.LinkedHashMap<>();
         Map<String, Boolean> initials = new java.util.LinkedHashMap<>();
+        Map<String, List<String>> options = new java.util.LinkedHashMap<>();
+        Map<String, String> choiceInitial = new java.util.LinkedHashMap<>();
+        Map<String, List<String>> optionLabels = new java.util.LinkedHashMap<>();
+        Map<String, RangeSeen> ranges = new java.util.LinkedHashMap<>();
         for (Input input : common.inputs()) {
             if (input.control() instanceof BooleanInput toggle) {
                 initials.put(input.key(), toggle.initial());
+            }
+            if (input.control() instanceof SingleOptionInput single) {
+                List<String> ids = new ArrayList<>();
+                List<String> labels = new ArrayList<>();
+                String start = null;
+                for (SingleOptionInput.Entry entry : single.entries()) {
+                    ids.add(entry.id());
+                    labels.add(entry.displayOrDefault().getString());
+                    if (entry.initial() && start == null) {
+                        start = entry.id();
+                    }
+                }
+                options.put(input.key(), List.copyOf(ids));
+                optionLabels.put(input.key(), List.copyOf(labels));
+                // Like the client: the flagged entry, else the first.
+                choiceInitial.put(input.key(), start != null ? start : ids.isEmpty() ? "" : ids.getFirst());
+            }
+            if (input.control() instanceof NumberRangeInput slider) {
+                NumberRangeInput.RangeInfo info = slider.rangeInfo();
+                ranges.put(input.key(), new RangeSeen(info.start(), info.end(), info.step().orElse(null),
+                    info.initial().orElse((info.start() + info.end()) / 2f), slider.labelFormat(), slider.label().getString()));
             }
             if (input.control() instanceof TextInput text) {
                 initial.put(input.key(), text.initial());
@@ -1195,7 +1323,16 @@ public final class Bot {
             });
         }
         return new SeenDialog(type, common.title().getString(), body, buttons, inputs, System.currentTimeMillis(),
-            common.afterAction().getSerializedName(), initial, initials);
+            common.afterAction().getSerializedName(), initial, initials, options, choiceInitial, optionLabels, ranges);
+    }
+
+    /** A sound's id as the client knows it. */
+    private static String soundId(net.minecraft.core.Holder<net.minecraft.sounds.SoundEvent> sound) {
+        try {
+            return sound.value().location().toString();
+        } catch (RuntimeException e) {
+            return sound.unwrapKey().map(key -> key.identifier().toString()).orElse("unknown");
+        }
     }
 
     /** The dialog a chat component opens when clicked (its own or a child's show_dialog click event), or null. */

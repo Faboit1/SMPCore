@@ -10,7 +10,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
@@ -24,7 +23,9 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
@@ -57,8 +58,6 @@ final class SellService {
 
     static final Toggle CONFIRM = new Toggle("sell_all_confirm", true, SellMessages.TOGGLE_CONFIRM,
         SellMessages.TOGGLE_CONFIRM_DESCRIPTION, null);
-    static final Toggle RECEIPTS = new Toggle("sell_receipts", true, SellMessages.TOGGLE_RECEIPTS,
-        SellMessages.TOGGLE_RECEIPTS_DESCRIPTION, null);
     static final Toggle ORDERS = new Toggle("sell_orders", true, SellMessages.TOGGLE_ORDERS,
         SellMessages.TOGGLE_ORDERS_DESCRIPTION, null);
 
@@ -79,7 +78,6 @@ final class SellService {
     private final OrderBids bids;
     private final MasteryBook mastery;
     private final CombatStatus combat;
-    private final AtomicBoolean ordersToggle = new AtomicBoolean();
     private BiConsumer<Player, SaleRequest> chooseItems = (player, request) -> { };
 
     SellService(Services services, WorthService worth, Setting<SellSettings> settings, ItemHandout handout,
@@ -128,18 +126,7 @@ final class SellService {
         if (!market.available()) {
             return false;
         }
-        ordersToggle();
         return this.services.settings().enabled(player.getUniqueId(), ORDERS) && market.usable(player) == null;
-    }
-
-    /**
-     * Registers the "Sell to buy orders first" setting once buy orders exist (at enable, or the first time a sale
-     * sees the order market available, since the orders feature may start after this one). Never twice.
-     */
-    void ordersToggle() {
-        if (this.bids.market().available() && this.ordersToggle.compareAndSet(false, true)) {
-            this.services.settings().register(ORDERS);
-        }
     }
 
     /** A draft from the preview cache (menus, dialogs). Never moves anything. */
@@ -663,9 +650,15 @@ final class SellService {
     private void receipt(Player player, SaleDraft draft) {
         Lang lang = this.services.lang();
         long total = draft.total();
-        boolean chat = this.services.settings().enabled(player.getUniqueId(), RECEIPTS);
-        if (!chat) {
-            this.services.messenger().send(player, SellMessages.SOLD_ACTION_BAR, Arg.money("total", total));
+        // The shared sale receipt setting (core, so selling spawner storage follows it too): chat, hotbar or nothing.
+        // The hotbar total is an alert in that style: it stays there whatever the feedback channel, and becomes a chat
+        // line while the player is in combat with quiet in combat on.
+        AlertStyle style = this.services.settings().get(player.getUniqueId(), SharedSettings.SELL_RECEIPTS);
+        if (style == AlertStyle.OFF) {
+            return;
+        }
+        if (style != AlertStyle.CHAT) {
+            this.services.messenger().alert(player, style, SellMessages.SOLD_ACTION_BAR, Arg.money("total", total));
             return;
         }
         Map<String, Long> units = draft.units();
@@ -730,7 +723,8 @@ final class SellService {
         } else {
             this.services.messenger().send(player, SellMessages.SOLD, Arg.component("items", items), Arg.money("total", total));
         }
-        if (this.settings.get().actionBarTotal()) {
+        // The extra hotbar total is a pop-up: quiet in combat leaves it out (the receipt is in chat already).
+        if (this.settings.get().actionBarTotal() && !this.services.messenger().quietNow(player.getUniqueId())) {
             this.services.messenger().actionbar(player, lang.get(SellMessages.SOLD_ACTION_BAR, Arg.money("total", total)));
         }
     }

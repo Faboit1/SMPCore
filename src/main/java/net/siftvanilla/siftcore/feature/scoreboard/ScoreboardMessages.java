@@ -65,8 +65,6 @@ public final class ScoreboardMessages {
 
     // ------------------------------------------------------------------ the player's switch
 
-    public static final MessageKey SETTINGS_CATEGORY = MessageKey.ui("scoreboard.toggle.category");
-    public static final MessageKey SETTINGS_CATEGORY_DESCRIPTION = MessageKey.ui("scoreboard.toggle.category-description");
     public static final MessageKey TOGGLE_LABEL = MessageKey.ui("scoreboard.toggle.label");
     public static final MessageKey TOGGLE_DESCRIPTION = MessageKey.ui("scoreboard.toggle.description");
     public static final MessageKey SHOWN = MessageKey.success("scoreboard.shown");

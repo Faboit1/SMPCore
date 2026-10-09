@@ -339,11 +339,11 @@ final class ScoreboardScenarios {
         e2e.expect(again.sidebarLines().get(1).contains("Money"), "money is the first line: " + again.sidebarLines());
         e2e.eventually(() -> {
             try {
-                return "true".equals(storedSetting(e2e, id, "scoreboard"));
+                return storedSetting(e2e, id, "scoreboard") == null;
             } catch (Exception e) {
                 return false;
             }
-        }, "the new choice is stored");
+        }, "showing it is the default again, so its row is deleted");
 
         e2e.step("the Display group of /settings switches it too");
         again.clearLogs();
@@ -351,10 +351,7 @@ final class ScoreboardScenarios {
         Bot.SeenDialog display = e2e.dialog(again, "Display settings");
         e2e.expect("toggle".equals(display.inputs().get("scoreboard")), "the sidebar switch: " + display.inputs());
         e2e.expect(display.bodyText().contains("Sidebar"), "its label: " + display.body());
-        Map<String, Object> values = new HashMap<>();
-        for (String key : display.inputs().keySet()) {
-            values.put(key, display.toggleValue(key));
-        }
+        Map<String, Object> values = display.values();
         values.put("scoreboard", false);
         e2e.click(again, "Save", values);
         e2e.eventually(() -> again.actionBarContains("Sidebar turned off"), "the settings dialog confirms: " + again.actionBar());

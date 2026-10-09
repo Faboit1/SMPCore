@@ -1,19 +1,24 @@
 package net.siftvanilla.siftcore.feature.settings;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.NumberSetting;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.Registry;
+import net.siftvanilla.siftcore.core.player.SetResult;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
+import net.siftvanilla.siftcore.core.player.SettingTexts;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Icons;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
@@ -24,32 +29,30 @@ import org.bukkit.entity.Player;
 
 /**
  * The settings dialogs, built from the core settings registry ({@link PlayerSettings}) every time they open, so any
- * feature's switches appear without changes here:
+ * feature's settings appear without changes here:
  * <ul>
- *   <li>the group list: one button per {@link SettingCategory} that holds a switch the player may see, in category
- *       order, with switches registered without a category in a General group at the end;</li>
- *   <li>a group's page: a form with one switch per toggle (its label and description above), paged when the group is
- *       longer than {@code page-size}. Switches flipped on one page are carried to the others and saved together;
- *       Back leaves without saving.</li>
+ *   <li>the group list: one button per {@link SettingCategory} that holds a setting the player may see, in category
+ *       order (settings registered without a category are in the General group at the end);</li>
+ *   <li>a group's page: a form with one input per setting (its label and description above): a switch for a toggle,
+ *       a cycling button for a choice (only the options the player may pick) and a slider for a number (its unit in
+ *       the label). A setting the server locked shows its value as text instead of an input. Pages hold
+ *       {@code page-size} settings; changes made on one page are carried to the others and saved together, Back
+ *       leaves without saving.</li>
  * </ul>
- * Saving stores only the switches the player flipped (never the stale value a dialog showed), re-checking that each
- * toggle still exists and is still allowed. Runs on the player's thread.
+ * Saving stores only the settings the player changed (never the stale value a dialog showed), each re-checked by the
+ * registry (still offered, still allowed, not locked, not cancelled by a listener). Runs on the player's thread.
  */
 final class SettingsDialogs {
 
-    /** The id of the group for switches registered without a category. */
-    static final String GENERAL_ID = "general";
     private static final int BUTTON_WIDTH = 150;
 
-    /** A group as one player sees it: the category and its switches with their stored values. */
-    record Shown(SettingCategory category, List<Map.Entry<Toggle, Boolean>> toggles) {
+    /** A group as one player sees it: the category and the settings in it they may see. */
+    record Shown(SettingCategory category, List<Registry.Entry<?>> entries) {
     }
 
     private final Services services;
     private final Lang lang;
     private final Setting<SettingsConfig> config;
-    private final SettingCategory general = new SettingCategory(GENERAL_ID, Integer.MAX_VALUE, SettingsMessages.GENERAL,
-        SettingsMessages.GENERAL_DESCRIPTION);
 
     SettingsDialogs(Services services, Setting<SettingsConfig> config) {
         this.services = services;
@@ -57,27 +60,21 @@ final class SettingsDialogs {
         this.config = config;
     }
 
-    /** The group used for switches registered without a category. */
-    SettingCategory general() {
-        return this.general;
-    }
-
-    /** The groups the player sees, in order, each with at least one switch. Safe from any thread. */
+    /** The groups the player sees, in order, each with at least one setting. Safe from any thread. */
     List<Shown> groups(Player player) {
         PlayerSettings settings = this.services.settings();
-        Map<String, SettingCategory> categories = new LinkedHashMap<>();
-        for (SettingCategory category : settings.categories()) {
-            categories.put(category.id(), category);
-        }
-        categories.putIfAbsent(GENERAL_ID, this.general);
-        List<Map.Entry<Toggle, Boolean>> view = settings.view(player.getUniqueId(), player::hasPermission);
-        List<SettingsForm.Group<Map.Entry<Toggle, Boolean>>> groups = SettingsForm.group(view, entry -> {
-            SettingCategory category = settings.category(entry.getKey());
-            return category == null ? GENERAL_ID : category.id();
-        }, List.copyOf(categories.keySet()));
-        List<Shown> shown = new ArrayList<>(groups.size());
-        for (SettingsForm.Group<Map.Entry<Toggle, Boolean>> group : groups) {
-            shown.add(new Shown(categories.get(group.category()), group.items()));
+        Registry registry = settings.registry();
+        List<Shown> shown = new ArrayList<>();
+        for (SettingCategory category : registry.categories()) {
+            List<Registry.Entry<?>> visible = new ArrayList<>();
+            for (Registry.Entry<?> entry : registry.in(category.id())) {
+                if (settings.visible(entry, player::hasPermission)) {
+                    visible.add(entry);
+                }
+            }
+            if (!visible.isEmpty()) {
+                shown.add(new Shown(category, List.copyOf(visible)));
+            }
         }
         return shown;
     }
@@ -97,7 +94,7 @@ final class SettingsDialogs {
         showList(player, groups, back);
     }
 
-    /** Opens one group by id (any case); returns false when the player sees no switch in a group of that id. */
+    /** Opens one group by id (any case); returns false when the player sees no setting in a group of that id. */
     boolean openGroup(Player player, String id, Button.Handler back) {
         for (Shown group : groups(player)) {
             if (group.category().id().equalsIgnoreCase(id)) {
@@ -118,8 +115,8 @@ final class SettingsDialogs {
         List<Button> buttons = new ArrayList<>(groups.size());
         for (Shown group : groups) {
             SettingCategory category = group.category();
-            lines.add(this.lang.get(SettingsMessages.GROUP_LINE, Arg.text("label", this.lang.plain(category.label())),
-                Arg.text("description", this.lang.plain(category.description()))));
+            lines.add(this.lang.get(SettingsMessages.GROUP_LINE, Arg.component("sprite", icon(category)),
+                Arg.text("label", this.lang.plain(category.label())), Arg.text("description", this.lang.plain(category.description()))));
             buttons.add(new Button(Component.text(this.lang.plain(category.label())), this.lang.get(category.description()),
                 BUTTON_WIDTH, s -> showGroup(s.player(), category.id(), 1, Map.of(), back)));
         }
@@ -127,11 +124,20 @@ final class SettingsDialogs {
             buttons, 2, back));
     }
 
+    /** The category's icon followed by a space, or nothing when it has none (or it does not resolve). */
+    private Component icon(SettingCategory category) {
+        Icons icons = this.lang.style().icons();
+        if (category.icon() == null || !icons.has(category.icon())) {
+            return Component.empty();
+        }
+        return icons.component(category.icon()).append(Component.space());
+    }
+
     /**
-     * One page of a group. {@code pending} holds the switches flipped on other pages and not saved yet (toggle id to
-     * the chosen value).
+     * One page of a group. {@code pending} holds the settings changed on other pages and not saved yet (setting id to
+     * the chosen value in stored form).
      */
-    private void showGroup(Player player, String id, int page, Map<String, Boolean> pending, Button.Handler back) {
+    private void showGroup(Player player, String id, int page, Map<String, String> pending, Button.Handler back) {
         List<Shown> groups = groups(player);
         Shown group = null;
         for (Shown candidate : groups) {
@@ -144,39 +150,36 @@ final class SettingsDialogs {
             open(player, back);
             return;
         }
+        PlayerSettings settings = this.services.settings();
         boolean listed = listed(groups);
         int pageSize = this.config.get().pageSize();
-        int pages = SettingsForm.pages(group.toggles().size(), pageSize);
-        int current = SettingsForm.clampPage(page, group.toggles().size(), pageSize);
-        List<Map.Entry<Toggle, Boolean>> onPage = SettingsForm.page(group.toggles(), current, pageSize);
-        List<Map.Entry<String, Boolean>> values = new ArrayList<>(onPage.size());
-        List<String> pageIds = new ArrayList<>(onPage.size());
-        for (Map.Entry<Toggle, Boolean> entry : onPage) {
-            String toggle = entry.getKey().id();
-            values.add(Map.entry(toggle, pending.getOrDefault(toggle, entry.getValue())));
-            pageIds.add(toggle);
-        }
-        List<SettingsForm.Field> fields = SettingsForm.fields(values);
+        int pages = SettingsForm.pages(group.entries().size(), pageSize);
+        int current = SettingsForm.clampPage(page, group.entries().size(), pageSize);
+        List<Registry.Entry<?>> onPage = SettingsForm.page(group.entries(), current, pageSize);
 
         List<Component> lines = new ArrayList<>();
         lines.add(this.lang.get(SettingsMessages.INTRO));
-        List<Input> inputs = new ArrayList<>(fields.size());
-        for (int i = 0; i < fields.size(); i++) {
-            Toggle toggle = onPage.get(i).getKey();
-            SettingsForm.Field field = fields.get(i);
-            lines.add(this.lang.get(SettingsMessages.LINE, Arg.text("label", this.lang.plain(toggle.label())),
-                Arg.text("description", this.lang.plain(toggle.description()))));
-            inputs.add(Templates.toggle(field.key(), Component.text(this.lang.plain(toggle.label())), field.shown()));
+        List<Input> inputs = new ArrayList<>(onPage.size());
+        List<SettingsForm.Field> fields = new ArrayList<>(onPage.size());
+        List<String> pageIds = new ArrayList<>(onPage.size());
+        for (Registry.Entry<?> entry : onPage) {
+            String label = this.lang.plain(entry.setting().label());
+            if (settings.locked(entry.setting())) {
+                lines.add(this.lang.get(SettingsMessages.LOCKED_LINE, Arg.text("label", label), Arg.text("value", displayed(player, entry))));
+                continue;
+            }
+            String shown = pending.getOrDefault(entry.id(), encoded(player, entry));
+            lines.add(this.lang.get(SettingsMessages.LINE, Arg.text("label", label),
+                Arg.text("description", this.lang.plain(entry.setting().description()))));
+            inputs.add(input(player, entry, shown));
+            fields.add(new SettingsForm.Field(entry.inputKey(), entry.id(), entry.setting().kind(), shown));
+            pageIds.add(entry.id());
         }
         if (pages > 1) {
             lines.add(this.lang.get(SettingsMessages.PAGE, Arg.number("page", current), Arg.number("pages", pages)));
         }
-        Map<String, Boolean> stored = new LinkedHashMap<>();
-        for (Map.Entry<Toggle, Boolean> entry : group.toggles()) {
-            stored.put(entry.getKey().id(), entry.getValue());
-        }
-        long elsewhere = SettingsForm.effective(pending, toggle -> stored.getOrDefault(toggle, pending.get(toggle))).keySet()
-            .stream().filter(toggle -> !pageIds.contains(toggle)).count();
+        long elsewhere = SettingsForm.effective(pending, setting -> currentEncoded(player, setting)).keySet().stream()
+            .filter(setting -> !pageIds.contains(setting)).count();
         if (elsewhere > 0) {
             lines.add(this.lang.get(SettingsMessages.PENDING, Arg.number("count", elsewhere)));
         }
@@ -214,36 +217,95 @@ final class SettingsDialogs {
             exit.width(Templates.WIDE), 2, true));
     }
 
-    /** Saves the pending changes that still change something, re-checking each toggle; confirms on the action bar. */
-    private void save(Player player, Map<String, Boolean> pending) {
+    /** The input for one setting, showing {@code shown} (stored form). */
+    private <T> Input input(Player player, Registry.Entry<T> entry, String shown) {
+        String label = this.lang.plain(entry.setting().label());
+        return switch (entry.setting()) {
+            case Toggle toggle -> Templates.toggle(entry.inputKey(), Component.text(label), Boolean.parseBoolean(shown));
+            case Choice<T> choice -> {
+                List<Input.Option> options = new ArrayList<>();
+                for (Choice.Option<T> option : this.services.settings().options(entry, player::hasPermission)) {
+                    options.add(new Input.Option(option.id(), Component.text(option.text(this.lang))));
+                }
+                if (options.isEmpty()) {
+                    Choice.Option<T> only = choice.option(shown);
+                    options.add(new Input.Option(only == null ? choice.encode(choice.defaultValue()) : only.id(),
+                        Component.text(only == null ? choice.display(this.lang, choice.defaultValue()) : only.text(this.lang))));
+                }
+                yield Templates.choice(entry.inputKey(), Component.text(label), options, shown);
+            }
+            case NumberSetting number -> {
+                String unit = number.unit() == null ? "" : this.lang.plain(number.unit()).strip();
+                String text = unit.isEmpty() ? label : label + " (" + unit + ")";
+                yield Templates.range(entry.inputKey(), Component.text(text), number.min(), number.max(), number.step(),
+                    number.decode(shown).orElse(number.defaultValue()));
+            }
+        };
+    }
+
+    /** A setting's value for the player (their permissions applied) in stored form. */
+    private <T> String encoded(Player player, Registry.Entry<T> entry) {
+        return entry.setting().encode(this.services.settings().get(player, entry.setting()));
+    }
+
+    /** A setting's value for the player as text ("On", "Everyone", "30%"). */
+    private <T> String displayed(Player player, Registry.Entry<T> entry) {
+        return entry.setting().display(this.lang, this.services.settings().get(player, entry.setting()));
+    }
+
+    /** A setting's value now in stored form, or null when no setting has that id any more. */
+    private String currentEncoded(Player player, String id) {
+        Registry.Entry<?> entry = this.services.settings().registry().entry(id);
+        return entry == null ? null : encoded(player, entry);
+    }
+
+    /**
+     * Saves the pending changes that still change something, each through the registry's checks; confirms on the
+     * action bar (or wherever the player's feedback goes) and names a setting that couldn't be changed.
+     */
+    private void save(Player player, Map<String, String> pending) {
         PlayerSettings settings = this.services.settings();
-        UUID uuid = player.getUniqueId();
-        Map<String, Boolean> changes = SettingsForm.effective(pending, toggle -> {
-            Toggle known = settings.toggle(toggle);
-            // An unknown toggle counts as unchanged, so it is skipped.
-            return known == null ? pending.get(toggle) : settings.enabled(uuid, known);
-        });
-        Toggle last = null;
-        boolean lastValue = false;
+        Map<String, String> changes = SettingsForm.effective(pending, id -> currentEncoded(player, id));
+        Registry.Entry<?> last = null;
+        String refused = null;
         int saved = 0;
-        for (Map.Entry<String, Boolean> change : changes.entrySet()) {
-            Toggle toggle = settings.toggle(change.getKey());
-            if (toggle == null || (toggle.permission() != null && !player.hasPermission(toggle.permission()))) {
+        for (Map.Entry<String, String> change : changes.entrySet()) {
+            Registry.Entry<?> entry = settings.registry().entry(change.getKey());
+            if (entry == null) {
                 continue;
             }
-            settings.set(uuid, toggle, change.getValue());
-            last = toggle;
-            lastValue = change.getValue();
-            saved++;
+            SetResult result = apply(player, entry, change.getValue());
+            if (result == SetResult.CHANGED) {
+                last = entry;
+                saved++;
+            } else if (result != SetResult.UNCHANGED) {
+                refused = this.lang.plain(entry.setting().label());
+            }
         }
         var messenger = this.services.messenger();
-        if (saved == 0) {
-            messenger.send(player, SettingsMessages.UNCHANGED);
-        } else if (saved == 1) {
-            messenger.send(player, SettingsMessages.SAVED_ONE, Arg.text("label", this.lang.plain(last.label())),
-                Arg.text("state", this.lang.plain(lastValue ? SettingsMessages.STATE_ON : SettingsMessages.STATE_OFF)));
-        } else {
+        if (saved == 1) {
+            String label = this.lang.plain(last.setting().label());
+            if (last.setting() instanceof Toggle toggle) {
+                messenger.send(player, SettingsMessages.SAVED_ONE, Arg.text("label", label),
+                    Arg.text("state", this.lang.plain(settings.get(player, toggle) ? SettingTexts.STATE_ON : SettingTexts.STATE_OFF)));
+            } else {
+                messenger.send(player, SettingsMessages.SAVED_VALUE, Arg.text("label", label), Arg.text("value", displayed(player, last)));
+            }
+        } else if (saved > 1) {
             messenger.send(player, SettingsMessages.SAVED_MANY, Arg.number("count", saved));
         }
+        if (refused != null) {
+            messenger.send(player, SettingsMessages.REFUSED, Arg.text("label", refused));
+        } else if (saved == 0) {
+            messenger.send(player, SettingsMessages.UNCHANGED);
+        }
+    }
+
+    private <T> SetResult apply(Player player, Registry.Entry<T> entry, String encoded) {
+        T value = entry.setting().decodeOrNull(encoded);
+        if (value == null) {
+            return SetResult.INVALID;
+        }
+        return this.services.settings().set(player, entry.setting(), value, Change.dialog(player.getName()));
     }
 }

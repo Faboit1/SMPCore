@@ -63,6 +63,11 @@ public final class ConfigReader {
         return this.section != null && this.section.contains(path);
     }
 
+    /** Whether {@code path} holds a section (an empty {@code {}} counts). */
+    public boolean isSection(String path) {
+        return this.section != null && this.section.isConfigurationSection(path);
+    }
+
     /** All direct child keys of this section, in file order. */
     public Set<String> keys() {
         return this.section == null ? Set.of() : this.section.getKeys(false);

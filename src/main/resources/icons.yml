@@ -104,3 +104,37 @@ icons:
     atlas: minecraft:particles
     sprite: glow
     tint: inherit
+  # The groups of the settings dialog (auction, kill and afk above are used there too).
+  chat:
+    atlas: minecraft:items
+    sprite: item/writable_book
+  social:
+    atlas: minecraft:items
+    sprite: item/name_tag
+  bell:
+    atlas: minecraft:items
+    sprite: item/bell
+  sound:
+    atlas: minecraft:blocks
+    sprite: block/note_block
+  teleport:
+    atlas: minecraft:items
+    sprite: item/ender_pearl
+  economy:
+    atlas: minecraft:items
+    sprite: item/emerald
+  display:
+    atlas: minecraft:items
+    sprite: item/painting
+  privacy:
+    atlas: minecraft:items
+    sprite: item/spyglass
+  crates:
+    atlas: minecraft:items
+    sprite: item/trial_key
+  spawners:
+    atlas: minecraft:blocks
+    sprite: block/spawner
+  staff:
+    atlas: minecraft:items
+    sprite: item/comparator

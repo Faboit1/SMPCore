@@ -1,34 +1,123 @@
-# Text of the settings dialog (/settings, and Settings in the main menu). Every feature adds its own switches and
-# groups; their labels and descriptions live in that feature's lang file.
+# Text of the settings dialog (/settings, and Settings in the main menu), its groups and the shared option names.
+# Every feature adds its own settings; their labels and descriptions live in that feature's lang file.
 # Allowed tags: <primary> <secondary> <money> <error>, colours (<red>, <#3CC4EE>), <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>, plus each message's placeholders.
 
 settings:
   title: "Settings"
-  # The list of groups (shown when a player can see switches in more than one group).
+  # The list of groups (shown when a player can see settings in more than one group).
   groups-intro: "<secondary>Pick a group of settings."
-  group-line: "<primary><label><secondary>: <description>"
+  # <sprite> is the group's icon from icons.yml (with a space after it), or nothing.
+  group-line: "<sprite><primary><label><secondary>: <description>"
   # The title of one group's page, like "Chat settings".
   group-title: "<label> settings"
-  intro: "<secondary>Switch things on or off, then save."
-  # One line per switch above the switches: its label and what it does.
+  intro: "<secondary>Change what you like, then save."
+  # One line per setting above the inputs: its label and what it does.
   line: "<primary><label><secondary>: <description>"
+  # A setting the server locked (features/settings.yml): shown as text instead of an input.
+  locked-line: "<primary><label><secondary>: <primary><value> <secondary>(set by the server)"
   page: "<secondary>Page <page> of <pages>"
-  # Shown when switches were flipped on another page of the group and are not saved yet.
+  # Shown when settings were changed on another page of the group and are not saved yet.
   pending: "<secondary>Changes on other pages: <primary><count><secondary>, saved with this page."
   empty: "<secondary>There is nothing to set yet."
   save: "Save"
   next: "Next page"
   previous: "Previous page"
+  # After saving one switch, like "Mention alerts turned off."
   saved-one: "<primary><label> turned <state>."
+  # After saving one choice or number, like "SiftCore volume set to 60%."
+  saved-value: "<primary><label> set to <value>."
   saved-many: "<primary>Saved <count> settings."
+  # A setting the server or another plugin did not let change.
+  refused: "<primary><label> couldn't be changed."
   unchanged: "<secondary>Nothing changed."
   unknown-group: "<primary>There is no settings group called <name>."
   state-on: "on"
   state-off: "off"
-  # The group of switches that no feature put in a group of its own.
+  units:
+    # Written right after the number, like 60%.
+    percent: "%"
+  # The groups. Every feature puts its settings into one of these.
+  categories:
+    chat:
+      label: "Chat"
+      description: "Mentions, private messages and what you see in public chat"
+    social:
+      label: "Friends & teams"
+      description: "Friend requests, join alerts, team news and invites"
+    announcements:
+      label: "Server announcements"
+      description: "Which of other players' events you see in chat: deaths, joins, crate wins, bounties and big orders"
+    sound:
+      label: "Sounds"
+      description: "Volume and which SiftCore sounds and pings play"
+    teleport:
+      label: "Teleports & homes"
+      description: "Teleport requests, auto-accept, homes and random teleport"
+    economy:
+      label: "Money & selling"
+      description: "Payments, /sell and sell receipts"
+    market:
+      label: "Shop, auction & orders"
+      description: "Sale alerts, purchase confirmations, buy orders and join summaries"
+    combat:
+      label: "Combat & stats"
+      description: "Combat timer, kill and death info, bounties and leaderboard alerts"
+    display:
+      label: "Display"
+      description: "Sidebar, where quick messages appear, money format and spawn holograms"
+    privacy:
+      label: "Privacy"
+      description: "Coordinates, last-seen time, balance and what the server announces about you"
+    afk:
+      label: "AFK & shards"
+      description: "AFK zone countdown and payouts, AFK messages and the shard shop"
+    crates:
+      label: "Crates & kits"
+      description: "Crate results and keys, keyall, kit reminders and the trash bin"
+    spawners:
+      label: "Spawners"
+      description: "Opening and stacking spawners, storage alerts and teammate activity"
+    staff:
+      label: "Staff"
+      description: "Spy, staff chat, alerts and vanish (only shown to staff)"
+  # Settings that no feature put in a group of its own.
   general:
     label: "General"
     description: "Notifications, requests and more"
+  # The option names every setting shares, so the same choice reads the same everywhere.
+  options:
+    alert:
+      chat: "Chat"
+      actionbar: "Above the hotbar"
+      title: "Title"
+      bossbar: "Boss bar"
+      both: "Both"
+      "off": "Off"
+    audience:
+      everyone: "Everyone"
+      friends-team: "Friends and teammates"
+      friends: "Friends"
+      nobody: "Nobody"
+    ping:
+      default: "Default"
+      bell: "Bell"
+      pling: "Pling"
+      chime: "Chime"
+      "off": "Off"
+    confirm:
+      server: "Server default"
+      always: "Always"
+      never: "Never"
+    announce:
+      all: "All"
+      "off": "Off"
+    # A threshold, like "From $10,000".
+    from: "From <amount>"
+    auto-accept:
+      nobody: "Nobody"
+      favourites: "Favourite friends"
+      all: "All friends"
+      friends-team: "Friends and teammates"
   hub:
     label: "Settings"
-    description: "Chat, messages and notifications"
+    description: "Chat, sounds, privacy and notifications"

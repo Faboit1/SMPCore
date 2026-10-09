@@ -38,8 +38,15 @@ import org.bukkit.util.Vector;
  */
 final class CombatListener implements Listener {
 
+    /** How often the same refusal from a repeating event is told to a player at most. */
+    private static final long REFUSAL_INTERVAL_MILLIS = 1_000;
+
     /** What the death-message stage hands to the stage that runs once the death is final. */
     private record PendingDeath(KillTracker.Credit credit, Component message, boolean everyone, boolean combatLog, long at) {
+    }
+
+    /** A refusal a player was told about, and when. */
+    private record Refusal(MessageKey key, long at) {
     }
 
     private final Setting<CombatSettings> settings;
@@ -54,6 +61,8 @@ final class CombatListener implements Listener {
     private final Messenger messenger;
     private final Cosmetics cosmetics;
     private final Map<UUID, PendingDeath> pending = new ConcurrentHashMap<>();
+    /** The last refusal each player was told about by a repeating event (a step, a throw, a glide), to tell it once a second. */
+    private final Map<UUID, Refusal> refused = new ConcurrentHashMap<>();
 
     CombatListener(Setting<CombatSettings> settings, CombatTags tags, CombatTagger tagger, KillTracker kills,
                    DeathMessages deathMessages, CombatLogs logs, SpawnArea spawn, PlayerDirectory directory,
@@ -126,7 +135,7 @@ final class CombatListener implements Listener {
         }
         event.setShouldConsume(false);
         event.setCancelled(true);
-        refuse(player, CombatMessages.BLOCKED_ENDER_PEARL, left);
+        refuseRepeating(player, CombatMessages.BLOCKED_ENDER_PEARL, left);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -139,7 +148,7 @@ final class CombatListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        refuse(player, CombatMessages.BLOCKED_ELYTRA, left);
+        refuseRepeating(player, CombatMessages.BLOCKED_ELYTRA, left);
     }
 
     /** Walking into the protected spawn area while tagged is undone and the player is pushed back out. */
@@ -163,7 +172,7 @@ final class CombatListener implements Listener {
         if (back.lengthSquared() > 1.0E-4) {
             player.setVelocity(back.normalize().multiply(0.6).setY(0.25));
         }
-        refuse(player, CombatMessages.BLOCKED_SPAWN, left);
+        refuseRepeating(player, CombatMessages.BLOCKED_SPAWN, left);
     }
 
     /** Pearls and chorus fruit into spawn (registered through {@link AsyncTeleportGuard}). */
@@ -175,12 +184,27 @@ final class CombatListener implements Listener {
         if (left.isZero() || !this.spawn.contains(to) || this.spawn.contains(player.getLocation())) {
             return false;
         }
-        refuse(player, CombatMessages.BLOCKED_SPAWN, left);
+        refuseRepeating(player, CombatMessages.BLOCKED_SPAWN, left);
         return true;
     }
 
     private void refuse(Player player, MessageKey key, Duration left) {
         this.messenger.send(player, key, Arg.time("time", Duration.ofSeconds(TagTicker.secondsLeft(left.toMillis(), 0))));
+    }
+
+    /**
+     * A refusal of something the game repeats while the player keeps at it (each step into spawn, each throw while the
+     * use key is held): told at most once a second per refusal, like spawn protection does, so neither the line nor the
+     * error note floods. The action itself is refused every time.
+     */
+    private void refuseRepeating(Player player, MessageKey key, Duration left) {
+        long now = System.currentTimeMillis();
+        Refusal last = this.refused.get(player.getUniqueId());
+        if (last != null && last.key().equals(key) && now - last.at() < REFUSAL_INTERVAL_MILLIS) {
+            return;
+        }
+        this.refused.put(player.getUniqueId(), new Refusal(key, now));
+        refuse(player, key, left);
     }
 
     // ------------------------------------------------------------------ deaths
@@ -261,5 +285,6 @@ final class CombatListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         this.logs.quit(event);
         this.pending.remove(event.getPlayer().getUniqueId());
+        this.refused.remove(event.getPlayer().getUniqueId());
     }
 }

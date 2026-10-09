@@ -69,6 +69,22 @@ sounds:
     sound: block.note_block.pling
     volume: 0.4
     pitch: 1.5
+  # The sounds players can pick for their mention, private message and team chat pings (Settings > Sounds).
+  # "Default" in those settings is the notify sound above. Every player can also turn SiftCore's sounds down or
+  # off for themselves there (a volume, and a switch for each kind of sound).
+  pings:
+    bell:
+      sound: block.note_block.bell
+      volume: 0.6
+      pitch: 1.2
+    pling:
+      sound: block.note_block.pling
+      volume: 0.5
+      pitch: 1.4
+    chime:
+      sound: block.amethyst_block.chime
+      volume: 0.9
+      pitch: 1.0
 
 gui:
   # Clicks closer together than this are ignored in every menu (stops macro spam).

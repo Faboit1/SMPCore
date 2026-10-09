@@ -33,7 +33,7 @@ public final class StaffMessages {
     public static final MessageKey VANISH_OFF = MessageKey.success("staff.vanish.off");
     public static final MessageKey VANISH_ON_OTHER = MessageKey.chat("staff.vanish.on-other", "name");
     public static final MessageKey VANISH_OFF_OTHER = MessageKey.chat("staff.vanish.off-other", "name");
-    public static final MessageKey VANISH_REMINDER = MessageKey.info("staff.vanish.reminder");
+    public static final MessageKey VANISH_REMINDER = MessageKey.status("staff.vanish.reminder");
     public static final MessageKey VANISH_CLEARED = MessageKey.chat("staff.vanish.cleared");
 
     // ------------------------------------------------------------------ freeze

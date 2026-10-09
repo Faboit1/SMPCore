@@ -18,6 +18,7 @@ import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.link.TextChecks;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
@@ -35,9 +36,8 @@ import org.bukkit.Bukkit;
  */
 public final class ChatFeature implements Feature {
 
-    /** The chat group of the settings dialog. */
-    public static final SettingCategory SETTINGS = new SettingCategory("chat", 20, ChatMessages.SETTING_CATEGORY,
-        ChatMessages.SETTING_CATEGORY_DESCRIPTION);
+    /** The chat group of the settings dialog (the shared {@link SettingCategories#CHAT}). */
+    public static final SettingCategory SETTINGS = SettingCategories.CHAT;
     /** Mention alerts (sound and action bar). */
     public static final Toggle MENTIONS = new Toggle("mentions", true, ChatMessages.SETTING_MENTIONS,
         ChatMessages.SETTING_MENTIONS_DESCRIPTION, null);

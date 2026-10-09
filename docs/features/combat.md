@@ -38,7 +38,7 @@ While tagged:
 | Every plugin teleport (homes, TPA, RTP, spawn, warps, team home) | `core.teleport.Teleports` refuses at the start, after the warmup and right before teleporting |
 | Ender pearls (`block-ender-pearls`, off by default) | `PlayerLaunchProjectileEvent` cancelled without using up the pearl |
 | Elytra (`disable-elytra`) | Gliding stops when the tag starts; `EntityToggleGlideEvent` refuses to start again |
-| Entering spawn (`block-spawn-entry`) | A move into the `SpawnArea` is cancelled with a small push back; pearls and chorus fruit that would land inside are cancelled through Canvas' `EntityTeleportAsyncEvent` (Canvas fires no `PlayerTeleportEvent` for them) |
+| Entering spawn (`block-spawn-entry`) | A move into the `SpawnArea` is cancelled with a small push back; pearls and chorus fruit that would land inside are cancelled through Canvas' `EntityTeleportAsyncEvent` (Canvas fires no `PlayerTeleportEvent` for them). The refusal stays on the action bar whatever the player's feedback channel and is told at most once a second (as are refused pearls and glides), since each pushed-back step repeats it |
 
 Each refusal is an action bar line with the time left.
 

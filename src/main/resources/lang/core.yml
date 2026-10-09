@@ -66,3 +66,55 @@ teleport:
   frozen: "<primary>You can't teleport while frozen."
   done: "<primary>Teleported."
   failed: "<primary>That teleport didn't work. Try again."
+
+# Settings several features read, kept in core (Settings > Sounds, Privacy, Display...). A label, then one line that
+# says what it does.
+shared-settings:
+  sound-volume:
+    label: "SiftCore volume"
+    description: "How loud menu clicks, chimes, error notes and pings are. 0 mutes them all."
+  sound-notify:
+    label: "Notification pings"
+    description: "Ping for requests, payments, sales and other alerts. The messages still arrive without it."
+  sound-mention:
+    label: "Mention sound"
+    description: "The sound when someone mentions you. Default follows Notification pings."
+  sound-pm:
+    label: "Private message sound"
+    description: "The sound when you get a private message. Default follows Notification pings."
+  sound-clicks:
+    label: "Menu click sounds"
+    description: "Play a click when you use buttons in menus."
+  sound-success:
+    label: "Success chimes"
+    description: "Chime when something works, like a sale, purchase or saved setting."
+  sound-errors:
+    label: "Error sounds"
+    description: "Play a low note when something can't be done. Errors stay readable without it."
+  sound-team-chat:
+    label: "Team chat sound"
+    description: "Play a sound when a teammate writes in team chat."
+  quiet-in-combat:
+    label: "Quiet during combat"
+    description: "While you are in combat: no notification pings, chimes or pop-ups from other features. Chat lines and error sounds stay."
+  feedback-channel:
+    label: "Quick results and errors"
+    description: "Where short results and errors appear: above the hotbar, in chat, or both. Repeating status lines (combat timer, AFK) stay above the hotbar."
+  hide-coordinates:
+    label: "Streamer mode: hide coordinates"
+    description: "Don't show your coordinates in your homes list, home windows, random teleport and death location messages."
+  seen-privacy:
+    label: "Who sees when I was last online"
+    description: "Who can see when you were last online, in /seen and friend profiles. Staff can always see it; being online still shows in the tab list."
+  balance-privacy:
+    label: "Who can see my balance"
+    description: "Who can see your money with /balance and your name, in your /stats and on your chat card. The money leaderboard stays public."
+  hide-from-leaderboards:
+    label: "Hide me from leaderboards"
+    description: "Leave yourself out of every leaderboard, baltop and the leaderboard holograms (staff and test accounts)."
+  friends-tpa:
+    label: "Auto-accept /tpa from"
+    description: "Whose /tpa to you is accepted without asking: nobody, favourite friends, all friends, or friends and teammates. /tpahere always asks."
+  sell-receipts:
+    label: "Sale receipts"
+    description: "A detailed receipt in chat, only the total above the hotbar, or nothing. Also used when selling spawner storage."

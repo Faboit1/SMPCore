@@ -406,6 +406,11 @@ final class SpawnerScenarios {
         e2e.expect(e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience()) == expBefore + 100, "a second click gives nothing");
 
         e2e.step("sell all pays the storage's worth as spawner_sell");
+        // 20 zombie kills drop at most 40 rotten flesh, and about one cycle in five drops nothing else: the stack
+        // taken above then emptied the storage, so another cycle refills it before selling.
+        if (number(e2e, name, "spawners_stored") == 0) {
+            cycle(e2e, name);
+        }
         bot.clearLogs();
         bot.clickSlot(SLOT_SELL);
         e2e.eventually(() -> e2e.money(name) > 0, "paid for the loot");

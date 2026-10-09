@@ -131,10 +131,8 @@ chat:
     ignores-line: "<primary><name>"
     ignores-none: "<primary><name> doesn't ignore anyone."
 
-  # The chat group of the settings dialog and its switches.
+  # The chat switches of the settings dialog (the group's own text is in lang/settings.yml).
   settings:
-    category: "Chat"
-    category-description: "Mentions, private messages and chat colours"
     mentions: "Mention alerts"
     mentions-description: "Play a sound when someone mentions me in chat"
     private-messages: "Private messages"

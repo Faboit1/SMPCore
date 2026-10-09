@@ -25,3 +25,16 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: true
+# Every other node is declared by the feature that checks it, at startup (see docs/permissions.md). These three
+# belong to settings that several features share; they are listed here so permission plugins know them before
+# SiftCore starts. Give them to groups with LuckPerms.
+permissions:
+  siftcore.admin.settings:
+    description: Staff tools for other players' settings (/sift settings, not in this version yet)
+    default: op
+  siftcore.stats.hide:
+    description: Offer the 'Hide me from leaderboards' setting (staff and test accounts)
+    default: false
+  siftcore.settings.hide-rank:
+    description: Offer the 'Show my rank' setting (rank groups)
+    default: false

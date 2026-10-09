@@ -20,8 +20,8 @@ public final class AfkMessages {
 
     public static final MessageKey ZONE_ENTERED = MessageKey.info("afk.zone.entered", "shards", "time");
     public static final MessageKey ZONE_LEFT = MessageKey.info("afk.zone.left");
-    public static final MessageKey ZONE_STATUS = MessageKey.info("afk.zone.status", "time");
-    public static final MessageKey ZONE_STATUS_MANY = MessageKey.info("afk.zone.status-many", "shards", "time");
+    public static final MessageKey ZONE_STATUS = MessageKey.status("afk.zone.status", "time");
+    public static final MessageKey ZONE_STATUS_MANY = MessageKey.status("afk.zone.status-many", "shards", "time");
     public static final MessageKey ZONE_WAITING_ALT = MessageKey.info("afk.zone.waiting-alt");
     public static final MessageKey ZONE_COMBAT = MessageKey.info("afk.zone.combat");
     public static final MessageKey ZONE_CAPPED = MessageKey.info("afk.zone.capped", "cap");

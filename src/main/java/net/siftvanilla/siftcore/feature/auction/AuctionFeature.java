@@ -10,6 +10,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
@@ -17,6 +18,7 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.item.ItemCategory;
+import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
@@ -50,6 +52,7 @@ public final class AuctionFeature implements Feature, Listener {
     static final String AXAUCTIONS = "AxAuctions";
 
     private final Services services;
+    private final Supplier<WorthLookup> worth;
     private final Setting<AuctionSettings> settings;
     private final AuctionEngine<ItemStack> engine;
     private final AuctionService service;
@@ -61,8 +64,12 @@ public final class AuctionFeature implements Feature, Listener {
     private volatile boolean stopping;
     private volatile long enabledAt;
 
-    public AuctionFeature(Services services, List<ConfigProblem> problems, CombatStatus combat) {
+    /**
+     * @param worth the server's sell prices (bound once selling is built), for warning sellers who list far below them
+     */
+    public AuctionFeature(Services services, List<ConfigProblem> problems, CombatStatus combat, Supplier<WorthLookup> worth) {
         this.services = services;
+        this.worth = worth;
         this.settings = services.configs().register("features/auction.yml",
             reader -> AuctionSettings.parse(reader, services.core().get().money()), problems);
         services.lang().register(AuctionMessages.class);

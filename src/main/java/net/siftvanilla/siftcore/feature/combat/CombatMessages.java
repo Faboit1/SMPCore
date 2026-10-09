@@ -5,13 +5,17 @@ import net.siftvanilla.siftcore.core.text.MessageKey;
 /** Text of the combat feature ({@code lang/combat.yml}). */
 public final class CombatMessages {
 
-    public static final MessageKey TAG_ACTION_BAR = MessageKey.info("combat.tag.action-bar", "time");
+    public static final MessageKey TAG_ACTION_BAR = MessageKey.status("combat.tag.action-bar", "time");
     public static final MessageKey TAG_ENDED = MessageKey.success("combat.tag.ended");
 
     public static final MessageKey BLOCKED_COMMAND = MessageKey.error("combat.blocked.command", "time");
     public static final MessageKey BLOCKED_ENDER_PEARL = MessageKey.error("combat.blocked.ender-pearl", "time");
     public static final MessageKey BLOCKED_ELYTRA = MessageKey.error("combat.blocked.elytra", "time");
-    public static final MessageKey BLOCKED_SPAWN = MessageKey.error("combat.blocked.spawn", "time");
+    /**
+     * Sent each time a tagged player's step into spawn is undone (several times a second while they push on), so it
+     * stays on the action bar whatever their feedback channel: in chat it would pile up.
+     */
+    public static final MessageKey BLOCKED_SPAWN = MessageKey.error("combat.blocked.spawn", "time").asStatus();
 
     public static final MessageKey LOGOUT_ANNOUNCE = MessageKey.chat("combat.logout.announce", "name");
     public static final MessageKey LOGOUT_ANNOUNCE_KILLED = MessageKey.chat("combat.logout.announce-killed", "name", "killer");
@@ -22,8 +26,8 @@ public final class CombatMessages {
     public static final MessageKey STREAK_REACHED = MessageKey.chat("combat.streak.reached", "name", "count");
     public static final MessageKey STREAK_ENDED = MessageKey.chat("combat.streak.ended", "killer", "victim", "count");
 
-    public static final MessageKey STATUS_TAGGED = MessageKey.info("combat.status.tagged", "time");
-    public static final MessageKey STATUS_CLEAR = MessageKey.info("combat.status.clear");
+    public static final MessageKey STATUS_TAGGED = MessageKey.status("combat.status.tagged", "time");
+    public static final MessageKey STATUS_CLEAR = MessageKey.status("combat.status.clear");
 
     public static final MessageKey ADMIN_STATUS_TAGGED = MessageKey.chat("combat.admin.status-tagged", "name", "time", "attacker");
     public static final MessageKey ADMIN_STATUS_TAGGED_NO_HIT = MessageKey.chat("combat.admin.status-tagged-no-hit", "name", "time");

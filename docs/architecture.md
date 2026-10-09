@@ -24,10 +24,13 @@ net.siftvanilla.siftcore
 │   ├── config              ConfigReader (typed, validating), Configs (all-or-nothing reload), Setting<S>, YamlFiles
 │   ├── money               MoneyFormat ($10, 1.5k parsing, compact display)
 │   ├── text                Palette, TextStyle (the only MiniMessage), Lang (+LangFiles), MessageKey, Arg,
-│   │                       Messenger, Sounds, Icons (verified atlas sprites), Channel, Feedback
+│   │                       Messenger (+Routing: feedback channel, alerts, quiet in combat), Sounds (per-player
+│   │                       volume and kinds, pings), StatusBars (one boss bar per player), Icons, Channel, Feedback
 │   ├── command             SiftCommand/SimpleCommand, CommandService (Brigadier lifecycle), CommandSupport,
 │   │                       CommandSettings (commands.yml), Cooldowns
-│   ├── player              PlayerDirectory (uuid/name/ip-hash), PlayerSettings + Toggle, Limits, PlayerLifecycle
+│   ├── player              PlayerDirectory (uuid/name/ip-hash, previous visit), PlayerSettings (Registry of
+│   │                       Toggle/Choice/NumberSetting in SettingCategories, server Overrides), SharedSettings,
+│   │                       options (AlertStyle, Audience, ConfirmAbove, Announce, PingSound), Limits, PlayerLifecycle
 │   ├── permission          Permissions (runtime registration + docs)
 │   ├── placeholder         Placeholders (feeds PlaceholderAPI, scoreboard, tab)
 │   ├── teleport            Teleports (warmup, cancel on move/damage, combat refusal), CombatStatus
@@ -35,7 +38,7 @@ net.siftvanilla.siftcore
 │   ├── link                contracts between features: StatsRecorder, WorthLookup, TeamLookup, AfkStatus,
 │   │                       CrateKeys, SpawnerItems, SpawnArea, MuteStatus, VanishStatus,
 │   │                       FreezeStatus (teleports and dialogs refuse frozen players), FriendLookup, IgnoreLookup,
-│   │                       Cosmetics, TextChecks
+│   │                       Cosmetics, TextChecks; Relations (late-bound friends, teams, ignores for who-can settings)
 │   ├── integration         Ranks (LuckPerms labels)
 │   ├── audit               AuditLog
 │   └── selftest            SelfTest

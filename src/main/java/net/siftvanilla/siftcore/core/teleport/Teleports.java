@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import net.siftvanilla.siftcore.core.link.FreezeStatus;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -41,13 +42,24 @@ public final class Teleports implements Listener {
     private final Scheduler scheduler;
     private final Messenger messenger;
     private final CombatStatus combat;
+    private final PlayerSettings settings;
     private final Map<UUID, Pending> pending = new ConcurrentHashMap<>();
     private volatile FreezeStatus freezes = FreezeStatus.NONE;
 
-    public Teleports(Scheduler scheduler, Messenger messenger, CombatStatus combat) {
+    /**
+     * @param settings the players' settings, for where the warmup countdown and arrival show (the teleport-display
+     *                 setting of the teleport features)
+     */
+    public Teleports(Scheduler scheduler, Messenger messenger, CombatStatus combat, PlayerSettings settings) {
         this.scheduler = scheduler;
         this.messenger = messenger;
         this.combat = combat;
+        this.settings = settings;
+    }
+
+    /** The players' settings this teleport service reads. */
+    public PlayerSettings settings() {
+        return this.settings;
     }
 
     /** Installs who is frozen by staff (the staff feature, wired once at startup): frozen players never teleport. */

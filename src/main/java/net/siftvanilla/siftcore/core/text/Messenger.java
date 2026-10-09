@@ -1,15 +1,24 @@
 package net.siftvanilla.siftcore.core.text;
 
 import java.time.Duration;
+import java.util.EnumSet;
+import java.util.Set;
+import java.util.UUID;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
- * Sends lang messages on their declared channel with their sound. All methods are thread-safe: they only send
- * packets to the audience.
+ * Sends lang messages on their declared channel with their sound, following each player's delivery settings (see
+ * {@link Routing}): short results and errors go where the player's {@code feedback-channel} says, and
+ * {@link #alert} delivers a notification in the style a feature's setting chose, honouring quiet in combat. All
+ * methods are thread-safe: they only send packets to the audience.
  */
 public final class Messenger {
 
@@ -17,29 +26,43 @@ public final class Messenger {
 
     private final Lang lang;
     private final Sounds sounds;
+    private final PlayerSettings settings;
+    private final CombatStatus combat;
+    private final ChatRepeats repeats = new ChatRepeats();
 
+    /** A messenger without per-player delivery settings (tests). */
     public Messenger(Lang lang, Sounds sounds) {
+        this(lang, sounds, null, null);
+    }
+
+    public Messenger(Lang lang, Sounds sounds, PlayerSettings settings, CombatStatus combat) {
         this.lang = lang;
         this.sounds = sounds;
+        this.settings = settings;
+        this.combat = combat;
     }
 
     public Lang lang() {
         return this.lang;
     }
 
-    /** Sends on the key's channel and plays its sound. Console senders always get chat. */
+    public Sounds sounds() {
+        return this.sounds;
+    }
+
+    /**
+     * Sends on the key's channel and plays its sound. Success and error lines on the action bar follow the player's
+     * feedback channel (an error repeated while the player keeps trying shows in chat once); console senders always
+     * get chat.
+     */
     public void send(Audience audience, MessageKey key, Arg... args) {
         Component text = this.lang.get(key, args);
-        if (!(audience instanceof Player)) {
+        if (!(audience instanceof Player player)) {
             audience.sendMessage(text);
             return;
         }
-        switch (key.channel()) {
-            case CHAT, NONE -> audience.sendMessage(text);
-            case ACTIONBAR -> audience.sendActionBar(text);
-            case TITLE -> audience.showTitle(Title.title(text, Component.empty(), TITLE_TIMES));
-        }
-        this.sounds.play(audience, key.feedback());
+        deliver(player, text, feedbackPlaces(player.getUniqueId(), key, key.channel()));
+        this.sounds.play(player, key.feedback());
     }
 
     /** Sends to chat regardless of the key's channel (used for command output that should be kept). */
@@ -50,12 +73,14 @@ public final class Messenger {
         }
     }
 
+    /** Sends on the action bar (success and error lines follow the player's feedback channel). */
     public void actionbar(Audience audience, MessageKey key, Arg... args) {
-        if (audience instanceof Player) {
-            audience.sendActionBar(this.lang.get(key, args));
+        Component text = this.lang.get(key, args);
+        if (audience instanceof Player player) {
+            deliver(player, text, feedbackPlaces(player.getUniqueId(), key, Channel.ACTIONBAR));
             this.sounds.play(audience, key.feedback());
         } else {
-            audience.sendMessage(this.lang.get(key, args));
+            audience.sendMessage(text);
         }
     }
 
@@ -67,6 +92,32 @@ public final class Messenger {
         Component sub = subtitle == null ? Component.empty() : this.lang.get(subtitle, args);
         audience.showTitle(Title.title(this.lang.get(title, args), sub, TITLE_TIMES));
         this.sounds.play(audience, title.feedback());
+    }
+
+    /**
+     * Delivers a notification in the style the player chose in one of their settings (chat, action bar, title, both
+     * or off; a boss bar style shows on the action bar). While they are in combat with quiet in combat on, action
+     * bar and title alerts become a chat line and pings and chimes stay silent.
+     */
+    public void alert(Audience audience, AlertStyle style, MessageKey key, Arg... args) {
+        alert(audience, style, true, key, args);
+    }
+
+    /**
+     * {@link #alert(Audience, AlertStyle, MessageKey, Arg...)} where {@code quiet} false ignores quiet in combat:
+     * combat's own alerts (the timer, being tagged, kills) must show in combat.
+     */
+    public void alert(Audience audience, AlertStyle style, boolean quiet, MessageKey key, Arg... args) {
+        if (style == AlertStyle.OFF) {
+            return;
+        }
+        Component text = this.lang.get(key, args);
+        if (!(audience instanceof Player player)) {
+            audience.sendMessage(text);
+            return;
+        }
+        deliver(player, text, Routing.alert(style, quiet && quietNow(player.getUniqueId())));
+        this.sounds.play(player, key.feedback());
     }
 
     public void feedback(Audience audience, Feedback feedback) {
@@ -81,5 +132,38 @@ public final class Messenger {
             this.sounds.play(player, key.feedback());
         }
         Bukkit.getConsoleSender().sendMessage(text);
+    }
+
+    /** Whether quiet in combat applies to a player now (they turned it on and are tagged). */
+    public boolean quietNow(UUID player) {
+        return this.settings != null && this.combat != null && this.combat.tagged(player)
+            && this.settings.get(player, SharedSettings.QUIET_IN_COMBAT);
+    }
+
+    private AlertStyle feedbackChannel(UUID player) {
+        return this.settings == null ? AlertStyle.ACTIONBAR : this.settings.get(player, SharedSettings.FEEDBACK_CHANNEL);
+    }
+
+    /** Where a line sent on {@code channel} goes for a player, leaving out chat for an error they keep repeating. */
+    private Set<Routing.Place> feedbackPlaces(UUID player, MessageKey key, Channel channel) {
+        Set<Routing.Place> places = Routing.feedback(key, channel, feedbackChannel(player));
+        if (Routing.movedToChat(key, channel, places) && key.feedback() == Feedback.ERROR
+            && !this.repeats.allow(player, key.path(), System.currentTimeMillis())) {
+            Set<Routing.Place> rest = EnumSet.noneOf(Routing.Place.class);
+            rest.addAll(places);
+            rest.remove(Routing.Place.CHAT);
+            return rest;
+        }
+        return places;
+    }
+
+    private static void deliver(Audience audience, Component text, Set<Routing.Place> places) {
+        for (Routing.Place place : places) {
+            switch (place) {
+                case CHAT -> audience.sendMessage(text);
+                case ACTIONBAR -> audience.sendActionBar(text);
+                case TITLE -> audience.showTitle(Title.title(text, Component.empty(), TITLE_TIMES));
+            }
+        }
     }
 }

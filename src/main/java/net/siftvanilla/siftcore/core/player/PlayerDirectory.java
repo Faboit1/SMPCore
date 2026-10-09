@@ -31,6 +31,8 @@ public final class PlayerDirectory {
     private final byte[] salt;
     private final Map<UUID, Known> byUuid = new ConcurrentHashMap<>();
     private final Map<String, UUID> byName = new ConcurrentHashMap<>();
+    /** Online players' last-seen time from before their current session (see {@link #previousSeen}). */
+    private final Map<UUID, Long> previousSeen = new ConcurrentHashMap<>();
 
     public PlayerDirectory(Database database, byte[] salt) {
         this.database = database;
@@ -63,10 +65,21 @@ public final class PlayerDirectory {
         this.byName.put(known.name().toLowerCase(Locale.ROOT), known.uuid());
     }
 
+    /**
+     * When the player was last seen before the session they are in now (the last quit, or the last join after a crash),
+     * or 0 when this session is their first. Kept from their join until they quit, so join summaries ("while you were
+     * away") can tell what is new.
+     */
+    public long previousSeen(UUID uuid) {
+        Long seen = this.previousSeen.get(uuid);
+        return seen == null ? 0L : seen;
+    }
+
     /** Records a join; returns true if this is the player's first join. */
     public boolean recordJoin(UUID uuid, String name, String ip) {
         long now = System.currentTimeMillis();
         Known previous = this.byUuid.get(uuid);
+        this.previousSeen.put(uuid, previous == null ? 0L : previous.lastSeen());
         String hash = ip == null ? (previous == null ? null : previous.ipHash()) : hashIp(ip);
         Known known = new Known(uuid, name, previous == null ? now : previous.firstJoin(), now, hash);
         put(known);
@@ -88,6 +101,7 @@ public final class PlayerDirectory {
 
     /** Updates last-seen on quit. */
     public void recordQuit(UUID uuid) {
+        this.previousSeen.remove(uuid);
         Known known = this.byUuid.get(uuid);
         if (known == null) {
             return;

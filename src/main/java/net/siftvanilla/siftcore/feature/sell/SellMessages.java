@@ -171,8 +171,6 @@ public final class SellMessages {
 
     public static final MessageKey TOGGLE_CONFIRM = MessageKey.ui("sell.toggle.confirm");
     public static final MessageKey TOGGLE_CONFIRM_DESCRIPTION = MessageKey.ui("sell.toggle.confirm-description");
-    public static final MessageKey TOGGLE_RECEIPTS = MessageKey.ui("sell.toggle.receipts");
-    public static final MessageKey TOGGLE_RECEIPTS_DESCRIPTION = MessageKey.ui("sell.toggle.receipts-description");
     public static final MessageKey TOGGLE_ORDERS = MessageKey.ui("sell.toggle.orders");
     public static final MessageKey TOGGLE_ORDERS_DESCRIPTION = MessageKey.ui("sell.toggle.orders-description");
 

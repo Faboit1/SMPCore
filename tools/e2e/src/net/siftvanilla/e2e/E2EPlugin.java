@@ -65,8 +65,13 @@ public final class E2EPlugin extends JavaPlugin {
                 if (world.getEnvironment() != org.bukkit.World.Environment.NORMAL) {
                     continue; // the nether and the end have no world clock
                 }
-                world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, false);
-                world.setTime(6_000);
+                try {
+                    world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, false);
+                    world.setTime(6_000);
+                } catch (RuntimeException e) {
+                    // A world that refuses (a fixed-time dimension type) keeps its clock; the run goes on.
+                    getLogger().warning("E2E could not stop the clock of " + world.getName() + ": " + e);
+                }
             }
         });
         Thread runner = new Thread(() -> {

@@ -46,4 +46,9 @@ public interface FriendLookup {
     default boolean autoAcceptTeleport(UUID target, UUID requester) {
         return false;
     }
+
+    /** Whether players can mark friends as favourites (the friends feature's {@code favourites} switch). */
+    default boolean favouritesEnabled() {
+        return false;
+    }
 }

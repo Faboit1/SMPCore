@@ -10,6 +10,7 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
+import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
 import net.siftvanilla.siftcore.feature.auction.AuctionFeature;
@@ -62,7 +63,10 @@ final class FeatureCatalog {
         List<Feature> features = new ArrayList<>();
         AdminFeature admin = new AdminFeature(this.services, this.control);
         EconomyFeature economy = new EconomyFeature(this.services, this.problems);
-        AuctionFeature auction = new AuctionFeature(this.services, this.problems, this.combatTags);
+        // The auction house warns about listings far below the server's sell price, but selling is built later:
+        // a late-bound worth table breaks the cycle.
+        AtomicReference<WorthLookup> worth = new AtomicReference<>(WorthLookup.NONE);
+        AuctionFeature auction = new AuctionFeature(this.services, this.problems, this.combatTags, worth::get);
         HubFeature hub = new HubFeature(this.services, this.problems);
         StaffFeature staff = new StaffFeature(this.services, this.problems);
         // A frozen player can't teleport or use any menu: the shared teleports and the dialog router ask the staff feature.
@@ -94,6 +98,7 @@ final class FeatureCatalog {
         // a late-bound market breaks the cycle.
         AtomicReference<OrderMarket> orderMarket = new AtomicReference<>(OrderMarket.NONE);
         SellFeature sell = new SellFeature(this.services, this.problems, this.combatTags, orderMarket::get);
+        worth.set(sell.worth());
         SpawnersFeature spawners = new SpawnersFeature(this.services, this.problems, sell.worth(), teams.lookup(), staff.vanish(), afk.status(),
             this.combatTags);
         CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
@@ -104,6 +109,8 @@ final class FeatureCatalog {
         orderMarket.set(orders.market());
         CombatFeature combat = new CombatFeature(this.services, this.problems, this.combatTags, stats.recorder(), teams.lookup(),
             friends.lookup(), staff.vanish(), spawn.area(), cosmetics.cosmetics());
+        // Who-can settings of every feature ask how players are related through services.relations().
+        this.services.relations().bind(friends.lookup(), teams.lookup(), chat.ignores());
         features.add(economy);
         features.add(auction);
         features.add(teams);
@@ -112,12 +119,12 @@ final class FeatureCatalog {
         features.add(staff);
         features.add(chat);
         features.add(cosmetics);
-        features.add(new SettingsFeature(this.services, this.problems));
+        features.add(new SettingsFeature(this.services, this.problems, admin));
         features.add(stats);
         features.add(sell);
         features.add(spawners);
         features.add(crates);
-        features.add(new KitsFeature(this.services, this.problems, this.combatTags, crates.keys()));
+        features.add(new KitsFeature(this.services, this.problems, this.combatTags, crates.keys(), sell.worth()));
         features.add(orders);
         ShopFeature shop = new ShopFeature(this.services, this.problems, sell.worth(), sell.link(), spawners.items(), this.combatTags);
         sell.shop(shop.offers());
