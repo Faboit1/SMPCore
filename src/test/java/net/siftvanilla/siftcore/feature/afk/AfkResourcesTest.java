@@ -74,11 +74,25 @@ class AfkResourcesTest {
         assertEquals(1, settings.shards());
         assertEquals(Map.of(), settings.rankShards(), "ranks pay no extra shards (docs/monetization.md)");
         assertEquals(0, settings.dailyCap());
-        assertEquals(Duration.ofSeconds(2), settings.statusEvery());
+        assertEquals(Duration.ofSeconds(1), settings.statusEvery(), "the countdown is shown again every second");
+        assertNotNull(settings.shardSound(), "a sound plays when a shard is paid");
+        assertEquals("minecraft:block.amethyst_block.chime", settings.shardSound().name().asString());
         AfkClock.Timing timing = settings.timing();
         assertEquals(300_000, timing.afkAfterMillis());
         assertEquals(1_800_000, timing.kickAfterMillis());
         assertEquals(900_000, timing.motionLimitMillis());
+    }
+
+    @Test
+    void theShardSoundCanBeChangedOrTurnedOff() throws Exception {
+        YamlConfiguration yaml = yaml("features/afk.yml");
+        yaml.set("rewards.sound.sound", "entity.experience_orb.pickup");
+        yaml.set("rewards.sound.pitch", 1.5);
+        AfkSettings changed = parse(yaml, new java.util.ArrayList<>());
+        assertEquals("minecraft:entity.experience_orb.pickup", changed.shardSound().name().asString());
+        assertEquals(1.5f, changed.shardSound().pitch());
+        yaml.set("rewards.sound.enabled", false);
+        assertNull(parse(yaml, new java.util.ArrayList<>()).shardSound(), "turned off: no sound");
     }
 
     @Test

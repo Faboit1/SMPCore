@@ -13,7 +13,7 @@ public final class AfkMessages {
     public static final MessageKey KICK_WARNING_SUBTITLE = MessageKey.ui("afk.kick-warning-subtitle", "time");
     public static final MessageKey RETURN_SUMMARY = MessageKey.chat("afk.return-summary", "time");
     public static final MessageKey RETURN_SUMMARY_SHARD = MessageKey.chat("afk.return-summary-shard", "time");
-    public static final MessageKey RETURN_SUMMARY_SHARDS = MessageKey.chat("afk.return-summary-shards", "time", "shards");
+    public static final MessageKey RETURN_SUMMARY_SHARDS = MessageKey.chat("afk.return-summary-shards", "time", "amount");
     public static final MessageKey KICK_REASON = MessageKey.ui("afk.kick-reason");
     public static final MessageKey PLACEHOLDER = MessageKey.ui("afk.placeholder");
 
@@ -23,15 +23,15 @@ public final class AfkMessages {
     public static final MessageKey LIST_LINE_MANUAL = MessageKey.chat("afk.list.line-manual", "name", "time");
     public static final MessageKey LIST_EMPTY = MessageKey.chat("afk.list.empty");
 
-    public static final MessageKey ZONE_ENTERED = MessageKey.info("afk.zone.entered", "shards", "time");
+    public static final MessageKey ZONE_ENTERED = MessageKey.info("afk.zone.entered", "amount", "time");
     public static final MessageKey ZONE_LEFT = MessageKey.info("afk.zone.left");
     public static final MessageKey ZONE_STATUS = MessageKey.status("afk.zone.status", "time");
-    public static final MessageKey ZONE_STATUS_MANY = MessageKey.status("afk.zone.status-many", "shards", "time");
+    public static final MessageKey ZONE_STATUS_MANY = MessageKey.status("afk.zone.status-many", "amount", "time");
     public static final MessageKey ZONE_WAITING_ALT = MessageKey.info("afk.zone.waiting-alt");
     public static final MessageKey ZONE_COMBAT = MessageKey.info("afk.zone.combat");
     public static final MessageKey ZONE_CAPPED = MessageKey.info("afk.zone.capped", "cap");
     public static final MessageKey ZONE_EARNED_ONE = MessageKey.info("afk.zone.earned-one", "balance");
-    public static final MessageKey ZONE_EARNED_MANY = MessageKey.info("afk.zone.earned-many", "shards", "balance");
+    public static final MessageKey ZONE_EARNED_MANY = MessageKey.info("afk.zone.earned-many", "amount", "balance");
     public static final MessageKey ZONE_CAPPED_NOW = MessageKey.notify("afk.zone.capped-now", "cap");
     public static final MessageKey ZONE_CLOSED = MessageKey.error("afk.zone.closed");
     public static final MessageKey ZONE_NO_FIGHTING = MessageKey.error("afk.zone.no-fighting");
@@ -45,7 +45,7 @@ public final class AfkMessages {
     public static final MessageKey ADMIN_ARRIVAL = MessageKey.chat("afk.admin.arrival", "where");
     public static final MessageKey ADMIN_ARRIVAL_AUTO = MessageKey.chat("afk.admin.arrival-auto");
     public static final MessageKey ADMIN_PLAYERS = MessageKey.chat("afk.admin.players", "count", "earning");
-    public static final MessageKey ADMIN_REWARDS = MessageKey.chat("afk.admin.rewards", "shards", "time");
+    public static final MessageKey ADMIN_REWARDS = MessageKey.chat("afk.admin.rewards", "amount", "time");
     public static final MessageKey ADMIN_RANK_REWARDS = MessageKey.chat("afk.admin.rank-rewards", "ranks");
     public static final MessageKey ADMIN_CAP = MessageKey.chat("afk.admin.cap", "cap");
     public static final MessageKey ADMIN_NO_CAP = MessageKey.chat("afk.admin.no-cap");

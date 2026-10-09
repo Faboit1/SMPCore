@@ -4,11 +4,18 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Predicate;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.sound.Sound;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.feature.afk.ZoneBox.Corner;
 import net.siftvanilla.siftcore.feature.afk.ZoneBox.Point;
 
-/** Parsed {@code features/afk.yml}. */
+/**
+ * Parsed {@code features/afk.yml}.
+ *
+ * @param statusEvery how often the zone countdown is shown on the action bar (zero: never)
+ * @param shardSound  played to a player the moment the zone pays them shards, or null for none
+ */
 record AfkSettings(
     Duration afkAfter,
     double lookThreshold,
@@ -26,7 +33,8 @@ record AfkSettings(
     long shards,
     Map<String, Long> rankShards,
     long dailyCap,
-    Duration statusEvery) {
+    Duration statusEvery,
+    Sound shardSound) {
 
     static final ZoneSpec DEFAULT_ZONE = new ZoneSpec(ZoneSpec.Anchor.SPAWN, "world", new Corner(16, -16, -6),
         new Corner(28, 24, 6), null);
@@ -102,10 +110,10 @@ record AfkSettings(
             ranks.put(tier, rankSection.longValue(tier, 1, 1_000, 1));
         }
 
-        Duration statusEvery = rewards.duration("status-every", Duration.ZERO, Duration.ofMinutes(1), Duration.ofSeconds(2));
+        Duration statusEvery = rewards.duration("status-every", Duration.ZERO, Duration.ofMinutes(1), Duration.ofSeconds(1));
         if (!statusEvery.isZero() && statusEvery.compareTo(Duration.ofSeconds(1)) < 0) {
             rewards.problem("status-every", "must be 0s (off) or at least 1s");
-            statusEvery = Duration.ofSeconds(2);
+            statusEvery = Duration.ofSeconds(1);
         }
 
         return new AfkSettings(
@@ -125,6 +133,21 @@ record AfkSettings(
             rewards.longValue("shards", 1, 1_000, 1),
             ranks,
             rewards.longValue("daily-cap", 0, 10_000_000, 0),
-            statusEvery);
+            statusEvery,
+            sound(rewards.section("sound")));
     }
+
+    /** The shard sound: {@code enabled}, {@code sound} (a sound id), {@code volume} and {@code pitch}; null when off. */
+    static Sound sound(ConfigReader r) {
+        if (!r.bool("enabled", true)) {
+            return null;
+        }
+        Key key = r.key("sound", DEFAULT_SOUND);
+        float volume = (float) r.decimal("volume", 0.0, 2.0, 0.8);
+        float pitch = (float) r.decimal("pitch", 0.5, 2.0, 1.2);
+        return Sound.sound(key, Sound.Source.MASTER, volume, pitch);
+    }
+
+    /** The shipped shard sound: an amethyst chime. */
+    static final Key DEFAULT_SOUND = Key.key("block.amethyst_block.chime");
 }

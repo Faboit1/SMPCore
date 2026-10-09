@@ -188,6 +188,84 @@ class ZoneSessionsTest {
         }
     }
 
+    // ------------------------------------------------------------------ the countdown, once a second
+
+    /**
+     * The checks run once a second a few milliseconds apart, and a player can enter between two of them: the countdown
+     * still goes down by exactly one each check, and a shard is paid exactly every interval.
+     */
+    @Test
+    void theCountdownGoesDownByOneEverySecondDespiteJitter() {
+        java.util.Random random = new java.util.Random(42);
+        for (int round = 0; round < 200; round++) {
+            ZoneSessions sessions = new ZoneSessions();
+            UUID player = UUID.randomUUID();
+            long enteredAt = T0 + random.nextInt(1_000);
+            sessions.enter(player, "ip-a", enteredAt);
+            int last = -1;
+            int paid = 0;
+            int checks = 0;
+            for (int k = 1; k <= 600; k++) {
+                long now = T0 + k * 1_000L + random.nextInt(60);
+                if (now < enteredAt) {
+                    continue;
+                }
+                Status status = sessions.update(player, now, INTERVAL, Block.NONE);
+                checks++;
+                int shown = AfkService.seconds(status.nextInMillis());
+                if (status.due()) {
+                    paid++;
+                    assertEquals(1, last, "paid right after the countdown showed 1 (round " + round + ")");
+                    last = (int) (INTERVAL / 1000);
+                    continue;
+                }
+                if (last >= 0) {
+                    assertEquals(last - 1, shown, "one second less than the last check (round " + round + ", check " + k + ")");
+                }
+                last = shown;
+            }
+            assertTrue(paid >= checks / 60 - 1 && paid <= checks / 60 + 1, "one shard per minute: " + paid + " in " + checks + " checks");
+        }
+    }
+
+    @Test
+    void aTakeoverStartsOnTheRhythmOfTheChecks() {
+        ZoneSessions sessions = new ZoneSessions();
+        UUID main = UUID.randomUUID();
+        UUID alt = UUID.randomUUID();
+        sessions.enter(main, "ip-a", T0);
+        sessions.enter(alt, "ip-a", T0);
+        sessions.update(main, T0 + 1_000, INTERVAL, Block.NONE);
+        sessions.leave(main, T0 + 1_400);
+        Status first = sessions.update(alt, T0 + 2_010, INTERVAL, Block.NONE);
+        assertEquals(59, AfkService.seconds(first.nextInMillis()), "the 0.6s before the check count as one second");
+        Status second = sessions.update(alt, T0 + 2_995, INTERVAL, Block.NONE);
+        assertEquals(58, AfkService.seconds(second.nextInMillis()));
+    }
+
+    @Test
+    void theStatusLineIsDueEverySecondDespiteJitter() {
+        PlayerAfk state = new PlayerAfk(UUID.randomUUID(), ActivityClassifier.Settings.DEFAULTS, T0);
+        java.util.Random random = new java.util.Random(7);
+        long now = T0;
+        int shown = 0;
+        for (int k = 0; k < 100; k++) {
+            now += 1_000 + random.nextInt(81) - 40;
+            if (state.statusDue(now, 1_000)) {
+                shown++;
+            }
+        }
+        assertEquals(100, shown, "every check shows the countdown with status-every 1s");
+        int everyOther = 0;
+        for (int k = 0; k < 100; k++) {
+            now += 1_000 + random.nextInt(81) - 40;
+            if (state.statusDue(now, 2_000)) {
+                everyOther++;
+            }
+        }
+        assertEquals(50, everyOther, "every other check with status-every 2s, never every third");
+    }
+
     // ------------------------------------------------------------------ the daily limit
 
     @Test
