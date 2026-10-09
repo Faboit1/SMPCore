@@ -113,31 +113,38 @@ when accepting.
 ## Dialogs
 
 Every screen is a dialog `View`, so Bedrock players get the same screens as forms (the head line is dropped there).
+They follow the dialog style (`docs/development.md`): buttons, not paragraphs; what a button does is in its tooltip;
+at most a short status above the buttons; nothing is paged (the dialogs scroll); values coloured (online green, AFK and
+numbers in the accent colour, ON green and OFF red).
 
-- **Friends** (`/friend`, the main menu, the pause menu): "2 of 5 online, 5 of 50 friends." (plus "Ranks raise this
-  limit." when full below `limits.hard-cap`, and "Page 1 of 3." when there is more than one page). Rows in two
-  columns, `list.page-size` per page, in the order the player picked (Sort friends by): online first (the default:
-  online favourites, online others by name, offline favourites, offline others by last seen), name, recently online,
-  or longest friends. "Alex, online", "Bob, AFK", "Cara, seen 3d ago", or "Dan, offline" when Dan keeps his last-seen
-  time from the viewer (`seen-privacy`; such a time doesn't count for the order either). The tooltip shows favourite,
-  friends since and the note. "Seen" uses the player directory, the same source as `/seen`.
-  Footer: Add a friend, Requests (n), Settings, Find (only when there is more than one page; a name prefix), Previous,
-  Next, and Back to the menu when opened from the menu (else Close).
-- **Requests**: "Incoming: 3. Sent: 1." Incoming rows "Alex, 2h ago" (tooltip: mutual friends and team) open the
-  request; sent rows "Cancel: Cara, 1d ago" follow them in the same grid, so the body says "Rows starting with Cancel
-  are requests you sent." and a sent row asks first ("Cancel your request to Cara?", Cancel request or Back): a click
-  meant for an incoming row costs nothing. Ten per page each, with "Page 1 of 2." when there is more than one.
-- **Request**: head, "Alex wants to be friends.", "Mutual friends: 2 (Bob, Cara)", team, "Sent 2h ago", and Accept,
-  Deny, Deny and ignore, Back.
-- **Add a friend**: "Enter a name" (a form, 1-17 characters) and up to `list.suggestions` people you may know:
-  online players you can see who share friends with you (or your team), ranked by shared friends, without friends,
-  open requests either way, ignores either way, and players whose privacy would refuse you.
+- **Friends** (`/friend`, the main menu, the pause menu): one status line, "2 online, 5 of 50 friends" ("No friends
+  yet." below it for an empty list). Every friend is a button, two columns, in the order the player picked (Sort friends
+  by): online first (the default: online favourites, online others by name, offline favourites, offline others by last
+  seen), name, recently online, or longest friends. "Alex, online" (online in green), "Bob, AFK", "Cara, seen 3d ago",
+  or "Dan, offline" when Dan keeps his last-seen time from the viewer (`seen-privacy`; such a time doesn't count for the
+  order either). The tooltip shows favourite, friends since, the note and "Click for their profile". "Seen" uses the
+  player directory, the same source as `/seen`. The list is bounded by the friend limit (at most `limits.hard-cap`), so
+  nothing is paged. Then: Add a friend (tooltip; plus "Your list is full. Ranks raise the limit." when full below
+  `limits.hard-cap`), Requests: n, Settings, Find from `list.find-from` friends (a name prefix; "Names starting with
+  Al: 2" and Show all while filtered), and Back to the menu when opened from the menu (else Close).
+- **Requests**: one status line, "Incoming: 3. Sent: 1." Incoming rows "Alex, 2h ago" (tooltip: mutual friends, team,
+  "Click to answer") open the request; rows "Sent to Cara, 1d ago" follow them (tooltip: "A request you sent. Click to
+  withdraw it (asks first).") and ask first ("Cancel your request to Cara?", Cancel request or Back): a click meant for
+  an incoming row costs nothing. Deny all from 5 requests ("Deny all 5 requests? Nobody is told."). Both lists are
+  bounded (`requests.max-incoming`, `max-outgoing`), so nothing is paged.
+- **Request**: head, "Alex wants to be friends.", "Mutual friends: 2 (Bob, Cara)", team, "Sent 2h ago", and Accept
+  ("You become friends."), Deny ("They aren't told."), Deny and ignore, Back.
+- **Add a friend**: "Enter a name" (a form, 1-17 characters; Send request says on its tooltip that they can accept or
+  deny) and up to `list.suggestions` people you may know: online players you can see who share friends with you (or
+  your team), ranked by shared friends, without friends, open requests either way, ignores either way, and players
+  whose privacy would refuse you.
 - **Friend profile**: head, status (Online / AFK / Seen 3d ago, or Offline when the player keeps the time from the
   viewer with `seen-privacy`; staff with `siftcore.staff.whois` always see it), friends since, team, rank, mutual
-  friends, your note. Buttons: Message (a form, then `/msg`), Teleport request (`/tpa`), Invite to team (`/team invite`,
-  only for a player without a team whose `team-invites` takes invites from you), Pay
-  (`/pay`, which opens its own form), Stats (`/stats`), Favourite/Unfavourite (while favourites exist), Edit note,
-  Remove friend, Back.
+  friends, your note. Buttons, each with a tooltip: Message (a form, then `/msg`), Teleport request (`/tpa`), Invite to
+  team (`/team invite`, only for a player without a team whose `team-invites` takes invites from you), Pay (`/pay`,
+  which opens its own form), Stats (`/stats`), the switch **Favourite: ON/OFF** (while favourites exist; it flips at once
+  and the profile shows again, without a message), Edit note (Save explains in its tooltip that only you see it and that
+  empty clears it; the profile shows the note again, without a message), Remove friend (asks first), Back.
 - **Player card** (`/profile` on anyone else, or sneak + right-click with an empty hand): head, status, team, rank,
   one friendship button (Add friend, hidden when they are online and their privacy refuses you; Accept request; Cancel
   request), the same command buttons, Close. Your own card has Stats only. No friendship data is shown on cards.
@@ -332,7 +339,7 @@ the following restart; an edited list needs `friends` added by hand and a restar
 | `presence.summary-delay` / `join-delay` | 3s / 3s | login summary delay; join alert delay and batching window |
 | `presence.relog-grace` / `leave-delay` / `startup-quiet` | 2m / 30s / 60s | no alert for relogs; leave alert delay; no join alerts after a start |
 | `presence.request-batch` | 10s | request alert batching window (0 = every alert at once) |
-| `list.page-size` / `suggestions` | 16 / 6 | rows per list page (4-30); "people you may know" (0-12, 0 = off) |
+| `list.find-from` / `page-size` / `suggestions` | 20 / 16 / 6 | the friends dialog offers Find from this many friends (it shows every friend, no pages); rows per page of `/friend list` in chat (4-30); "people you may know" (0-12, 0 = off) |
 | `profile.sneak-click` / `sneak-click-cooldown` | true / 1s | the sneak right-click card |
 | `memory.grace` | 60s | how long friends stay in memory after quitting |
 | `anti-farm.remember` | 7d | how long removals are remembered for `recentlyFriends` |
@@ -356,8 +363,10 @@ bundled text and config.
 
 End-to-end scenarios (`tools/e2e`, `FriendsScenarios`): requests, mutual requests, silent denies, hidden requests,
 limits (with the favourites option missing from the settings page while favourites are off), removal, double accept,
-presence, offline accept and summary, staff tools, the dialogs (the Settings button opens Friends & teams), profile
-buttons (no Invite to team while the friend's `team-invites` refuses), restart, request alerts, suggestions, links,
+presence, offline accept and summary, staff tools, the dialogs (`friends-menu`: one status line, tooltips on every
+button, the form explaining on its button, every friend on one list with online in green, Find from `list.find-from`,
+the Settings button opens Friends & teams), profile buttons (tooltips everywhere, Favourite a switch that flips in
+place without a message, no Invite to team while the friend's `team-invites` refuses), restart, request alerts, suggestions, links,
 second login, command cooldown, and `friends-settings` (who can send requests picked in the settings dialog, the
 server's default and lock, list order and login summary with `/friend settings`, the list order typed as
 `/settings friends-list-order name`, `seen-privacy` in the list and profile).

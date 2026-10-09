@@ -47,9 +47,11 @@ Staff tools (inspect, punishments, reports, the audit log, `/seen`, social spy) 
 
 ## Chat colours (`/chatcolor`, alias `/chatcolour`)
 
-- `/chatcolor` opens a dialog: the vanilla colours of `colors.basic` (each button in its own colour, the tooltip a
-  sample line), **More colours** (Tycoon: the presets and **Mix your own**), and **Default colour**. Picking closes
-  the dialog with `Your chat colour is now Gold.` on the action bar.
+- `/chatcolor` opens a dialog: one status line (`Now This is how your messages look` in the current colour), the
+  vanilla colours of `colors.basic` (each button in its own colour, the tooltip a sample line and "Click to use it"),
+  **More colours** (Tycoon: the presets and **Mix your own**, whose Use it tooltip gives the rules), and **Default
+  colour**. Picking uses it at once and the dialog shows again with the colour marked `Gold (now)`, without a message
+  (the typed command still answers `Your chat colour is now Gold.`); a refused colour shows in red on it.
 - `/chatcolor <colour>` does the same typed: a vanilla name (`gold`), a hex colour (`#FFB07A`, also `#FB7`), or two hex
   colours for a gradient (`#55FFFF #5555FF`). `/chatcolor reset` goes back to the default.
 - Baron (`siftcore.chat.color`): the 8 shipped vanilla colours gold, yellow, aqua, dark aqua, blue, light purple,
@@ -74,9 +76,10 @@ Staff tools (inspect, punishments, reports, the audit log, `/seen`, social spy) 
 
 ## Nicknames (`/nick`)
 
-- `/nick` opens a form: the nickname, a colour (default, the vanilla colours and, for Tycoon, the presets and
-  "My own" with a hex field), **Save** and **Remove nickname**. `/nick <name>` sets the name keeping the colour,
-  `/nick off` removes it.
+- `/nick` opens a form: the current nickname as its one line, the nickname, a colour (default, the vanilla colours and,
+  for Tycoon, the presets and "My own" with a hex field), **Save** (its tooltip gives the rules) and **Remove
+  nickname**. Saving shows the cosmetics menu with the new nickname; a refusal shows in red on the form. `/nick <name>`
+  sets the name keeping the colour, `/nick off` removes it.
 - Baron (`siftcore.command.nick`): a nickname in one vanilla colour. Tycoon (`siftcore.nick.gradient`): hex colours and
   gradients, with the same colour rules as chat.
 - A nickname is 3 to 16 letters, digits and underscores; it may not contain a word of `nicknames.reserved-words` in
@@ -101,8 +104,10 @@ Staff tools (inspect, punishments, reports, the audit log, `/seen`, social spy) 
 
 ## Chat tags (`/tags`)
 
-- `/tags` lists the tags the player can use first, then the locked ones (tooltip: what unlocks it, from the tag's
-  `hint`), 16 per page, with **No tag** when one is picked. `/tags <id>` and `/tags off` do the same typed.
+- `/tags` shows every tag, each in its own look: the ones the player can use first ("Click to use it"), then the locked
+  ones (tooltip: what unlocks it, from the tag's `hint`), with **No tag** when one is picked. Nothing is paged. A click
+  uses the tag at once and the dialog shows again with it marked `[Miner] (now)`, without a message. `/tags <id>` and
+  `/tags off` do the same typed (with their messages).
 - Tags are configured in `tags.list` (`display` MiniMessage with colours and gradients, `description`, `permission`,
   optional `month` and `hint`). The shipped tags: 3 for `siftcore.tags.prospector` (Miner, Settler, Explorer), 7 for
   `siftcore.tags.baron` (Trader, Builder, Grinder, Warrior, Night Owl, Lucky, Collector) and 6 for
@@ -122,8 +127,10 @@ Staff tools (inspect, punishments, reports, the audit log, `/seen`, social spy) 
 
 - Baron (`siftcore.join.message`): `Baron Alex joined` / `Baron Alex left`, the rank in its LuckPerms colour (no rank
   label: `Alex joined`). Tycoon (`siftcore.join.message.custom`): their own messages, shown after the rank.
-- `/joinmessage` opens a form with both messages, a preview of both lines (updated with **Preview** before saving),
-  **Save** and **Use the rank lines**. Typed: `/joinmessage set <text>`, `/joinmessage reset`, `/joinmessage preview`,
+- `/joinmessage` opens a form with both lines as everyone sees them (updated with **Preview** before saving), both
+  messages, **Save** (its tooltip says how to write one) and **Use the rank lines**; both show the form again with the
+  stored lines. A player whose rank has the rank lines but not their own messages sees the two lines and **Write your
+  own**, which says in red that it comes with the Tycoon rank. Typed: `/joinmessage set <text>`, `/joinmessage reset`, `/joinmessage preview`,
   and the same with `/leavemessage`.
 - A custom message is at most `join-messages.max-length` (40) characters, `{name}` marks where the name goes (once; a
   message without it gets the name in front: `rolls in` reads `Alex rolls in`), and it may not contain braces or angle
@@ -139,8 +146,9 @@ Staff tools (inspect, punishments, reports, the audit log, `/seen`, social spy) 
 ## Kill effects (`/killeffect`)
 
 - Tycoon (`siftcore.killeffect.<id>`, all with `siftcore.killeffect.*`): `hearts`, `flames`, `souls` (soul burst),
-  `totem` (totem burst), `lightning`, `notes` (note burst), `ender`. `/killeffect` lists them (locked ones say
-  Tycoon); picking one shows it to the player alone where they stand. `/killeffect <id>`, `/killeffect off`.
+  `totem` (totem burst), `lightning`, `notes` (note burst), `ender`. `/killeffect` lists them (tooltip: what it looks
+  like; locked ones say Tycoon); picking one shows it to the player alone where they stand and the dialog shows again
+  with it marked `Hearts (now)`, plus **No effect**. `/killeffect <id>`, `/killeffect off`.
 - When a player is credited with a kill (combat's kill credit: the last hit in the tag window), their effect plays
   where the victim fell, two ticks later, on the region thread that owns that spot. Particles and sounds go to the
   players within `kill-effects.range` (32 blocks) who did not turn kill effects off, including the victim wherever they
@@ -163,9 +171,12 @@ Staff tools (inspect, punishments, reports, the audit log, `/seen`, social spy) 
 
 ## The menu (`/cosmetics`)
 
-`/cosmetics` (alias `/cosmetic`) and the main menu entry `cosmetics` (order 82) show what the player has now (chat
-colour, nickname, tag, join line, kill effect, each in its own look) and a button per perk. Locked perks stay
-clickable and answer `That comes with the Baron rank. Ranks are at /store.`
+`/cosmetics` (alias `/cosmetic`) and the main menu entry `cosmetics` (order 82) are buttons only: one per perk showing
+what the player has now, in its own look (`Chat colour: Gold` in gold, `Nickname: Shadow` in its colour, `Chat tag:
+[Miner]`, `Join message: rank line`, `Kill effect: Hearts`, or `none` in red), the tooltip saying what the perk is. A
+locked perk reads `locked` (tooltip: the rank that unlocks it) and answers in red `That comes with the Baron rank. Ranks
+are at /store.` Then the two viewer switches, **Others' chat colours: ON/OFF** and **Others' kill effects: ON/OFF** (the
+settings below, flipped at once; left out while the server locks them or while what they hide can't happen).
 
 ## Player settings
 

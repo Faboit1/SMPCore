@@ -268,12 +268,9 @@ final class ScoreboardScenarios {
 
         e2e.step("the team line appears in a team and goes when the team is disbanded");
         String team = e2e.name("SbTeam");
-        e2e.console("eco set " + alexName + " 50k");
-        e2e.eventually(() -> e2e.money(alexName) == 50_000, alexName + " has $50,000");
         alex.clearLogs();
         alex.command("team create " + team);
-        e2e.dialog(alex, "Start a team");
-        e2e.click(alex, "Start team");
+        e2e.dialog(alex, "Team " + team);
         e2e.eventually(() -> line(alex, "Team ") != null && line(alex, "Team ").endsWith("Team " + team),
             "the team line shows " + team + ": " + alex.sidebarLines());
         e2e.expect(alex.sidebarLines().size() == 9, "nine lines with the team: " + alex.sidebarLines());

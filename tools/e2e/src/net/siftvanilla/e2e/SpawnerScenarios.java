@@ -629,12 +629,9 @@ final class SpawnerScenarios {
 
         e2e.step("after joining the owner's team the same player can use it");
         String team = e2e.name("SpTeam");
-        e2e.console("eco set " + ownerName + " 50k");
-        e2e.eventually(() -> e2e.money(ownerName) == 50_000, "owner funded");
         owner.clearLogs();
         owner.command("team create " + team);
-        e2e.dialog(owner, "Start a team");
-        e2e.click(owner, "Start team");
+        e2e.dialog(owner, "Team " + team);
         e2e.eventually(() -> team.equals(placeholder(e2e, ownerName, "team_name")), "the owner has a team");
         owner.command("team invite " + otherName);
         e2e.eventually(() -> owner.actionBarContains("Invited " + otherName), "invited: " + owner.actionBar());
@@ -1218,8 +1215,7 @@ final class SpawnerScenarios {
         e2e.step("a teammate's first click with spawners only asks; a separate second click gives and the owner is told");
         String team = e2e.name("SpSetTeam");
         owner.command("team create " + team);
-        e2e.dialog(owner, "Start a team");
-        e2e.click(owner, "Start team");
+        e2e.dialog(owner, "Team " + team);
         e2e.eventually(() -> team.equals(placeholder(e2e, ownerName, "team_name")), "the owner has a team");
         owner.command("team invite " + mateName);
         e2e.eventually(() -> owner.actionBarContains("Invited " + mateName), "invited: " + owner.actionBar());

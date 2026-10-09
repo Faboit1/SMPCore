@@ -49,6 +49,8 @@ final class TeamsScenarios {
         list.add(of("teams-settings", TeamsScenarios::settings));
         list.add(of("teams-login-alerts", TeamsScenarios::loginAlerts));
         list.add(of("teams-seen-privacy", TeamsScenarios::seenPrivacy));
+        list.add(of("teams-free", TeamsScenarios::free));
+        list.add(of("teams-dialogs", TeamsScenarios::dialogs));
         return list;
     }
 
@@ -108,17 +110,32 @@ final class TeamsScenarios {
         return placeholder(e2e, player, "team_name");
     }
 
-    /** Funds the bot with exactly the cost, starts a team through the command and its confirmation. */
+    /** Starts a team through the command: free (the shipped teams.yml), so no confirmation and nothing charged. */
     private static void startTeam(E2E e2e, Bot bot, String team) {
-        e2e.console("eco set " + bot.name + " 50k");
-        e2e.eventually(() -> e2e.money(bot.name) == 50_000, bot.name + " has $50,000");
+        long before = e2e.money(bot.name);
         bot.command("team create " + team);
-        Bot.SeenDialog confirm = e2e.dialog(bot, "Start a team");
-        e2e.expect(confirm.bodyText().contains("$50,000"), "the cost in the confirmation: " + confirm.body());
-        e2e.click(bot, "Start team");
         e2e.dialog(bot, "Team " + team);
         e2e.eventually(() -> team.equals(teamOf(e2e, bot.name)), bot.name + " owns " + team);
-        e2e.expect(e2e.money(bot.name) == 0, "the cost was charged once: " + e2e.money(bot.name));
+        e2e.expect(e2e.money(bot.name) == before, "starting a team is free: " + before + " -> " + e2e.money(bot.name));
+    }
+
+    /** The labels of a dialog's buttons, one per line. */
+    private static String labels(Bot.SeenDialog dialog) {
+        return String.join("\n", dialog.buttons().stream().map(Bot.Button::label).toList());
+    }
+
+    /** Opens the members of a team from its /team info and returns the dialog. */
+    private static Bot.SeenDialog membersOf(E2E e2e, Bot bot, String team) {
+        infoOf(e2e, bot, team);
+        e2e.click(bot, "Members");
+        return e2e.dialog(bot, "Members of " + team);
+    }
+
+    /** Opens the bot's own team, then its members. */
+    private static Bot.SeenDialog ownMembers(E2E e2e, Bot bot, String team) {
+        openTeamMenu(e2e, bot, "Team " + team);
+        e2e.click(bot, "Members");
+        return e2e.dialog(bot, "Members of " + team);
     }
 
     /**
@@ -151,7 +168,12 @@ final class TeamsScenarios {
 
     // ------------------------------------------------------------------ scenarios
 
-    static void create(E2E e2e) {
+    /** Starting a team while it costs money (teams.yml create.cost 50k here; the shipped value is free). */
+    static void create(E2E e2e) throws Exception {
+        withConfig(e2e, Map.of("cost", "50k"), TeamsScenarios::createWithCost);
+    }
+
+    private static void createWithCost(E2E e2e) {
         String founder = e2e.name("Founder");
         String rival = e2e.name("Rival");
         String team = e2e.name("Alpha");
@@ -162,8 +184,9 @@ final class TeamsScenarios {
         e2e.console("eco set " + founder + " 60k");
         e2e.eventually(() -> e2e.money(founder) == 60_000, "founder funded");
         Bot.SeenDialog none = openTeamMenu(e2e, a, "Team");
-        e2e.expect(none.bodyText().contains("not in a team") && none.bodyText().contains("$50,000"), "no-team body: " + none.body());
-        e2e.expect(none.button("Start a team") != null, "a start button: " + none.buttons());
+        e2e.expect(none.bodyText().contains("not in a team"), "no-team body: " + none.body());
+        e2e.expect(none.button("Start a team") != null && none.button("Start a team").tooltip().contains("Costs $50,000"),
+            "a start button with the cost in its tooltip: " + none.buttons());
 
         e2e.step("the name form refuses bad names and keeps the dialog open");
         e2e.click(a, "Start a team");
@@ -183,7 +206,7 @@ final class TeamsScenarios {
         e2e.expect(e2e.money(founder) == 60_000, "nothing charged before confirming");
         e2e.click(a, "Start team");
         Bot.SeenDialog main = e2e.dialog(a, "Team " + team);
-        e2e.expect(main.bodyText().contains(founder) && main.bodyText().contains("owner, online"), "the owner in the member list: " + main.body());
+        e2e.expect(main.bodyText().contains("Owner " + founder), "the owner in the status line: " + main.body());
         e2e.eventually(() -> e2e.money(founder) == 10_000, "charged $50,000: " + e2e.money(founder));
         e2e.eventually(() -> a.chatContains("You created the team " + team + " for $50,000."), "a receipt in chat: " + a.chat());
         e2e.expect(team.equals(teamOf(e2e, founder)), "team_name placeholder");
@@ -230,7 +253,9 @@ final class TeamsScenarios {
         Bot a = e2e.bot(name);
         Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/teams.yml");
         String original = Files.readString(config);
-        e2e.expect(original.contains("cost: 50k"), "the test server uses the default cost");
+        e2e.expect(original.contains("cost: 0"), "the test server uses the shipped cost: free");
+        Files.writeString(config, original.replace("cost: 0", "cost: 50k"));
+        e2e.console("sift reload");
         try {
             e2e.console("eco set " + name + " 100k");
             e2e.eventually(() -> e2e.money(name) == 100_000, "funded");
@@ -239,7 +264,7 @@ final class TeamsScenarios {
             e2e.expect(confirm.bodyText().contains("$50,000"), "the shown cost: " + confirm.body());
 
             e2e.step("a reload changes the cost while the confirmation is open: nothing is charged");
-            Files.writeString(config, original.replace("cost: 50k", "cost: 60k"));
+            Files.writeString(config, original.replace("cost: 0", "cost: 60k"));
             e2e.console("sift reload");
             e2e.click(a, "Start team");
             Bot.SeenDialog again = e2e.dialog(a, "Start a team");
@@ -353,13 +378,19 @@ final class TeamsScenarios {
         rookie.command("team promote " + adminName);
         e2e.eventually(() -> rookie.actionBarContains("Only the team owner can"), "members can't promote: " + rookie.actionBar());
 
-        e2e.step("the owner promotes from the dialog picker");
-        openTeamMenu(e2e, owner, "Team " + team);
-        e2e.click(owner, "Make an admin");
-        Bot.SeenDialog pick = e2e.dialog(owner, "Make an admin");
-        e2e.expect(pick.inputs().containsKey("member"), "a member choice: " + pick.inputs());
-        e2e.click(owner, "Make admin", Map.of("member", e2e.uuid(adminName).toString()));
-        e2e.dialog(owner, "Team " + team);
+        e2e.step("the owner promotes from the member's dialog (Members, then the member)");
+        Bot.SeenDialog members = ownMembers(e2e, owner, team);
+        e2e.expect(members.button(ownerName + ": owner, online") != null && members.button(adminName + ": member, online") != null,
+            "a button per member: " + members.buttons());
+        e2e.expect(members.button(adminName + ":").tooltip().contains("make them an admin or remove them"),
+            "the owner is told what clicking does: " + members.button(adminName + ":").tooltip());
+        e2e.click(owner, adminName + ":");
+        Bot.SeenDialog member = e2e.dialog(owner, adminName);
+        e2e.expect(member.button("Make admin") != null && member.button("Remove from the team") != null
+            && member.button("Hand over the team") != null && member.button("Make member") == null, "the owner's actions: " + member.buttons());
+        e2e.click(owner, "Make admin");
+        e2e.eventually(() -> owner.dialog() != null && owner.dialog().bodyText().contains("Role admin"),
+            "the member's dialog shows again with the new role: " + (owner.dialog() == null ? "none" : owner.dialog().body()));
         e2e.eventually(() -> "admin".equals(placeholder(e2e, adminName, "team_role")), "deputy is an admin");
         e2e.eventually(() -> rookie.chatContains(ownerName + " made " + adminName + " an admin."), "the team is told: " + rookie.chat());
 
@@ -380,20 +411,29 @@ final class TeamsScenarios {
         e2e.eventually(() -> deputy.actionBarContains("Invited " + extraName), "admins can invite: " + deputy.actionBar());
         owner.command("team demote " + adminName);
         e2e.eventually(() -> "member".equals(placeholder(e2e, adminName, "team_role")), "deputy is a member again");
-        openTeamMenu(e2e, owner, "Team " + team);
-        e2e.click(owner, "Remove a member");
-        e2e.dialog(owner, "Remove a member");
-        e2e.click(owner, "Remove", Map.of("member", e2e.uuid(adminName).toString()));
-        e2e.eventually(() -> teamOf(e2e, adminName).isEmpty(), "kicked from the picker");
+        ownMembers(e2e, owner, team);
+        e2e.click(owner, adminName + ":");
+        e2e.dialog(owner, adminName);
+        e2e.click(owner, "Remove from the team");
+        Bot.SeenDialog sure = e2e.dialog(owner, "Remove a member");
+        e2e.expect(sure.bodyText().contains("Remove " + adminName + " from " + team + "?"), "asks first: " + sure.body());
+        e2e.expect(team.equals(teamOf(e2e, adminName)), "nothing before confirming");
+        e2e.click(owner, "Remove");
+        Bot.SeenDialog left = e2e.dialog(owner, "Members of " + team);
+        e2e.eventually(() -> teamOf(e2e, adminName).isEmpty(), "kicked from the member's dialog");
+        e2e.expect(left.button(adminName) == null, "the members dialog shows again without them: " + left.buttons());
         e2e.expect("1".equals(placeholder(e2e, ownerName, "team_members")), "only the owner is left");
 
-        e2e.step("a forged choice outside the offered members changes nothing");
+        e2e.step("a member's dialog offers nothing to a member, and the owner's own entry has no actions");
         staffAdd(e2e, team, memberName);
-        openTeamMenu(e2e, owner, "Team " + team);
-        e2e.click(owner, "Remove a member");
-        e2e.dialog(owner, "Remove a member");
-        e2e.click(owner, "Remove", Map.of("member", e2e.uuid(ownerName).toString()));
-        e2e.sleep(500);
+        ownMembers(e2e, rookie, team);
+        e2e.click(rookie, ownerName + ":");
+        Bot.SeenDialog asMember = e2e.dialog(rookie, ownerName);
+        e2e.expect(asMember.buttons().size() == 1 && asMember.button("Back") != null, "only Back: " + asMember.buttons());
+        ownMembers(e2e, owner, team);
+        e2e.click(owner, ownerName + ":");
+        Bot.SeenDialog self = e2e.dialog(owner, ownerName);
+        e2e.expect(self.buttons().size() == 1, "nothing to do to yourself: " + self.buttons());
         e2e.expect(team.equals(teamOf(e2e, ownerName)) && team.equals(teamOf(e2e, memberName)), "nobody was removed");
     }
 
@@ -447,7 +487,8 @@ final class TeamsScenarios {
         openTeamMenu(e2e, heir, "Team " + team);
         e2e.click(heir, "Disband the team");
         Bot.SeenDialog disband = e2e.dialog(heir, "Disband the team");
-        e2e.expect(disband.bodyText().contains("isn't refunded"), "no refund warning: " + disband.body());
+        e2e.expect(disband.bodyText().contains("Everyone is removed") && !disband.bodyText().contains("refunded"),
+            "a free team names no cost: " + disband.body());
         e2e.click(heir, "Disband");
         e2e.eventually(() -> teamOf(e2e, heirName).isEmpty() && teamOf(e2e, ownerName).isEmpty(), "the team is gone");
         e2e.eventually(() -> owner.chatContains(heirName + " disbanded " + team + "."), "members are told: " + owner.chat());
@@ -560,9 +601,9 @@ final class TeamsScenarios {
 
         e2e.step("members use the home too, and the menu shows it");
         Bot.SeenDialog main = openTeamMenu(e2e, member, "Team " + team);
-        e2e.expect(main.bodyText().contains("Home at " + home.getBlockX() + ", " + home.getBlockY() + ", " + home.getBlockZ()),
-            "the home in the menu: " + main.body());
         e2e.expect(main.button("Team home") != null, "a home button: " + main.buttons());
+        e2e.expect(main.button("Team home").tooltip().contains("At " + home.getBlockX() + ", " + home.getBlockY() + ", " + home.getBlockZ()),
+            "where the home is, in its tooltip: " + main.button("Team home").tooltip());
         e2e.expect(main.button("Set home here") == null, "members get no set-home button: " + main.buttons());
     }
 
@@ -789,9 +830,10 @@ final class TeamsScenarios {
         e2e.step("top teams and the team list open from the menu");
         e2e.click(a, "Top teams");
         Bot.SeenDialog top = e2e.dialog(a, "Top teams by kills");
-        e2e.expect(top.button("By money") != null, "a board switch: " + top.buttons());
-        e2e.click(a, "By money");
-        e2e.dialog(a, "Top teams by money");
+        e2e.expect(top.button("Ranked by: Kills") != null, "a board choice: " + top.buttons());
+        e2e.click(a, "Ranked by: Kills");
+        Bot.SeenDialog byMoney = e2e.dialog(a, "Top teams by money");
+        e2e.expect(byMoney.button("Ranked by: Money") != null, "the next option: " + byMoney.buttons());
         e2e.click(a, "Back");
         e2e.dialog(a, "Team");
         e2e.click(a, "All teams");
@@ -1046,36 +1088,146 @@ final class TeamsScenarios {
         e2e.eventually(() -> "nobody".equals(FriendsScenarios.stored(e2e, quietId, "seen-privacy")), "stored");
 
         e2e.step("a stranger's /team info shows the hidden member as offline, without the time");
-        Bot.SeenDialog info = infoOf(e2e, stranger, team);
-        e2e.expect(info.bodyText().contains(quietName + " member, offline"), "offline without a time: " + info.body());
-        e2e.expect(!info.bodyText().contains(quietName + " member, seen"), "no last-seen time: " + info.body());
-        e2e.expect(info.bodyText().contains(openName + " member, seen"), "the default shows the time: " + info.body());
+        String info = labels(membersOf(e2e, stranger, team));
+        e2e.expect(info.contains(quietName + ": member, offline"), "offline without a time: " + info);
+        e2e.expect(!info.contains(quietName + ": member, seen"), "no last-seen time: " + info);
+        e2e.expect(info.contains(openName + ": member, seen"), "the default shows the time: " + info);
 
-        e2e.step("a teammate's /team shows the same");
-        Bot.SeenDialog roster = openTeamMenu(e2e, owner, "Team " + team);
-        e2e.expect(roster.bodyText().contains(quietName + " member, offline") && roster.bodyText().contains(openName + " member, seen"),
-            "the roster: " + roster.body());
+        e2e.step("a teammate's /team members show the same");
+        String roster = labels(ownMembers(e2e, owner, team));
+        e2e.expect(roster.contains(quietName + ": member, offline") && roster.contains(openName + ": member, seen"), "the roster: " + roster);
 
         e2e.step("friends only: hidden from the stranger until they are friends");
         var friendsOnlyResult = e2e.services().settings().setParsed(openId, "seen-privacy", "friends",
             net.siftvanilla.siftcore.core.player.Change.api("e2e"));
         e2e.expect(friendsOnlyResult.succeeded(), "set for the offline member: " + friendsOnlyResult);
-        Bot.SeenDialog friendsOnly = infoOf(e2e, stranger, team);
-        e2e.expect(friendsOnly.bodyText().contains(openName + " member, offline"), "not a friend: " + friendsOnly.body());
+        String friendsOnly = labels(membersOf(e2e, stranger, team));
+        e2e.expect(friendsOnly.contains(openName + ": member, offline"), "not a friend: " + friendsOnly);
         List<String> added = e2e.consoleOutput("sift friends add " + strangerName + " " + openName);
         e2e.expect(added.stream().anyMatch(line -> line.contains("friends")), "made friends: " + added);
         e2e.eventually(() -> e2e.services().relations().areFriends(e2e.uuid(strangerName), openId), "friends");
-        Bot.SeenDialog asFriend = infoOf(e2e, stranger, team);
-        e2e.expect(asFriend.bodyText().contains(openName + " member, seen"), "a friend sees it: " + asFriend.body());
+        String asFriend = labels(membersOf(e2e, stranger, team));
+        e2e.expect(asFriend.contains(openName + ": member, seen"), "a friend sees it: " + asFriend);
 
         e2e.step("staff who may look players up always see it");
         e2e.console("op " + strangerName);
         try {
-            Bot.SeenDialog asStaff = infoOf(e2e, stranger, team);
-            e2e.expect(asStaff.bodyText().contains(quietName + " member, seen"), "staff see the time: " + asStaff.body());
+            String asStaff = labels(membersOf(e2e, stranger, team));
+            e2e.expect(asStaff.contains(quietName + ": member, seen"), "staff see the time: " + asStaff);
         } finally {
             e2e.console("deop " + strangerName);
         }
+    }
+
+    /**
+     * Starting a team is free (the shipped teams.yml): no confirmation, nothing charged, and no cost named anywhere (the
+     * Start a team tooltip, the name form, the disband question).
+     */
+    static void free(E2E e2e) {
+        String name = e2e.name("Freebie");
+        String team = e2e.name("Free");
+        Bot a = e2e.bot(name);
+        e2e.console("eco set " + name + " 0");
+        e2e.eventually(() -> e2e.money(name) == 0, name + " has no money");
+
+        e2e.step("the dialog without a team: one status line, buttons that say what they do, no cost");
+        Bot.SeenDialog none = openTeamMenu(e2e, a, "Team");
+        e2e.expect(none.bodyText().equals("You're not in a team."), "one status line: " + none.body());
+        Bot.Button start = none.button("Start a team");
+        e2e.expect(start != null && start.tooltip().contains("Pick a name") && !start.tooltip().contains("$"),
+            "no cost in the tooltip: " + (start == null ? "none" : start.tooltip()));
+        for (Bot.Button button : none.buttons()) {
+            e2e.expect(button.label().equals("Back") || button.label().equals("Close") || button.tooltip() != null,
+                button.label() + " has a tooltip");
+        }
+
+        e2e.step("the name form has no lines above it and starts the team at once, with no money");
+        e2e.click(a, "Start a team");
+        Bot.SeenDialog form = e2e.dialog(a, "Start a team");
+        e2e.expect(form.body().isEmpty() && form.button("Continue").tooltip().contains("3 to 16 letters"),
+            "the rules are on Continue: " + form.body() + " " + form.button("Continue").tooltip());
+        e2e.expect(!form.button("Continue").tooltip().contains("$"), "no cost on Continue");
+        e2e.click(a, "Continue", Map.of("name", team));
+        e2e.dialog(a, "Team " + team);
+        e2e.eventually(() -> team.equals(teamOf(e2e, name)), "the team exists");
+        e2e.expect(e2e.money(name) == 0, "nothing charged");
+        e2e.eventually(() -> a.chatContains("You created the team " + team + "."), "a free receipt: " + a.chat());
+        e2e.expect(!a.chatContains(" for $"), "no cost in the receipt: " + a.chat());
+
+        e2e.step("disbanding a free team names no refund");
+        openTeamMenu(e2e, a, "Team " + team);
+        e2e.click(a, "Disband the team");
+        Bot.SeenDialog disband = e2e.dialog(a, "Disband the team");
+        e2e.expect(!disband.bodyText().contains("refund") && !disband.bodyText().contains("cost"), "no cost: " + disband.body());
+        e2e.click(a, "Cancel");
+    }
+
+    /**
+     * The team dialog in the dialog style: two status lines and buttons with tooltips; Team chat and Friendly fire are
+     * switches that flip at once without a message (Friendly fire greyed for members, refused in red); Members lists
+     * everyone; All teams has no pages; nothing names the plugin.
+     */
+    static void dialogs(E2E e2e) {
+        String ownerName = e2e.name("Captain");
+        String mateName = e2e.name("Mate");
+        String team = e2e.name("Kilo");
+        Bot owner = e2e.bot(ownerName);
+        Bot mate = e2e.bot(mateName);
+        startTeam(e2e, owner, team);
+        staffAdd(e2e, team, mateName);
+
+        e2e.step("the team dialog: two short lines, every button explained");
+        Bot.SeenDialog main = openTeamMenu(e2e, owner, "Team " + team);
+        e2e.expect(main.bodyText().split("\n").length == 2 && main.bodyText().contains("Owner " + ownerName)
+            && main.bodyText().contains("Members 2 of 5, 2 online"), "the status lines: " + main.body());
+        for (String label : List.of("Team chat: OFF", "Friendly fire: OFF", "Members: 2/5", "Invite a player", "Set home here",
+            "Team stats", "Top teams", "All teams", "Settings", "Disband the team")) {
+            Bot.Button button = main.button(label);
+            e2e.expect(button != null && button.tooltip() != null && !button.tooltip().isBlank(), label + " with a tooltip: " + main.buttons());
+            e2e.expect(!button.tooltip().contains("SiftCore"), "no plugin name: " + button.tooltip());
+        }
+        e2e.expect("#FF5555".equals(main.button("Team chat: OFF").valueColor()), "OFF in red");
+        e2e.expect(main.button("Next") == null && main.button("Previous") == null, "no pages");
+
+        e2e.step("the switches flip at once, the page shows again, nothing in chat");
+        owner.clearMessages();
+        e2e.click(owner, "Team chat: OFF");
+        e2e.eventually(() -> owner.dialog() != null && owner.dialog().button("Team chat: ON") != null,
+            "team chat on, same page: " + (owner.dialog() == null ? "none" : owner.dialog().buttons()));
+        e2e.expect("#55FF55".equals(owner.dialog().button("Team chat: ON").valueColor()), "ON in green");
+        mate.clearLogs();
+        e2e.click(owner, "Friendly fire: OFF");
+        e2e.eventually(() -> owner.dialog() != null && owner.dialog().button("Friendly fire: ON") != null, "friendly fire on");
+        e2e.eventually(() -> mate.chatContains(ownerName + " turned friendly fire on."), "the team is told: " + mate.chat());
+        e2e.sleep(500);
+        e2e.expect(!owner.anyFeedbackContains("Team chat on") && !owner.chatContains("turned friendly fire on"),
+            "no message per click for the one who clicked: " + owner.chat() + " " + owner.actionBar());
+        e2e.click(owner, "Team chat: ON");
+        e2e.eventually(() -> owner.dialog() != null && owner.dialog().button("Team chat: OFF") != null, "team chat off again");
+
+        e2e.step("a member sees Friendly fire greyed; clicking it says in red who changes it");
+        Bot.SeenDialog asMate = openTeamMenu(e2e, mate, "Team " + team);
+        Bot.Button locked = asMate.button("Friendly fire: ON");
+        e2e.expect(locked != null && locked.tooltip().contains("The owner and admins change it"), "greyed: " + asMate.buttons());
+        e2e.expect(asMate.button("Invite a player") == null && asMate.button("Set home here") == null, "no admin buttons");
+        e2e.click(mate, "Friendly fire: ON");
+        e2e.eventually(() -> mate.dialog() != null && mate.dialog().bodyText().contains("Only the team owner and admins"),
+            "refused in red: " + (mate.dialog() == null ? "none" : mate.dialog().body()));
+        e2e.expect(team.equals(teamOf(e2e, mateName)), "still in the team");
+
+        e2e.step("Members lists everyone with their status, All teams has no pages, Top teams ranks by a choice");
+        Bot.SeenDialog members = ownMembers(e2e, owner, team);
+        e2e.expect(members.button(ownerName + ": owner, online") != null && members.button(mateName + ": member, online") != null,
+            "both members: " + members.buttons());
+        e2e.expect("#55FF55".equals(members.button(mateName + ":").valueColor()), "online in green");
+        e2e.click(owner, "Back");
+        e2e.dialog(owner, "Team " + team);
+        e2e.click(owner, "All teams");
+        Bot.SeenDialog all = e2e.dialog(owner, "All teams");
+        e2e.expect(all.button(team + ": 2 members") != null && all.button("Next page") == null, "the team, no pages: " + all.buttons());
+        e2e.click(owner, team + ": 2 members");
+        Bot.SeenDialog stats = e2e.dialog(owner, "Team " + team);
+        e2e.expect(stats.bodyText().contains("Friendly fire ON") && stats.button("Members: 2") != null, "stats: " + stats.body());
     }
 
     /** Opens /team info for a team and waits for that fresh dialog. */

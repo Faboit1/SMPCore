@@ -464,8 +464,11 @@ final class ChatScenarios {
             quiet.clearLogs();
             quiet.command("ignore list");
             Bot.SeenDialog list = e2e.dialog(quiet, "Ignored players");
-            e2e.expect(list.bodyText().contains("You ignore 1 player") && list.button(loudName) != null, "the ignored player: " + list.body()
-                + " " + list.buttons());
+            e2e.expect(list.bodyText().contains("Ignoring 1 of 100 players") && list.button(loudName) != null, "the ignored player: "
+                + list.body() + " " + list.buttons());
+            e2e.expect(list.button(loudName).tooltip().contains("Stop ignoring " + loudName), "what a click does: "
+                + list.button(loudName).tooltip());
+            e2e.expect(list.button("Ignore a player").tooltip() != null && list.button("Next page") == null, "explained, no pages");
             e2e.click(quiet, loudName);
             Bot.SeenDialog confirm = e2e.dialog(quiet, "Stop ignoring");
             e2e.expect(confirm.bodyText().contains(loudName), "the name in the confirmation: " + confirm.body());
@@ -482,7 +485,12 @@ final class ChatScenarios {
             quiet.command("ignore");
             e2e.dialog(quiet, "Ignored players");
             e2e.click(quiet, "Ignore a player");
-            e2e.dialog(quiet, "Ignore a player");
+            Bot.SeenDialog form = e2e.dialog(quiet, "Ignore a player");
+            e2e.expect(form.body().isEmpty() && form.button("Ignore").tooltip().contains("You won't see their chat"),
+                "the form explains on its button: " + form.body());
+            e2e.click(quiet, "Ignore", Map.of("player", modName));
+            e2e.eventually(() -> quiet.dialog() != null && quiet.dialog().bodyText().contains("they are staff"),
+                "a refusal shows in red on the form: " + (quiet.dialog() == null ? "none" : quiet.dialog().body()));
             e2e.click(quiet, "Ignore", Map.of("player", "NoSuchPlayer_x9"));
             Bot.SeenDialog error = e2e.dialog(quiet, "Ignore a player");
             e2e.expect(error.bodyText().contains("Nobody called NoSuchPlayer_x9"), "unknown name: " + error.body());

@@ -367,9 +367,15 @@ final class CosmeticsScenarios {
             e2e.expect(dialog.button(offered) != null, "a '" + offered + "' button: " + dialog.buttons());
         }
         e2e.expect(dialog.button("Red") == null && dialog.button("Green") == null, "no red or green: " + dialog.buttons());
+        e2e.expect(dialog.bodyText().split("\n").length == 1 && dialog.bodyText().startsWith("Now "), "one status line: " + dialog.body());
+        e2e.expect(dialog.button("Gold").tooltip().contains("Click to use it"), "what a click does: " + dialog.button("Gold").tooltip());
+        e2e.expect("#FFAA00".equals(dialog.button("Gold").valueColor()), "Gold in gold: " + dialog.button("Gold").valueColor());
         talker.clearMessages();
         e2e.click(talker, "Gold");
-        expectSaw(e2e, talker, "Your chat colour is now Gold");
+        e2e.eventually(() -> talker.dialog() != null && talker.dialog().button("Gold (now)") != null,
+            "the page shows again with Gold marked: " + (talker.dialog() == null ? "none" : talker.dialog().buttons()));
+        e2e.sleep(400);
+        e2e.expect(!talker.anyFeedbackContains("Your chat colour is now"), "no message per click: " + talker.actionBar());
         e2e.expect("gold".equals(placeholder(e2e, talkerName, "chat_color")), "chat_color: " + placeholder(e2e, talkerName, "chat_color"));
 
         e2e.step("other players see the message in gold");
@@ -433,7 +439,8 @@ final class CosmeticsScenarios {
         e2e.expect("#ff4b4b".equals(talker.dialog().initial("from")), "the typed colour is kept: " + talker.dialog().initial("from"));
         talker.clearMessages();
         e2e.click(talker, "Use it", Map.of("from", "#55ffff", "to", "#5555ff"));
-        expectSaw(e2e, talker, "Your chat colour is now");
+        e2e.eventually(() -> talker.dialog() != null && "More colours".equals(talker.dialog().title())
+            && talker.dialog().bodyText().contains("This is how your messages look"), "back on More colours with the new colour");
         e2e.expect("#55FFFF:#5555FF".equals(placeholder(e2e, talkerName, "chat_color")), "the gradient: "
             + placeholder(e2e, talkerName, "chat_color"));
 
@@ -483,8 +490,12 @@ final class CosmeticsScenarios {
         Bot.SeenDialog form = e2e.dialog(nicked, "Nickname");
         e2e.expect(form.inputs().containsKey("nick") && form.inputs().containsKey("style") && !form.inputs().containsKey("custom"),
             "a name and a colour, no hex field for Baron: " + form.inputs());
+        e2e.expect(form.button("Save").tooltip().contains("letters, digits or underscores") && !form.bodyText().contains("letters"),
+            "the rules are on Save, not above the inputs: " + form.body());
         e2e.click(nicked, "Save", Map.of("nick", nick, "style", "c:aqua"));
-        expectSaw(e2e, nicked, "You now show as " + nick);
+        e2e.eventually(() -> nicked.dialog() != null && nicked.dialog().button("Nickname: " + nick) != null,
+            "the menu shows the new nickname: " + (nicked.dialog() == null ? "none" : nicked.dialog().buttons()));
+        e2e.expect("#55FFFF".equals(nicked.dialog().button("Nickname: " + nick).valueColor()), "in aqua");
         e2e.expect(nick.equals(placeholder(e2e, nickedName, "nick")), "%siftcore_nick%: " + placeholder(e2e, nickedName, "nick"));
         e2e.expect(nick.equals(placeholder(e2e, nickedName, "display_name")), "display_name");
         e2e.expect(("<aqua>" + nick + "</aqua>").equals(placeholder(e2e, nickedName, "display_name_mm")),
@@ -549,7 +560,7 @@ final class CosmeticsScenarios {
             "a red nickname is refused: " + (nicked.dialog() == null ? "none" : nicked.dialog().bodyText()));
         nicked.clearMessages();
         e2e.click(nicked, "Save", Map.of("nick", nick, "style", "p:candy", "custom", ""));
-        expectSaw(e2e, nicked, "You now show as");
+        e2e.eventually(() -> nicked.dialog() != null && "Cosmetics".equals(nicked.dialog().title()), "saved: the menu shows again");
         e2e.expect(placeholder(e2e, nickedName, "display_name_mm").equals("<gradient:#FF6AD5:#B26BFF>" + nick + "</gradient>"),
             "the gradient for the tab list: " + placeholder(e2e, nickedName, "display_name_mm"));
 
@@ -621,8 +632,10 @@ final class CosmeticsScenarios {
         tagger.clearLogs();
         tagger.command("tags");
         Bot.SeenDialog dialog = e2e.dialog(tagger, "Chat tags");
-        e2e.expect(dialog.bodyText().contains("You can use 0 of the"), "nothing usable: " + dialog.bodyText());
+        e2e.expect(dialog.bodyText().contains("You show no tag."), "one status line: " + dialog.bodyText());
         e2e.expect(dialog.button("[Miner]") != null && dialog.button("[Mogul]") != null, "tags are listed: " + dialog.buttons());
+        e2e.expect(dialog.button("[Miner]").tooltip().contains("Comes with the Prospector rank"), "the lock in the tooltip");
+        e2e.expect(dialog.buttons().stream().noneMatch(b -> b.label().contains("Next") || b.label().contains("Previous")), "no pages");
         e2e.click(tagger, "[Miner]");
         e2e.eventually(() -> tagger.dialog() != null && tagger.dialog().bodyText().contains("That tag comes with the Prospector rank"),
             "the lock is explained: " + (tagger.dialog() == null ? "none" : tagger.dialog().bodyText()));
@@ -631,11 +644,13 @@ final class CosmeticsScenarios {
         PermissionAttachment prospector = grant(e2e, taggerName, "siftcore.tags.prospector");
         tagger.clearLogs();
         tagger.command("tags");
-        e2e.eventually(() -> tagger.dialog() != null && tagger.dialog().bodyText().contains("You can use 3 of the"),
-            "three tags: " + (tagger.dialog() == null ? "none" : tagger.dialog().bodyText()));
+        e2e.eventually(() -> tagger.dialog() != null && tagger.dialog().buttons().stream()
+            .filter(b -> b.tooltip() != null && b.tooltip().contains("Click to use it")).count() == 3,
+            "three tags to pick: " + (tagger.dialog() == null ? "none" : tagger.dialog().buttons()));
         tagger.clearMessages();
         e2e.click(tagger, "[Miner]");
-        expectSaw(e2e, tagger, "Your chat tag is now [Miner]");
+        e2e.eventually(() -> tagger.dialog() != null && tagger.dialog().button("[Miner] (now)") != null
+            && tagger.dialog().button("No tag") != null, "Miner marked, No tag offered: " + (tagger.dialog() == null ? "none" : tagger.dialog().buttons()));
         reader.clearLogs();
         say(e2e, tagger, "tagged hello");
         Component seen = line(e2e, reader, "tagged hello");
@@ -790,7 +805,7 @@ final class CosmeticsScenarios {
                 back.clearLogs();
                 back.command("cosmetics");
                 Bot.SeenDialog menu = e2e.dialog(back, "Cosmetics");
-                e2e.expect(menu.bodyText().contains("Join message rank line"), "the menu shows the rank line: " + menu.bodyText());
+                e2e.expect(menu.button("Join message: rank line") != null, "the menu shows the rank line: " + menu.buttons());
                 e2e.console("lp group " + group + " permission set siftcore.join.message.custom true");
                 e2e.eventually(() -> e2e.onPlayer(rankedName, () -> e2e.player(rankedName).hasPermission("siftcore.join.message.custom")),
                     "custom messages are allowed again");
@@ -809,9 +824,13 @@ final class CosmeticsScenarios {
                 Bot.SeenDialog form = e2e.dialog(again, "Join and leave messages");
                 e2e.expect(form.bodyText().contains(rankedName + " rolls in"), "the dialog previews the lines: " + form.bodyText());
                 e2e.expect("{name} rolls in".equals(form.initial("join")), "the stored join message: " + form.initial("join"));
+                e2e.expect(form.button("Save").tooltip().contains("{name}"), "how to write one is on Save: " + form.button("Save").tooltip());
                 again.clearMessages();
                 e2e.click(again, "Use the rank lines");
-                expectSaw(e2e, again, "You use the rank join and leave lines again");
+                e2e.eventually(() -> again.dialog() != null && "".equals(again.dialog().initial("join"))
+                    && again.dialog().bodyText().contains("Baron " + rankedName + " joined"), "the form shows again with the rank lines: "
+                    + (again.dialog() == null ? "none" : again.dialog().body()));
+                e2e.expect(placeholder(e2e, rankedName, "join_message").isEmpty(), "the message is cleared");
 
                 e2e.step("vanished staff are never announced");
                 e2e.console("lp group " + group + " permission set siftcore.staff.vanish true");
@@ -884,7 +903,9 @@ final class CosmeticsScenarios {
         killer.command("killeffect");
         e2e.dialog(killer, "Kill effects");
         e2e.click(killer, "Hearts");
-        expectSaw(e2e, killer, "Your kill effect is now Hearts");
+        e2e.eventually(() -> killer.dialog() != null && killer.dialog().button("Hearts (now)") != null
+            && killer.dialog().bodyText().contains("Now Hearts"), "the page shows again with Hearts: "
+            + (killer.dialog() == null ? "none" : killer.dialog().buttons()));
         e2e.eventually(() -> killer.particles("minecraft:heart") > 0, "the preview's hearts: " + killer.particleTypes());
         e2e.expect("hearts".equals(placeholder(e2e, killerName, "kill_effect")), "kill_effect placeholder");
 
@@ -1012,10 +1033,22 @@ final class CosmeticsScenarios {
         bot.clearLogs();
         bot.command("cosmetics");
         Bot.SeenDialog menu = e2e.dialog(bot, "Cosmetics");
-        for (String entry : List.of("Chat colour", "Nickname", "Chat tag", "Join message", "Kill effect")) {
-            e2e.expect(menu.button(entry) != null, "a '" + entry + "' button: " + menu.buttons());
-            e2e.expect(menu.bodyText().contains(entry), "a line for " + entry + ": " + menu.bodyText());
+        e2e.expect(menu.body().isEmpty(), "no lines above the buttons: " + menu.body());
+        for (String entry : List.of("Chat colour: locked", "Nickname: locked", "Chat tag: none", "Join message: locked", "Kill effect: none")) {
+            Bot.Button button = menu.button(entry);
+            e2e.expect(button != null && button.tooltip() != null, "'" + entry + "' with a tooltip: " + menu.buttons());
         }
+        e2e.expect(menu.button("Chat colour").tooltip().contains("Comes with the Baron rank"), "the unlock in the tooltip");
+
+        e2e.step("the switches for what the player sees of others flip at once");
+        Toggle seeColours = e2e.services().settings().toggle("show-chat-colors");
+        e2e.expect(menu.button("Others' chat colours: ON") != null && menu.button("Others' kill effects: ON") != null,
+            "both switches: " + menu.buttons());
+        e2e.click(bot, "Others' chat colours: ON");
+        e2e.eventually(() -> bot.dialog() != null && bot.dialog().button("Others' chat colours: OFF") != null, "flipped");
+        e2e.eventually(() -> !e2e.services().settings().get(e2e.uuid(name), seeColours), "stored off");
+        e2e.click(bot, "Others' chat colours: OFF");
+        e2e.eventually(() -> e2e.services().settings().get(e2e.uuid(name), seeColours), "back on");
         e2e.click(bot, "Chat colour");
         e2e.eventually(() -> bot.dialog() != null && bot.dialog().bodyText().contains("That comes with the Baron rank"),
             "a locked perk says which rank: " + (bot.dialog() == null ? "none" : bot.dialog().bodyText()));

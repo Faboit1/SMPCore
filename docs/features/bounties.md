@@ -17,7 +17,8 @@ leaving in combat.
 - The target must have joined the server before; you can't target yourself; the amount is at least
   `place.minimum` ($1,000) and parses like every amount (`1500`, `1.5k`, `2m`).
 - Bounties stack: every placement is a separate contribution, and the bounty on a player is the sum of all of them.
-- A confirmation dialog shows the exact amount, the tax and when it runs out from the sponsor's
+- A confirmation dialog shows the exact amount and when it runs out (and the tax, only while `claim.tax-percent` is
+  above 0; Place bounty says in its tooltip that the money can't be taken back) from the sponsor's
   `bounty-confirm-above` (Server default follows `place.confirm-above`, $100k, where `0` never asks; Always; or from
   $10k, $100k or $1m). There is no Never: a bounty can't be taken back. A preset replaces the server's amount for
   that player, stricter or looser (from $1m skips the server's $100k question), as core `ConfirmAbove` decides for
@@ -36,15 +37,32 @@ leaving in combat.
 
 On a counted kill the killer claims every contribution on the victim except the ones they put up themselves (a
 sponsor who kills their own target gets the others' part and is told why theirs stays). The cancellable
-`BountyClaimEvent` fires, then one transaction pays the escrow to the killer minus `claim.tax-percent` (10%,
-kind `bounty_claim`), destroys the tax (`bounty_tax`, a sink) and closes the claimed rows as `CLAIMED` with the
+`BountyClaimEvent` fires, then one transaction pays the escrow to the killer minus `claim.tax-percent` (0 as shipped:
+the owner removed every fee, so the killer gets every dollar; kind `bounty_claim`), destroys the tax while there is one
+(`bounty_tax`, a sink) and closes the claimed rows as `CLAIMED` with the
 killer. The killer can be offline (a fall after a hit, or a combat log). If a contribution changed between planning
 and paying (claimed, refunded or added at the same moment), the claim is planned again. If the killer can't hold the
 money (the balance limit), the bounty stays.
 
-The killer gets `You claimed $18,000 for killing Alex. $2,000 went to tax.`, everyone else an announcement
+The killer gets `You claimed $20,000 for killing Alex.` (with a tax set: `You claimed $18,000 for killing Alex. $2,000
+went to tax.`), everyone else an announcement
 (`claim.announce`) when their `bounty-announcements` filter shows the claimed total, and the sponsors a notice
 (`claim.notify-sponsors`).
+
+## Dialogs
+
+In the dialog style (`docs/development.md`): buttons with their explanation in the tooltip, nothing above them but a
+short status, nothing paged.
+
+- **Bounties** (`/bounties`, the main menu's Bounties): a button per bounty, biggest first, "Alex: $50,000" (the total in
+  the money colour; tooltip: its place, who put it up, "Kill them to claim it"), then **Place a bounty**. Above them only
+  "Nobody has a bounty right now.", "The 50 biggest bounties" when there are more than `list-size`, and "The bounty on
+  you is $X." for a player with one.
+- **Bounty on Alex** (a button, or `/bounties <player>`): the total, who put it up, your part, when the oldest part runs
+  out; **Add to this bounty** (or **Put a bounty on them**) with "Whoever kills Alex gets all of it" and the tax, only
+  while there is one, in its tooltip.
+- **Place a bounty**: the player and amount fields; **Place bounty** explains in its tooltip that the money waits until
+  someone kills them and comes back after `expiry.after`. The confirmation (above) or the details follow.
 
 ## Player settings
 
@@ -116,12 +134,12 @@ The ledger also fires `EconomyTransactionEvent` for placements and claims (refun
 | `place.announce` / `announce-above` | `true` / `50k` | Announce placements of at least this much (each player's `bounty-announcements` filters further) |
 | `place.notify-target` | `true` | Tell the target (in their `bounty-target-alert` style) |
 | `place.remind-on-join` | `true` | Remind players of their bounty when they join (unless their `bounty-join-reminder` is off) |
-| `claim.tax-percent` | `10` | Destroyed part of a claim (0-90) |
+| `claim.tax-percent` | `0` | Destroyed part of a claim (0-90). 0 (shipped) is no tax, and then no dialog or message names one |
 | `claim.announce` | `true` | Announce claims (filtered by each player's `bounty-announcements`) |
 | `claim.notify-sponsors` | `true` | Tell online sponsors their bounty was claimed |
 | `expiry.after` | `14d` | When a contribution goes back to its sponsor (1h-365d) |
 | `expiry.check-every` | `5m` | Expiry timer period (30s-1h; rescheduled on reload) |
-| `list-size` | `10` | Bounties shown by `/bounties` (1-20) |
+| `list-size` | `50` | The biggest bounties `/bounties` shows (1-100); the dialog scrolls, one line names the cap when there are more |
 
 ## Design decisions
 
@@ -143,6 +161,10 @@ player is never touched).
 
 Unit: `BountyBookTest`, `BountyMathTest`, `BountyServiceTest`, `BountiesResourcesTest` and `BountySettingsTest`
 (groups and order, config-dependent offering, the confirmation threshold against the server rule, the target alert
-line per style, the announcement filter). End to end (`tools/e2e/CombatScenarios.java`): `bounty-place`,
-`bounty-claim`, `bounty-admin` and `bounty-settings` (the target alert as a title through the dialog and above the
-hotbar through the API, the announcement filter and confirmation threshold through the API, the join reminder).
+line per style, the announcement filter; the confirmation without and with the tax line). End to end
+(`tools/e2e/CombatScenarios.java`): `bounty-place` (a button per bounty with its tooltip and money colour, no intro, the
+form explaining on its button), `bounty-claim` (with `claim.tax-percent` set to 10: the tax taken and named),
+`bounty-no-tax` (the shipped config: no tax line in the confirmation, the full amount paid and no tax named; with a tax
+set, the confirmation and the details name it), `bounty-admin` and `bounty-settings` (the target alert as a title through
+the dialog and above the hotbar through the API, the announcement filter and confirmation threshold through the API, the
+join reminder).

@@ -13,14 +13,18 @@ Small things every SMP has: `/rules`, `/help`, `/ping`, `/seen`, `/links`, and j
 | Command | Permission | Default | What it does |
 |---|---|---|---|
 | `/rules` | `siftcore.command.rules` | everyone | The rules dialog (also the main menu entry `rules`) |
-| `/help` (`/?`) | `siftcore.command.help` | everyone | Getting started, with a button to the main menu |
+| `/help` (`/?`) | `siftcore.command.help` | everyone | Getting started: a button per place to start and one to the main menu |
 | `/ping [player]` | `siftcore.command.ping` (`.others`) | everyone | Connection latency |
 | `/seen <player>` (`/lastseen`) | `siftcore.command.seen` | everyone | Online since, or last online and first joined; vanished staff read as offline. The last online time follows the player's `seen-privacy` |
 | `/links` (`/discord`, `/store`, `/website`) | `siftcore.command.links` | everyone | The server links dialog |
 
-- **Rules and help** are dialogs whose text is in `lang/extras.yml` (`extras.rules.body`, `extras.help.body`: one line
-  per list entry). `/rules` closes on its button; the main menu's **Rules** entry (hub id `rules`, order 94) returns to
-  the menu. `/help`'s button opens the main menu.
+- **Rules** is a dialog whose text is in `lang/extras.yml` (`extras.rules.body`: one line per list entry). `/rules`
+  closes on its button; the main menu's **Rules** entry (hub id `rules`, order 94) returns to the menu.
+- **Help** (`/help`, "Getting started") is buttons only, no paragraphs: **Open the menu** (tooltip: how to open it
+  from the pause screen or with /menu), then one button per place to start, named as in the main menu, each opening it:
+  random teleport, sell, shop, auction house, homes, team, friends, spawn and rules (`ExtrasFeature.HELP`, in that
+  order). The tooltip says what it is and the command (`extras.help.tooltips.<hub id>`). A place whose feature is off or
+  whose menu entry the player lacks the permission for is left out.
 - **Links** opens the client's own Server Links screen (also in the pause screen). The links are the
   `server-links` of `features/hub.yml` (label and https address each), registered by the hub feature at startup.
 - **Ping** answers like every short result: above the hotbar, or where the player's "Quick results and errors"

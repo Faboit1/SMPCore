@@ -201,7 +201,12 @@ final class TeamCommands {
         if (cost > 0) {
             this.menus.show(player, this.menus.confirmCreate(player, name, null));
         } else {
-            report(player, this.actions.create(player, name, cost), name);
+            // Free: no confirmation, straight to the new team's dialog (where the paid path ends too).
+            TeamService.Outcome outcome = this.actions.create(player, name, cost);
+            report(player, outcome, name);
+            if (outcome.ok()) {
+                this.menus.showMain(player, null);
+            }
         }
     }
 
