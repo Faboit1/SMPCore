@@ -52,7 +52,8 @@ class TpaArrivalTest {
                 return tagged(player) ? Duration.ofSeconds(15) : Duration.ZERO;
             }
         };
-        this.teleports = new Teleports(this.scheduler, messenger, combat);
+        this.teleports = new Teleports(this.scheduler, messenger, combat,
+            new net.siftvanilla.siftcore.core.player.PlayerSettings(null, null, java.util.logging.Logger.getLogger("siftcore-test")));
         this.mover = new Fakes.FakePlayer("Mover");
         this.staying = new Fakes.FakePlayer("Staying");
     }

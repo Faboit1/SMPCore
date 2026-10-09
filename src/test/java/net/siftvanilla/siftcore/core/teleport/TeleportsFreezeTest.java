@@ -37,7 +37,8 @@ class TeleportsFreezeTest {
     void setUp() {
         this.scheduler = new Fakes.ImmediateScheduler();
         Messenger messenger = new Messenger(Fakes.lang(List.of("lang/core.yml"), CoreMessages.class, TeleportMessages.class), new Sounds());
-        this.teleports = new Teleports(this.scheduler, messenger, CombatStatus.NONE);
+        this.teleports = new Teleports(this.scheduler, messenger, CombatStatus.NONE,
+            new net.siftvanilla.siftcore.core.player.PlayerSettings(null, null, java.util.logging.Logger.getLogger("siftcore-test")));
         this.teleports.freezes(this.frozen::contains);
         this.suspect = new Fakes.FakePlayer("Suspect");
     }
