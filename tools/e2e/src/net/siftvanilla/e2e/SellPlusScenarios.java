@@ -607,7 +607,7 @@ final class SellPlusScenarios {
         setSlot(e2e, name, 9, ItemStack.of(Material.DIAMOND, 40));
         e2e.sleep(300);
 
-        e2e.step("Mastery, Mining, Sell: the confirmation counts the grid too");
+        e2e.step("Mastery, Mining, Sell: the confirmation sells what the button showed, not the grid");
         bot.clearLogs();
         bot.clickSlot(52);
         e2e.dialog(bot, "Sell mastery");
@@ -617,16 +617,24 @@ final class SellPlusScenarios {
         e2e.expect(detail.button(sell) != null, "the inventory's diamonds on the button: " + detail.buttons());
         e2e.click(bot, sell);
         Bot.SeenDialog confirm = e2e.dialog(bot, "Sell Mining items");
-        e2e.expect(confirm.bodyText().contains("Sell 64 items for $25,600?"), "the grid's diamonds are counted: " + confirm.body());
-        e2e.expect(count(e2e, name, Material.DIAMOND) == 64 && e2e.money(name) == 0, "back in the inventory, nothing sold yet");
+        e2e.expect(confirm.bodyText().contains("Sell 40 items for $16,000?"), "only the inventory's diamonds: " + confirm.body());
+        e2e.expect(count(e2e, name, Material.DIAMOND) == 40 && e2e.money(name) == 0, "nothing moved, nothing sold yet");
 
-        e2e.step("confirming sells all 64");
-        e2e.click(bot, "Sell for $25,600");
-        e2e.eventually(() -> e2e.money(name) == 25_600, "paid $25,600 (has " + e2e.money(name) + ")");
-        e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "every diamond sold");
+        e2e.step("confirming sells the 40 and shows the mastery details again; the menu keeps its grid");
+        e2e.click(bot, "Sell for $16,000");
+        e2e.eventually(() -> e2e.money(name) == 16_000, "paid $16,000 (has " + e2e.money(name) + ")");
+        e2e.dialog(bot, "Mining mastery");
+        e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "the inventory's diamonds sold");
+        e2e.expect(bot.screen() != null, "the sell menu is still open under the dialog");
         e2e.sleep(300);
         e2e.expect(!bot.anyFeedbackContains("didn't go through"), "no failed sale: " + bot.chat() + " / " + bot.actionBar());
-        e2e.eventually(() -> bot.screen() == null, "the sell menu closed");
+
+        e2e.step("closing the menu gives the grid's 24 diamonds back");
+        e2e.onPlayer(name, () -> {
+            e2e.player(name).closeInventory();
+            return null;
+        });
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 24, "the grid came back: " + count(e2e, name, Material.DIAMOND));
     }
 
     /** Stored sell mastery rows of a player (after everything queued was written). */
