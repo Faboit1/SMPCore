@@ -13,6 +13,8 @@ public final class StatsMessages {
     public static final MessageKey VIEW_CONSOLE = MessageKey.chat("stats.view.console",
         "name", "kills", "deaths", "kdr", "streak", "best", "playtime", "mobs", "blocks", "earned", "balance");
     public static final MessageKey LOAD_FAILED = MessageKey.error("stats.view.load-failed");
+    /** The balance line's value when the player keeps their balance from the viewer ({@code balance-privacy}). */
+    public static final MessageKey BALANCE_HIDDEN = MessageKey.ui("stats.view.balance-hidden");
 
     public static final MessageKey BOARD_KILLS = MessageKey.ui("stats.boards.kills.button");
     public static final MessageKey BOARD_KILLS_TITLE = MessageKey.ui("stats.boards.kills.title");
@@ -70,6 +72,14 @@ public final class StatsMessages {
     public static final MessageKey ADMIN_REFRESHED = MessageKey.chat("stats.admin.refreshed", "time");
     public static final MessageKey ADMIN_REFRESH_BUSY = MessageKey.chat("stats.admin.refresh-busy");
     public static final MessageKey ADMIN_REFRESH_FAILED = MessageKey.chat("stats.admin.refresh-failed");
+
+    /** A player moved up a leaderboard ({@code leaderboard-rank-alerts}). */
+    public static final MessageKey CLIMBED = MessageKey.notify("stats.climbed", "rank", "board");
+
+    public static final MessageKey SETTING_RANK_ALERTS = MessageKey.ui("stats.settings.leaderboard-rank-alerts");
+    public static final MessageKey SETTING_RANK_ALERTS_DESCRIPTION = MessageKey.ui("stats.settings.leaderboard-rank-alerts-description");
+    public static final MessageKey OPTION_TOP_10 = MessageKey.ui("stats.settings.options.top-10");
+    public static final MessageKey OPTION_ANY_PLACE = MessageKey.ui("stats.settings.options.all");
 
     public static final MessageKey HUB_LABEL = MessageKey.ui("stats.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("stats.hub.description");

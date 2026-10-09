@@ -27,6 +27,8 @@ stats:
       - "<secondary>Mobs killed <primary><mobs><secondary>, blocks mined <primary><blocks>"
       - "<secondary>Money earned <earned><secondary>, balance <balance>"
     load-failed: "<primary>Those stats can't be loaded right now. Try again soon."
+    # Shown instead of the balance when the player keeps it from the viewer (Who can see my balance setting).
+    balance-hidden: "<secondary>hidden"
 
   # Each leaderboard: the button label and the dialog title.
   boards:
@@ -104,6 +106,17 @@ stats:
     refreshed: "<primary>Leaderboards rebuilt in <time>."
     refresh-busy: "<secondary>The leaderboards are already being rebuilt."
     refresh-failed: "<primary>The leaderboards could not be rebuilt. The previous ones stay; the console has the details."
+
+  # A player moved up a leaderboard (Leaderboard climb alerts setting). <board> is the board's button label.
+  climbed: "<primary>You climbed to number <rank> on the <board> leaderboard."
+
+  # Labels and descriptions of the stats settings (/settings).
+  settings:
+    leaderboard-rank-alerts: "Leaderboard climb alerts"
+    leaderboard-rank-alerts-description: "Tell you when you move up a leaderboard: only inside the top 10, at any listed place, or never."
+    options:
+      top-10: "Top 10 only"
+      all: "Any place"
 
   hub:
     label: "Stats"

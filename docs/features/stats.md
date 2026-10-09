@@ -18,7 +18,7 @@ The feature implements `core.link.StatsRecorder`; `StatsFeature#recorder()` retu
 | Command | Permission (default) | What it does |
 |---|---|---|
 | `/stats` | `siftcore.command.stats` (everyone) | Your stats in a dialog, with buttons to every leaderboard |
-| `/stats <player>` | `siftcore.command.stats.others` (everyone) | Someone else's stats (online or offline). From the console: printed in chat |
+| `/stats <player>` | `siftcore.command.stats.others` (everyone) | Someone else's stats (online or offline); their balance shows as `hidden` unless their `balance-privacy` allows you (staff with `siftcore.admin.eco` always see it). From the console: printed in chat, with the balance |
 | `/top` (`/leaderboard`, `/leaderboards`) | `siftcore.command.top` (everyone) | Leaderboard picker. From the console: the list of boards |
 | `/top <board> [page]` | `siftcore.command.top` | One page of a board in a dialog with previous/next. From the console: printed in chat |
 | `/playtime` | `siftcore.command.playtime` (everyone) | Your active playtime, as a chat line |
@@ -52,7 +52,37 @@ the leaderboard snapshot, never the database.
 | `top_<board>_rank` | Your place on a board, `0` when not listed |
 
 `stats_*` are exact for online players and for offline players whose stats are in memory (viewed in the last few
-minutes); for other offline players they show zeros. `top_*` work for anyone.
+minutes); for other offline players they show zeros. `top_*` work for anyone. Players who hide from the leaderboards
+are on no board, so they show up in no `top_*` placeholder and on no leaderboard hologram.
+
+## Player settings
+
+| Id | Group (order) | Options (default first) | Read in |
+|---|---|---|---|
+| `leaderboard-rank-alerts` | Combat & stats (9) | top-10, all, off | `StatsFeature.climbed` after each rebuild (`Climbs`) |
+| `hide-from-leaderboards` (shared, `siftcore.stats.hide`) | Privacy | off | `HiddenPlayers` at each rebuild |
+| `balance-privacy` (shared) | Privacy | everyone, friends, nobody | `StatsViews.withBalanceVisibility` |
+
+**Climb alerts.** After each rebuild the old and the new boards are compared for the online players. Moving to a
+better place, or onto a board, is a climb; dropping, staying and the first build after a start are not, and the
+deaths board never counts. Top 10 only (default) tells climbs that end inside the top 10, Any place every climb; at
+most one line per board per rebuild: `You climbed to number 3 on the Kills leaderboard.`
+
+**Hiding from the leaderboards.** Each rebuild reads the setting's rows from the `settings` table (most accounts are
+offline) in the same async step as the board queries; online players read their loaded value with their permissions
+applied. A hidden player is left off every board, including the money board (`top_money_*`; `/baltop` is the economy's
+and must read the setting itself) and the holograms built from them. The stats boards fetch one more row per hidden
+player (at most 1,000 more) so they still fill up. The money board can't: it comes from the economy's top list, a
+snapshot of only `baltop.size` entries (`features/economy.yml`, 100 by default, the same as `leaderboards.size`), so
+asking for more rows returns no more and each hidden account among the richest leaves the money board one place
+short. It fills up again once the economy keeps more entries than `baltop.size` or leaves hidden accounts out itself
+(economy's part, see Known limits). A server default or lock in `features/settings.yml` applies to everyone who never chose; an offline player's
+stored choice counts until they join again, even if they lost `siftcore.stats.hide` meanwhile. If the read fails the
+previous boards stay, so a failed read never lists a hidden player.
+
+**Balance privacy.** `/stats <player>` reads the target's `balance-privacy` (from memory when online, one settings
+read when offline); Friends needs the friends system and otherwise reads as Nobody. Your own stats and the console
+always show the balance.
 
 ## Config summary (`features/stats.yml`)
 
@@ -148,6 +178,19 @@ thread-safe. Nothing blocks a region thread.
   and `death(victim)` for a death without kill credit. It must not call both for one death.
 - Other features may call `recorder().add(player, stat, amount)`; it is thread-safe and memory-only.
 
+## Known limits
+
+- **The money board and hidden players.** The money board reads the economy's top list, which holds only
+  `baltop.size` entries. Every account hidden with `hide-from-leaderboards` among those leaves the money board (and
+  `top_money_*`, and the holograms built from it) one place short. Fixing it belongs to the economy: keep more entries
+  than `baltop.size` (for example size + 25 + the hidden count) or leave hidden accounts out of the list itself.
+- **`/baltop`** is the economy's command and lists hidden players until the economy reads `hide-from-leaderboards`.
+- **Losing the permission.** An offline player's stored `hide-from-leaderboards` keeps counting until they join
+  again, even if they lost `siftcore.stats.hide` meanwhile (permissions of offline players can't be checked).
+- **Balance privacy and ignores.** `everyone` means everyone: a player you ignore can still see your balance in your
+  `/stats` (`Relations.allows` leaves ignores out). `/balance <name>` and the chat card should use the same rule, so
+  the three places agree.
+
 ## Tests
 
 - Unit (`src/test/java/.../feature/stats`): KDR formatting and exact comparison; streak algebra against an event model,
@@ -155,5 +198,10 @@ thread-safe. Nothing blocks a region thread.
   block cache; the write-behind store (no double counting across saves, failed saves retried in order, loads waiting
   for writes, offline updates without loads, eviction, shutdown and late changes, concurrency); the real SQL against
   SQLite (the upsert matches the in-memory algebra, leaderboard queries); config and lang resources.
+- Settings (`StatsPlayerSettingsTest`): the group and order, climbs and the top-10 rule, hidden players (stored,
+  online, locked and default-on cases, the fetch size), boards without hidden players that still fill up, the money
+  board stopping at the economy's snapshot (one place short per hidden account in it), a failed hidden read keeping
+  the previous boards, the swap listener, balance visibility.
 - End to end (`tools/e2e`, `StatsScenarios`): `stats-dialog`, `stats-sources` (real ledger kinds, mob kills, block
-  breaking and placing by a protocol bot), `stats-top`, `stats-persist`.
+  breaking and placing by a protocol bot), `stats-top`, `stats-persist`, `stats-vanish-playtime` and `stats-settings`
+  (hiding from the leaderboards, a climb alert changed through the dialog, balance privacy for an offline player).

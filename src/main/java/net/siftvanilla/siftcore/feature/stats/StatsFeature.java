@@ -23,8 +23,14 @@ import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
+import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.economy.CommittedTx;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
@@ -38,8 +44,20 @@ import org.bukkit.entity.Player;
  * Lifetime stats and leaderboards: kills, deaths, streaks (reported by the combat feature through
  * {@link #recorder()}), mobs killed, blocks mined, money earned (from the ledger) and active playtime. Stats live in
  * memory and are written behind; leaderboards are cached snapshots rebuilt off-thread.
+ * <p>
+ * Player settings: {@code leaderboard-rank-alerts} (Combat &amp; stats). Reads the shared {@code hide-from-leaderboards}
+ * (hidden players are left off every board, the money board and the holograms that show them) and
+ * {@code balance-privacy} (the balance line of another player's stats).
  */
 public final class StatsFeature implements Feature {
+
+    /** When a player is told they moved up a leaderboard. */
+    public static final Choice<RankAlerts> RANK_ALERTS = Choice.ofEnum("leaderboard-rank-alerts", RankAlerts.class, RankAlerts::id,
+            RankAlerts.TOP_10)
+        .option(RankAlerts.TOP_10, RankAlerts.TOP_10.label())
+        .option(RankAlerts.ALL, RankAlerts.ALL.label())
+        .option(RankAlerts.OFF, RankAlerts.OFF.label())
+        .text(StatsMessages.SETTING_RANK_ALERTS, StatsMessages.SETTING_RANK_ALERTS_DESCRIPTION).build();
 
     private static final StatsDelta ONE_SECOND = StatsDelta.add(Counter.PLAYTIME, 1);
     private static final Duration SHUTDOWN_SAVE_TIMEOUT = Duration.ofSeconds(30);
@@ -76,6 +94,7 @@ public final class StatsFeature implements Feature {
         this.settings = services.configs().register("features/stats.yml",
             reader -> StatsSettings.parse(reader, StatsFeature::isBlock), problems);
         services.lang().register(StatsMessages.class);
+        registerSettings(services.settings());
         var perms = services.permissions();
         perms.declare(StatsCommands.STATS, "Use /stats", true);
         perms.declare(StatsCommands.STATS_OTHERS, "See other players' stats", true);
@@ -86,13 +105,26 @@ public final class StatsFeature implements Feature {
         StatsSettings initial = this.settings.get();
         this.storage = new SqlStatsStorage(services.database());
         this.store = new StatsStore(this.storage, this.logger, System::currentTimeMillis, initial.keepOffline());
+        HiddenPlayers hidden = new HiddenPlayers(services.database(), services.settings());
         this.boards = new Leaderboards(this.store, this.storage, limit -> economy.top(Currency.MONEY, limit),
             services.directory()::name, uuid -> services.directory().get(uuid).isPresent(),
-            () -> this.settings.get().leaderboardSize(), () -> this.settings.get().kdrMinKills(), this.logger, System::currentTimeMillis);
+            () -> this.settings.get().leaderboardSize(), () -> this.settings.get().kdrMinKills(), this.logger, System::currentTimeMillis,
+            hidden::load);
+        this.boards.onSwap(this::climbed);
         this.placed = new PlacedBlocks(initial.placedMemory());
         this.views = new StatsViews(services, this.store, this.boards, this.settings);
         this.commands = new StatsCommands(services, this.store, this.boards, this.views);
         admin.addPart(this.commands.adminPart());
+    }
+
+    /**
+     * Registers the climb alerts and declares the shared settings stats acts on: hiding from the leaderboards and who
+     * may see a player's balance in their stats.
+     */
+    static void registerSettings(PlayerSettings prefs) {
+        prefs.register(SettingCategories.COMBAT, RANK_ALERTS, SettingOptions.<RankAlerts>builder().order(9).build());
+        prefs.reads(SharedSettings.HIDE_FROM_LEADERBOARDS);
+        prefs.reads(SharedSettings.BALANCE_PRIVACY);
     }
 
     @Override
@@ -182,6 +214,25 @@ public final class StatsFeature implements Feature {
      */
     static boolean playing(UUID player, AfkStatus afk, VanishStatus vanish) {
         return !afk.afk(player) && !vanish.vanished(player);
+    }
+
+    /**
+     * Tells online players who moved up a leaderboard in the last rebuild, as their {@code leaderboard-rank-alerts}
+     * choice says (runs on a database callback thread; packets only).
+     */
+    private void climbed(Map<Board, Leaderboard> before, Map<Board, Leaderboard> after) {
+        List<UUID> online = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            online.add(player.getUniqueId());
+        }
+        var settings = this.services.settings();
+        for (Climbs.Climb climb : Climbs.of(before, after, online, uuid -> settings.get(uuid, RANK_ALERTS))) {
+            Player player = Bukkit.getPlayer(climb.player());
+            if (player != null) {
+                this.services.messenger().send(player, StatsMessages.CLIMBED, Arg.number("rank", climb.rank()),
+                    Arg.component("board", this.services.lang().get(StatsMessages.button(climb.board()))));
+            }
+        }
     }
 
     // ------------------------------------------------------------------ timers

@@ -2,6 +2,8 @@ bounties:
   place:
     placed: "<primary>You put <amount> on <name>. Their bounty is now <total>."
     target: "<primary>Someone put <amount> on your head. Your bounty is now <total>."
+    # The same as a title, for players whose Bounty on you alert setting shows titles.
+    target-title: "<error>Bounty on you: <total>"
     reminder: "<primary>There is a <total> bounty on your head."
     announce: "<amount> <secondary>was put on <primary><name><secondary>. Their bounty is now <total><secondary>."
     minimum: "<primary>The smallest bounty is <amount>."
@@ -59,6 +61,16 @@ bounties:
     nothing-expired: "<primary>No bounty has run out."
     failed: "<primary><count> refunds failed and stay active. <secondary>The server log has the reason."
     summary: "<primary><targets> players have a bounty, <total> in total. <secondary>Escrow <escrow>, stored rows: <rows>."
+  # Labels and descriptions of the bounty settings (/settings).
+  settings:
+    bounty-target-alert: "Bounty on you alert"
+    bounty-target-alert-description: "How you are told someone put money on your head. The sponsor stays anonymous."
+    bounty-announcements: "Bounty announcements"
+    bounty-announcements-description: "New and claimed bounties in chat: all, only from a minimum amount, or none."
+    bounty-confirm-above: "Confirm bounties from"
+    bounty-confirm-above-description: "Ask before placing a bounty of at least this amount. A bounty can't be taken back."
+    bounty-join-reminder: "Bounty reminder on join"
+    bounty-join-reminder-description: "When you join, remind you of the bounty on your head."
   hub:
     label: "Bounties"
     description: "Put money on a player's head"

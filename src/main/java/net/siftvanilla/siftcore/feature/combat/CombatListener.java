@@ -13,6 +13,10 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
@@ -30,6 +34,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 /**
@@ -41,8 +46,12 @@ final class CombatListener implements Listener {
     /** How often the same refusal from a repeating event is told to a player at most. */
     private static final long REFUSAL_INTERVAL_MILLIS = 1_000;
 
-    /** What the death-message stage hands to the stage that runs once the death is final. */
-    private record PendingDeath(KillTracker.Credit credit, Component message, boolean everyone, boolean combatLog, long at) {
+    /**
+     * What the death-message stage hands to the stage that runs once the death is final.
+     *
+     * @param logoutLine the message is a combat log announcement (not a death message)
+     */
+    private record PendingDeath(KillTracker.Credit credit, Component message, boolean logoutLine, boolean combatLog, long at) {
     }
 
     /** A refusal a player was told about, and when. */
@@ -60,13 +69,17 @@ final class CombatListener implements Listener {
     private final Participants participants;
     private final Messenger messenger;
     private final Cosmetics cosmetics;
+    private final PlayerSettings prefs;
+    private final Scheduler scheduler;
+    private final StaffNotices staff;
     private final Map<UUID, PendingDeath> pending = new ConcurrentHashMap<>();
     /** The last refusal each player was told about by a repeating event (a step, a throw, a glide), to tell it once a second. */
     private final Map<UUID, Refusal> refused = new ConcurrentHashMap<>();
 
     CombatListener(Setting<CombatSettings> settings, CombatTags tags, CombatTagger tagger, KillTracker kills,
                    DeathMessages deathMessages, CombatLogs logs, SpawnArea spawn, PlayerDirectory directory,
-                   Participants participants, Messenger messenger, Cosmetics cosmetics) {
+                   Participants participants, Messenger messenger, Cosmetics cosmetics, PlayerSettings prefs, Scheduler scheduler,
+                   StaffNotices staff) {
         this.settings = settings;
         this.tags = tags;
         this.tagger = tagger;
@@ -78,6 +91,9 @@ final class CombatListener implements Listener {
         this.participants = participants;
         this.messenger = messenger;
         this.cosmetics = cosmetics;
+        this.prefs = prefs;
+        this.scheduler = scheduler;
+        this.staff = staff;
     }
 
     // ------------------------------------------------------------------ tagging
@@ -222,12 +238,12 @@ final class CombatListener implements Listener {
         CombatSettings s = this.settings.get();
         Component original = event.deathMessage();
         Component message = null;
-        boolean everyone = false;
+        boolean logoutLine = false;
         Component victimName = this.deathMessages.name(victim.getUniqueId(), victim.getName());
         Component killerName = credit.pvp() ? this.deathMessages.name(credit.killer(), this.directory.name(credit.killer())) : null;
         if (combatLog && s.announceLogout()) {
             message = this.deathMessages.logout(victimName, killerName);
-            everyone = true;
+            logoutLine = true;
             event.deathMessage(null);
         } else if (s.deathMessages() && original != null && event.getShowDeathMessages()) {
             message = credit.pvp()
@@ -238,12 +254,13 @@ final class CombatListener implements Listener {
                 event.deathScreenMessageOverride(message);
             }
         }
-        this.pending.put(victim.getUniqueId(), new PendingDeath(credit, message, everyone, combatLog, now));
+        this.pending.put(victim.getUniqueId(), new PendingDeath(credit, message, logoutLine, combatLog, now));
     }
 
     /**
-     * The death happened: end the victim's combat, send the message, count the kill (bounties hook in here) and
-     * announce kill streaks that were reached or ended.
+     * The death happened: end the victim's combat, send the message, count the kill (bounties hook in here), tell the
+     * victim where they died and how their killer was doing, tell the killer whether the kill counted (and staff who
+     * watch for farming when it didn't), and announce kill streaks that were reached or ended.
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(PlayerDeathEvent event) {
@@ -256,26 +273,121 @@ final class CombatListener implements Listener {
         this.tagger.clear(victimId);
         UUID killer = death.credit().killer();
         if (death.message() != null) {
-            this.deathMessages.send(death.message(), victimId, killer, death.everyone());
+            if (death.logoutLine()) {
+                this.deathMessages.logoutLine(death.message(), victimId, killer);
+            } else {
+                this.deathMessages.death(death.message(), victimId, killer);
+            }
         }
         KillTracker.Outcome outcome = this.kills.died(victim, death.credit(), death.combatLog(), death.at());
+        if (!death.combatLog()) {
+            location(victim);
+        }
         if (killer == null) {
             return;
         }
+        Component killerName = this.deathMessages.name(killer, this.directory.name(killer));
         Player killerPlayer = Bukkit.getPlayer(killer);
         if (killerPlayer != null) {
             // The killer's kill effect where the victim fell (this is the victim's region thread, which owns the spot).
             this.cosmetics.kill(killerPlayer, victim, victim.getLocation());
+            killFeedback(killerPlayer, victim, outcome.decision(), outcome.killerStreak());
+            if (!death.combatLog()) {
+                recap(victim, killerPlayer, killerName, death.credit().weapon());
+            }
+        }
+        if (!outcome.counted() && outcome.decision() != null) {
+            this.staff.notCounted(killer, victimId, outcome.decision().reason());
         }
         CombatSettings.Streaks streaks = this.settings.get().streaks();
-        Component killerName = this.deathMessages.name(killer, this.directory.name(killer));
         if (streaks.ended(outcome.endedStreak())) {
-            this.deathMessages.send(this.deathMessages.streakEnded(killerName, this.deathMessages.name(victimId, victim.getName()),
-                outcome.endedStreak()), victimId, killer, false);
+            this.deathMessages.streakLine(this.deathMessages.streakEnded(killerName, this.deathMessages.name(victimId, victim.getName()),
+                outcome.endedStreak()), victimId, killer);
         }
         if (outcome.counted() && streaks.reached(outcome.killerStreak())) {
-            this.deathMessages.send(this.deathMessages.streak(killerName, outcome.killerStreak()), victimId, killer, false);
+            this.deathMessages.streakLine(this.deathMessages.streak(killerName, outcome.killerStreak()), victimId, killer);
         }
+    }
+
+    /**
+     * A private chat line telling the victim where they died ({@code death-coordinates}); only the world while they
+     * hide coordinates (streamer mode). Runs on the victim's thread, which owns the spot.
+     */
+    private void location(Player victim) {
+        UUID id = victim.getUniqueId();
+        MessageKey line = locationLine(this.prefs.get(id, CombatFeature.DEATH_COORDINATES), this.prefs.get(id, SharedSettings.HIDE_COORDINATES));
+        if (line == null) {
+            return;
+        }
+        Location at = victim.getLocation();
+        Arg world = Arg.text("world", at.getWorld().getName());
+        if (line == CombatMessages.DEATH_LOCATION_HIDDEN) {
+            this.messenger.chat(victim, line, world);
+        } else {
+            this.messenger.chat(victim, line, world, Arg.number("x", at.getBlockX()), Arg.number("y", at.getBlockY()),
+                Arg.number("z", at.getBlockZ()));
+        }
+    }
+
+    /**
+     * The victim's death location line: none while their {@code death-coordinates} is off, only the world while they
+     * hide coordinates (streamer mode), otherwise the block coordinates and the world.
+     */
+    static MessageKey locationLine(boolean deathCoordinates, boolean hideCoordinates) {
+        if (!deathCoordinates) {
+            return null;
+        }
+        return hideCoordinates ? CombatMessages.DEATH_LOCATION_HIDDEN : CombatMessages.DEATH_LOCATION;
+    }
+
+    /**
+     * Tells the killer whether their kill counted ({@code kill-feedback}), with their new streak, or why it didn't
+     * count (a shared IP address is never named). Packets only, so the killer's region doesn't matter.
+     */
+    private void killFeedback(Player killer, Player victim, AntiFarm.Decision decision, int streak) {
+        if (decision == null) {
+            return;
+        }
+        AlertStyle style = this.prefs.get(killer.getUniqueId(), CombatFeature.KILL_FEEDBACK);
+        KillNotice notice = KillNotice.of(decision);
+        MessageKey key = notice.key(style);
+        if (key == null) {
+            return;
+        }
+        Arg name = Arg.component("name", this.deathMessages.name(victim.getUniqueId(), victim.getName()));
+        switch (notice) {
+            case COUNTED -> this.messenger.alert(killer, style, false, key, name, Arg.number("streak", streak));
+            case NOT_COUNTED -> this.messenger.alert(killer, style, false, key, name,
+                Arg.text("reason", this.messenger.lang().plain(CombatMessages.reason(decision.reason()))));
+            case NOT_COUNTED_PLAIN -> this.messenger.alert(killer, style, false, key, name);
+        }
+    }
+
+    /**
+     * Tells the victim the health their killer had left and the weapon of the last hit ({@code death-recap}). The
+     * killer's health is read on the killer's thread, which then sends the line.
+     */
+    private void recap(Player victim, Player killer, Component killerName, ItemStack weapon) {
+        if (killer.equals(victim) || !this.prefs.get(victim.getUniqueId(), CombatFeature.DEATH_RECAP)) {
+            return;
+        }
+        this.scheduler.entity(killer, () -> {
+            if (killer.isDead() || !killer.isValid()) {
+                return;
+            }
+            Arg hearts = Arg.decimal("hearts", hearts(killer.getHealth(), killer.getAbsorptionAmount()));
+            if (weapon == null) {
+                this.messenger.chat(victim, CombatMessages.DEATH_RECAP, Arg.component("killer", killerName), hearts);
+            } else {
+                this.messenger.chat(victim, CombatMessages.DEATH_RECAP_USING, Arg.component("killer", killerName), hearts,
+                    Arg.component("item", DeathMessages.itemName(weapon)));
+            }
+        }, null);
+    }
+
+    /** Health plus absorption in hearts (two health points each), to one decimal. */
+    static double hearts(double health, double absorption) {
+        return Math.round((Math.max(0, health) + Math.max(0, absorption)) * 5) / 10.0;
     }
 
     // ------------------------------------------------------------------ leaving

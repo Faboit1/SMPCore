@@ -3,13 +3,15 @@ package net.siftvanilla.siftcore.feature.combat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.TranslationArgument;
 import net.kyori.adventure.text.format.Style;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
+import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import org.bukkit.Bukkit;
@@ -17,24 +19,25 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * Builds and sends death messages and kill streak lines. Player kills get a clean line ("Alex was killed by Sam
- * using Diamond Sword", the weapon shows the item on hover); every other death keeps the game's own message, shown
- * in the secondary colour. Players are named as they show themselves (a nickname in its colour, the real name on
- * hover). Players who turned death messages off still hear about their own deaths and kills, and a vanished
- * player's name only reaches players who can see them.
+ * Builds and sends death messages, combat log announcements and kill streak lines, each to the players whose setting
+ * shows it ({@code death-messages}, {@code combat-log-announcements}, {@code kill-streak-announcements}). Player kills
+ * get a clean line ("Alex was killed by Sam using Diamond Sword", the weapon shows the item on hover); every other
+ * death keeps the game's own message, shown in the secondary colour. Players are named as they show themselves (a
+ * nickname in its colour, the real name on hover). The victim and the killer always hear about their own death and
+ * kill, and a vanished player's name only reaches players who can see them.
  */
 final class DeathMessages {
 
     private final Lang lang;
     private final PlayerSettings settings;
-    private final Toggle toggle;
+    private final Relations relations;
     private final Participants participants;
     private final Cosmetics cosmetics;
 
-    DeathMessages(Lang lang, PlayerSettings settings, Toggle toggle, Participants participants, Cosmetics cosmetics) {
+    DeathMessages(Lang lang, PlayerSettings settings, Relations relations, Participants participants, Cosmetics cosmetics) {
         this.lang = lang;
         this.settings = settings;
-        this.toggle = toggle;
+        this.relations = relations;
         this.participants = participants;
         this.cosmetics = cosmetics;
     }
@@ -78,18 +81,45 @@ final class DeathMessages {
     }
 
     /**
-     * Sends a line about a death to every online player who wants death messages, to the victim and the killer
-     * either way, and to the console. {@code everyone} ignores the setting (combat-log announcements). Players who
-     * can't see a vanished victim or killer never get the line.
+     * Sends a death message ("Alex was killed by Sam", or the game's own line) to the players whose
+     * {@code death-messages} choice shows it: all deaths, player kills only, or deaths and kills of their friends and
+     * teammates. {@code killer} is null for a death without a player.
      */
-    void send(Component message, UUID victim, UUID killer, boolean everyone) {
+    void death(Component message, UUID victim, UUID killer) {
+        boolean pvp = killer != null;
+        send(message, victim, killer, viewer -> {
+            DeathFilter filter = this.settings.get(viewer, CombatFeature.DEATH_MESSAGES);
+            return filter.shows(pvp, filter == DeathFilter.FRIENDS_TEAM && related(this.relations, viewer, victim, killer));
+        });
+    }
+
+    /** Sends "Alex logged out in combat" to the players who keep {@code combat-log-announcements} on. */
+    void logoutLine(Component message, UUID victim, UUID killer) {
+        send(message, victim, killer, viewer -> this.settings.get(viewer, CombatFeature.LOG_ANNOUNCEMENTS));
+    }
+
+    /** Sends a kill streak line to the players who keep {@code kill-streak-announcements} on. */
+    void streakLine(Component message, UUID victim, UUID killer) {
+        send(message, victim, killer, viewer -> this.settings.get(viewer, CombatFeature.STREAK_ANNOUNCEMENTS));
+    }
+
+    /** Whether the victim or the killer (null for none) is a friend or teammate of the viewer. */
+    static boolean related(Relations relations, UUID viewer, UUID victim, UUID killer) {
+        return relations.allows(Audience.FRIENDS_TEAM, viewer, victim) || (killer != null && relations.allows(Audience.FRIENDS_TEAM, viewer, killer));
+    }
+
+    /**
+     * Sends a line about a death to the victim and the killer either way, to every other online player {@code wants}
+     * says yes for, and to the console. Players who can't see a vanished victim or killer never get the line.
+     */
+    private void send(Component message, UUID victim, UUID killer, Predicate<UUID> wants) {
         for (Player online : Bukkit.getOnlinePlayers()) {
             UUID id = online.getUniqueId();
             boolean involved = id.equals(victim) || id.equals(killer);
             if (!involved && (!this.participants.visibleTo(online, victim) || !this.participants.visibleTo(online, killer))) {
                 continue;
             }
-            if (everyone || involved || this.settings.enabled(id, this.toggle)) {
+            if (involved || wants.test(id)) {
                 online.sendMessage(message);
             }
         }

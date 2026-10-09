@@ -6,22 +6,27 @@
 place:
   # The smallest amount one /bounty can add.
   minimum: 1k
-  # Bounties of at least this much ask for confirmation first. 0 never asks.
+  # Bounties of at least this much ask for confirmation first, for players on "Server default" in their Confirm
+  # bounties from setting (everyone who never changed it). Players can pick their own threshold instead (always,
+  # from $10k, $100k or $1m), which replaces this one for them. 0 never asks the players on the server default.
   confirm-above: 100k
   # Time between two bounties placed by the same player.
   cooldown: 5s
-  # Tell everyone in chat when a bounty is placed, if it is at least announce-above. 0 announces every bounty.
+  # Announce in chat when a bounty is placed, if it is at least announce-above. 0 announces every bounty.
+  # Each player filters what they see with their Bounty announcements setting (all, from an amount, or none).
   announce: true
   announce-above: 50k
-  # Tell the player that someone put money on their head.
+  # Tell the player that someone put money on their head, the way they pick in their Bounty on you alert setting
+  # (chat, above the hotbar, a title or not at all). false tells nobody and hides that setting.
   notify-target: true
   # Remind players with a bounty on their head when they join: "There is a $5,000 bounty on your head."
+  # Players can turn it off for themselves (Bounty reminder on join); false hides that setting.
   remind-on-join: true
 
 claim:
   # Part of a claimed bounty that is destroyed as tax, in percent (0 to 90). The killer gets the rest.
   tax-percent: 10
-  # Tell everyone in chat when a bounty is claimed.
+  # Announce in chat when a bounty is claimed, to the players whose Bounty announcements filter shows its amount.
   announce: true
   # Tell the sponsors who are online that their bounty was claimed.
   notify-sponsors: true

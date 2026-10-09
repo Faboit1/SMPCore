@@ -16,6 +16,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
+import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -42,7 +43,7 @@ class DeathTextTest {
         lang.register(CombatMessages.class);
         YamlConfiguration yaml = CombatResourcesTest.yaml("lang/combat.yml");
         assertEquals(List.of(), lang.load(yaml, yaml, "lang/combat.yml"));
-        messages = new DeathMessages(lang, null, CombatFeature.DEATH_MESSAGES, new Participants(VanishStatus.NONE), Cosmetics.NONE);
+        messages = new DeathMessages(lang, null, new Relations(), new Participants(VanishStatus.NONE), Cosmetics.NONE);
     }
 
     /** A death message shaped like the game's: a translation with a styled player name and a styled item. */

@@ -26,9 +26,17 @@ Bounties hook into counted kills through `PlayerKillCreditEvent` (see `bounties.
   feature's friendly-fire guard had their say.
 - Out of play: players in creative or spectator mode, vanished staff (`VanishStatus`) and players with
   `siftcore.combat.bypass` (default false). Their hits tag nobody and hits on them tag nobody.
-- One async timer runs once a second for the whole server. It sends `In combat 12s` on the action bar to every tagged
-  player, tells players whose tag ran out `You are no longer in combat.` exactly once, and prunes old hits and kill
-  pairs. It touches no world state. A player who dies or leaves is untagged without the end message.
+- A new tag (not a refresh) is told once, in the player's `combat-tag-alert` style (chat by default):
+  `You are in combat with Sam! Don't log out for 20s.` (a staff tag says `Staff put you in combat.`). Quiet in combat
+  never applies to combat's own alerts.
+- One async timer runs once a second for the whole server. It shows `In combat 12s` to every tagged player where
+  their `combat-timer-display` says (above the hotbar, on the shared boss bar through core `StatusBars`, both, or
+  nowhere), tells players whose tag ran out `You are no longer in combat.` exactly once in their `combat-end-notice`
+  style, and prunes old hits and kill pairs. It touches no world state: boss bar changes are handed to the player's
+  thread, which shows the bar only if the player is still in combat when it runs. A player who dies or leaves is
+  untagged on that same thread without the end message and the timer leaves their boss bar, so a bar the timer queued
+  just before the death can't come back after it (a frozen `In combat` bar after respawning).
+  `tag.action-bar: false` turns the timer off for everyone (the setting is then not offered).
 
 While tagged:
 
@@ -65,7 +73,10 @@ A credited kill is then decided, in this order (the first rule that applies is t
 
 Counted kills raise the killer's kills and streak (`StatsRecorder#kill`) and can claim a bounty. Kills that don't
 count are still logged, and the victim's death still counts (`StatsRecorder#death`), so a farmed kill never helps
-anyone. The repeated-pair rule is directional (A on B and B on A are different pairs) and is answered from memory:
+anyone. The killer is told the result in their `kill-feedback` style (above the hotbar by default):
+`Your kill on Alex counted. Kill streak 3.` or `Your kill on Alex didn't count: friends.` A shared IP address and a
+plugin's cancellation are never named (`Your kill on Alex didn't count.`). Staff with `siftcore.admin.combat` who chose
+`combat-logs-and-farming` get `Sam's kill on Alex didn't count: same IP address.` The repeated-pair rule is directional (A on B and B on A are different pairs) and is answered from memory:
 the counted kills of the last 24 hours are read back from the `kills` table at startup and every counted kill is
 added as it happens.
 
@@ -76,8 +87,14 @@ added as it happens.
   The same line is shown on the death screen.
 - Every other death keeps the game's own message (its translation, arguments and hovers) with every colour and
   decoration removed, shown in the secondary colour.
-- Each player chooses in their settings whether they see death messages (`death-messages` toggle, on by default).
+- Each player chooses which deaths of other players they see (`death-messages`, Server announcements): all (default),
+  only player kills, only deaths of their friends and teammates and kills they made (offered while the server has
+  friends or teams), or none. It was a switch: stored `true`/`false` rows and config entries read as all and none.
   The victim and the killer always see theirs, and so does the console.
+- After a death (not a combat log) the victim gets two private chat lines: where they died (`death-coordinates`,
+  on; only the world while streamer mode `hide-coordinates` is on) and, after a player kill, the killer's health
+  and weapon (`death-recap`, on): `Sam had 6.5 hearts left, using Diamond Sword.` The killer's health is read on the
+  killer's thread, which then sends the line.
 - Lines about a vanished player only reach the players involved and staff who can see vanished players.
 - `death-messages.enabled: false` leaves death messages to the game.
 - Players are named as they show themselves: a nickname in its colour, the real name on hover (`Cosmetics`). The
@@ -94,8 +111,8 @@ the lightning effect's bolt holds off while one of them is within sight; see `co
 
 The streak is kept by the stats (counted kills in a row without dying). After a counted kill, reaching a streak in
 `streaks.announce-at` is announced: `Alex is on a kill streak of 10.` When someone kills a player whose streak was at
-least `streaks.announce-ended-from`, that is announced too: `Sam ended Alex's kill streak of 12.` Both go to the same
-audience as death messages.
+least `streaks.announce-ended-from`, that is announced too: `Sam ended Alex's kill streak of 12.` Both go to the
+killer, the victim, the console and every player who keeps `kill-streak-announcements` on.
 
 ## Combat logging
 
@@ -104,13 +121,37 @@ also change the punishment), then:
 
 - `punishment: kill` (default): they die where they stand as they leave. Their items drop there, the death is
   processed like any other (the last player who hit them gets the kill, the anti-farm rules apply, any bounty on them
-  is claimed) and `Alex logged out in combat. Sam gets the kill.` replaces the death message, sent to everyone.
-- `punishment: none`: only the announcement `Alex logged out in combat.`
+  is claimed) and `Alex logged out in combat. Sam gets the kill.` replaces the death message, sent to every player
+  who keeps `combat-log-announcements` on (and to the players involved).
+- `punishment: none`: only the announcement `Alex logged out in combat.` (same audience).
 - Kicks are punished too (`punish-kicks`, on by default), otherwise getting kicked for spam would be a way out.
   Staff who want to kick someone in combat without killing them can `/combat untag` them first. Players online
   when the server stops are never punished (plugins get no quit event at shutdown).
 - Every combat log is written to the audit log (`combat.log`, with the punishment, the quit reason, the time left,
-  the last attacker and the location).
+  the last attacker and the location) and told to online staff with `siftcore.admin.combat` whose
+  `staff-combat-alerts` is not off: `Alex logged out in combat with 12s left. Last hit by Sam.`
+
+## Player settings
+
+Registered at construction (`CombatFeature.registerSettings`), text in `lang/combat.yml` under `combat.settings`.
+Settings that depend on `combat.yml` are only offered while the config turns the behaviour on.
+
+| Id | Group (order) | Options (default first) | Read in | Offered while |
+|---|---|---|---|---|
+| `combat-timer-display` | Combat & stats (1) | actionbar, bossbar, both, off | `TimerDisplay` from `CombatTimer.tick`, `CombatTagger` (first line), `CombatTagger.clear` | `tag.action-bar` |
+| `combat-tag-alert` | Combat & stats (2) | chat, actionbar, title, off | `CombatTagger.started` (new tags only) | always |
+| `kill-feedback` | Combat & stats (3) | actionbar, chat, title, off | `CombatListener.killFeedback` (`KillNotice.key`) | always |
+| `death-coordinates` | Combat & stats (4) | on | `CombatListener.location` (`CombatListener.locationLine`, reads `hide-coordinates`) | always |
+| `combat-end-notice` | Combat & stats (5) | actionbar, chat, title, off | `CombatTimer.tick` (ended tags, `CombatTimer.endNotice`) | always |
+| `death-recap` | Combat & stats (8) | on | `CombatListener.recap` | always |
+| `death-messages` | Server announcements (1) | all, pvp, friends-team, off (legacy `true`/`false`) | `DeathMessages.death` | `death-messages.enabled`; friends-team while friends or teams exist |
+| `kill-streak-announcements` | Server announcements (6) | on | `DeathMessages.streakLine` | a streak is announced (`announce-at` or `announce-ended-from`) |
+| `combat-log-announcements` | Server announcements (7) | on | `DeathMessages.logoutLine` | `logout.announce` |
+| `staff-combat-alerts` | Staff (10), `siftcore.admin.combat` | combat-logs, combat-logs-and-farming, off | `StaffNotices` | always |
+
+Title styles use their own short keys (`combat.tag.started-title`, `combat.tag.ended-title`,
+`combat.kill.counted-title`, `combat.kill.not-counted-title`). Combat's own alerts pass `quiet = false` to
+`Messenger.alert`, so quiet in combat never hides them.
 
 ## Commands and permissions
 
@@ -146,15 +187,15 @@ Staff commands work from the console.
 |---|---|---|
 | `tag.duration` | `20s` | How long a tag lasts after the last hit (1s-5m) |
 | `tag.pets` | `true` | Tamed animals tag for their owner |
-| `tag.action-bar` | `true` | Show the `In combat 12s` timer |
+| `tag.action-bar` | `true` | Show the `In combat 12s` timer (where: each player's `combat-timer-display`) |
 | `while-tagged.blocked-commands` | spawn, home, homes, sethome, tpa, tpahere, tpaccept, back, rtp, wild, warp, warps, team home, afk, ec, enderchest, craft, workbench, anvil, kit, kits, shop, shardshop, ah | Commands refused in combat |
 | `while-tagged.block-ender-pearls` | `false` | Refuse pearls in combat |
 | `while-tagged.disable-elytra` | `true` | No gliding in combat |
 | `while-tagged.block-spawn-entry` | `true` | Keep tagged players out of the protected spawn |
 | `logout.punishment` | `kill` | `kill` or `none` |
 | `logout.punish-kicks` | `true` | Also punish kicks |
-| `logout.announce` | `true` | Announce combat logs in chat |
-| `death-messages.enabled` | `true` | Replace and restyle death messages |
+| `logout.announce` | `true` | Announce combat logs in chat, to players who keep `combat-log-announcements` on |
+| `death-messages.enabled` | `true` | Replace and restyle death messages (each player's `death-messages` filters them) |
 | `death-messages.show-weapon` | `true` | `using <item>` with the item on hover |
 | `streaks.announce-at` | 5, 10, 15, 20, 25, 30, 40, 50, 75, 100 | Streaks announced when reached (`[]` turns it off) |
 | `streaks.announce-ended-from` | `5` | Ending a streak this long is announced (`0` turns it off) |
@@ -167,25 +208,48 @@ Everything applies with `/sift reload`.
 ## Self-test
 
 `/sift selftest` checks the anti-farm decision table, that the combat timer ran in the last 5 seconds, that no
-offline player is still tagged, and that the kill log can be read.
+offline player is still tagged, and that the kill log can be read. The settings self-test checks the combat settings'
+text and group sizes.
+
+## Tests
+
+Unit: `AntiFarmTest`, `TagTimingTest`, `CommandFilterTest`, `CombatRefusalsTest`, `KillTrackerFriendsTest`,
+`DeathTextTest`, `CombatResourcesTest` (config, every lang key, the setting lines), `CombatPlayerSettingsTest`
+(groups and order, legacy values and config entries of `death-messages`, config-dependent offering, the friends-team
+option, the death filter, kill notices and the kill confirmation line per style, the death location line with
+`death-coordinates` off and in streamer mode, the end notice per style, timer styles and boss bar progress, staff
+alert choices, recap hearts) and `TimerDisplayTest` (the boss bar timer across threads: a bar queued by the async
+timer before a death or the end of the tag never shows after it).
+End to end (`tools/e2e/CombatScenarios.java`): `combat-tag`, `combat-kill`, `combat-credit` (death messages off),
+`combat-log`, `combat-log-none`, `combat-pearl`, `combat-streak` (streak announcements switched off),
+`combat-team`, `combat-vanish`, `combat-pair-memory`, `combat-ex-friends`, `combat-settings` (the combat timer on the
+boss bar and the tag alert as a title through the dialog, a refresh that alerts nobody, staff untag clearing the bar,
+a boss bar player dying in combat and respawning without the timer, then through the API no timer, no tag alert and
+the end notice in chat and as a title) and `combat-death-settings` (kill confirmation counted, not counted in chat,
+as a title and off; the death location with coordinates, in streamer mode and off; the death recap switched off in
+the dialog; the death message filter for player kills only and for friends and teammates only; combat log
+announcements switched off; staff farming and combat log alerts, and none for a staff member who turned them off).
+The `/settings <id> <value>` command path is not covered yet: it comes with the settings dialog package.
 
 ## Design decisions
 
 **Threads.** Every handler runs on the thread that owns its event: hits on the victim's region, commands, moves,
 glides and pearl throws on the player's region, deaths and quits on the dying or leaving player's region. The
 attacker of a long shot may belong to another region, so the attacker is only messaged (packets) and their elytra is
-stopped on their own thread through the scheduler. The timer is async and only reads the tag map and sends packets.
+stopped on their own thread through the scheduler. The timer is async and only reads the tag map and sends packets;
+its boss bar lines run on the player's thread and check the tag there, the thread where death and quit end it.
 Kill log writes go to the database writer; nothing blocks a region thread.
 
 **Kill credit without the game's killer.** The game only credits a player when they dealt the final blow. Combat
 keeps the last hit per victim (attacker, time, weapon) for the tag window, so knocking someone into lava or the void
-is a kill, and the weapon of that last hit names the death message. Hits are kept only for players who were hit
+is a kill, and the weapon of that last hit names the death message and the victim's death recap. Hits are kept only for players who were hit
 recently and are dropped on death, on quit and once older than the window.
 
 **Two-stage death handling.** At `HIGHEST` the credit and the message are worked out while the event can still be
 changed (the game's broadcast is replaced, the death screen gets the same line). At `MONITOR` (and only if the death
-was not cancelled) the tag ends, the message is sent per recipient, the kill is decided, reported and logged, and
-streaks are announced.
+was not cancelled) the tag ends, the message is sent per recipient (each player's setting decides), the kill is
+decided, reported and logged, the victim gets their death location and recap, the killer their kill confirmation,
+and streaks are announced.
 
 **Combat logging kills on quit.** The quit handler runs at `LOW`, before other features save and forget the player,
 and kills the player through `setHealth(0)` while they are still in the world, so drops, kill credit, stats and the

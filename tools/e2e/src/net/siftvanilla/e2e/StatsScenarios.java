@@ -4,13 +4,17 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.StatsRecorder.Stat;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.economy.LedgerTx;
+import net.siftvanilla.siftcore.feature.stats.RankAlerts;
 import net.siftvanilla.siftcore.feature.stats.StatsFeature;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -21,9 +25,15 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
-/** Stats and leaderboards: the dialogs, every counter's real source, staff tools, placeholders and persistence. */
+/**
+ * Stats and leaderboards: the dialogs, every counter's real source, staff tools, placeholders, persistence and the
+ * stats settings (hiding from the leaderboards, climb alerts, balance privacy).
+ */
 final class StatsScenarios {
+
+    private static final String PRIVACY_PAGE = "Privacy settings";
 
     private StatsScenarios() {
     }
@@ -51,6 +61,7 @@ final class StatsScenarios {
         list.add(of("stats-top", StatsScenarios::top));
         list.add(of("stats-persist", StatsScenarios::persist));
         list.add(of("stats-vanish-playtime", StatsScenarios::vanishPlaytime));
+        list.add(of("stats-settings", StatsScenarios::settings));
         return list;
     }
 
@@ -81,6 +92,127 @@ final class StatsScenarios {
         } finally {
             e2e.console("deop " + modName);
         }
+    }
+
+    // ------------------------------------------------------------------ player settings
+
+    /**
+     * Hiding from the leaderboards (offered only with {@code siftcore.stats.hide}, switched on in the Privacy page,
+     * kept while offline, waiting for the permission when back without it), climb alerts (a choice in the dialog, then
+     * off through the API) and balance privacy for an offline player (hidden from players, shown to staff, the console
+     * and once the owner allows it again).
+     */
+    static void settings(E2E e2e) {
+        String hiderName = e2e.name("StHide");
+        String climberName = e2e.name("StClimb");
+        String privateName = e2e.name("StPriv");
+        String viewerName = e2e.name("StView");
+        Bot hider = e2e.bot(hiderName);
+        Bot climber = e2e.bot(climberName);
+        Bot owner = e2e.bot(privateName);
+        Bot viewer = e2e.bot(viewerName);
+        UUID hiderId = e2e.uuid(hiderName);
+        UUID climberId = e2e.uuid(climberName);
+        try {
+            e2e.step("a staff account leads the mobs board");
+            e2e.console("sift stats set " + hiderName + " mobs 900000000");
+            e2e.eventually(() -> stat(e2e, hiderId, Stat.MOBS_KILLED) == 900_000_000L, "set");
+            refreshBoards(e2e);
+            e2e.expect(hiderName.equals(top(e2e, "mobs", 1)), "first on mobs: " + top(e2e, "mobs", 1));
+
+            e2e.step("without siftcore.stats.hide the switch is not offered");
+            Map<String, List<String>> privacy = CombatScenarios.groupInputs(e2e, hider, "privacy", PRIVACY_PAGE);
+            e2e.expect(!privacy.containsKey("hide_from_leaderboards"), "no hide switch: " + privacy.keySet());
+            e2e.expect(List.of("everyone", "nobody").equals(privacy.get("balance_privacy"))
+                || List.of("everyone", "friends", "nobody").equals(privacy.get("balance_privacy")), "balance privacy: " + privacy);
+            e2e.expect(privacy.containsKey("hide_coordinates"), "streamer mode (read by death locations): " + privacy.keySet());
+
+            e2e.step("with the permission they hide through the Privacy page, and leave every board");
+            e2e.onPlayer(hiderName, () -> e2e.player(hiderName).addAttachment(harness(), SharedSettings.HIDE_FROM_LEADERBOARDS_NODE, true));
+            CombatScenarios.editSettings(e2e, hider, "privacy", PRIVACY_PAGE, Map.of("hide_from_leaderboards", true));
+            e2e.eventually(() -> hider.anyFeedbackContains("Hide me from leaderboards turned on"), "saved: " + hider.chat() + " " + hider.actionBar());
+            refreshBoards(e2e);
+            e2e.expect(!hiderName.equals(top(e2e, "mobs", 1)), "off the mobs board: " + top(e2e, "mobs", 1));
+            e2e.expect("0".equals(placeholder(e2e, hiderName, "top_mobs_rank")), "no place");
+
+            e2e.step("offline, the stored choice keeps them off");
+            hider.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(hiderName) == null, "left");
+            refreshBoards(e2e);
+            e2e.expect(!hiderName.equals(top(e2e, "mobs", 1)), "still off while offline: " + top(e2e, "mobs", 1));
+
+            e2e.step("back without the permission: listed again, the choice is kept for when they have it");
+            e2e.bot(hiderName);
+            refreshBoards(e2e);
+            e2e.expect(hiderName.equals(top(e2e, "mobs", 1)), "back on the board: " + top(e2e, "mobs", 1));
+            e2e.expect("true".equals(CombatScenarios.stored(e2e, hiderId, "hide-from-leaderboards")), "the choice is kept");
+
+            e2e.step("climb alerts at any place, through the dialog");
+            CombatScenarios.editSettings(e2e, climber, "combat", CombatScenarios.COMBAT_PAGE, Map.of("leaderboard_rank_alerts", "all"));
+            e2e.eventually(() -> climber.anyFeedbackContains("Leaderboard climb alerts set to Any place"), "saved: " + climber.chat());
+            climber.clearLogs();
+            e2e.console("sift stats set " + climberName + " blocks 950000000");
+            e2e.eventually(() -> stat(e2e, climberId, Stat.BLOCKS_MINED) == 950_000_000L, "set");
+            refreshBoards(e2e);
+            e2e.eventually(() -> climber.chatContains("You climbed to number 1 on the Blocks mined leaderboard."), "told: " + climber.chat());
+
+            e2e.step("off through the API: a new first place is not told");
+            CombatScenarios.set(e2e, climberName, StatsFeature.RANK_ALERTS, RankAlerts.OFF);
+            climber.clearLogs();
+            e2e.console("sift stats set " + climberName + " kills 950000000");
+            e2e.eventually(() -> stat(e2e, climberId, Stat.KILLS) == 950_000_000L, "set");
+            refreshBoards(e2e);
+            e2e.expect(climberName.equals(top(e2e, "kills", 1)), "first on kills");
+            e2e.sleep(500);
+            e2e.expect(!climber.chatContains("You climbed"), "no alert: " + climber.chat());
+
+            e2e.step("balance privacy: an offline player's balance is hidden from other players");
+            e2e.console("eco set " + privateName + " 12345");
+            e2e.eventually(() -> e2e.money(privateName) == 12_345, "funded");
+            CombatScenarios.set(e2e, privateName, SharedSettings.BALANCE_PRIVACY, Audience.NOBODY);
+            owner.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(privateName) == null, "left");
+            Bot.SeenDialog hidden = openStats(e2e, viewer, privateName, privateName + "'s stats");
+            expectBody(e2e, hidden, "Balance hidden");
+            e2e.expect(!hidden.bodyText().contains("$12,345"), "no amount: " + hidden.body());
+
+            e2e.step("staff, the console and the owner's change see it");
+            e2e.console("op " + viewerName);
+            Bot.SeenDialog staffView = openStats(e2e, viewer, privateName, privateName + "'s stats");
+            expectBody(e2e, staffView, "Balance $12,345");
+            e2e.console("deop " + viewerName);
+            String console = String.join("\n", CombatScenarios.output(e2e, "stats " + privateName, 1_000));
+            e2e.expect(console.contains("balance $12,345"), "the console:\n" + console);
+            CombatScenarios.set(e2e, privateName, SharedSettings.BALANCE_PRIVACY, Audience.EVERYONE);
+            Bot.SeenDialog open = openStats(e2e, viewer, privateName, privateName + "'s stats");
+            expectBody(e2e, open, "Balance $12,345");
+        } finally {
+            e2e.console("deop " + viewerName);
+            // These records would top later runs' boards.
+            e2e.console("sift stats reset " + hiderName);
+            e2e.console("sift stats reset " + climberName);
+        }
+    }
+
+    /** Rebuilds the leaderboards now and waits for it (retrying while a timed rebuild runs). */
+    private static void refreshBoards(E2E e2e) {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            List<String> lines = CombatScenarios.output(e2e, "sift stats refresh", 1_500);
+            if (String.join(" ", lines).contains("Leaderboards rebuilt")) {
+                return;
+            }
+            e2e.sleep(500);
+        }
+        throw new E2E.Failure("the leaderboards could not be rebuilt");
+    }
+
+    /** The name at a place of a board (works for offline players too). */
+    private static String top(E2E e2e, String board, int place) {
+        return e2e.services().placeholders().resolve(null, "top_" + board + "_name_" + place);
+    }
+
+    private static Plugin harness() {
+        return Bukkit.getPluginManager().getPlugin("SiftE2E");
     }
 
     // ------------------------------------------------------------------ helpers

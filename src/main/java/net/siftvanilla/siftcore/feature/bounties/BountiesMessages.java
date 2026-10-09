@@ -7,6 +7,8 @@ public final class BountiesMessages {
 
     public static final MessageKey PLACED = MessageKey.chat("bounties.place.placed", "amount", "name", "total");
     public static final MessageKey PLACED_TARGET = MessageKey.notify("bounties.place.target", "amount", "total");
+    /** {@link #PLACED_TARGET} as a title, for players who chose titles. */
+    public static final MessageKey PLACED_TARGET_TITLE = MessageKey.notify("bounties.place.target-title", "amount", "total");
     public static final MessageKey JOIN_REMINDER = MessageKey.chat("bounties.place.reminder", "total");
     public static final MessageKey PLACED_ANNOUNCE = MessageKey.chat("bounties.place.announce", "amount", "name", "total");
     public static final MessageKey PLACE_MINIMUM = MessageKey.error("bounties.place.minimum", "amount");
@@ -60,6 +62,15 @@ public final class BountiesMessages {
     public static final MessageKey ADMIN_NOTHING_EXPIRED = MessageKey.chat("bounties.admin.nothing-expired");
     public static final MessageKey ADMIN_FAILED = MessageKey.chat("bounties.admin.failed", "count");
     public static final MessageKey ADMIN_SUMMARY = MessageKey.chat("bounties.admin.summary", "targets", "total", "escrow", "rows");
+
+    public static final MessageKey SETTING_TARGET_ALERT = MessageKey.ui("bounties.settings.bounty-target-alert");
+    public static final MessageKey SETTING_TARGET_ALERT_DESCRIPTION = MessageKey.ui("bounties.settings.bounty-target-alert-description");
+    public static final MessageKey SETTING_ANNOUNCEMENTS = MessageKey.ui("bounties.settings.bounty-announcements");
+    public static final MessageKey SETTING_ANNOUNCEMENTS_DESCRIPTION = MessageKey.ui("bounties.settings.bounty-announcements-description");
+    public static final MessageKey SETTING_CONFIRM_ABOVE = MessageKey.ui("bounties.settings.bounty-confirm-above");
+    public static final MessageKey SETTING_CONFIRM_ABOVE_DESCRIPTION = MessageKey.ui("bounties.settings.bounty-confirm-above-description");
+    public static final MessageKey SETTING_JOIN_REMINDER = MessageKey.ui("bounties.settings.bounty-join-reminder");
+    public static final MessageKey SETTING_JOIN_REMINDER_DESCRIPTION = MessageKey.ui("bounties.settings.bounty-join-reminder-description");
 
     public static final MessageKey HUB_LABEL = MessageKey.ui("bounties.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("bounties.hub.description");

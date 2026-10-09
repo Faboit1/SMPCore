@@ -16,7 +16,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
  * Leaving in combat. With the kill punishment the player dies where they stand as they leave: their items drop
  * there, the death is processed like any other (the last player who hit them gets the kill, and any bounty on them
  * is claimed) and the announcement replaces the death message. With no punishment only the announcement is made.
- * Every combat log is written to the audit log.
+ * Every combat log is written to the audit log and told to staff who want combat alerts.
  */
 final class CombatLogs {
 
@@ -27,10 +27,11 @@ final class CombatLogs {
     private final AuditLog audit;
     private final PlayerDirectory directory;
     private final Participants participants;
+    private final StaffNotices staff;
     private final Set<UUID> leaving = ConcurrentHashMap.newKeySet();
 
     CombatLogs(Setting<CombatSettings> settings, CombatTags tags, CombatTagger tagger, DeathMessages messages, AuditLog audit,
-               PlayerDirectory directory, Participants participants) {
+               PlayerDirectory directory, Participants participants, StaffNotices staff) {
         this.settings = settings;
         this.tags = tags;
         this.tagger = tagger;
@@ -38,6 +39,7 @@ final class CombatLogs {
         this.audit = audit;
         this.directory = directory;
         this.participants = participants;
+        this.staff = staff;
     }
 
     /** True while a combat logger is being killed (their death message becomes the announcement). */
@@ -74,13 +76,14 @@ final class CombatLogs {
                 killed = player.isDead();
             }
             if (!killed && s.announceLogout()) {
-                this.messages.send(this.messages.logout(this.messages.name(id, player.getName()), null), id, null, true);
+                this.messages.logoutLine(this.messages.logout(this.messages.name(id, player.getName()), null), id, null);
             }
             this.audit.record(id.toString(), "combat.log", id.toString(), "punishment=" + log.punishment().name().toLowerCase(java.util.Locale.ROOT)
                 + ", killed=" + killed + ", reason=" + event.getReason().name().toLowerCase(java.util.Locale.ROOT)
                 + ", left=" + remaining.toMillis() + "ms, last attacker="
                 + (tag.lastAttacker() == null ? "none" : this.directory.name(tag.lastAttacker()) + " " + tag.lastAttacker())
                 + ", at=" + location(player));
+            this.staff.combatLog(id, player.getName(), remaining, tag.lastAttacker());
         } finally {
             this.tagger.clear(id);
         }

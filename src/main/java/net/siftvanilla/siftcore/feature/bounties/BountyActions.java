@@ -17,6 +17,9 @@ import net.siftvanilla.siftcore.api.event.BountyPlaceEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Announce;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
@@ -25,9 +28,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
- * What players and the server do with bounties: placing (checked, confirmed above a threshold, announced),
- * claiming on a counted kill, refunding expired contributions and staff removal. Every action re-checks its
- * inputs when it runs and leaves the money to one ledger transaction in {@link BountyService}.
+ * What players and the server do with bounties: placing (checked, confirmed above the sponsor's threshold,
+ * announced), claiming on a counted kill, refunding expired contributions and staff removal. Every action re-checks
+ * its inputs when it runs and leaves the money to one ledger transaction in {@link BountyService}. Announcements go
+ * to each player as their {@code bounty-announcements} filter says; the target is told in their
+ * {@code bounty-target-alert} style.
  */
 final class BountyActions {
 
@@ -130,11 +135,32 @@ final class BountyActions {
         if (!this.services.commands().cooldown(sponsor, PLACE_COOLDOWN, s.placeCooldown())) {
             return;
         }
-        if (s.confirmAbove() > 0 && amount >= s.confirmAbove()) {
+        if (asks(this.services.settings().get(sponsor, BountiesFeature.CONFIRM_ABOVE), amount, s.confirmAbove())) {
             confirm(sponsor, target, amount, done);
         } else {
             place(sponsor, target, amount, done);
         }
+    }
+
+    /**
+     * Whether placing {@code amount} asks for confirmation: the sponsor's {@code bounty-confirm-above} choice, where
+     * "server default" follows {@code place.confirm-above} ({@code serverAbove}, 0 never asks).
+     */
+    static boolean asks(ConfirmAbove choice, long amount, long serverAbove) {
+        return choice.asks(amount, serverAbove > 0 && amount >= serverAbove);
+    }
+
+    /**
+     * The target's line in their {@code bounty-target-alert} style: the short text for a title, the full line for chat
+     * and the action bar, and null when they turned it off. A title only while it shows as one: quiet in combat
+     * ({@code quiet}) turns it into a chat line, which gets the full text.
+     */
+    static MessageKey targetLine(AlertStyle style, boolean quiet) {
+        return switch (style) {
+            case OFF -> null;
+            case TITLE -> quiet ? BountiesMessages.PLACED_TARGET : BountiesMessages.PLACED_TARGET_TITLE;
+            default -> BountiesMessages.PLACED_TARGET;
+        };
     }
 
     private void confirm(Player sponsor, UUID target, long amount, Consumer<Player> done) {
@@ -189,12 +215,16 @@ final class BountyActions {
             Arg.text("name", targetName), Arg.money("total", total));
         Player online = Bukkit.getPlayer(target);
         if (online != null && s.notifyTarget()) {
-            this.services.messenger().send(online, BountiesMessages.PLACED_TARGET, Arg.money("amount", amount), Arg.money("total", total));
+            AlertStyle style = this.services.settings().get(target, BountiesFeature.TARGET_ALERT);
+            MessageKey line = targetLine(style, this.services.messenger().quietNow(target));
+            if (line != null) {
+                this.services.messenger().alert(online, style, line, Arg.money("amount", amount), Arg.money("total", total));
+            }
         }
         if (s.announcePlacements() && amount >= s.announceAbove()) {
             Component line = lang().get(BountiesMessages.PLACED_ANNOUNCE, Arg.money("amount", amount), Arg.text("name", targetName),
                 Arg.money("total", total));
-            broadcast(line, Set.of(sponsor.getUniqueId(), target));
+            broadcast(line, amount, Set.of(sponsor.getUniqueId(), target));
         }
         if (done != null) {
             done.accept(sponsor);
@@ -267,7 +297,7 @@ final class BountyActions {
         }
         if (s.announceClaims()) {
             broadcast(lang().get(BountiesMessages.CLAIM_ANNOUNCE, Arg.text("killer", killerName), Arg.money("total", split.total()),
-                Arg.text("name", victimName)), Set.of(claim.killer()));
+                Arg.text("name", victimName)), split.total(), Set.of(claim.killer()));
         }
         if (s.notifySponsors()) {
             for (UUID sponsor : claim.sponsors()) {
@@ -333,13 +363,22 @@ final class BountyActions {
         }
     }
 
-    /** Chat to every online player except {@code skip}, and the console. */
-    private static void broadcast(Component line, Set<UUID> skip) {
+    /**
+     * Chat to every online player except {@code skip} whose {@code bounty-announcements} filter shows a bounty of
+     * {@code amount}, and the console.
+     */
+    private void broadcast(Component line, long amount, Set<UUID> skip) {
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (!skip.contains(online.getUniqueId())) {
+            UUID id = online.getUniqueId();
+            if (!skip.contains(id) && shows(this.services.settings().get(id, BountiesFeature.ANNOUNCEMENTS), amount)) {
                 online.sendMessage(line);
             }
         }
         Bukkit.getConsoleSender().sendMessage(line);
+    }
+
+    /** Whether a player's announcement filter shows a bounty line about {@code amount}. */
+    static boolean shows(Announce filter, long amount) {
+        return filter.shows(amount);
     }
 }

@@ -7,7 +7,8 @@ tag:
   duration: 20s
   # Also tag players when someone's tamed animal (a wolf, for example) hurts them; the owner is tagged too.
   pets: true
-  # Show "In combat 12s" on the action bar while tagged.
+  # Show the "In combat 12s" timer while tagged. Each player picks where in their settings (Combat timer: above the
+  # hotbar, on the boss bar, both or nowhere). false turns the timer off for everyone and hides that setting.
   action-bar: true
 
 # What players can't do while in combat. Plugin teleports (homes, TPA, RTP, spawn, warps, team home) are always
@@ -58,23 +59,27 @@ logout:
   # kicked (for spam, for example) to escape. Staff who kick someone in combat can /combat untag them first.
   # Players who lose their connection or time out are always punished.
   punish-kicks: true
-  # Tell everyone in chat: "Alex logged out in combat." Every combat log is also written to the audit log.
+  # Say in chat "Alex logged out in combat." to the players who keep their Combat log announcements setting on (and
+  # to the player who gets the kill). Every combat log is also written to the audit log and told to staff, as their
+  # Staff combat alerts setting says, whatever this is.
   announce: true
 
 death-messages:
   # Replace player kill messages with "Alex was killed by Sam." and show every other death message in gray.
-  # Players can turn death messages off in their settings (they still see their own deaths and kills).
-  # false leaves death messages to the game.
+  # Each player picks which deaths of others they see in their settings (Death messages: all, only player kills,
+  # only friends and teammates, or none); they always see their own deaths and kills.
+  # false leaves death messages to the game and hides that setting.
   enabled: true
   # Add "using <item>" when the killer held an item; hovering it shows the item.
   show-weapon: true
 
-# Kill streaks: counted kills in a row without dying (they are kept by the stats). Announcements go to everyone
-# who has death messages on, and to the players concerned.
+# Kill streaks: counted kills in a row without dying (they are kept by the stats). Announcements go to the players
+# who keep their Kill streak announcements setting on, and always to the killer and the victim. With both lines
+# turned off here, that setting is not offered.
 streaks:
-  # Tell everyone when a player reaches one of these streaks: "Alex is on a kill streak of 10." [] turns it off.
+  # Announce when a player reaches one of these streaks: "Alex is on a kill streak of 10." [] turns it off.
   announce-at: [5, 10, 15, 20, 25, 30, 40, 50, 75, 100]
-  # Tell everyone when a player kills someone whose streak was at least this long:
+  # Announce when a player kills someone whose streak was at least this long:
   # "Sam ended Alex's kill streak of 12." 0 turns it off.
   announce-ended-from: 5
 

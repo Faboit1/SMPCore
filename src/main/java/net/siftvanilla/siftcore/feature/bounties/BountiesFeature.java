@@ -2,13 +2,24 @@ package net.siftvanilla.siftcore.feature.bounties;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.logging.Level;
+import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.event.PlayerKillCreditEvent;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Announce;
+import net.siftvanilla.siftcore.core.player.options.Choices;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -24,8 +35,26 @@ import org.bukkit.event.player.PlayerJoinEvent;
  * Bounties: players put money on other players' heads (it waits in the bounty escrow), whoever gets a counted kill
  * on them claims it minus a tax, and contributions nobody claims are refunded after a while. Kills come from the
  * combat feature through {@link PlayerKillCreditEvent}, so the anti-farm rules apply to claims too.
+ * <p>
+ * Player settings: how the target is told about a bounty on them, when placing asks for confirmation and the join
+ * reminder (Combat &amp; stats), and which bounty announcements a player sees (Server announcements).
  */
 public final class BountiesFeature implements Feature, Listener {
+
+    /** How a player is told someone put money on their head. */
+    public static final Choice<AlertStyle> TARGET_ALERT = Choices.alert("bounty-target-alert", AlertStyle.CHAT,
+        AlertStyle.CHAT, AlertStyle.ACTIONBAR, AlertStyle.TITLE, AlertStyle.OFF)
+        .text(BountiesMessages.SETTING_TARGET_ALERT, BountiesMessages.SETTING_TARGET_ALERT_DESCRIPTION).build();
+    /** Which new and claimed bounties a player sees in chat: all, from an amount, or none. */
+    public static final Choice<Announce> ANNOUNCEMENTS = Choices.announce("bounty-announcements", Currency.MONEY, "100k", "1m", "10m")
+        .text(BountiesMessages.SETTING_ANNOUNCEMENTS, BountiesMessages.SETTING_ANNOUNCEMENTS_DESCRIPTION).build();
+    /** From which amount placing a bounty asks first. No "never": a bounty can't be taken back. */
+    public static final Choice<ConfirmAbove> CONFIRM_ABOVE = Choices.confirmAbove("bounty-confirm-above", Currency.MONEY, false,
+            "10k", "100k", "1m")
+        .text(BountiesMessages.SETTING_CONFIRM_ABOVE, BountiesMessages.SETTING_CONFIRM_ABOVE_DESCRIPTION).build();
+    /** The reminder of the bounty on a player's head when they join. */
+    public static final Toggle JOIN_REMINDER = new Toggle("bounty-join-reminder", true, BountiesMessages.SETTING_JOIN_REMINDER,
+        BountiesMessages.SETTING_JOIN_REMINDER_DESCRIPTION, null);
 
     private static final long JOIN_REMINDER_DELAY_TICKS = 60L;
 
@@ -43,6 +72,7 @@ public final class BountiesFeature implements Feature, Listener {
         this.settings = services.configs().register("features/bounties.yml",
             reader -> BountiesSettings.parse(reader, services.core().get().money()), problems);
         services.lang().register(BountiesMessages.class);
+        registerSettings(services.settings(), this.settings::get);
         var perms = services.permissions();
         perms.declare(BountyCommands.USE, "See bounties with /bounties", true);
         perms.declare(BountyCommands.PLACE, "Put bounties on players with /bounty <player> <amount>", true);
@@ -51,6 +81,17 @@ public final class BountiesFeature implements Feature, Listener {
         this.actions = new BountyActions(services, this.settings, this.service);
         this.views = new BountyViews(services, this.settings, this.actions);
         this.commands = new BountyCommands(services, this.settings, this.actions, this.views);
+    }
+
+    /** Registers the bounty settings in their groups, in the catalog's order; config-dependent ones only while it is on. */
+    static void registerSettings(PlayerSettings prefs, Supplier<BountiesSettings> config) {
+        prefs.register(SettingCategories.COMBAT, TARGET_ALERT, SettingOptions.<AlertStyle>builder().order(6)
+            .availableWhen(() -> config.get().notifyTarget()).build());
+        prefs.register(SettingCategories.COMBAT, CONFIRM_ABOVE, SettingOptions.<ConfirmAbove>builder().order(10).build());
+        prefs.register(SettingCategories.COMBAT, JOIN_REMINDER, SettingOptions.<Boolean>builder().order(11)
+            .availableWhen(() -> config.get().remindOnJoin()).build());
+        prefs.register(SettingCategories.ANNOUNCEMENTS, ANNOUNCEMENTS, SettingOptions.<Announce>builder().order(4)
+            .availableWhen(() -> config.get().announcePlacements() || config.get().announceClaims()).build());
     }
 
     @Override
@@ -123,16 +164,20 @@ public final class BountiesFeature implements Feature, Listener {
         this.actions.claim(event.killer(), event.victim());
     }
 
-    /** Reminds a player with a bounty on their head, a moment after they joined (so the line is not lost). */
+    /**
+     * Reminds a player with a bounty on their head, a moment after they joined (so the line is not lost), unless
+     * they turned the reminder off.
+     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        if (!this.settings.get().remindOnJoin() || this.service.book().total(event.getPlayer().getUniqueId()) <= 0) {
+        Player player = event.getPlayer();
+        if (!this.settings.get().remindOnJoin() || this.service.book().total(player.getUniqueId()) <= 0
+            || !this.services.settings().get(player.getUniqueId(), JOIN_REMINDER)) {
             return;
         }
-        Player player = event.getPlayer();
         this.services.scheduler().entityLater(player, () -> {
             long total = this.service.book().total(player.getUniqueId());
-            if (total > 0 && player.isOnline()) {
+            if (total > 0 && player.isOnline() && this.services.settings().get(player.getUniqueId(), JOIN_REMINDER)) {
                 this.services.messenger().send(player, BountiesMessages.JOIN_REMINDER, Arg.money("total", total));
             }
         }, null, JOIN_REMINDER_DELAY_TICKS);

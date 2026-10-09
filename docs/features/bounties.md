@@ -17,14 +17,20 @@ leaving in combat.
 - The target must have joined the server before; you can't target yourself; the amount is at least
   `place.minimum` ($1,000) and parses like every amount (`1500`, `1.5k`, `2m`).
 - Bounties stack: every placement is a separate contribution, and the bounty on a player is the sum of all of them.
-- Above `place.confirm-above` ($100k) a confirmation dialog shows the exact amount, the tax and when it runs out.
+- A confirmation dialog shows the exact amount, the tax and when it runs out from the sponsor's
+  `bounty-confirm-above` (Server default follows `place.confirm-above`, $100k, where `0` never asks; Always; or from
+  $10k, $100k or $1m). There is no Never: a bounty can't be taken back. A preset replaces the server's amount for
+  that player, stricter or looser (from $1m skips the server's $100k question), as core `ConfirmAbove` decides for
+  every "confirm from" setting; `place.confirm-above` only sets what Server default means.
 - `place.cooldown` (5s) between two placements of the same player.
 - The cancellable `BountyPlaceEvent` fires, then one ledger transaction moves the money from the sponsor to the
   escrow (kind `bounty_place`), adds the contribution to the in-memory book and inserts its `bounties` row, all or
   nothing. Every check runs again when the transaction runs, under the economy lock.
-- The sponsor gets a receipt, the target a notice (`notify-target`), and everyone else a chat announcement when the
-  amount is at least `announce-above` ($50k). Targets are reminded of the bounty on their head when they join
-  (`remind-on-join`).
+- The sponsor gets a receipt, the target a notice (`notify-target`) in their `bounty-target-alert` style (chat,
+  above the hotbar, a title `Bounty on you: $5,000`, or off; the sponsor stays anonymous), and everyone else a chat
+  announcement when the amount is at least `announce-above` ($50k) and their `bounty-announcements` filter shows it.
+  Targets are reminded of the bounty on their head when they join (`remind-on-join`, unless they turned
+  `bounty-join-reminder` off).
 
 ## Claiming
 
@@ -37,7 +43,20 @@ and paying (claimed, refunded or added at the same moment), the claim is planned
 money (the balance limit), the bounty stays.
 
 The killer gets `You claimed $18,000 for killing Alex. $2,000 went to tax.`, everyone else an announcement
-(`claim.announce`) and the sponsors a notice (`claim.notify-sponsors`).
+(`claim.announce`) when their `bounty-announcements` filter shows the claimed total, and the sponsors a notice
+(`claim.notify-sponsors`).
+
+## Player settings
+
+Registered at construction (`BountiesFeature.registerSettings`), text in `lang/bounties.yml` under
+`bounties.settings`. The config rules stay the master switches: a setting is only offered while its message is sent.
+
+| Id | Group (order) | Options (default first) | Read in | Offered while |
+|---|---|---|---|---|
+| `bounty-target-alert` | Combat & stats (6) | chat, actionbar, title, off | `BountyActions.placed` (`BountyActions.targetLine`; title: `bounties.place.target-title`; quiet in combat turns it into the chat line) | `place.notify-target` |
+| `bounty-confirm-above` | Combat & stats (10) | server, always, 10k, 100k, 1m | `BountyActions.request` (`BountyActions.asks`) | always |
+| `bounty-join-reminder` | Combat & stats (11) | on | `BountiesFeature.onJoin` (checked again when the reminder is sent) | `place.remind-on-join` |
+| `bounty-announcements` | Server announcements (4) | all, 100k, 1m, 10m, off | `BountyActions.broadcast` (placements by amount, claims by the claimed total) | `place.announce` or `claim.announce` |
 
 ## Expiry and refunds
 
@@ -92,13 +111,13 @@ The ledger also fires `EconomyTransactionEvent` for placements and claims (refun
 | Key | Default | Meaning |
 |---|---|---|
 | `place.minimum` | `1k` | Smallest amount per placement |
-| `place.confirm-above` | `100k` | Ask for confirmation from this amount (`0` never asks) |
+| `place.confirm-above` | `100k` | Ask players on Server default (`bounty-confirm-above`) for confirmation from this amount (`0` never asks them) |
 | `place.cooldown` | `5s` | Between two placements of one player (0s-10m) |
-| `place.announce` / `announce-above` | `true` / `50k` | Announce placements of at least this much |
-| `place.notify-target` | `true` | Tell the target |
-| `place.remind-on-join` | `true` | Remind players of their bounty when they join |
+| `place.announce` / `announce-above` | `true` / `50k` | Announce placements of at least this much (each player's `bounty-announcements` filters further) |
+| `place.notify-target` | `true` | Tell the target (in their `bounty-target-alert` style) |
+| `place.remind-on-join` | `true` | Remind players of their bounty when they join (unless their `bounty-join-reminder` is off) |
 | `claim.tax-percent` | `10` | Destroyed part of a claim (0-90) |
-| `claim.announce` | `true` | Announce claims |
+| `claim.announce` | `true` | Announce claims (filtered by each player's `bounty-announcements`) |
 | `claim.notify-sponsors` | `true` | Tell online sponsors their bounty was claimed |
 | `expiry.after` | `14d` | When a contribution goes back to its sponsor (1h-365d) |
 | `expiry.check-every` | `5m` | Expiry timer period (30s-1h; rescheduled on reload) |
@@ -117,3 +136,13 @@ transaction fails its check in memory, or its write in storage and is reverted.
 
 **Threads.** Claims run on the victim's thread inside the death event; placement runs on the sponsor's thread; the
 expiry timer is async. The ledger is safe from any thread and messages are packets. Nothing waits on the database.
+Player settings are read from memory (by UUID for the target and the announcement audience, so another region's
+player is never touched).
+
+## Tests
+
+Unit: `BountyBookTest`, `BountyMathTest`, `BountyServiceTest`, `BountiesResourcesTest` and `BountySettingsTest`
+(groups and order, config-dependent offering, the confirmation threshold against the server rule, the target alert
+line per style, the announcement filter). End to end (`tools/e2e/CombatScenarios.java`): `bounty-place`,
+`bounty-claim`, `bounty-admin` and `bounty-settings` (the target alert as a title through the dialog and above the
+hotbar through the API, the announcement filter and confirmation threshold through the API, the join reminder).

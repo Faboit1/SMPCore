@@ -147,6 +147,26 @@ class CombatResourcesTest {
     }
 
     @Test
+    void settingLinesRender() {
+        Arg alex = Arg.text("name", "Alex");
+        assertEquals("You are in combat with Alex! Don't log out for 20s.", lang.plain(CombatMessages.TAG_STARTED, alex,
+            Arg.time("time", Duration.ofSeconds(20))));
+        assertEquals("Your kill on Alex counted. Kill streak 3.", lang.plain(CombatMessages.KILL_COUNTED, alex, Arg.number("streak", 3)));
+        assertEquals("Your kill on Alex didn't count: friends.", lang.plain(CombatMessages.KILL_NOT_COUNTED, alex,
+            Arg.text("reason", lang.plain(CombatMessages.REASON_FRIENDS))));
+        assertEquals("Your kill on Alex didn't count.", lang.plain(CombatMessages.KILL_NOT_COUNTED_PLAIN, alex));
+        assertEquals("You died at 12, -64, -3,500 in world.", lang.plain(CombatMessages.DEATH_LOCATION, Arg.text("world", "world"),
+            Arg.number("x", 12), Arg.number("y", -64), Arg.number("z", -3_500)));
+        assertEquals("You died in world_nether.", lang.plain(CombatMessages.DEATH_LOCATION_HIDDEN, Arg.text("world", "world_nether")));
+        assertEquals("Sam had 6.5 hearts left, using Diamond Sword.", lang.plain(CombatMessages.DEATH_RECAP_USING,
+            Arg.text("killer", "Sam"), Arg.decimal("hearts", 6.5), Arg.component("item", Component.text("Diamond Sword"))));
+        assertEquals("Alex logged out in combat with 12s left. Last hit by Sam.", lang.plain(CombatMessages.STAFF_COMBAT_LOG, alex,
+            Arg.time("time", Duration.ofSeconds(12)), Arg.text("attacker", "Sam")));
+        assertEquals("Out of combat", lang.plain(CombatMessages.TAG_ENDED_TITLE));
+        assertEquals("Player kills", lang.plain(CombatMessages.OPTION_DEATHS_PVP));
+    }
+
+    @Test
     void messagesHaveNoLeftoverTagsOrStraySpaces() {
         for (MessageKey key : lang.registered().values()) {
             Arg[] args = key.placeholders().stream().map(name -> Arg.text(name, "x")).toArray(Arg[]::new);

@@ -46,8 +46,59 @@ public final class CombatMessages {
     public static final MessageKey REASON_REPEATED_PAIR = MessageKey.ui("combat.reason.repeated-pair");
     public static final MessageKey REASON_CANCELLED = MessageKey.ui("combat.reason.cancelled");
 
+    /** A new combat tag (not a refresh) from a hit: the {@code combat-tag-alert} setting picks where it shows. */
+    public static final MessageKey TAG_STARTED = MessageKey.chat("combat.tag.started", "name", "time");
+    public static final MessageKey TAG_STARTED_TITLE = MessageKey.chat("combat.tag.started-title", "name", "time");
+    /** A new combat tag given by staff (no opponent). */
+    public static final MessageKey TAG_STARTED_STAFF = MessageKey.chat("combat.tag.started-staff", "time");
+    public static final MessageKey TAG_STARTED_STAFF_TITLE = MessageKey.chat("combat.tag.started-staff-title", "time");
+    /** The combat timer on the boss bar ({@code combat-timer-display}). */
+    public static final MessageKey TAG_BOSS_BAR = MessageKey.ui("combat.tag.boss-bar", "time");
+    /** The end of combat as a title ({@code combat-end-notice}); the other styles use {@link #TAG_ENDED}. */
+    public static final MessageKey TAG_ENDED_TITLE = MessageKey.chat("combat.tag.ended-title");
+
+    /** The killer's own result ({@code kill-feedback}). */
+    public static final MessageKey KILL_COUNTED = MessageKey.chat("combat.kill.counted", "name", "streak");
+    public static final MessageKey KILL_COUNTED_TITLE = MessageKey.chat("combat.kill.counted-title", "name", "streak");
+    public static final MessageKey KILL_NOT_COUNTED = MessageKey.chat("combat.kill.not-counted", "name", "reason");
+    public static final MessageKey KILL_NOT_COUNTED_PLAIN = MessageKey.chat("combat.kill.not-counted-plain", "name");
+    public static final MessageKey KILL_NOT_COUNTED_TITLE = MessageKey.chat("combat.kill.not-counted-title", "name");
+
+    /** The victim's private lines after a death ({@code death-coordinates}, {@code death-recap}). */
+    public static final MessageKey DEATH_LOCATION = MessageKey.chat("combat.death.location", "world", "x", "y", "z");
+    public static final MessageKey DEATH_LOCATION_HIDDEN = MessageKey.chat("combat.death.location-hidden", "world");
+    public static final MessageKey DEATH_RECAP = MessageKey.chat("combat.death.recap", "killer", "hearts");
+    public static final MessageKey DEATH_RECAP_USING = MessageKey.chat("combat.death.recap-using", "killer", "hearts", "item");
+
+    /** Staff alerts ({@code staff-combat-alerts}). */
+    public static final MessageKey STAFF_COMBAT_LOG = MessageKey.chat("combat.staff.combat-log", "name", "time", "attacker");
+    public static final MessageKey STAFF_COMBAT_LOG_NO_HIT = MessageKey.chat("combat.staff.combat-log-no-hit", "name", "time");
+    public static final MessageKey STAFF_NOT_COUNTED = MessageKey.chat("combat.staff.not-counted", "killer", "victim", "reason");
+
     public static final MessageKey SETTING_DEATH_MESSAGES = MessageKey.ui("combat.settings.death-messages");
     public static final MessageKey SETTING_DEATH_MESSAGES_DESCRIPTION = MessageKey.ui("combat.settings.death-messages-description");
+    public static final MessageKey SETTING_STREAKS = MessageKey.ui("combat.settings.kill-streak-announcements");
+    public static final MessageKey SETTING_STREAKS_DESCRIPTION = MessageKey.ui("combat.settings.kill-streak-announcements-description");
+    public static final MessageKey SETTING_LOG_ANNOUNCEMENTS = MessageKey.ui("combat.settings.combat-log-announcements");
+    public static final MessageKey SETTING_LOG_ANNOUNCEMENTS_DESCRIPTION = MessageKey.ui("combat.settings.combat-log-announcements-description");
+    public static final MessageKey SETTING_TIMER = MessageKey.ui("combat.settings.combat-timer-display");
+    public static final MessageKey SETTING_TIMER_DESCRIPTION = MessageKey.ui("combat.settings.combat-timer-display-description");
+    public static final MessageKey SETTING_TAG_ALERT = MessageKey.ui("combat.settings.combat-tag-alert");
+    public static final MessageKey SETTING_TAG_ALERT_DESCRIPTION = MessageKey.ui("combat.settings.combat-tag-alert-description");
+    public static final MessageKey SETTING_KILL_FEEDBACK = MessageKey.ui("combat.settings.kill-feedback");
+    public static final MessageKey SETTING_KILL_FEEDBACK_DESCRIPTION = MessageKey.ui("combat.settings.kill-feedback-description");
+    public static final MessageKey SETTING_DEATH_COORDINATES = MessageKey.ui("combat.settings.death-coordinates");
+    public static final MessageKey SETTING_DEATH_COORDINATES_DESCRIPTION = MessageKey.ui("combat.settings.death-coordinates-description");
+    public static final MessageKey SETTING_END_NOTICE = MessageKey.ui("combat.settings.combat-end-notice");
+    public static final MessageKey SETTING_END_NOTICE_DESCRIPTION = MessageKey.ui("combat.settings.combat-end-notice-description");
+    public static final MessageKey SETTING_DEATH_RECAP = MessageKey.ui("combat.settings.death-recap");
+    public static final MessageKey SETTING_DEATH_RECAP_DESCRIPTION = MessageKey.ui("combat.settings.death-recap-description");
+    public static final MessageKey SETTING_STAFF_ALERTS = MessageKey.ui("combat.settings.staff-combat-alerts");
+    public static final MessageKey SETTING_STAFF_ALERTS_DESCRIPTION = MessageKey.ui("combat.settings.staff-combat-alerts-description");
+
+    public static final MessageKey OPTION_DEATHS_PVP = MessageKey.ui("combat.settings.options.pvp");
+    public static final MessageKey OPTION_STAFF_LOGS = MessageKey.ui("combat.settings.options.combat-logs");
+    public static final MessageKey OPTION_STAFF_LOGS_FARMING = MessageKey.ui("combat.settings.options.combat-logs-and-farming");
 
     private CombatMessages() {
     }

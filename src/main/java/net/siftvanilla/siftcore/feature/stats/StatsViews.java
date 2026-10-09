@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
@@ -13,6 +14,9 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.Relations;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.dialog.Button;
@@ -21,11 +25,15 @@ import org.bukkit.entity.Player;
 
 /**
  * Everything players see: the stats dialog, the leaderboard dialogs, the leaderboard picker, and the chat versions
- * for the console and /playtime. Dialogs are rebuilt from current data every time they open, never reused.
+ * for the console and /playtime. Dialogs are rebuilt from current data every time they open, never reused. Another
+ * player's balance shows only when their {@code balance-privacy} allows the viewer (staff with
+ * {@value #BALANCE_BYPASS} and the console always see it).
  */
 final class StatsViews {
 
     static final String TOP_PERMISSION = "siftcore.command.top";
+    /** Staff who manage balances see every balance. */
+    static final String BALANCE_BYPASS = "siftcore.admin.eco";
     private static final int BOARD_BUTTON_WIDTH = 100;
 
     private final Services services;
@@ -44,17 +52,43 @@ final class StatsViews {
 
     /** Opens a player's stats for the viewer; offline players are loaded first. {@code back} null shows Close. */
     void openStats(Player viewer, UUID target, Button.Handler back) {
-        withStats(target, viewer, stats -> showStats(viewer, target, stats, back),
+        withStats(target, viewer, stats -> withBalanceVisibility(viewer, target, visible -> showStats(viewer, target, stats, visible, back)),
             () -> this.services.messenger().send(viewer, StatsMessages.LOAD_FAILED));
     }
 
-    private void showStats(Player viewer, UUID target, StatsSnapshot stats, Button.Handler back) {
+    /**
+     * Runs {@code then} on the viewer's thread with whether they may see the target's balance: always their own, and
+     * staff with {@value #BALANCE_BYPASS}; otherwise the target's {@code balance-privacy} (read from the database when
+     * they are offline) decides. A failed read keeps the balance hidden.
+     */
+    private void withBalanceVisibility(Player viewer, UUID target, Consumer<Boolean> then) {
+        UUID id = viewer.getUniqueId();
+        if (id.equals(target) || viewer.hasPermission(BALANCE_BYPASS)) {
+            then.accept(true);
+            return;
+        }
+        Relations relations = this.services.relations();
+        CompletableFuture<Audience> audience = this.services.settings().lookup(target, SharedSettings.BALANCE_PRIVACY);
+        if (audience.isDone() && !audience.isCompletedExceptionally()) {
+            then.accept(balanceVisible(relations, audience.join(), target, id));
+            return;
+        }
+        audience.whenComplete((chosen, error) -> this.services.scheduler().entity(viewer,
+            () -> then.accept(error == null && balanceVisible(relations, chosen, target, id)), null));
+    }
+
+    /** Whether {@code viewer} may see {@code target}'s balance under the target's choice. */
+    static boolean balanceVisible(Relations relations, Audience chosen, UUID target, UUID viewer) {
+        return chosen != null && relations.allows(chosen, target, viewer);
+    }
+
+    private void showStats(Player viewer, UUID target, StatsSnapshot stats, boolean balance, Button.Handler back) {
         Lang lang = this.services.lang();
         boolean self = viewer.getUniqueId().equals(target);
         Component title = self
             ? lang.get(StatsMessages.VIEW_TITLE_SELF)
             : lang.get(StatsMessages.VIEW_TITLE_OTHER, Arg.text("name", this.services.directory().name(target)));
-        List<Component> body = new ArrayList<>(lang.lines(StatsMessages.VIEW_BODY, statArgs(target, stats)));
+        List<Component> body = new ArrayList<>(lang.lines(StatsMessages.VIEW_BODY, statArgs(target, stats, balance)));
         List<Button> buttons = new ArrayList<>();
         if (viewer.hasPermission(TOP_PERMISSION)) {
             body.add(Component.empty());
@@ -70,7 +104,7 @@ final class StatsViews {
     /** Prints a player's stats in chat (console). */
     void printStats(CommandSender sender, UUID target) {
         withStats(target, null, stats -> {
-            Arg[] stat = statArgs(target, stats);
+            Arg[] stat = statArgs(target, stats, true);
             Arg[] args = new Arg[stat.length + 1];
             args[0] = Arg.text("name", this.services.directory().name(target));
             System.arraycopy(stat, 0, args, 1, stat.length);
@@ -122,7 +156,8 @@ final class StatsViews {
         });
     }
 
-    private Arg[] statArgs(UUID target, StatsSnapshot stats) {
+    /** The stat placeholders; {@code balance} false shows "hidden" instead of the balance. */
+    private Arg[] statArgs(UUID target, StatsSnapshot stats, boolean balance) {
         return new Arg[] {
             Arg.number("kills", stats.kills()),
             Arg.number("deaths", stats.deaths()),
@@ -133,7 +168,8 @@ final class StatsViews {
             Arg.number("mobs", stats.mobs()),
             Arg.number("blocks", stats.blocks()),
             Arg.money("earned", stats.earned()),
-            Arg.money("balance", this.services.ledger().balance(target, Currency.MONEY))
+            balance ? Arg.money("balance", this.services.ledger().balance(target, Currency.MONEY))
+                : Arg.component("balance", this.services.lang().get(StatsMessages.BALANCE_HIDDEN))
         };
     }
 
