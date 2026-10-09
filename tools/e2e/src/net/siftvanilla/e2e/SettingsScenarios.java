@@ -811,8 +811,10 @@ final class SettingsScenarios {
         Map<String, Object> option = backToForm.values();
         option.put("query", "above the hotbar");
         e2e.click(bot, "Search", option);
+        // Many settings offer "above the hotbar", so the results can span pages.
+        Set<String> byOptionKeys = keysAcrossPages(e2e, bot, "Search: above the hotbar");
+        e2e.expect(byOptionKeys.contains("feedback_channel"), "the feedback channel: " + byOptionKeys);
         Bot.SeenDialog byOption = page(e2e, bot, "Search: above the hotbar");
-        e2e.expect(byOption.inputs().containsKey("feedback_channel"), "the feedback channel: " + byOption.inputs());
 
         e2e.step("no match: a notice, and Back returns to the form");
         e2e.click(bot, "Back", byOption.values());

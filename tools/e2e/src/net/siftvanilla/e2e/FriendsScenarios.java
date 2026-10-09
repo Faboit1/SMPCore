@@ -1014,7 +1014,7 @@ final class FriendsScenarios {
         Bot.SeenDialog after = e2e.dialog(d, "Friend requests");
         e2e.eventually(() -> "0".equals(placeholder(e2e, eli, "friends_requests")), "cancelled: " + requests.body() + " -> " + after.body());
 
-        e2e.step("Settings: the Friends & teams page of the settings dialog, saved through the registry, Back to the list");
+        e2e.step("Settings: the Friends & teams page of the settings dialog, saved through the registry, back to the friends list");
         Bot.SeenDialog friendsList = open(e2e, d, "friend", "Friends");
         e2e.click(d, "Settings");
         Bot.SeenDialog settingsForm = e2e.dialog(d, SOCIAL_PAGE);
@@ -1032,8 +1032,7 @@ final class FriendsScenarios {
         d.clearMessages();
         e2e.click(d, "Save", changed);
         e2e.eventually(() -> d.anyFeedbackContains("Saved 4 settings."), "saved: " + d.actionBar() + " " + d.chat());
-        e2e.dialog(d, "Settings");
-        e2e.click(d, "Back");
+        // Opened from the friends list, Save (like Back) returns there.
         e2e.dialog(d, "Friends");
         e2e.expect(friendsList != null, "the list was open before");
         e2e.expect("known".equals(stored(e2e, e2e.uuid(dee), "friends-requests")), "stored as before: known");
