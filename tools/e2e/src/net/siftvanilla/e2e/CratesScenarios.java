@@ -17,12 +17,17 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.minecraft.world.inventory.ContainerInput;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
+import net.siftvanilla.siftcore.api.event.CrateOpenEvent;
 import net.siftvanilla.siftcore.economy.Ledger;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.feature.crates.CratePlayerSettings;
 import net.siftvanilla.siftcore.feature.crates.CratesFeature;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -31,6 +36,9 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
@@ -82,6 +90,7 @@ final class CratesScenarios {
         list.add(of("crates-spawn-block", CratesScenarios::spawnBlock));
         list.add(of("crates-persist-setup", CratesScenarios::persistSetup));
         list.add(of("crates-persist-check", CratesScenarios::persistCheck));
+        list.add(of("crates-settings", CratesScenarios::settings));
         return list;
     }
 
@@ -435,7 +444,8 @@ final class CratesScenarios {
             e2e.expect(logRows(e2e, uuid) == 3, "three openings logged");
 
             e2e.step("a player who turned crate wins off in the settings is not told");
-            e2e.services().settings().set(e2e.uuid(watcherName), CratesFeature.WIN_ANNOUNCEMENTS, false);
+            e2e.services().settings().set(e2e.uuid(watcherName), CratesFeature.WIN_ANNOUNCEMENTS, CratePlayerSettings.WinFilter.OFF,
+                Change.api("e2e"));
             watcher.clearLogs();
             bot.clearLogs();
             e2e.sleep(600);
@@ -444,7 +454,8 @@ final class CratesScenarios {
             e2e.eventually(() -> bot.chatContains("You won $1,234 from the Cash crate."), "the receipt: " + bot.chat());
             e2e.sleep(1_000);
             e2e.expect(!watcher.chatContains("won $1,234"), "no announcement with the setting off: " + watcher.chat());
-            e2e.services().settings().set(e2e.uuid(watcherName), CratesFeature.WIN_ANNOUNCEMENTS, true);
+            e2e.services().settings().set(e2e.uuid(watcherName), CratesFeature.WIN_ANNOUNCEMENTS, CratePlayerSettings.WinFilter.ALL,
+                Change.api("e2e"));
             ledgerHealthy(e2e);
         } finally {
             restore(e2e, original);
@@ -1139,5 +1150,198 @@ final class CratesScenarios {
         e2e.expect(countdown.startsWith("2h") || countdown.startsWith("3h") && !countdown.startsWith("3h 5"), "the live countdown follows it: "
             + countdown);
         answer(e2e, "keyall in 4h", "The next keyall is in 4h.");
+    }
+
+    // ------------------------------------------------------------------ player settings
+
+    private static void sneaking(E2E e2e, String name, boolean sneaking) {
+        e2e.onPlayer(name, () -> {
+            e2e.player(name).setSneaking(sneaking);
+            return null;
+        });
+    }
+
+    /**
+     * The crate settings change what players get: the win receipt above the hotbar and 3 keys per bulk open (a choice
+     * and a number, saved in the settings dialog), only the rarest wins announced, sneak + right-click opening several
+     * keys or the crate window, the keyall countdown in chat only and the unopened key reminder off (choices and a
+     * switch set through the API, as other plugins and the coming /settings command set them).
+     */
+    static void settings(E2E e2e) throws Exception {
+        String original = install(e2e);
+        String position = null;
+        try {
+            String name = e2e.name("CrSet");
+            String watcherName = e2e.name("CrSetW");
+            Bot bot = e2e.bot(name);
+            Bot watcher = e2e.bot(watcherName);
+            UUID uuid = e2e.uuid(name);
+            UUID watcherId = e2e.uuid(watcherName);
+            clear(e2e, name);
+
+            e2e.step("the crate settings are in Crates & kits and Server announcements, with their options");
+            Map<String, List<String>> inputs = ItemSettingsSteps.inputs(e2e, bot, "crates", "Crates & kits settings");
+            e2e.expect(List.of("chat", "actionbar", "off").equals(inputs.get("crate_receipt")), "the receipt choice: " + inputs);
+            e2e.expect(List.of("toggle").equals(inputs.get("crate_key_reminder")), "the key reminder switch: " + inputs);
+            e2e.expect(List.of("both", "chat", "actionbar", "off").equals(inputs.get("keyall_countdown")), "the countdown: " + inputs);
+            e2e.expect(List.of("one", "bulk", "off").equals(inputs.get("crate_quick_open")), "the quick open choice: " + inputs);
+            e2e.expect(List.of("range").equals(inputs.get("crate_bulk_amount")), "the bulk amount slider: " + inputs);
+            e2e.expect(!inputs.containsKey("trash_protect"), "no trash settings without the trash perk: " + inputs);
+            Bot.RangeSeen slider = ItemSettingsSteps.pageWith(e2e, bot, "crates", "Crates & kits settings", "crate_bulk_amount")
+                .range("crate_bulk_amount");
+            e2e.expect(slider != null && slider.start() == 2f && slider.end() == 64f && slider.initial() == 10f
+                && slider.label().contains("keys"), "the slider runs 2 to 64 keys from 10: " + slider);
+            Map<String, List<String>> announcements = ItemSettingsSteps.inputs(e2e, bot, "announcements", "Server announcements settings");
+            e2e.expect(List.of("all", "rarest", "off").equals(announcements.get("crate_wins")), "crate wins is a choice: " + announcements);
+
+            e2e.step("the receipt above the hotbar and 3 keys per bulk open, saved in the settings dialog");
+            ItemSettingsSteps.edit(e2e, bot, "crates", "Crates & kits settings", Map.of("crate_receipt", "actionbar", "crate_bulk_amount", 3f));
+            e2e.eventually(() -> bot.anyFeedbackContains("Saved 2 settings"), "saved: " + bot.chat() + " " + bot.actionBar());
+            ItemSettingsSteps.expectStored(e2e, uuid, "crate-receipt", "actionbar");
+            ItemSettingsSteps.expectStored(e2e, uuid, "crate-bulk-amount", "3");
+
+            e2e.step("an opening's receipt now shows above the hotbar, not in chat");
+            e2e.console("keys give " + name + " e2etest 8");
+            e2e.eventually(() -> keys(e2e, name, "e2etest") == 8, "eight Test keys");
+            bot.clearLogs();
+            e2e.sleep(1_200);
+            command(e2e, bot, "crates open e2etest");
+            e2e.eventually(() -> bot.actionBarContains("You won 5 diamonds from the Test crate."), "the receipt above the hotbar: "
+                + bot.actionBar());
+            e2e.sleep(500);
+            e2e.expect(!bot.chatContains("You won 5 diamonds"), "no receipt in chat: " + bot.chat());
+
+            e2e.step("the crate result offers Open 3 more, which opens three keys with one short receipt");
+            bot.clearLogs();
+            command(e2e, bot, "crates");
+            e2e.dialog(bot, "Crates");
+            e2e.click(bot, "Open Test");
+            Bot.SeenDialog first = awaitBody(e2e, bot, "You won 5 diamonds");
+            e2e.expect(first.button("Open 3 more") != null && first.button("Open 10 more") == null, "three per bulk open: " + first.buttons());
+            bot.clearMessages();
+            e2e.click(bot, "Open 3 more");
+            awaitBody(e2e, bot, "You opened 3 crates");
+            e2e.eventually(() -> bot.actionBarContains("You opened 3 Test crates. Best: 5 diamonds"), "the short receipt: " + bot.actionBar());
+            e2e.expect(!bot.chatContains("You opened 3 Test crates."), "no list in chat: " + bot.chat());
+            e2e.eventually(() -> keys(e2e, name, "e2etest") == 3, "three keys left: " + keys(e2e, name, "e2etest"));
+
+            e2e.step("a bulk opening a plugin stops after two: the short receipt stays above the hotbar, the reason goes to chat");
+            StopThird stopper = new StopThird(uuid);
+            Bukkit.getPluginManager().registerEvents(stopper, e2e.services().plugin());
+            try {
+                bot.clearLogs();
+                e2e.sleep(1_200);
+                command(e2e, bot, "crates open e2etest 3");
+                e2e.eventually(() -> bot.chatContains("The Test crate didn't open."), "the reason in chat: " + bot.chat());
+                e2e.expect(bot.actionBarContains("You opened 2 Test crates. Best: 5 diamonds"), "the short receipt above the hotbar: "
+                    + bot.actionBar());
+                e2e.expect(!bot.actionBarContains("didn't open"), "the reason did not replace the receipt: " + bot.actionBar());
+                e2e.expect(keys(e2e, name, "e2etest") == 1, "two keys spent, the stopped one kept: " + keys(e2e, name, "e2etest"));
+            } finally {
+                HandlerList.unregisterAll(stopper);
+            }
+            e2e.console("keys give " + name + " e2etest 2");
+            e2e.eventually(() -> keys(e2e, name, "e2etest") == 3, "three keys again");
+
+            e2e.step("a player who wants only the rarest wins is not told about an epic win (set through the API)");
+            e2e.console("eco set " + name + " 0");
+            e2e.eventually(() -> e2e.money(name) == 0, "no money");
+            ItemSettingsSteps.set(e2e, watcherId, CratesFeature.WIN_ANNOUNCEMENTS, CratePlayerSettings.WinFilter.RAREST);
+            ItemSettingsSteps.expectStored(e2e, watcherId, "crate-wins", "rarest");
+            e2e.console("keys give " + name + " e2ecash 2");
+            e2e.eventually(() -> keys(e2e, name, "e2ecash") == 2, "two Cash keys");
+            watcher.clearLogs();
+            e2e.sleep(1_200);
+            command(e2e, bot, "crates open e2ecash");
+            e2e.eventually(() -> e2e.money(name) == 1_234, "paid (has " + e2e.money(name) + ")");
+            e2e.sleep(1_000);
+            e2e.expect(!watcher.chatContains("won $1,234"), "the epic win is not the rarest: " + watcher.chat());
+            ItemSettingsSteps.set(e2e, watcherId, CratesFeature.WIN_ANNOUNCEMENTS, CratePlayerSettings.WinFilter.ALL);
+            ItemSettingsSteps.expectStored(e2e, watcherId, "crate-wins", null);
+            e2e.sleep(1_200);
+            command(e2e, bot, "crates open e2ecash");
+            e2e.eventually(() -> watcher.chatContains(name + " won $1,234 from the Cash crate."), "every win again: " + watcher.chat());
+
+            e2e.step("sneak + right-click on a crate block opens the bulk amount at once (set through the API)");
+            ItemSettingsSteps.set(e2e, uuid, CratePlayerSettings.QUICK_OPEN, CratePlayerSettings.QuickOpen.BULK);
+            int[] at = spot(e2e, name);
+            String world = e2e.onPlayer(name, () -> e2e.player(name).getWorld().getName());
+            position = world + " " + at[0] + " " + at[1] + " " + at[2];
+            answer(e2e, "crates block add e2etest " + position, position + " is now the Test crate.");
+            int diamonds = count(e2e, name, Material.DIAMOND);
+            sneaking(e2e, name, true);
+            bot.clearLogs();
+            e2e.sleep(1_200);
+            bot.useItemOnTop(at[0], at[1], at[2]);
+            e2e.eventually(() -> bot.actionBarContains("You opened 3 Test crates."), "three opened from the block: " + bot.actionBar());
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == diamonds + 15, "15 more diamonds");
+            e2e.expect(keys(e2e, name, "e2etest") == 0, "every key used");
+
+            e2e.step("with Sneak + right-click set to the crate window it only shows the crate");
+            ItemSettingsSteps.set(e2e, uuid, CratePlayerSettings.QUICK_OPEN, CratePlayerSettings.QuickOpen.OFF);
+            e2e.console("keys give " + name + " e2etest 1");
+            e2e.eventually(() -> keys(e2e, name, "e2etest") == 1, "a key");
+            e2e.sleep(1_200);
+            bot.useItemOnTop(at[0], at[1], at[2]);
+            Bot.SeenDialog view = e2e.dialog(bot, "Test crate");
+            e2e.expect(view.button("Open") != null, "the crate window: " + view.buttons());
+            e2e.sleep(800);
+            e2e.expect(keys(e2e, name, "e2etest") == 1, "nothing opened");
+            sneaking(e2e, name, false);
+            answer(e2e, "crates block remove " + position, position + " is no longer a crate.");
+            position = null;
+
+            e2e.step("the keyall countdown in chat only (set through the API): the chat line comes, the hotbar count doesn't");
+            ItemSettingsSteps.set(e2e, uuid, CratePlayerSettings.KEYALL_COUNTDOWN, AlertStyle.CHAT);
+            int basic = keys(e2e, name, "basic");
+            bot.clearLogs();
+            watcher.clearLogs();
+            answer(e2e, "keyall in 65s", "The next keyall is in 1m 5s.");
+            e2e.eventually(() -> bot.chatContains("Keyall in 1m. Everyone online gets 1 Basic key."), 15_000, "the 1m line: " + bot.chat());
+            e2e.eventually(() -> watcher.actionBarContains("Keyall in 10s"), 65_000, "the watcher (both) counts down: " + watcher.actionBar());
+            e2e.expect(watcher.chatContains("Keyall in 1m."), "the watcher got the chat line too: " + watcher.chat());
+            e2e.eventually(() -> keys(e2e, name, "basic") == basic + 1, 20_000, "the keyall gave a basic key");
+            e2e.expect(bot.actionBar().stream().noneMatch(line -> line.contains("Keyall in")), "no hotbar count for chat only: "
+                + bot.actionBar());
+            e2e.eventually(() -> bot.chatContains("Keyall: everyone online got 1 Basic key."), "the keyall line always shows: " + bot.chat());
+
+            e2e.step("the unopened key reminder off (set through the API): no reminder on join, while the watcher gets one");
+            ItemSettingsSteps.set(e2e, uuid, CratePlayerSettings.KEY_REMINDER, false);
+            ItemSettingsSteps.expectStored(e2e, uuid, "crate-key-reminder", "false");
+            bot.quit();
+            watcher.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(name) == null && Bukkit.getPlayerExact(watcherName) == null, "both left");
+            e2e.sleep(1_000);
+            Bot back = e2e.botAtSpawn(name);
+            Bot watcherBack = e2e.botAtSpawn(watcherName);
+            e2e.eventually(() -> watcherBack.chatContains("You have 1 key to open."), 15_000, "the watcher's reminder: " + watcherBack.chat());
+            e2e.sleep(1_500);
+            e2e.expect(!back.chatContains("to open."), "no reminder with the setting off: " + back.chat());
+            ledgerHealthy(e2e);
+        } finally {
+            if (position != null) {
+                e2e.console("crates block remove " + position);
+            }
+            answer(e2e, "keyall in 4h", "The next keyall is in 4h.");
+            restore(e2e, original);
+        }
+    }
+
+    /** Cancels a player's third crate opening (a plugin stopping a bulk opening part way). */
+    private static final class StopThird implements Listener {
+
+        private final UUID player;
+        private final AtomicInteger seen = new AtomicInteger();
+
+        StopThird(UUID player) {
+            this.player = player;
+        }
+
+        @EventHandler
+        public void on(CrateOpenEvent event) {
+            if (event.player().getUniqueId().equals(this.player) && this.seen.incrementAndGet() == 3) {
+                event.setCancelled(true);
+            }
+        }
     }
 }

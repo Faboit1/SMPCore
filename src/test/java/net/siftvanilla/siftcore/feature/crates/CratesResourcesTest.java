@@ -95,5 +95,25 @@ class CratesResourcesTest {
         assertEquals("You won 3 diamonds from the Basic crate.", TextStyle.plain(lang.get(CratesMessages.WON,
             Arg.component("reward", text.reward(new Reward("d", 1, "common", "3 diamonds", true, null,
                 new Reward.Item("minecraft:diamond", 3, null, List.of(), java.util.Map.of())))), Arg.text("name", "Basic"))));
+        assertEquals("You opened 10 Basic crates. Best: $750", TextStyle.plain(lang.get(CratesMessages.BATCH_WON_SHORT,
+            Arg.number("count", 10), Arg.text("name", "Basic"), Arg.text("reward", "$750"))));
+    }
+
+    @Test
+    void settingTextsReadWell() throws Exception {
+        Lang lang = lang();
+        YamlConfiguration file = yaml("lang/crates.yml");
+        lang.load(file, file, "lang/crates.yml");
+        assertEquals(" keys", lang.plain(CratesMessages.UNIT_KEYS), "the unit keeps its space");
+        assertEquals("10 keys", CratePlayerSettings.BULK_AMOUNT.display(lang, 10L));
+        assertEquals("Crate win announcements", lang.plain(CratePlayerSettings.WIN_ANNOUNCEMENTS.label()));
+        assertEquals("Rarest only", lang.plain(CratePlayerSettings.WinFilter.RAREST.label()));
+        assertEquals("Crate window", lang.plain(CratePlayerSettings.QuickOpen.OFF.label()));
+        for (MessageKey key : List.of(CratePlayerSettings.RECEIPT.description(), CratePlayerSettings.KEY_REMINDER.description(),
+            CratePlayerSettings.KEYALL_COUNTDOWN.description(), CratePlayerSettings.QUICK_OPEN.description(),
+            CratePlayerSettings.BULK_AMOUNT.description(), CratePlayerSettings.WIN_ANNOUNCEMENTS.description())) {
+            String plain = lang.plain(key);
+            assertTrue(plain.endsWith("."), key.path() + " is a sentence: " + plain);
+        }
     }
 }

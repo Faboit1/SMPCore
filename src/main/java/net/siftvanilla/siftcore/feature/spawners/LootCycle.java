@@ -2,8 +2,11 @@ package net.siftvanilla.siftcore.feature.spawners;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.random.RandomGenerator;
@@ -176,9 +179,14 @@ final class LootCycle {
         return false;
     }
 
-    /** Adds a chunk's loot to the storages in one pass under the economy lock, as much as fits. */
+    /**
+     * Adds a chunk's loot to the storages in one pass under the economy lock, as much as fits. Owners of storages that
+     * are full and still owed a Full storage alert (filled this cycle, or earlier while the alert was held back) are
+     * asked about afterwards ({@link FullAlerts}).
+     */
     private void store(List<Made> made, SpawnersSettings s) {
         long now = System.currentTimeMillis();
+        Set<UUID> owed = new HashSet<>();
         this.ledger.locked(() -> {
             for (Made m : made) {
                 ManagedSpawner spawner = m.spawner();
@@ -210,11 +218,17 @@ final class LootCycle {
                     spawner.dirty(true);
                 }
                 spawner.active(now, added < total);
+                if (spawner.alertOwed()) {
+                    owed.add(spawner.owner);
+                }
                 this.itemsMade.addAndGet(added);
                 this.itemsLost.addAndGet(total - added);
             }
             return null;
         });
+        if (!owed.isEmpty()) {
+            this.service.storageFull(owed);
+        }
     }
 
     long cycles() {

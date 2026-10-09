@@ -33,7 +33,7 @@ stacking:
 
 interaction:
   # Whether opening the storage needs sneaking (right click with an empty hand). With false, any right click with
-  # an empty hand opens it.
+  # an empty hand opens it. Players can pick otherwise in /settings (Spawners, Open spawner storage with).
   open-requires-sneak: true
   # /spawners can open a spawner's storage when the player is within this many blocks of it, in the same world.
   # 0 means only at the spawner itself. Staff with siftcore.spawners.bypass can open any spawner from anywhere.
@@ -50,7 +50,8 @@ breaking:
   #   claim-box: they go to the owner's claim box.
   #   sell:      everything that sells is sold for the owner (at their sell bonus when online); the rest goes to
   #              their claim box.
-  # Stored XP goes to the player who picks the spawner up.
+  # Stored XP goes to the player who picks the spawner up. Owners can pick otherwise for their own pickups in
+  # /settings (Spawners, Storage when I pick up my spawner); teammates and staff always follow this.
   storage: claim-box
   # A spawner whose storage would need more claim box stacks than this can't be picked up until it's emptied
   # (sold or taken out). Keeps a single pickup from flooding a claim box.
@@ -68,7 +69,8 @@ natural-spawners:
   silk-touch-pickup: false
 
 xp:
-  # Collected XP repairs items with Mending first, like picking up XP orbs does.
+  # Collected XP repairs items with Mending first, like picking up XP orbs does. Players can pick otherwise in
+  # /settings (Spawners, Spawner XP and mending).
   apply-mending: true
 
 # Spawners per page in /spawners.

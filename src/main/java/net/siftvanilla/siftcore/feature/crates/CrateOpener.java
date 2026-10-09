@@ -18,7 +18,7 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
@@ -102,16 +102,14 @@ final class CrateOpener {
     private final CrateText text;
     private final VanishStatus vanish;
     private final CombatStatus combat;
-    private final Toggle announcements;
     private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
 
     /**
      * @param vanish        vanished winners are never announced
      * @param combat        players in combat can't open crates (when {@code block-in-combat} is on)
-     * @param announcements the per-player setting that hides other players' announced wins
      */
     CrateOpener(Services services, Setting<CratesSettings> settings, KeyService keys, RewardItems items, Handouts handouts,
-                RewardCommands commands, CrateLog log, CrateText text, VanishStatus vanish, CombatStatus combat, Toggle announcements) {
+                RewardCommands commands, CrateLog log, CrateText text, VanishStatus vanish, CombatStatus combat) {
         this.services = services;
         this.settings = settings;
         this.keys = keys;
@@ -122,26 +120,71 @@ final class CrateOpener {
         this.text = text;
         this.vanish = vanish;
         this.combat = combat;
-        this.announcements = announcements;
     }
 
     /**
-     * The chat receipt of several openings in a row (a single opening already sent its own), plus the reason they
-     * stopped early on the action bar, if they did.
+     * The receipt of several openings in a row (a single opening already sent its own), plus the reason they stopped
+     * early, if they did. The receipt shows where the player's Crate win receipt setting says: the whole list in chat,
+     * how many and the rarest reward above the hotbar, or nothing. Rewards that went to the claim box are always told
+     * in chat. The stop reason goes where refusals go, except in chat when the receipt took the action bar (it would
+     * replace the receipt there at once). Player's thread.
      */
     void receipt(Player player, Batch batch) {
+        AlertStyle shown = AlertStyle.OFF;
         if (batch.wins().size() > 1) {
-            Component rewards = Component.join(JoinConfiguration.newlines(), this.text.wins(batch.wins()));
-            this.services.messenger().send(player, batch.inClaimBox() > 0 ? CratesMessages.BATCH_WON_CLAIM_BOX : CratesMessages.BATCH_WON,
-                Arg.number("count", batch.wins().size()), Arg.text("name", batch.crate().name()), Arg.component("rewards", rewards));
+            Arg count = Arg.number("count", batch.wins().size());
+            Arg name = Arg.text("name", batch.crate().name());
+            AlertStyle style = this.services.settings().get(player, CratePlayerSettings.RECEIPT);
+            if (batch.inClaimBox() > 0 || style == AlertStyle.CHAT) {
+                Component rewards = Component.join(JoinConfiguration.newlines(), this.text.wins(batch.wins()));
+                this.services.messenger().send(player, batch.inClaimBox() > 0 ? CratesMessages.BATCH_WON_CLAIM_BOX : CratesMessages.BATCH_WON,
+                    count, name, Arg.component("rewards", rewards));
+                shown = AlertStyle.CHAT;
+            } else {
+                this.services.messenger().alert(player, style, CratesMessages.BATCH_WON_SHORT, count, name,
+                    Arg.component("reward", this.text.reward(rarest(batch).reward())));
+                shown = style;
+            }
         } else if (batch.wins().size() == 1) {
             Won won = batch.wins().getFirst();
-            this.services.messenger().send(player, won.inClaimBox() > 0 ? CratesMessages.WON_CLAIM_BOX : CratesMessages.WON,
-                Arg.component("reward", this.text.reward(won.reward())), Arg.text("name", won.crate().name()));
+            shown = wonLine(player, won.crate(), won.reward(), won.inClaimBox());
         }
-        if (batch.stoppedBy() != null) {
-            report(player, batch.stoppedBy());
+        Refused stopped = batch.stoppedBy();
+        if (stopped != null) {
+            if (CratePlayerSettings.stopReasonInChat(shown)) {
+                this.services.messenger().alert(player, AlertStyle.CHAT, stopped.key(), stopped.argArray());
+            } else {
+                report(player, stopped);
+            }
         }
+    }
+
+    /** The rarest win of a batch (the first one of the rarest rarity won). */
+    Won rarest(Batch batch) {
+        List<Rarity> rarities = this.settings.get().rarities();
+        Won rarest = batch.wins().getFirst();
+        for (Won won : batch.wins()) {
+            if (rarities.indexOf(won.rarity()) > rarities.indexOf(rarest.rarity())) {
+                rarest = won;
+            }
+        }
+        return rarest;
+    }
+
+    /**
+     * The "You won" line of one opening, where the player's Crate win receipt setting says; a reward waiting in the
+     * claim box is always told in chat (the player must learn where it is). Returns where it went. Player's thread.
+     */
+    private AlertStyle wonLine(Player player, Crate crate, Reward reward, int inClaimBox) {
+        Arg rewardArg = Arg.component("reward", this.text.reward(reward));
+        Arg name = Arg.text("name", crate.name());
+        if (inClaimBox > 0) {
+            this.services.messenger().send(player, CratesMessages.WON_CLAIM_BOX, rewardArg, name);
+            return AlertStyle.CHAT;
+        }
+        AlertStyle style = this.services.settings().get(player, CratePlayerSettings.RECEIPT);
+        this.services.messenger().alert(player, style, CratesMessages.WON, rewardArg, name);
+        return style;
     }
 
     /** Sends a refusal to the player on the action bar. */
@@ -344,7 +387,7 @@ final class CrateOpener {
                 "crate=" + crate.id() + " reward=" + reward.id() + " rarity=" + rarity.id() + " display=" + reward.display() + " ref=" + ref);
         }
         if (rarity.announce() && !this.vanish.vanished(uuid)) {
-            announce(player, crate, reward);
+            announce(player, crate, reward, rarity);
         }
         this.commands.run(ref, commands);
         // The player left (or the server is stopping) before this can run: the items stay in the claim box for them.
@@ -362,20 +405,20 @@ final class CrateOpener {
         UUID uuid = player.getUniqueId();
         this.opening.remove(uuid);
         if (receipt) {
-            Arg rewardArg = Arg.component("reward", this.text.reward(reward));
-            Arg name = Arg.text("name", crate.name());
-            this.services.messenger().send(player, inClaimBox > 0 ? CratesMessages.WON_CLAIM_BOX : CratesMessages.WON, rewardArg, name);
+            wonLine(player, crate, reward, inClaimBox);
         }
         done.accept(new Won(crate, reward, rarity, inClaimBox, this.keys.keys(uuid, crate.id())));
     }
 
-    private void announce(Player winner, Crate crate, Reward reward) {
+    /** Tells everyone else whose Crate win announcements let this win through (every win, or only the rarest rarity). */
+    private void announce(Player winner, Crate crate, Reward reward, Rarity rarity) {
         Arg player = Arg.text("player", winner.getName());
         Arg rewardArg = Arg.component("reward", this.text.reward(reward));
         Arg name = Arg.text("name", crate.name());
+        List<Rarity> rarities = this.settings.get().rarities();
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (!online.getUniqueId().equals(winner.getUniqueId())
-                && this.services.settings().enabled(online.getUniqueId(), this.announcements)) {
+            if (!online.getUniqueId().equals(winner.getUniqueId()) && CratePlayerSettings.showsWin(
+                this.services.settings().get(online.getUniqueId(), CratePlayerSettings.WIN_ANNOUNCEMENTS), rarity, rarities)) {
                 this.services.messenger().send(online, CratesMessages.ANNOUNCE, player, rewardArg, name);
             }
         }

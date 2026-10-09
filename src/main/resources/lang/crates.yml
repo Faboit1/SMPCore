@@ -32,6 +32,8 @@ crates:
     # The receipt after several openings in a row: one line per reward, with how often it was won.
     batch: "<primary>You opened <count> <name> crates.<newline><rewards>"
     batch-claim-box: "<primary>You opened <count> <name> crates.<newline><rewards><newline><secondary>Some of it didn't fit, so it's waiting in your claim box (/claims)."
+    # The same, for players whose crate receipts show above the hotbar: how many, and the rarest reward won.
+    batch-short: "<primary>You opened <count> <name> crates. <secondary>Best: <primary><reward>"
     batch-line: "<primary><reward><secondary>, <times> times"
     batch-line-once: "<primary><reward>"
     bulk-limit: "<primary>You can open at most <max> crates at once."
@@ -143,9 +145,27 @@ crates:
     source-file: "from crates.yml"
     source-placed: "placed in game"
 
+  # The crate settings in /settings (Server announcements, and Crates & kits).
   settings:
-    wins: "Crate wins"
-    wins-description: "Tell me when someone wins something big from a crate"
+    wins: "Crate win announcements"
+    wins-description: "Other players' crate wins in chat: every announced win, only the rarest rarity, or none."
+    receipt: "Crate win receipt"
+    receipt-description: "Where your own win line shows. Rewards sent to your claim box are always told in chat."
+    key-reminder: "Unopened key reminder"
+    key-reminder-description: "Remind you on join when you still have crate keys to open."
+    keyall: "Keyall countdown"
+    keyall-description: "How the keyall countdown shows. The 'everyone got keys' line always shows."
+    quick-open: "Sneak + right-click a crate"
+    quick-open-description: "Open one key, open several, or open the normal crate window instead."
+    bulk-amount: "Keys per bulk open"
+    bulk-amount-description: "How many keys 'Open n' and right-click in the preview open at once. Never more than the server allows."
+    # Written right after the number, like "10 keys".
+    unit-keys: " keys"
+    options:
+      rarest: "Rarest only"
+      quick-one: "One key"
+      quick-bulk: "Several keys"
+      quick-off: "Crate window"
 
   hub:
     label: "Crates"

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,8 +19,10 @@ import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.economy.Deliveries;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 /**
  * Moves kit items from the claim box into the inventory. A claim puts the kit's items into the claim box inside its
@@ -167,8 +170,21 @@ final class KitHandouts {
                     return;
                 }
                 List<ItemStack> left = new ArrayList<>();
-                for (ItemStack item : handover.items()) {
-                    left.addAll(player.getInventory().addItem(item.clone()).values());
+                List<ItemStack> handed = handover.items();
+                // Auto-equip kit armour: pieces for empty armour slots are put on, the rest goes into the inventory.
+                Map<Integer, KitPlayerSettings.Piece> wear = this.services.settings().get(player, KitPlayerSettings.AUTO_EQUIP)
+                    ? equipPlan(player.getInventory(), handed) : Map.of();
+                for (int i = 0; i < handed.size(); i++) {
+                    ItemStack item = handed.get(i).clone();
+                    KitPlayerSettings.Piece piece = wear.get(i);
+                    if (piece != null) {
+                        wear(player.getInventory(), piece, item.asOne());
+                        if (item.getAmount() <= 1) {
+                            continue;
+                        }
+                        item = item.asQuantity(item.getAmount() - 1);
+                    }
+                    left.addAll(player.getInventory().addItem(item).values());
                 }
                 if (!left.isEmpty()) {
                     store(owner, left, ref);
@@ -184,6 +200,45 @@ final class KitHandouts {
         }
         if (task == Task.NONE) {
             retired.run();
+        }
+    }
+
+    /**
+     * Which handed-out items go straight into empty armour slots ({@link KitPlayerSettings#equip}): helmets,
+     * chestplates, leggings and boots without curse of binding, at most one per empty slot. Player's thread.
+     */
+    private static Map<Integer, KitPlayerSettings.Piece> equipPlan(PlayerInventory inventory, List<ItemStack> items) {
+        List<KitPlayerSettings.Piece> pieces = new ArrayList<>(items.size());
+        List<Boolean> cursed = new ArrayList<>(items.size());
+        for (ItemStack item : items) {
+            pieces.add(KitPlayerSettings.piece(item.getType().getKey().asString()));
+            cursed.add(item.containsEnchantment(Enchantment.BINDING_CURSE));
+        }
+        Set<KitPlayerSettings.Piece> occupied = EnumSet.noneOf(KitPlayerSettings.Piece.class);
+        for (KitPlayerSettings.Piece piece : KitPlayerSettings.Piece.values()) {
+            ItemStack worn = worn(inventory, piece);
+            if (worn != null && !worn.isEmpty()) {
+                occupied.add(piece);
+            }
+        }
+        return KitPlayerSettings.equip(pieces, cursed, occupied);
+    }
+
+    private static ItemStack worn(PlayerInventory inventory, KitPlayerSettings.Piece piece) {
+        return switch (piece) {
+            case HEAD -> inventory.getHelmet();
+            case CHEST -> inventory.getChestplate();
+            case LEGS -> inventory.getLeggings();
+            case FEET -> inventory.getBoots();
+        };
+    }
+
+    private static void wear(PlayerInventory inventory, KitPlayerSettings.Piece piece, ItemStack item) {
+        switch (piece) {
+            case HEAD -> inventory.setHelmet(item);
+            case CHEST -> inventory.setChestplate(item);
+            case LEGS -> inventory.setLeggings(item);
+            case FEET -> inventory.setBoots(item);
         }
     }
 

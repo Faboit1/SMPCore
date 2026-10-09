@@ -6,13 +6,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.event.CombatTagEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.ui.gui.GridBackup;
 import net.siftvanilla.siftcore.ui.gui.Items;
 import net.siftvanilla.siftcore.ui.gui.Menu;
 import org.bukkit.GameMode;
@@ -23,12 +27,14 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MenuType;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 
 /**
  * The rank perk commands: the ender chest, workstations that work anywhere (opened with the vanilla menus, so recipes,
@@ -56,15 +62,21 @@ final class PerkService implements Listener {
         }
     }
 
+    /** The claim box source of items the trash gives back that did not fit the inventory. */
+    static final String TRASH_SOURCE = "trash";
+
     private final Services services;
     private final Setting<KitsSettings> settings;
     private final CombatStatus combat;
+    private final WorthLookup worth;
     private final Map<UUID, Open> open = new ConcurrentHashMap<>();
 
-    PerkService(Services services, Setting<KitsSettings> settings, CombatStatus combat) {
+    /** @param worth the server's sell prices, for Trash protection's valuables */
+    PerkService(Services services, Setting<KitsSettings> settings, CombatStatus combat, WorthLookup worth) {
         this.services = services;
         this.settings = settings;
         this.combat = combat;
+        this.worth = worth;
     }
 
     boolean has(Player player, Perk perk) {
@@ -135,29 +147,158 @@ final class PerkService implements Listener {
         }
     }
 
+    /** Opens the bin in the player's Trash bin mode. */
     private void trash(Player player) {
-        Component title = Component.text(this.services.lang().plain(KitsMessages.TRASH_TITLE));
-        TrashMenu menu = new TrashMenu(this.services.menus(), player, title, deleted -> {
-            int count = 0;
-            StringBuilder summary = new StringBuilder();
-            for (ItemStack item : deleted) {
-                count += item.getAmount();
-                if (summary.length() < 900) {
-                    if (!summary.isEmpty()) {
-                        summary.append(", ");
-                    }
-                    summary.append(item.getType().getKey().asString()).append(" x").append(item.getAmount());
-                }
-            }
-            if (count == 1) {
-                this.services.messenger().send(player, KitsMessages.TRASH_DELETED_ONE);
-            } else {
-                this.services.messenger().send(player, KitsMessages.TRASH_DELETED, Arg.number("count", count));
-            }
-            this.services.audit().record(player.getUniqueId().toString(), "perks.trash", player.getUniqueId().toString(), summary.toString());
-        });
+        KitPlayerSettings.TrashMode mode = this.services.settings().get(player, KitPlayerSettings.TRASH_MODE);
+        Component title = Component.text(this.services.lang().plain(mode == KitPlayerSettings.TrashMode.DELETE_BUTTON
+            ? KitsMessages.TRASH_TITLE_BUTTON : KitsMessages.TRASH_TITLE));
+        TrashMenu menu = new TrashMenu(this.services.menus(), player, title, mode, this.services.lang().get(KitsMessages.TRASH_DELETE),
+            this.services.lang().lines(KitsMessages.TRASH_DELETE_LORE), (items, delete, dying) -> emptied(player, items, delete, dying));
         this.open.put(player.getUniqueId(), new Open(Perk.TRASH, null, menu));
         menu.open();
+    }
+
+    /**
+     * What left the bin (already out of it): deleted, except what the player's Trash protection keeps, or all given
+     * back. Player's thread.
+     */
+    private void emptied(Player player, List<ItemStack> items, boolean delete, boolean dying) {
+        if (items.isEmpty()) {
+            this.services.messenger().send(player, KitsMessages.TRASH_EMPTY);
+            return;
+        }
+        List<ItemStack> deleted = new ArrayList<>();
+        List<ItemStack> back = new ArrayList<>();
+        if (delete) {
+            KitPlayerSettings.TrashProtect protect = this.services.settings().get(player, KitPlayerSettings.TRASH_PROTECT);
+            long threshold = this.settings.get().perks().protectWorth();
+            for (ItemStack item : items) {
+                (protects(protect, item, threshold) ? back : deleted).add(item);
+            }
+        } else {
+            back.addAll(items);
+        }
+        int deletedCount = count(deleted);
+        int backCount = count(back);
+        if (!deleted.isEmpty()) {
+            this.services.audit().record(player.getUniqueId().toString(), "perks.trash", player.getUniqueId().toString(), summary(deleted));
+        }
+        long claimed = back.isEmpty() ? 0 : giveBack(player, back, dying);
+        if (!delete) {
+            this.services.messenger().send(player, KitsMessages.TRASH_RETURNED, Arg.number("count", backCount));
+        } else if (backCount > 0 && deletedCount > 0) {
+            this.services.messenger().send(player, KitsMessages.TRASH_DELETED_KEPT, Arg.number("count", deletedCount),
+                Arg.number("kept", backCount));
+        } else if (backCount > 0) {
+            this.services.messenger().send(player, KitsMessages.TRASH_KEPT, Arg.number("kept", backCount));
+        } else if (deletedCount == 1) {
+            this.services.messenger().send(player, KitsMessages.TRASH_DELETED_ONE);
+        } else {
+            this.services.messenger().send(player, KitsMessages.TRASH_DELETED, Arg.number("count", deletedCount));
+        }
+        if (claimed > 0) {
+            this.services.messenger().send(player, KitsMessages.TRASH_CLAIM_BOX, Arg.number("count", claimed));
+        }
+    }
+
+    /** Whether the player's Trash protection keeps this stack (gear, or a valuable worth at least the threshold). */
+    private boolean protects(KitPlayerSettings.TrashProtect protect, ItemStack item, long threshold) {
+        if (protect == KitPlayerSettings.TrashProtect.OFF) {
+            return false;
+        }
+        boolean enchanted = !item.getEnchantments().isEmpty()
+            || item.getItemMeta() instanceof EnchantmentStorageMeta book && book.hasStoredEnchants();
+        boolean named = item.hasItemMeta() && item.getItemMeta().hasDisplayName();
+        boolean gear = KitPlayerSettings.gear(item.getType().getKey().asString(), enchanted, named);
+        long worth;
+        try {
+            worth = protect == KitPlayerSettings.TrashProtect.VALUABLES ? this.worth.price(item) : 0;
+        } catch (ArithmeticException e) {
+            worth = Long.MAX_VALUE;
+        }
+        return KitPlayerSettings.protects(protect, gear, worth, threshold);
+    }
+
+    /**
+     * Gives items from the bin back: into the inventory, the player saved, then what did not fit into the claim box
+     * (so a crash never leaves an item both in the saved inventory and in the claim box). When the bin closed because
+     * its player died, they drop where the player died instead, like the rest of their inventory (going into the
+     * inventory now would put them into an inventory that is about to be emptied). Returns how many items went to the
+     * claim box. Player's thread.
+     */
+    private long giveBack(Player player, List<ItemStack> items, boolean dying) {
+        if (dying) {
+            for (ItemStack item : items) {
+                player.getWorld().dropItemNaturally(player.getLocation(), item);
+            }
+            return 0;
+        }
+        return GridBackup.handBack(items, all -> {
+            List<ItemStack> left = new ArrayList<>();
+            for (ItemStack item : all) {
+                left.addAll(player.getInventory().addItem(item.clone()).values());
+            }
+            return left;
+        }, () -> {
+            if (this.services.core().get().savePlayerAfterTrade()) {
+                player.saveData();
+            }
+        }, left -> {
+            long stored = 0;
+            for (ItemStack item : left) {
+                TransactionResult result = this.services.deliveries().give(player.getUniqueId(), TRASH_SOURCE, null, item,
+                    player.getUniqueId().toString());
+                if (result.success()) {
+                    stored += item.getAmount();
+                    result.committed().whenComplete((ignored, error) -> {
+                        if (error != null) {
+                            this.services.plugin().getLogger().log(Level.SEVERE, "A trash item given back to " + player.getName()
+                                + " could not be stored in the claim box; restore it by hand: " + item, error);
+                        }
+                    });
+                } else {
+                    // The claim box is unavailable (economy paused): never lose the item, drop it at the player's feet.
+                    player.getWorld().dropItemNaturally(player.getLocation(), item);
+                }
+            }
+            return stored;
+        });
+    }
+
+    private static int count(List<ItemStack> items) {
+        int count = 0;
+        for (ItemStack item : items) {
+            count += item.getAmount();
+        }
+        return count;
+    }
+
+    private static String summary(List<ItemStack> items) {
+        StringBuilder summary = new StringBuilder();
+        for (ItemStack item : items) {
+            if (summary.length() >= 900) {
+                break;
+            }
+            if (!summary.isEmpty()) {
+                summary.append(", ");
+            }
+            summary.append(item.getType().getKey().asString()).append(" x").append(item.getAmount());
+        }
+        return summary.toString();
+    }
+
+    /**
+     * The server closes an open screen with reason DEATH right after this event, once the inventory's own drops were
+     * collected and before the inventory is cleared: what the bin gives back must drop then, not go into it.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        Open current = this.open.get(player.getUniqueId());
+        if (!event.getKeepInventory() && current != null && current.menu() instanceof TrashMenu trash
+            && current.matches(player.getOpenInventory())) {
+            trash.dying();
+        }
     }
 
     /**

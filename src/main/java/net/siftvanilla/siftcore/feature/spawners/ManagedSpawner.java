@@ -2,6 +2,7 @@ package net.siftvanilla.siftcore.feature.spawners;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A placed SiftCore spawner: who owns it, what mob, how many are stacked, and its storage. The identity fields never
@@ -23,6 +24,12 @@ final class ManagedSpawner {
     private volatile boolean removed;
     private volatile long lastActive;
     private volatile boolean lastFull;
+    /**
+     * Whether the owner is still owed a Full storage alert about this storage: set by the cycle that fills it, cleared
+     * when an alert naming it goes out ({@link #takeAlert()}) or when the storage stops being full. Kept apart from
+     * {@link #lastFull} so an alert the throttle or an offline owner held back is sent later instead of being lost.
+     */
+    private final AtomicBoolean alertOwed = new AtomicBoolean();
     /** Written under the lock: true when memory has changes the database doesn't have yet. */
     private boolean dirty;
     /** Region thread only: the activation radius the block was last set up with (-1 = not yet). */
@@ -91,9 +98,36 @@ final class ManagedSpawner {
         return this.lastFull;
     }
 
+    /**
+     * Records an active cycle (under the economy lock): whether it found the storage full. A storage that fills up
+     * now owes its owner an alert; one that is no longer full owes nothing.
+     */
     void active(long now, boolean full) {
         this.lastActive = now;
+        if (!full) {
+            this.alertOwed.set(false);
+        } else if (!this.lastFull) {
+            this.alertOwed.set(true);
+        }
         this.lastFull = full;
+    }
+
+    /** Whether the storage is full and its owner has not been told yet (Full storage alert). */
+    boolean alertOwed() {
+        return this.lastFull && !this.removed && this.alertOwed.get();
+    }
+
+    /**
+     * Takes the owed alert: true, and no longer owed, when the storage is full and its owner has not been told yet.
+     * Atomic, so two deliveries never both name the same filling.
+     */
+    boolean takeAlert() {
+        return this.lastFull && !this.removed && this.alertOwed.compareAndSet(true, false);
+    }
+
+    /** Owes the alert again (one that was taken but could not be delivered). */
+    void oweAlert() {
+        this.alertOwed.set(true);
     }
 
     int syncedRadius() {

@@ -37,6 +37,9 @@ public final class CratesMessages {
         .withFeedback(Feedback.SUCCESS);
     public static final MessageKey BATCH_WON_CLAIM_BOX = MessageKey.chat("crates.open.batch-claim-box", "count", "name", "rewards")
         .withFeedback(Feedback.SUCCESS);
+    /** The short receipt of several openings in a row, for players who want receipts above the hotbar. */
+    public static final MessageKey BATCH_WON_SHORT = MessageKey.chat("crates.open.batch-short", "count", "name", "reward")
+        .withFeedback(Feedback.SUCCESS);
     public static final MessageKey BATCH_LINE = MessageKey.ui("crates.open.batch-line", "reward", "times");
     public static final MessageKey BATCH_LINE_ONCE = MessageKey.ui("crates.open.batch-line-once", "reward");
     public static final MessageKey BULK_LIMIT = MessageKey.error("crates.open.bulk-limit", "max");
@@ -139,6 +142,22 @@ public final class CratesMessages {
 
     public static final MessageKey SETTING_WINS = MessageKey.ui("crates.settings.wins");
     public static final MessageKey SETTING_WINS_DESCRIPTION = MessageKey.ui("crates.settings.wins-description");
+    public static final MessageKey SETTING_RECEIPT = MessageKey.ui("crates.settings.receipt");
+    public static final MessageKey SETTING_RECEIPT_DESCRIPTION = MessageKey.ui("crates.settings.receipt-description");
+    public static final MessageKey SETTING_KEY_REMINDER = MessageKey.ui("crates.settings.key-reminder");
+    public static final MessageKey SETTING_KEY_REMINDER_DESCRIPTION = MessageKey.ui("crates.settings.key-reminder-description");
+    public static final MessageKey SETTING_KEYALL = MessageKey.ui("crates.settings.keyall");
+    public static final MessageKey SETTING_KEYALL_DESCRIPTION = MessageKey.ui("crates.settings.keyall-description");
+    public static final MessageKey SETTING_QUICK_OPEN = MessageKey.ui("crates.settings.quick-open");
+    public static final MessageKey SETTING_QUICK_OPEN_DESCRIPTION = MessageKey.ui("crates.settings.quick-open-description");
+    public static final MessageKey SETTING_BULK_AMOUNT = MessageKey.ui("crates.settings.bulk-amount");
+    public static final MessageKey SETTING_BULK_AMOUNT_DESCRIPTION = MessageKey.ui("crates.settings.bulk-amount-description");
+    /** The unit of the bulk amount slider, written right after the number. */
+    public static final MessageKey UNIT_KEYS = MessageKey.ui("crates.settings.unit-keys");
+    public static final MessageKey OPTION_RAREST = MessageKey.ui("crates.settings.options.rarest");
+    public static final MessageKey OPTION_QUICK_ONE = MessageKey.ui("crates.settings.options.quick-one");
+    public static final MessageKey OPTION_QUICK_BULK = MessageKey.ui("crates.settings.options.quick-bulk");
+    public static final MessageKey OPTION_QUICK_OFF = MessageKey.ui("crates.settings.options.quick-off");
 
     public static final MessageKey HUB_LABEL = MessageKey.ui("crates.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("crates.hub.description");

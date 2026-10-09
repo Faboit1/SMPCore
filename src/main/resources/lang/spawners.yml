@@ -22,6 +22,8 @@ spawners:
     stacked: "<primary>Added <amount> to the <mob> stack, now <stack> of <cap>."
     # Stacking a teammate's spawner: the added spawners belong to its owner from now on.
     stacked-other: "<primary>Added <amount> to <owner>'s <mob> stack, now <stack> of <cap>."
+    # The first click with spawners on someone else's stack, for players who confirm giving spawners away.
+    confirm: "<primary>Click again to add <amount> to <owner>'s <mob> stack. <secondary>The spawners you add become theirs."
     full: "<primary>This stack is full at <cap> spawners."
     wrong-mob: "<primary>Only <mob> spawners stack here."
     disabled: "<primary>You can't stack <mob> spawners right now."
@@ -115,6 +117,8 @@ spawners:
     sold: "<primary>You sold <count> items from the <mob> spawner for <total><booster>."
     sold-bonus: "<primary>You sold <count> items from the <mob> spawner for <total> <secondary>with your <multiplier>x bonus<booster>."
     booster-note: "<secondary> incl. +<percent>% booster"
+    # The receipt above the hotbar, for players whose sale receipts show there.
+    sold-short: "<primary>Sold <count> items for <total><booster>"
     receipt-line: "<secondary><amount> <item> <primary><value>"
     nothing: "<primary>Nothing in this spawner sells."
     cancelled: "<secondary>Sale cancelled."
@@ -174,6 +178,46 @@ spawners:
       disabled: "<secondary>This spawner type is turned off and makes no loot."
     open: "Open storage"
     too-far: "<primary>Stand within <range> blocks of the spawner to open it."
+
+  # Full storage alert: a spawner's storage just filled up, so new loot is lost until it is emptied or sold.
+  full:
+    one: "<primary>Your <mob> spawner is full. <secondary>New loot is lost until you empty or sell it (/spawners)."
+    many: "<primary><count> of your spawners are full. <secondary>New loot is lost until you empty or sell them (/spawners)."
+
+  # Teammates using the owner's spawners (Teammates using my spawners: everything). Pickups use break.owner-notice.
+  team:
+    stacked: "<secondary><name> added <primary><amount> <secondary>to your <mob> stack, now <primary><stack><secondary>."
+    took: "<secondary><name> took <primary><amount> <item> <secondary>from your <mob> spawner."
+    sold: "<secondary><name> sold <primary><count> <secondary>items from your <mob> spawner for <total>."
+    xp: "<secondary><name> collected <primary><xp> XP <secondary>from your <mob> spawner."
+
+  # The spawner settings in /settings (Spawners).
+  settings:
+    open-click: "Open spawner storage with"
+    open-click-description: "Whether opening a spawner's storage needs sneaking. Server follows the server's setting."
+    full-alert: "Full storage alert"
+    full-alert-description: "Tell you when one of your spawners' storage fills up and loot starts being lost."
+    stack-click: "Right-click with spawners adds"
+    stack-click-description: "Whether a plain right-click adds one spawner or the whole stack in your hand. Sneaking does the other."
+    xp-mending: "Spawner XP and mending"
+    xp-mending-description: "Collected spawner XP repairs mending gear first, or all goes to your levels."
+    pickup-storage: "Storage when I pick up my spawner"
+    pickup-storage-description: "What happens to items still in storage when you pick up your own spawner: claim box or sold."
+    team-notices: "Teammates using my spawners"
+    team-notices-description: "Tell you when teammates pick up your spawners, or also when they stack, take or sell."
+    confirm-give: "Confirm stacking onto others' spawners"
+    confirm-give-description: "Ask for a second click before adding your spawners to a teammate's stack (they become theirs)."
+    options:
+      sneak-right-click: "Sneak + right-click"
+      right-click: "Right-click"
+      one: "One spawner"
+      whole-hand: "Whole stack"
+      repair-first: "Repair gear first"
+      levels-only: "Levels only"
+      claim-box: "Claim box"
+      sell: "Sell it"
+      pickups: "Pickups"
+      all: "Everything"
 
   hub:
     label: "Spawners"

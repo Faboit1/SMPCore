@@ -68,8 +68,33 @@ public final class KitsMessages {
     public static final MessageKey REMINDER_JOIN = MessageKey.notify("kits.reminder.join", "kits");
     public static final MessageKey REMINDER_READY = MessageKey.notify("kits.reminder.ready", "name");
     public static final MessageKey REMINDER_WAITING = MessageKey.chat("kits.reminder.waiting");
+    /** The reminders for players who get them above the hotbar or as a title (nothing to click there). */
+    public static final MessageKey REMINDER_JOIN_SHORT = MessageKey.notify("kits.reminder.join-short", "kits");
+    public static final MessageKey REMINDER_READY_SHORT = MessageKey.notify("kits.reminder.ready-short", "name");
+    public static final MessageKey REMINDER_WAITING_SHORT = MessageKey.chat("kits.reminder.waiting-short");
+    /** Kits ready and items waiting in one short line (the action bar and titles show one line at a time). */
+    public static final MessageKey REMINDER_JOIN_WAITING_SHORT = MessageKey.notify("kits.reminder.join-waiting-short", "kits");
+
+    // ------------------------------------------------------------------ player settings (Crates & kits)
+
     public static final MessageKey SETTING_REMINDERS = MessageKey.ui("kits.settings.reminders");
     public static final MessageKey SETTING_REMINDERS_DESCRIPTION = MessageKey.ui("kits.settings.reminders-description");
+    public static final MessageKey SETTING_REMINDER_WHEN = MessageKey.ui("kits.settings.reminder-when");
+    public static final MessageKey SETTING_REMINDER_WHEN_DESCRIPTION = MessageKey.ui("kits.settings.reminder-when-description");
+    public static final MessageKey SETTING_AUTO_EQUIP = MessageKey.ui("kits.settings.auto-equip");
+    public static final MessageKey SETTING_AUTO_EQUIP_DESCRIPTION = MessageKey.ui("kits.settings.auto-equip-description");
+    public static final MessageKey SETTING_TRASH_PROTECT = MessageKey.ui("kits.settings.trash-protect");
+    public static final MessageKey SETTING_TRASH_PROTECT_DESCRIPTION = MessageKey.ui("kits.settings.trash-protect-description");
+    public static final MessageKey SETTING_TRASH_MODE = MessageKey.ui("kits.settings.trash-mode");
+    public static final MessageKey SETTING_TRASH_MODE_DESCRIPTION = MessageKey.ui("kits.settings.trash-mode-description");
+    public static final MessageKey OPTION_JOIN_AND_READY = MessageKey.ui("kits.settings.options.join-and-ready");
+    public static final MessageKey OPTION_JOIN = MessageKey.ui("kits.settings.options.join");
+    public static final MessageKey OPTION_READY = MessageKey.ui("kits.settings.options.ready");
+    public static final MessageKey OPTION_GEAR = MessageKey.ui("kits.settings.options.gear");
+    public static final MessageKey OPTION_VALUABLES = MessageKey.ui("kits.settings.options.valuables");
+    public static final MessageKey OPTION_PROTECT_OFF = MessageKey.ui("kits.settings.options.protect-off");
+    public static final MessageKey OPTION_DELETE_ON_CLOSE = MessageKey.ui("kits.settings.options.delete-on-close");
+    public static final MessageKey OPTION_DELETE_BUTTON = MessageKey.ui("kits.settings.options.delete-button");
 
     // ------------------------------------------------------------------ staff
 
@@ -109,6 +134,18 @@ public final class KitsMessages {
     public static final MessageKey TRASH_TITLE = MessageKey.ui("kits.perks.trash-title");
     public static final MessageKey TRASH_DELETED_ONE = MessageKey.info("kits.perks.trash-deleted-one");
     public static final MessageKey TRASH_DELETED = MessageKey.info("kits.perks.trash-deleted", "count");
+    /** The title of the bin for players whose Trash bin mode is the Delete button. */
+    public static final MessageKey TRASH_TITLE_BUTTON = MessageKey.ui("kits.perks.trash-title-button");
+    public static final MessageKey TRASH_DELETE = MessageKey.ui("kits.perks.trash-delete");
+    public static final MessageKey TRASH_DELETE_LORE = MessageKey.ui("kits.perks.trash-delete-lore");
+    /** Some items were deleted and protected ones given back (Trash protection). */
+    public static final MessageKey TRASH_DELETED_KEPT = MessageKey.info("kits.perks.trash-deleted-kept", "count", "kept");
+    /** Everything in the bin was protected: nothing was deleted. */
+    public static final MessageKey TRASH_KEPT = MessageKey.info("kits.perks.trash-kept", "kept");
+    /** The bin closed in Delete button mode: everything went back. */
+    public static final MessageKey TRASH_RETURNED = MessageKey.info("kits.perks.trash-returned", "count");
+    public static final MessageKey TRASH_EMPTY = MessageKey.error("kits.perks.trash-empty");
+    public static final MessageKey TRASH_CLAIM_BOX = MessageKey.chat("kits.perks.trash-claim-box", "count");
     public static final MessageKey HAT_EMPTY = MessageKey.error("kits.perks.hat-empty");
     public static final MessageKey HAT_BLOCKED = MessageKey.error("kits.perks.hat-blocked");
     public static final MessageKey HAT_CURSED = MessageKey.error("kits.perks.hat-cursed");

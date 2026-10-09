@@ -5,6 +5,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -35,6 +36,9 @@ import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.player.Limits;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -82,6 +86,8 @@ final class SpawnerService {
     private static final int GIVE_XP_CHUNK = 1_000_000;
     /** The sell rate for an owner who is offline: no rank bonus and no booster (both are only known for online players). */
     private static final WorthLookup.SellRate NO_RATE = new WorthLookup.SellRate(1.0, 1.0, 0);
+    /** The shortest time between two notices of the same kind about the same teammate (pickups are always told). */
+    static final Duration TEAM_NOTICE_GAP = Duration.ofSeconds(30);
 
     /** How a storage action ended. */
     enum Outcome {
@@ -103,6 +109,8 @@ final class SpawnerService {
     private final ClaimHandouts handouts;
     private final XpBox xpBox;
     private final Handoffs<Long> xpPayouts = new Handoffs<>();
+    private final GiveConfirms gives = new GiveConfirms(System::currentTimeMillis);
+    private final FullAlerts fullAlerts;
     private final Map<String, Material> materials = new ConcurrentHashMap<>();
     private volatile IdSequence ids;
 
@@ -121,6 +129,7 @@ final class SpawnerService {
         this.handouts = new ClaimHandouts(services.deliveries(), services.scheduler(), this.logger,
             () -> services.core().get().savePlayerAfterTrade());
         this.xpBox = new XpBox(services.ledger(), services.database(), this.logger);
+        this.fullAlerts = new FullAlerts(services.cooldowns(), registry::ownedBy, new FullAlertOwners());
     }
 
     void ids(IdSequence ids) {
@@ -160,6 +169,16 @@ final class SpawnerService {
 
     SpawnersSettings settings() {
         return this.settings.get();
+    }
+
+    /** The players' settings ({@link SpawnerPlayerSettings}). */
+    PlayerSettings prefs() {
+        return this.services.settings();
+    }
+
+    /** Forgets a player who left (a half-confirmed give of spawners). */
+    void forget(UUID player) {
+        this.gives.forget(player);
     }
 
     private Messenger messenger() {
@@ -224,6 +243,65 @@ final class SpawnerService {
 
     Access access(Player player, ManagedSpawner spawner) {
         return Access.of(spawner.owner, player.getUniqueId(), player.hasPermission(BYPASS), this.teams);
+    }
+
+    /** Whether a player uses a spawner as a teammate of its owner (not the owner). Thread-safe. */
+    private boolean teammate(UUID player, ManagedSpawner spawner) {
+        return !spawner.owner.equals(player) && this.teams.sameTeam(spawner.owner, player);
+    }
+
+    /**
+     * Tells the spawner's online owner what a teammate did with it, when their Teammates using my spawners setting
+     * wants to hear it. Vanished teammates stay unseen. Everything but pickups is told at most once every
+     * {@link #TEAM_NOTICE_GAP} per teammate and kind, so a teammate taking items in many clicks is one line.
+     */
+    private void teamNotice(Player actor, ManagedSpawner spawner, SpawnerPlayerSettings.TeamAction action, MessageKey key,
+                            Arg... args) {
+        UUID uuid = actor.getUniqueId();
+        if (!teammate(uuid, spawner) || this.vanish.vanished(uuid)) {
+            return;
+        }
+        Player owner = Bukkit.getPlayer(spawner.owner);
+        if (owner == null || !SpawnerPlayerSettings.notifies(prefs().get(spawner.owner, SpawnerPlayerSettings.TEAM_NOTICES), action)) {
+            return;
+        }
+        if (action != SpawnerPlayerSettings.TeamAction.PICKUP
+            && !this.services.cooldowns().tryUse(spawner.owner, "spawners:team:" + uuid + ":" + action, TEAM_NOTICE_GAP).isZero()) {
+            return;
+        }
+        messenger().send(owner, key, args);
+    }
+
+    /**
+     * Tells the owners of these spawners about their full storages (their Full storage alert) where an alert is owed
+     * and can go out now: one line per owner covering all their owed storages, at most one every
+     * {@link FullAlerts#GAP}. Safe from any thread.
+     */
+    void storageFull(Collection<UUID> owners) {
+        this.fullAlerts.deliver(owners);
+    }
+
+    /** The Full storage alert's delivery: the owner's choice while they are online, then one line naming the storages. */
+    private final class FullAlertOwners implements FullAlerts.Owners {
+
+        @Override
+        public AlertStyle style(UUID owner) {
+            return Bukkit.getPlayer(owner) == null ? null : prefs().get(owner, SpawnerPlayerSettings.FULL_ALERT);
+        }
+
+        @Override
+        public boolean send(UUID owner, AlertStyle style, List<ManagedSpawner> full) {
+            Player online = Bukkit.getPlayer(owner);
+            if (online == null) {
+                return false;
+            }
+            if (full.size() == 1) {
+                messenger().alert(online, style, SpawnersMessages.FULL_ONE, Arg.text("mob", lowerName(full.getFirst().mob)));
+            } else {
+                messenger().alert(online, style, SpawnersMessages.FULL_MANY, Arg.number("count", full.size()));
+            }
+            return true;
+        }
     }
 
     /** True when the player may use the spawner; otherwise tells them whose it is. */
@@ -449,6 +527,22 @@ final class SpawnerService {
             messenger().send(player, SpawnersMessages.STACK_FULL, Arg.number("cap", cap));
             return;
         }
+        // Spawners added to someone else's stack become theirs: with Confirm stacking onto others' spawners on, the
+        // first click only asks, and a separate second click within a few seconds gives (holding the key doesn't).
+        if (!spawner.owner.equals(player.getUniqueId()) && prefs().get(player, SpawnerPlayerSettings.CONFIRM_GIVE)) {
+            switch (this.gives.click(player.getUniqueId(), spawner.id)) {
+                case ASK -> {
+                    messenger().send(player, SpawnersMessages.GIVE_CONFIRM, Arg.number("amount", adding),
+                        Arg.text("owner", ownerName(spawner.owner)), Arg.text("mob", lowerName(spawner.mob)));
+                    return;
+                }
+                case WAIT -> {
+                    return;
+                }
+                case GIVE -> {
+                }
+            }
+        }
         Location location = location(spawner.pos);
         if (location != null && !new SpawnerStackEvent(player, location, spawner.mob, spawner.owner, spawner.stack(), adding).callEvent()) {
             messenger().send(player, SpawnersMessages.STACK_CANCELLED);
@@ -487,6 +581,9 @@ final class SpawnerService {
             // A teammate (or staff) adds to someone else's stack: the spawners now belong to its owner.
             messenger().send(player, SpawnersMessages.STACKED_OTHER, Arg.number("amount", adding), Arg.text("owner", ownerName(spawner.owner)),
                 Arg.text("mob", lowerName(spawner.mob)), Arg.number("stack", after[0]), Arg.number("cap", cap));
+            teamNotice(player, spawner, SpawnerPlayerSettings.TeamAction.STACK, SpawnersMessages.TEAM_STACKED,
+                Arg.text("name", player.getName()), Arg.number("amount", adding), Arg.text("mob", lowerName(spawner.mob)),
+                Arg.number("stack", after[0]));
         }
         // Shutdown waits for this commit's callback, so a hand-over it starts is never left until storage closed.
         this.handouts.begin();
@@ -590,6 +687,11 @@ final class SpawnerService {
                         messenger().send(player, SpawnersMessages.TOOK, Arg.number("amount", taken[0]),
                             Arg.component("item", itemName(material)));
                     }
+                    if (failure == null) {
+                        teamNotice(player, spawner, SpawnerPlayerSettings.TeamAction.TAKE, SpawnersMessages.TEAM_TOOK,
+                            Arg.text("name", player.getName()), Arg.number("amount", taken[0]), Arg.component("item", itemName(material)),
+                            Arg.text("mob", lowerName(spawner.mob)));
+                    }
                     if (failure == null && outcome.left() > 0) {
                         messenger().send(player, SpawnersMessages.CLAIM_BOX, Arg.number("count", outcome.left()));
                     }
@@ -686,6 +788,9 @@ final class SpawnerService {
                 messenger().send(player, CoreMessages.ACTION_FAILED);
                 return Outcome.FAILED;
             }
+            teamNotice(player, spawner, SpawnerPlayerSettings.TeamAction.SELL, SpawnersMessages.TEAM_SOLD,
+                Arg.text("name", player.getName()), Arg.number("count", sale.count()), Arg.text("mob", lowerName(spawner.mob)),
+                Arg.money("total", sale.total()));
             return Outcome.DONE;
         });
     }
@@ -750,8 +855,21 @@ final class SpawnerService {
         return true;
     }
 
-    /** The receipt in chat; {@code multiplier} is the player's own bonus (the booster is named separately). */
+    /**
+     * The sale receipt, as the player's shared Sale receipts setting says: the detailed line in chat, only the total
+     * above the hotbar (an alert, so it becomes a chat line in combat with quiet in combat on), or nothing.
+     * {@code multiplier} is the player's own bonus (the booster is named separately).
+     */
     private void receipt(Player player, String mob, Sale sale, double multiplier) {
+        AlertStyle style = prefs().get(player.getUniqueId(), SharedSettings.SELL_RECEIPTS);
+        if (style == AlertStyle.OFF) {
+            return;
+        }
+        if (style != AlertStyle.CHAT) {
+            messenger().alert(player, style, SpawnersMessages.SOLD_SHORT, Arg.number("count", sale.count()), Arg.money("total", sale.total()),
+                boosterNote(sale));
+            return;
+        }
         Lang lang = lang();
         List<Component> card = new ArrayList<>();
         sale.sold().forEach((item, amount) -> card.add(lang.get(SpawnersMessages.RECEIPT_LINE, Arg.number("amount", amount),
@@ -824,6 +942,8 @@ final class SpawnerService {
                 done.complete(Outcome.FAILED);
                 return;
             }
+            teamNotice(player, spawner, SpawnerPlayerSettings.TeamAction.XP, SpawnersMessages.TEAM_XP,
+                Arg.text("name", player.getName()), Arg.number("xp", amount), Arg.text("mob", lowerName(spawner.mob)));
             payOutXp(player, SpawnersMessages.XP_COLLECTED)
                 .whenComplete((given, failure) -> done.complete(failure == null && given > 0 ? Outcome.DONE : Outcome.FAILED));
         });
@@ -888,9 +1008,13 @@ final class SpawnerService {
         return done;
     }
 
-    /** Gives XP points on the player's thread, in chunks an int can hold. */
+    /**
+     * Gives XP points on the player's thread, in chunks an int can hold; mending gear is repaired first as their Spawner
+     * XP and mending setting says (server: {@code xp.apply-mending}).
+     */
     void giveXp(Player player, long amount) {
-        boolean mending = this.settings.get().applyMending();
+        boolean mending = SpawnerPlayerSettings.mending(prefs().get(player, SpawnerPlayerSettings.XP_MENDING),
+            this.settings.get().applyMending());
         long left = amount;
         while (left > 0) {
             int part = (int) Math.min(GIVE_XP_CHUNK, left);
@@ -916,7 +1040,7 @@ final class SpawnerService {
             return false;
         }
         ManagedSpawner.State state = state(spawner);
-        long stacks = claimStacks(state.items(), s.breakStorage());
+        long stacks = claimStacks(state.items(), breakStorage(player, spawner));
         if (stacks > s.maxClaimStacks()) {
             messenger().send(player, SpawnersMessages.TOO_MUCH_STORED, Arg.number("stacks", stacks), Arg.number("max", s.maxClaimStacks()));
             return false;
@@ -928,6 +1052,17 @@ final class SpawnerService {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Where the storage goes when this player picks the spawner up: the owner's own Storage when I pick up my spawner,
+     * or {@code breaking.storage} for anyone else.
+     */
+    SpawnersSettings.BreakStorage breakStorage(Player player, ManagedSpawner spawner) {
+        boolean owner = spawner.owner.equals(player.getUniqueId());
+        SpawnerPlayerSettings.PickupStorage choice = owner ? prefs().get(player, SpawnerPlayerSettings.PICKUP_STORAGE)
+            : SpawnerPlayerSettings.PickupStorage.SERVER;
+        return SpawnerPlayerSettings.breakStorage(choice, this.settings.get().breakStorage(), owner);
     }
 
     /** Claim box stacks the stored items would take when picked up in this mode. */
@@ -971,7 +1106,7 @@ final class SpawnerService {
 
         Map<String, Long> forClaimBox = new TreeMap<>(state.items());
         Sale sale = null;
-        if (s.breakStorage() == SpawnersSettings.BreakStorage.SELL && !state.items().isEmpty()) {
+        if (breakStorage(player, spawner) == SpawnersSettings.BreakStorage.SELL && !state.items().isEmpty()) {
             Player ownerOnline = Bukkit.getPlayer(owner);
             sale = price(state.items(), ownerOnline == null ? NO_RATE : this.worth.rate(ownerOnline));
             if (sale != null && sale.total() > 0) {
@@ -1071,7 +1206,11 @@ final class SpawnerService {
                 messenger().send(player, SpawnersMessages.STORAGE_TO_OWNER_CLAIM_BOX, Arg.number("count", stored), Arg.text("owner", owner));
             }
         }
-        if (!own) {
+        // The owner is told who picked their spawner up; a teammate's pickup only when their Teammates using my
+        // spawners setting is not off (staff pickups are always told).
+        boolean told = !teammate(player.getUniqueId(), spawner) || SpawnerPlayerSettings.notifies(
+            prefs().get(spawner.owner, SpawnerPlayerSettings.TEAM_NOTICES), SpawnerPlayerSettings.TeamAction.PICKUP);
+        if (!own && told) {
             Player ownerOnline = Bukkit.getPlayer(spawner.owner);
             if (ownerOnline != null) {
                 if (this.vanish.vanished(player.getUniqueId())) {

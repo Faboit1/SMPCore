@@ -15,7 +15,7 @@ import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
@@ -36,6 +36,10 @@ import org.bukkit.inventory.ItemStack;
  * opening spends one key and pays one weighted reward (items, money, shards, keys of another crate, spawners or a
  * command) in a single economy transaction. Crates can be blocks in the world. Implements {@link CrateKeys} for the
  * features that hand out keys.
+ * <p>
+ * Player settings ({@link CratePlayerSettings}): which of other players' wins they see (Server announcements), and
+ * their own win receipt, the unopened key reminder, the keyall countdown, sneak + right-click on a crate block and the
+ * keys per bulk opening (Crates &amp; kits).
  */
 public final class CratesFeature implements Feature, Listener {
 
@@ -43,9 +47,8 @@ public final class CratesFeature implements Feature, Listener {
     public static final String PERMISSION_KEYALL = "siftcore.command.keyall";
     public static final String PERMISSION_ADMIN = "siftcore.admin.crates";
 
-    /** Whether a player sees other players' announced crate wins (in the settings dialog). */
-    public static final Toggle WIN_ANNOUNCEMENTS = new Toggle("crate-wins", true, CratesMessages.SETTING_WINS,
-        CratesMessages.SETTING_WINS_DESCRIPTION, null);
+    /** Which of other players' announced crate wins a player sees (was a switch; see {@link CratePlayerSettings}). */
+    public static final Choice<CratePlayerSettings.WinFilter> WIN_ANNOUNCEMENTS = CratePlayerSettings.WIN_ANNOUNCEMENTS;
 
     private static final Duration PRUNE_EVERY = Duration.ofHours(6);
 
@@ -78,7 +81,7 @@ public final class CratesFeature implements Feature, Listener {
         this.settings = services.configs().register("features/crates.yml",
             reader -> CratesSettings.parse(reader, RewardItems.catalog(), services.core().get().money()), problems);
         services.lang().register(CratesMessages.class);
-        services.settings().register(WIN_ANNOUNCEMENTS);
+        CratePlayerSettings.register(services.settings(), this.settings::get);
         var perms = services.permissions();
         perms.declare(PERMISSION_USE, "Use /crates, open crates and preview them", true);
         perms.declare(PERMISSION_KEYALL, "See when the next keyall is with /keyall", true);
@@ -96,7 +99,7 @@ public final class CratesFeature implements Feature, Listener {
             command -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command), services.plugin().getLogger());
         CrateLog log = new CrateLog(services.database());
         this.opener = new CrateOpener(services, this.settings, this.keys, this.items, this.handouts, this.rewardCommands, log,
-            this.text, vanish, combat, WIN_ANNOUNCEMENTS);
+            this.text, vanish, combat);
         this.keyall = new Keyall(services, this.settings, this.keys, this.text, vanish, afk);
         this.dialogs = new CrateDialogs(services, this.settings, this.keys, this.items, this.opener, this.text, worth, this.keyall);
         this.blocks = new CrateBlocks(services, this.settings, new CrateBlocks.Actions() {
@@ -112,11 +115,7 @@ public final class CratesFeature implements Feature, Listener {
 
             @Override
             public void quickOpen(Player player, String crate) {
-                CratesFeature.this.opener.open(player, crate, true, result -> {
-                    if (result instanceof CrateOpener.Refused refused) {
-                        CratesFeature.this.opener.report(player, refused);
-                    }
-                });
+                CratesFeature.this.quickOpen(player, crate);
             }
         });
         this.commands = new CrateCommands(services, this.settings, this.keys, this.dialogs, this.opener, this.blocks, this.keyall,
@@ -126,6 +125,25 @@ public final class CratesFeature implements Feature, Listener {
     @Override
     public String id() {
         return "crates";
+    }
+
+    /**
+     * Sneak + right-click on a crate block: one key, or (with Sneak + right-click set to several keys) a bulk opening
+     * of the player's keys per bulk open with one receipt. Player's thread.
+     */
+    private void quickOpen(Player player, String crate) {
+        if (this.services.settings().get(player, CratePlayerSettings.QUICK_OPEN) == CratePlayerSettings.QuickOpen.BULK) {
+            int many = this.dialogs.bulk(player, this.keys.keys(player.getUniqueId(), crate));
+            if (many >= 2) {
+                this.opener.openMany(player, crate, many, true, batch -> this.opener.receipt(player, batch));
+                return;
+            }
+        }
+        this.opener.open(player, crate, true, result -> {
+            if (result instanceof CrateOpener.Refused refused) {
+                this.opener.report(player, refused);
+            }
+        });
     }
 
     /** Virtual keys, for the shard shop, store delivery and anything else that hands out keys. */
@@ -215,11 +233,14 @@ public final class CratesFeature implements Feature, Listener {
             return;
         }
         this.services.scheduler().entityLater(player, () -> {
+            if (!player.isOnline() || !this.services.settings().get(player, CratePlayerSettings.KEY_REMINDER)) {
+                return;
+            }
             long total = 0;
             for (int count : this.keys.keysOf(player.getUniqueId()).values()) {
                 total += count;
             }
-            if (total > 0 && player.isOnline() && player.hasPermission(PERMISSION_USE)) {
+            if (total > 0 && player.hasPermission(PERMISSION_USE)) {
                 this.services.messenger().send(player, CratesMessages.REMINDER, Arg.component("keys", this.text.count(total)));
             }
         }, null, 80L);

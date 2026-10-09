@@ -129,5 +129,27 @@ class KitsResourcesTest {
         String title = lang.plain(KitsMessages.TRASH_TITLE);
         assertTrue(title.toLowerCase(java.util.Locale.ROOT).contains("deleted"), title);
         assertEquals("Alex's ender chest", lang.plain(KitsMessages.EC_OTHERS_TITLE, Arg.text("name", "Alex")));
+        String button = lang.plain(KitsMessages.TRASH_TITLE_BUTTON);
+        assertTrue(button.contains("Delete"), "the Delete button bin says how it deletes: " + button);
+        assertEquals("Items deleted: 5. Protected items given back: 2", lang.plain(KitsMessages.TRASH_DELETED_KEPT,
+            Arg.number("count", 5), Arg.number("kept", 2)));
+    }
+
+    @Test
+    void settingTextsReadWell() throws Exception {
+        Lang lang = loaded();
+        assertEquals("Kit reminders", lang.plain(KitPlayerSettings.REMINDERS.label()));
+        assertEquals("Trash protection", lang.plain(KitPlayerSettings.TRASH_PROTECT.label()));
+        for (KitPlayerSettings.ReminderWhen when : KitPlayerSettings.ReminderWhen.values()) {
+            assertFalse(lang.plain(when.label()).isBlank(), when.name());
+        }
+        for (KitPlayerSettings.TrashProtect protect : KitPlayerSettings.TrashProtect.values()) {
+            assertFalse(lang.plain(protect.label()).isBlank(), protect.name());
+        }
+        for (KitPlayerSettings.TrashMode mode : KitPlayerSettings.TrashMode.values()) {
+            assertFalse(lang.plain(mode.label()).isBlank(), mode.name());
+        }
+        // The short reminders have nothing to click: they name the command instead.
+        assertEquals("Your Daily kit is ready (/kits)", lang.plain(KitsMessages.REMINDER_READY_SHORT, Arg.text("name", "Daily")));
     }
 }

@@ -20,13 +20,16 @@ block-in-combat: true
 
 # The most keys one click opens in a row ("Open 10" in the crate screens, /crates open <crate> <amount>). Each key
 # is still opened, stored and paid out on its own, one after another; the player gets one summary. 0 or 1 turns it
-# off (one key at a time). At most 64.
+# off (one key at a time). At most 64. Each player picks how many of these they open at once in /settings (Crates
+# & kits, Keys per bulk open).
 bulk-open: 10
 
-# Sneaking and right-clicking a crate block opens a key straight away, without the crate screen.
+# Sneaking and right-clicking a crate block opens a key straight away, without the crate screen. Each player picks
+# in /settings whether it opens one key, several, or the crate screen after all.
 quick-open: true
 
-# Players who have unopened keys get a short reminder in chat a few seconds after joining.
+# Players who have unopened keys get a short reminder in chat a few seconds after joining (each player can turn it
+# off in /settings).
 join-reminder: true
 
 grants:

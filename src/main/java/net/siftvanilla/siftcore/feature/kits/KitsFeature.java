@@ -11,9 +11,12 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.Choice;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
+import net.siftvanilla.siftcore.feature.sell.WorthService;
+import net.siftvanilla.siftcore.feature.sell.WorthTable;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -31,15 +34,17 @@ import org.bukkit.permissions.PermissionDefault;
  * economy transaction that checks and starts the kit's cooldown and puts its items into the claim box, from where
  * they move into the inventory (whatever doesn't fit waits for the player). Kits can also give crate keys. Perks are
  * permission-gated commands: the ender chest, workstations anywhere, a trash bin and a hat.
+ * <p>
+ * Player settings ({@link KitPlayerSettings}, in Crates &amp; kits): how and when kit reminders come, putting kit
+ * armour on straight away, and what the trash protects and when it deletes.
  */
 public final class KitsFeature implements Feature, Listener {
 
     public static final String PERMISSION_USE = "siftcore.command.kits";
     public static final String PERMISSION_ADMIN = "siftcore.admin.kits";
 
-    /** Whether a player is told when kits are ready (in the settings dialog). */
-    public static final Toggle REMINDERS = new Toggle("kit-reminders", true, KitsMessages.SETTING_REMINDERS,
-        KitsMessages.SETTING_REMINDERS_DESCRIPTION, PERMISSION_USE);
+    /** How a player is told that kits are ready (was a switch; see {@link KitPlayerSettings}). */
+    public static final Choice<AlertStyle> REMINDERS = KitPlayerSettings.REMINDERS;
 
     private final Services services;
     private final Setting<KitsSettings> settings;
@@ -63,9 +68,8 @@ public final class KitsFeature implements Feature, Listener {
         this.crateKeys = crateKeys;
         this.worth = worth;
         this.settings = services.configs().register("features/kits.yml",
-            reader -> KitsSettings.parse(reader, KitItems.catalog(crateKeys.crates())), problems);
+            reader -> KitsSettings.parse(reader, KitItems.catalog(crateKeys.crates()), services.core().get().money()), problems);
         services.lang().register(KitsMessages.class);
-        services.settings().register(REMINDERS);
         var perms = services.permissions();
         perms.declare(PERMISSION_USE, "Use /kits and claim the kits you have", true);
         perms.declare(PERMISSION_ADMIN, "Give kits, reset kit cooldowns and check players' kits with /kits", false);
@@ -81,11 +85,28 @@ public final class KitsFeature implements Feature, Listener {
         KitText text = new KitText(services.lang());
         this.kits = new KitService(services, this.settings, this.claims, new KitItems(() -> services.lang().style().palette()),
             this.handouts, combat, crateKeys, text);
-        this.perks = new PerkService(services, this.settings, combat);
+        this.perks = new PerkService(services, this.settings, combat, worth);
         this.dialogs = new KitDialogs(services, this.kits, this.perks);
-        this.reminders = new KitReminders(services, this.kits, REMINDERS);
+        this.reminders = new KitReminders(services, this.kits);
         this.kits.reminders(this.reminders);
+        KitPlayerSettings.register(services.settings(), this.settings::get, () -> pricesItems(worth), this.reminders::schedule);
         this.commands = new KitCommands(services, this.kits, this.dialogs, this.perks);
+    }
+
+    /**
+     * Whether the server prices any item at /sell, which the trash bin's valuables protection needs: the sell
+     * feature's worth table has at least one price. Another plugin's prices are assumed to price items; none never does.
+     */
+    static boolean pricesItems(WorthLookup worth) {
+        if (worth == null || worth == WorthLookup.NONE) {
+            return false;
+        }
+        return !(worth instanceof WorthService sell) || priced(sell.table());
+    }
+
+    /** Whether a worth table prices at least one item. */
+    static boolean priced(WorthTable table) {
+        return table != null && table.size() > 0;
     }
 
     @Override

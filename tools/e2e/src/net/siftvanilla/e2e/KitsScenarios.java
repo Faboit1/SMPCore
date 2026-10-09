@@ -16,6 +16,8 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.siftvanilla.siftcore.economy.Deliveries;
 import net.siftvanilla.siftcore.economy.Ledger;
 import net.siftvanilla.siftcore.feature.crates.CratesFeature;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.feature.kits.KitPlayerSettings;
 import net.siftvanilla.siftcore.feature.kits.KitsFeature;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -70,6 +72,7 @@ final class KitsScenarios {
         list.add(of("kits-config", KitsScenarios::config));
         list.add(of("kits-persist-setup", KitsScenarios::persistSetup));
         list.add(of("kits-persist-check", KitsScenarios::persistCheck));
+        list.add(of("kits-settings", KitsScenarios::settings));
         return list;
     }
 
@@ -941,5 +944,179 @@ final class KitsScenarios {
         List<String> check = e2e.consoleOutput("kits check " + name);
         e2e.expect(check.contains("Starter (starter): claimed"), "the starter kit is still claimed: " + check);
         e2e.expect(check.stream().anyMatch(line -> line.startsWith("Daily (daily): in ")), "the daily cooldown is still running: " + check);
+    }
+
+    // ------------------------------------------------------------------ player settings
+
+    private static Material worn(E2E e2e, String name, java.util.function.Function<org.bukkit.inventory.PlayerInventory, ItemStack> slot) {
+        return e2e.onPlayer(name, () -> {
+            ItemStack item = slot.apply(e2e.player(name).getInventory());
+            return item == null ? Material.AIR : item.getType();
+        });
+    }
+
+    /**
+     * The kit and trash settings change what players get: kit armour put on and the Delete button bin (a switch and a
+     * choice saved in the settings dialog), trash protection giving gear back, valuable plain stacks back or nothing,
+     * and kit reminders above the hotbar (one line when kits are ready and items wait) or only when a kit is ready
+     * (choices set through the API, as other plugins and the coming /settings command set them).
+     */
+    static void settings(E2E e2e) throws Exception {
+        String name = e2e.name("KtSet");
+        Bot bot = e2e.bot(name);
+        UUID uuid = e2e.uuid(name);
+        clear(e2e, name);
+        grant(e2e, name, "siftcore.perk.trash");
+
+        e2e.step("the kit and trash settings are in Crates & kits, the trash ones for players with the trash perk");
+        Map<String, List<String>> inputs = ItemSettingsSteps.inputs(e2e, bot, "crates", "Crates & kits settings");
+        e2e.expect(List.of("chat", "actionbar", "title", "off").equals(inputs.get("kit_reminders")), "kit reminders: " + inputs);
+        e2e.expect(List.of("join-and-ready", "join", "ready").equals(inputs.get("kit_reminder_when")), "when: " + inputs);
+        e2e.expect(List.of("toggle").equals(inputs.get("kit_auto_equip")), "auto-equip: " + inputs);
+        e2e.expect(List.of("gear", "valuables", "off").equals(inputs.get("trash_protect")), "trash protection: " + inputs);
+        e2e.expect(List.of("delete-on-close", "delete-button").equals(inputs.get("trash_confirm")), "trash mode: " + inputs);
+
+        e2e.step("auto-equip (a switch) and the Delete button bin (a choice) are saved in the settings dialog");
+        ItemSettingsSteps.edit(e2e, bot, "crates", "Crates & kits settings", Map.of("kit_auto_equip", true, "trash_confirm", "delete-button"));
+        e2e.eventually(() -> bot.anyFeedbackContains("Saved 2 settings"), "saved: " + bot.chat() + " " + bot.actionBar());
+        ItemSettingsSteps.expectStored(e2e, uuid, "kit-auto-equip", "true");
+        ItemSettingsSteps.expectStored(e2e, uuid, "trash-confirm", "delete-button");
+
+        e2e.step("claiming the starter kit puts its leather armour on");
+        bot.clearLogs();
+        command(e2e, bot, "kit starter");
+        waitFor(e2e, () -> bot.actionBarContains("You claimed the Starter kit."), () -> "claimed: " + bot.actionBar() + " / " + bot.chat());
+        e2e.eventually(() -> worn(e2e, name, org.bukkit.inventory.PlayerInventory::getHelmet) == Material.LEATHER_HELMET
+            && worn(e2e, name, org.bukkit.inventory.PlayerInventory::getChestplate) == Material.LEATHER_CHESTPLATE
+            && worn(e2e, name, org.bukkit.inventory.PlayerInventory::getLeggings) == Material.LEATHER_LEGGINGS
+            && worn(e2e, name, org.bukkit.inventory.PlayerInventory::getBoots) == Material.LEATHER_BOOTS, "the armour is worn");
+        e2e.expect(count(e2e, name, Material.LEATHER_HELMET) == 0 && count(e2e, name, Material.STONE_PICKAXE) == 1
+            && count(e2e, name, Material.BREAD) == 16, "the rest went into the inventory");
+
+        e2e.step("the Delete button bin gives everything back when it closes");
+        put(e2e, name, 0, ItemStack.of(Material.DIRT, 64));
+        bot.selectHotbar(0);
+        command(e2e, bot, "trash");
+        awaitScreen(e2e, bot, "minecraft:generic_9x5", "Trash: click Delete to delete");
+        bot.shiftClick(72);
+        e2e.eventually(() -> count(e2e, name, Material.DIRT) == 0, "the dirt is in the bin");
+        bot.clearLogs();
+        bot.closeScreen();
+        waitFor(e2e, () -> bot.actionBarContains("Nothing deleted. Items given back: 64"), () -> "given back: " + bot.actionBar());
+        e2e.eventually(() -> count(e2e, name, Material.DIRT) == 64, "the dirt is back");
+
+        e2e.step("its Delete button deletes what is in the bin");
+        command(e2e, bot, "trash");
+        awaitScreen(e2e, bot, "minecraft:generic_9x5", "Trash: click Delete to delete");
+        bot.shiftClick(72);
+        e2e.eventually(() -> count(e2e, name, Material.DIRT) == 0, "the dirt is in the bin");
+        bot.clearLogs();
+        // Menus drop clicks that come faster than a player clicks.
+        e2e.sleep(500);
+        bot.clickSlot(40);
+        waitFor(e2e, () -> bot.actionBarContains("Deleted 64 items."), () -> "deleted: " + bot.actionBar());
+        e2e.expect(audits(e2e, "perks.trash", uuid) == 1, "the deletion is audited");
+        bot.closeScreen();
+        e2e.sleep(600);
+        e2e.expect(count(e2e, name, Material.DIRT) == 0, "the dirt stays deleted");
+
+        e2e.step("the classic bin keeps gear: an enchanted sword comes back, the cobblestone goes (set through the API)");
+        ItemSettingsSteps.set(e2e, uuid, KitPlayerSettings.TRASH_MODE, KitPlayerSettings.TrashMode.DELETE_ON_CLOSE);
+        ItemStack sword = ItemStack.of(Material.DIAMOND_SWORD);
+        sword.addEnchantment(Enchantment.SHARPNESS, 3);
+        clear(e2e, name);
+        put(e2e, name, 0, sword);
+        put(e2e, name, 1, ItemStack.of(Material.COBBLESTONE, 10));
+        command(e2e, bot, "trash");
+        awaitScreen(e2e, bot, "minecraft:generic_9x4", "Trash: deleted when you close it");
+        bot.shiftClick(63);
+        e2e.sleep(200);
+        bot.shiftClick(64);
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND_SWORD) == 0 && count(e2e, name, Material.COBBLESTONE) == 0, "both in the bin");
+        bot.clearLogs();
+        bot.closeScreen();
+        waitFor(e2e, () -> bot.actionBarContains("Items deleted: 10. Protected items given back: 1"), () -> "kept: " + bot.actionBar());
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND_SWORD) == 1, "the sword is back");
+        e2e.expect(count(e2e, name, Material.COBBLESTONE) == 0, "the cobblestone is gone");
+
+        e2e.step("with Trash protection off the sword is deleted too (set through the API)");
+        ItemSettingsSteps.set(e2e, uuid, KitPlayerSettings.TRASH_PROTECT, KitPlayerSettings.TrashProtect.OFF);
+        command(e2e, bot, "trash");
+        awaitScreen(e2e, bot, "minecraft:generic_9x4", "Trash: deleted when you close it");
+        bot.shiftClick(63);
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND_SWORD) == 0, "the sword is in the bin");
+        bot.clearLogs();
+        bot.closeScreen();
+        waitFor(e2e, () -> bot.actionBarContains("Deleted 1 item."), () -> "deleted: " + bot.actionBar());
+        e2e.sleep(400);
+        e2e.expect(count(e2e, name, Material.DIAMOND_SWORD) == 0, "the sword is gone");
+
+        e2e.step("with Trash protection on valuables a plain stack worth 10k at /sell comes back, a cheap one goes (set through the API)");
+        ItemSettingsSteps.set(e2e, uuid, KitPlayerSettings.TRASH_PROTECT, KitPlayerSettings.TrashProtect.VALUABLES);
+        clear(e2e, name);
+        put(e2e, name, 0, ItemStack.of(Material.DIAMOND, 64));
+        put(e2e, name, 1, ItemStack.of(Material.DIAMOND, 10));
+        e2e.expect(e2e.onPlayer(name, () -> e2e.player(name).getInventory().getItem(0).getEnchantments().isEmpty()), "plain diamonds");
+        command(e2e, bot, "trash");
+        awaitScreen(e2e, bot, "minecraft:generic_9x4", "Trash: deleted when you close it");
+        bot.shiftClick(63);
+        e2e.sleep(200);
+        bot.shiftClick(64);
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 0, "both stacks in the bin");
+        bot.clearLogs();
+        bot.closeScreen();
+        waitFor(e2e, () -> bot.actionBarContains("Items deleted: 10. Protected items given back: 64"), () -> "kept: " + bot.actionBar());
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 64, "the 64 diamonds ($25,600 at /sell) are back");
+
+        e2e.step("with gear protection the same plain stack is deleted (set through the API)");
+        ItemSettingsSteps.set(e2e, uuid, KitPlayerSettings.TRASH_PROTECT, KitPlayerSettings.TrashProtect.GEAR);
+        command(e2e, bot, "trash");
+        awaitScreen(e2e, bot, "minecraft:generic_9x4", "Trash: deleted when you close it");
+        bot.shiftClick(63);
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 0, "the diamonds are in the bin");
+        bot.clearLogs();
+        bot.closeScreen();
+        waitFor(e2e, () -> bot.actionBarContains("Deleted 64 items."), () -> "deleted: " + bot.actionBar());
+        e2e.sleep(400);
+        e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "the diamonds are gone");
+
+        e2e.step("kit reminders above the hotbar (set through the API while away): the short line on join, nothing in chat");
+        bot.quit();
+        e2e.eventually(() -> org.bukkit.Bukkit.getPlayerExact(name) == null, name + " left");
+        ItemSettingsSteps.set(e2e, uuid, KitPlayerSettings.REMINDERS, AlertStyle.ACTIONBAR);
+        ItemSettingsSteps.expectStored(e2e, uuid, "kit-reminders", "actionbar");
+        e2e.sleep(1_000);
+        Bot back = e2e.botAtSpawn(name);
+        waitFor(e2e, () -> back.actionBarContains("Kits ready to claim: Daily (/kits)"), 15_000,
+            () -> "the short reminder: " + back.actionBar() + " / " + back.chat());
+        e2e.expect(!back.chatContains("Kits ready to claim"), "nothing in chat: " + back.chat());
+
+        e2e.step("with a kit ready and kit items waiting, one short line says both (a second would replace the first)");
+        fill(e2e, name);
+        command(e2e, back, "kit daily");
+        waitFor(e2e, () -> back.chatContains("Some of the Daily kit didn't fit."), () -> "items wait: " + back.chat());
+        e2e.expect(waiting(e2e, uuid) > 0, "kit items wait: " + waiting(e2e, uuid));
+        List<String> reset = e2e.consoleOutput("kits reset " + name + " daily");
+        e2e.expect(reset.stream().anyMatch(line -> line.contains("Reset " + name + "'s Daily kit.")), "the daily kit is ready again: " + reset);
+        back.quit();
+        e2e.eventually(() -> org.bukkit.Bukkit.getPlayerExact(name) == null, name + " left");
+        e2e.sleep(1_000);
+        Bot both = e2e.botAtSpawn(name);
+        waitFor(e2e, () -> both.actionBarContains("Kits ready: Daily, kit items waiting (/kits)"), 15_000,
+            () -> "one line: " + both.actionBar() + " / " + both.chat());
+        e2e.sleep(1_500);
+        e2e.expect(!both.actionBarContains("Kit items are waiting") && !both.actionBarContains("Kits ready to claim"),
+            "no second line: " + both.actionBar());
+        e2e.expect(!both.chatContains("Kits ready") && !both.chatContains("Kit items are waiting"), "nothing in chat: " + both.chat());
+
+        e2e.step("kit reminders only when a kit is ready: no reminder on join");
+        both.quit();
+        e2e.eventually(() -> org.bukkit.Bukkit.getPlayerExact(name) == null, name + " left again");
+        ItemSettingsSteps.set(e2e, uuid, KitPlayerSettings.REMINDER_WHEN, KitPlayerSettings.ReminderWhen.READY);
+        e2e.sleep(1_000);
+        Bot again = e2e.botAtSpawn(name);
+        e2e.sleep(6_000);
+        e2e.expect(!again.anyFeedbackContains("Kits ready") && !again.anyFeedbackContains("items wait"), "no join reminder: "
+            + again.chat() + " / " + again.actionBar());
     }
 }

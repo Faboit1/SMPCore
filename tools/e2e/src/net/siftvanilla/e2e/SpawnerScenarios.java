@@ -8,6 +8,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.feature.spawners.SpawnerPlayerSettings;
 import net.siftvanilla.siftcore.feature.spawners.SpawnersFeature;
 import net.siftvanilla.siftcore.feature.staff.StaffFeature;
 import org.bukkit.Bukkit;
@@ -22,6 +25,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.Damageable;
 
 /**
  * Spawners end to end: buying one in the shop, placing, stacking, refusals, virtual loot, the storage menu (take,
@@ -73,6 +77,7 @@ final class SpawnerScenarios {
         list.add(of("spawners-crates", SpawnerScenarios::crates));
         list.add(of("spawners-persist", SpawnerScenarios::persist));
         list.add(of("spawners-left-before-commit", SpawnerScenarios::leftBeforeCommit));
+        list.add(of("spawners-settings", SpawnerScenarios::settings));
         return list;
     }
 
@@ -638,6 +643,13 @@ final class SpawnerScenarios {
         hold(e2e, otherName, 0, items(e2e).create("pig", 2).orElseThrow());
         other.clearLogs();
         use(other, at);
+        // Spawners added to someone else's stack become theirs: the first click asks (Confirm stacking onto others'
+        // spawners is on by default), a separate second click gives.
+        e2e.eventually(() -> other.actionBarContains("Click again to add 1 to " + ownerName + "'s pig stack."),
+            "asked to confirm: " + other.actionBar());
+        e2e.sleep(600);
+        e2e.expect(number(e2e, ownerName, "spawners_stacked") == 1, "nothing stacked on the first click");
+        use(other, at);
         e2e.eventually(() -> number(e2e, ownerName, "spawners_stacked") == 2, "a team member stacked it");
         e2e.eventually(() -> other.actionBarContains("Added 1 to " + ownerName + "'s pig stack, now 2 of 1,000."),
             "told whose stack it is: " + other.actionBar());
@@ -1086,5 +1098,242 @@ final class SpawnerScenarios {
         e2e.expect(blockType(e2e, name, at) == Material.SPAWNER, "the spawner survived the explosion");
         e2e.expect(number(e2e, name, "spawners_count") == 1, "still recorded");
         e2e.expect(blockState(e2e, name, at)[1].equals(0), "still never spawns");
+    }
+
+    // ------------------------------------------------------------------ player settings
+
+    /** The damage of the boots the player wears (-1 when none). */
+    private static int bootsDamage(E2E e2e, String name) {
+        return e2e.onPlayer(name, () -> {
+            ItemStack worn = e2e.player(name).getInventory().getBoots();
+            return worn != null && worn.getItemMeta() instanceof Damageable damage ? damage.getDamage() : -1;
+        });
+    }
+
+    /** Opens the storage with a plain right-click (the owner's Open storage setting) and clicks Collect XP. */
+    private static void collectXp(E2E e2e, Bot bot, int[] at) {
+        select(e2e, bot.name, 8);
+        hold(e2e, bot.name, 8, null);
+        e2e.sleep(400);
+        use(bot, at);
+        e2e.eventually(() -> bot.screen() != null && bot.screen().title().endsWith("spawner"), "the storage opened: "
+            + (bot.screen() == null ? "none" : bot.screen().title()));
+        e2e.sleep(300);
+        bot.clickSlot(SLOT_XP);
+        e2e.eventually(() -> number(e2e, bot.name, "spawners_xp") == 0, "the XP was collected");
+    }
+
+    /** Runs {@code body} with spawners.yml changed by exact replacements, then restores it (both reloaded). */
+    private static void withSpawnersFile(E2E e2e, Map<String, String> replacements, Runnable body) throws Exception {
+        java.nio.file.Path path = e2e.services().plugin().getDataFolder().toPath().resolve("features/spawners.yml");
+        String original = java.nio.file.Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
+        String changed = original;
+        for (Map.Entry<String, String> entry : replacements.entrySet()) {
+            e2e.expect(changed.contains(entry.getKey()), "spawners.yml contains '" + entry.getKey() + "'");
+            changed = changed.replace(entry.getKey(), entry.getValue());
+        }
+        java.nio.file.Files.writeString(path, changed, java.nio.charset.StandardCharsets.UTF_8);
+        try {
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(String.join(" ", reload).contains("Reloaded"), "the changed spawners.yml reloads: " + reload);
+            body.run();
+        } finally {
+            java.nio.file.Files.writeString(path, original, java.nio.charset.StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
+    }
+
+    /**
+     * The spawner settings change how spawners behave for each player: a plain right-click adding the whole stack and
+     * every teammate action told (choices saved in the settings dialog), storage opening with a plain right-click, the
+     * sale receipt above the hotbar, the second click before giving spawners away and turning it off, collected XP
+     * going to levels or repairing mending gear first, the owner's pickup selling the storage and the full storage alert,
+     * including one held back by the 5 minutes (choices and a switch set through the API, as other plugins and the
+     * coming /settings command set them).
+     */
+    static void settings(E2E e2e) throws Exception {
+        String ownerName = e2e.name("SpSet");
+        String mateName = e2e.name("SpMate");
+        Bot owner = e2e.bot(ownerName);
+        Bot mate = e2e.bot(mateName);
+        UUID ownerId = e2e.uuid(ownerName);
+        UUID mateId = e2e.uuid(mateName);
+        clear(e2e, ownerName);
+        clear(e2e, mateName);
+        e2e.console("eco set " + ownerName + " 50k");
+        e2e.eventually(() -> e2e.money(ownerName) == 50_000, "the owner is funded");
+
+        e2e.step("the spawner settings are in Spawners, with their options");
+        Map<String, List<String>> inputs = ItemSettingsSteps.inputs(e2e, owner, "spawners", "Spawners settings");
+        e2e.expect(List.of("server", "sneak-right-click", "right-click").equals(inputs.get("spawner_open_click")), "open: " + inputs);
+        e2e.expect(List.of("chat", "actionbar", "off").equals(inputs.get("spawner_full_alert")), "full alert: " + inputs);
+        e2e.expect(List.of("one", "whole-hand").equals(inputs.get("spawner_stack_click")), "stack click: " + inputs);
+        e2e.expect(List.of("server", "repair-first", "levels-only").equals(inputs.get("spawner_xp_mending")), "XP: " + inputs);
+        e2e.expect(List.of("server", "claim-box", "sell").equals(inputs.get("spawner_pickup_storage")), "pickup: " + inputs);
+        e2e.expect(List.of("pickups", "all", "off").equals(inputs.get("spawner_team_notices")), "team notices: " + inputs);
+        e2e.expect(List.of("toggle").equals(inputs.get("spawner_confirm_give")), "confirm give: " + inputs);
+
+        e2e.step("a plain right-click adds the whole stack in hand and teammates' use is told (saved in the settings dialog)");
+        ItemSettingsSteps.edit(e2e, owner, "spawners", "Spawners settings",
+            Map.of("spawner_stack_click", "whole-hand", "spawner_team_notices", "all"));
+        e2e.eventually(() -> owner.anyFeedbackContains("Saved 2 settings"), "saved: " + owner.chat() + " " + owner.actionBar());
+        ItemSettingsSteps.expectStored(e2e, ownerId, "spawner-stack-click", "whole-hand");
+        ItemSettingsSteps.expectStored(e2e, ownerId, "spawner-team-notices", "all");
+        e2e.console("spawners give " + ownerName + " zombie 6");
+        e2e.eventually(() -> spawnerItems(e2e, ownerName, "zombie") == 6, "6 zombie spawners");
+        select(e2e, ownerName, 0);
+        int[] at = workSpot(e2e, ownerName, 2, 0);
+        place(e2e, owner, at, 1);
+        owner.clearLogs();
+        use(owner, at);
+        e2e.eventually(() -> number(e2e, ownerName, "spawners_stacked") == 6, "the whole hand was added without sneaking");
+        e2e.eventually(() -> owner.actionBarContains("Added 5 to the zombie stack, now 6 of 1,000."), "stacked: " + owner.actionBar());
+
+        e2e.step("a plain right-click with an empty hand opens the storage (set through the API)");
+        ItemSettingsSteps.set(e2e, ownerId, SpawnerPlayerSettings.OPEN_CLICK, SpawnerPlayerSettings.OpenClick.RIGHT_CLICK);
+        select(e2e, ownerName, 8);
+        hold(e2e, ownerName, 8, null);
+        e2e.expect(!e2e.onPlayer(ownerName, () -> e2e.player(ownerName).isSneaking()), "not sneaking");
+        use(owner, at);
+        e2e.eventually(() -> owner.screen() != null && owner.screen().title().equals("Zombie spawner"), "the storage opened: "
+            + (owner.screen() == null ? "none" : owner.screen().title()));
+        owner.closeScreen();
+
+        e2e.step("selling the storage shows only the total above the hotbar (sale receipts set through the API)");
+        ItemSettingsSteps.set(e2e, ownerId, SharedSettings.SELL_RECEIPTS, AlertStyle.ACTIONBAR);
+        cycle(e2e, ownerName);
+        long money = e2e.money(ownerName);
+        e2e.sleep(400);
+        use(owner, at);
+        e2e.eventually(() -> owner.screen() != null && owner.screen().title().equals("Zombie spawner"), "the storage opened again");
+        e2e.sleep(300);
+        owner.clearLogs();
+        owner.clickSlot(SLOT_SELL);
+        e2e.eventually(() -> e2e.money(ownerName) > money, "paid for the loot");
+        e2e.eventually(() -> owner.actionBar().stream().anyMatch(line -> line.startsWith("Sold ") && line.contains(" items for $")),
+            "the total above the hotbar: " + owner.actionBar());
+        e2e.sleep(400);
+        e2e.expect(!owner.chatContains("from the zombie spawner for"), "no chat receipt: " + owner.chat());
+        owner.closeScreen();
+
+        e2e.step("a teammate's first click with spawners only asks; a separate second click gives and the owner is told");
+        String team = e2e.name("SpSetTeam");
+        owner.command("team create " + team);
+        e2e.dialog(owner, "Start a team");
+        e2e.click(owner, "Start team");
+        e2e.eventually(() -> team.equals(placeholder(e2e, ownerName, "team_name")), "the owner has a team");
+        owner.command("team invite " + mateName);
+        e2e.eventually(() -> owner.actionBarContains("Invited " + mateName), "invited: " + owner.actionBar());
+        mate.command("team join " + team);
+        e2e.eventually(() -> team.equals(placeholder(e2e, mateName, "team_name")), "the teammate joined");
+        bring(e2e, mate, ownerName);
+        hold(e2e, mateName, 0, items(e2e).create("zombie", 3).orElseThrow());
+        mate.clearLogs();
+        owner.clearLogs();
+        use(mate, at);
+        e2e.eventually(() -> mate.actionBarContains("Click again to add 1 to " + ownerName + "'s zombie stack."), "asked: " + mate.actionBar());
+        e2e.sleep(700);
+        e2e.expect(number(e2e, ownerName, "spawners_stacked") == 6, "nothing added on the first click");
+        use(mate, at);
+        e2e.eventually(() -> number(e2e, ownerName, "spawners_stacked") == 7, "the second click added one");
+        e2e.eventually(() -> owner.chatContains(mateName + " added 1 to your zombie stack, now 7."), "the owner is told: " + owner.chat());
+
+        e2e.step("with the confirmation off a teammate's click gives at once (set through the API)");
+        ItemSettingsSteps.set(e2e, mateId, SpawnerPlayerSettings.CONFIRM_GIVE, false);
+        e2e.sleep(600);
+        use(mate, at);
+        e2e.eventually(() -> number(e2e, ownerName, "spawners_stacked") == 8, "one more at once");
+
+        e2e.step("collected XP only adds levels with XP and mending on levels only (set through the API)");
+        ItemStack boots = ItemStack.of(Material.DIAMOND_BOOTS);
+        boots.addEnchantment(Enchantment.MENDING, 1);
+        boots.editMeta(Damageable.class, meta -> meta.setDamage(300));
+        e2e.onPlayer(ownerName, () -> {
+            e2e.player(ownerName).getInventory().setBoots(boots);
+            return null;
+        });
+        e2e.expect(bootsDamage(e2e, ownerName) == 300, "damaged mending boots worn");
+        ItemSettingsSteps.set(e2e, ownerId, SpawnerPlayerSettings.XP_MENDING, SpawnerPlayerSettings.XpMending.LEVELS_ONLY);
+        cycle(e2e, ownerName);
+        long levelsXp = number(e2e, ownerName, "spawners_xp");
+        e2e.expect(levelsXp > 0, "the spawner holds XP: " + levelsXp);
+        int levelsBefore = e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getTotalExperience());
+        collectXp(e2e, owner, at);
+        e2e.eventually(() -> e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getTotalExperience()) == levelsBefore + levelsXp,
+            "all " + levelsXp + " XP went to levels (total " + e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getTotalExperience()) + ")");
+        e2e.expect(bootsDamage(e2e, ownerName) == 300, "the boots were not repaired: " + bootsDamage(e2e, ownerName));
+        owner.closeScreen();
+
+        e2e.step("on repair first the collected XP repairs the mending boots before anything goes to levels (set through the API)");
+        ItemSettingsSteps.set(e2e, ownerId, SpawnerPlayerSettings.XP_MENDING, SpawnerPlayerSettings.XpMending.REPAIR_FIRST);
+        cycle(e2e, ownerName);
+        long repairXp = number(e2e, ownerName, "spawners_xp");
+        e2e.expect(repairXp > 0, "the spawner holds XP again: " + repairXp);
+        int repairBefore = e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getTotalExperience());
+        collectXp(e2e, owner, at);
+        e2e.eventually(() -> bootsDamage(e2e, ownerName) < 300, "the boots were repaired: " + bootsDamage(e2e, ownerName));
+        e2e.sleep(300);
+        int repairGain = e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getTotalExperience()) - repairBefore;
+        e2e.expect(repairGain < repairXp, "part of the " + repairXp + " XP went into the repair (levels got " + repairGain + ")");
+        owner.closeScreen();
+        e2e.onPlayer(ownerName, () -> {
+            e2e.player(ownerName).getInventory().setBoots(null);
+            return null;
+        });
+
+        e2e.step("the owner picking up their own spawner sells the storage (set through the API)");
+        ItemSettingsSteps.set(e2e, ownerId, SpawnerPlayerSettings.PICKUP_STORAGE, SpawnerPlayerSettings.PickupStorage.SELL);
+        cycle(e2e, ownerName);
+        long beforePickup = e2e.money(ownerName);
+        ItemStack silk = ItemStack.of(Material.DIAMOND_PICKAXE);
+        silk.addEnchantment(Enchantment.SILK_TOUCH, 1);
+        hold(e2e, ownerName, 0, silk);
+        e2e.onPlayer(ownerName, () -> {
+            e2e.player(ownerName).getAttribute(Attribute.BLOCK_BREAK_SPEED).setBaseValue(1_000);
+            return null;
+        });
+        owner.clearLogs();
+        owner.breakBlock(at[0], at[1], at[2]);
+        e2e.eventually(() -> blockType(e2e, ownerName, at) == Material.AIR, "picked up");
+        e2e.eventually(() -> owner.chat().stream().anyMatch(line -> line.startsWith("Its ") && line.contains("stored items sold for $")),
+            "the storage was sold: " + owner.chat());
+        e2e.eventually(() -> e2e.money(ownerName) > beforePickup, "paid for the storage");
+        e2e.eventually(() -> spawnerItems(e2e, ownerName, "zombie") == 8, "the 8 spawners came back");
+
+        e2e.step("a storage that fills up is told above the hotbar; a player with the alert off is not told");
+        ItemSettingsSteps.set(e2e, mateId, SpawnerPlayerSettings.FULL_ALERT, AlertStyle.OFF);
+        withSpawnersFile(e2e, Map.of("  zombie:\n    name: \"Zombie\"\n    kills-per-cycle: 2.0\n",
+            "  zombie:\n    name: \"Zombie\"\n    slots: 1\n    kills-per-cycle: 100\n"), () -> {
+            hold(e2e, ownerName, 0, items(e2e).create("zombie", 1).orElseThrow());
+            int[] full = workSpot(e2e, ownerName, -2, 0);
+            place(e2e, owner, full, 1);
+            hold(e2e, mateName, 0, items(e2e).create("zombie", 1).orElseThrow());
+            int[] mates = workSpot(e2e, mateName, 0, -2);
+            place(e2e, mate, mates, 1);
+            owner.clearLogs();
+            mate.clearLogs();
+            e2e.console("spawners cycle");
+            e2e.eventually(() -> owner.actionBarContains("Your zombie spawner is full."), 15_000, "the owner's alert: " + owner.actionBar());
+            e2e.sleep(1_500);
+            e2e.expect(!mate.anyFeedbackContains("is full"), "no alert with it off: " + mate.chat() + " " + mate.actionBar());
+
+            e2e.step("a storage that fills within the 5 minutes is told once they have passed, not lost");
+            hold(e2e, ownerName, 0, items(e2e).create("zombie", 1).orElseThrow());
+            int[] later = workSpot(e2e, ownerName, -2, 2);
+            place(e2e, owner, later, 2);
+            owner.clearLogs();
+            e2e.console("spawners cycle");
+            e2e.sleep(2_500);
+            e2e.expect(!owner.anyFeedbackContains("is full"), "held back by the 5 minutes: " + owner.actionBar());
+            e2e.services().cooldowns().clear(ownerId, "spawners:full");
+            e2e.console("spawners cycle");
+            e2e.eventually(() -> owner.actionBarContains("Your zombie spawner is full."), 15_000,
+                "the held-back alert once the 5 minutes passed: " + owner.actionBar());
+            owner.clearLogs();
+            e2e.services().cooldowns().clear(ownerId, "spawners:full");
+            e2e.console("spawners cycle");
+            e2e.sleep(2_500);
+            e2e.expect(!owner.anyFeedbackContains("is full"), "both still full but already told: " + owner.actionBar());
+        });
     }
 }

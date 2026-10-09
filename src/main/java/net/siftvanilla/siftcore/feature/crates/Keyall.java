@@ -21,6 +21,7 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.text.Arg;
 import org.bukkit.Bukkit;
@@ -176,15 +177,26 @@ final class Keyall {
             return;
         }
         Duration announce = KeyallClock.crossed(before, remaining, config.chatAt());
-        if (announce != null) {
-            this.services.messenger().broadcast(CratesMessages.KEYALL_COUNTDOWN, Arg.time("time", announce),
-                Arg.component("keys", reward));
-        }
         int seconds = KeyallClock.actionBarSeconds(remaining, config.actionBarFrom());
-        if (seconds > 0) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                this.services.messenger().send(player, CratesMessages.KEYALL_ACTIONBAR, Arg.time("time", Duration.ofSeconds(seconds)));
+        if (announce == null && seconds <= 0) {
+            return;
+        }
+        // Each player's Keyall countdown setting picks the chat announcements, the action bar count, both or neither;
+        // the console always gets the announcements. The "everyone got keys" line is not part of it.
+        Arg time = announce == null ? null : Arg.time("time", announce);
+        Arg keys = Arg.component("keys", reward);
+        Arg count = seconds <= 0 ? null : Arg.time("time", Duration.ofSeconds(seconds));
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            AlertStyle style = this.services.settings().get(player.getUniqueId(), CratePlayerSettings.KEYALL_COUNTDOWN);
+            if (time != null && CratePlayerSettings.countdownInChat(style)) {
+                this.services.messenger().send(player, CratesMessages.KEYALL_COUNTDOWN, time, keys);
             }
+            if (count != null && CratePlayerSettings.countdownInActionBar(style)) {
+                this.services.messenger().send(player, CratesMessages.KEYALL_ACTIONBAR, count);
+            }
+        }
+        if (time != null) {
+            this.services.messenger().send(Bukkit.getConsoleSender(), CratesMessages.KEYALL_COUNTDOWN, time, keys);
         }
     }
 

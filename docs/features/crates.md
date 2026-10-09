@@ -92,10 +92,27 @@ with `audit: true` (rare and up in the shipped file).
   0.01% reads "<0.01%"). Sort (slot 47): crate order, most likely first, rarest first. Slot 50: "Open one" with your
   keys (the menu is locked while the opening is stored; right-click opens up to `bulk-open` in a row), or "No keys". Back (slot 46) when opened from a dialog.
 - **Chat**: the receipt "You won 5 diamonds from the Test crate." after every opening ("It didn't fit, so it's
-  waiting in your claim box." when it went there); the announcement "Name won $200,000 from the Legendary crate." to
-  everyone else for rarities with `announce: true` (players can turn it off with the "Crate wins" switch, id
-  `crate-wins`, in the settings dialog); "You got 3 Rare keys." when staff give keys; a join reminder "You have
-  3 keys to open." (clickable) when `join-reminder` is on.
+  waiting in your claim box." when it went there; where the receipt shows is the player's Crate win receipt); the
+  announcement "Name won $200,000 from the Legendary crate." to everyone else for rarities with `announce: true`
+  (filtered by each player's Crate win announcements); "You got 3 Rare keys." when staff give keys; a join reminder
+  "You have 3 keys to open." (clickable) when `join-reminder` is on and the player's Unopened key reminder is.
+
+## Player settings
+
+Registered by `CratePlayerSettings` (text in `lang/crates.yml` under `crates.settings`). Each is offered only while
+`crates.yml` turns its behaviour on, so a switch that does nothing never shows.
+
+| Id | Group | Kind, default | What it does | Offered while |
+|---|---|---|---|---|
+| `crate-wins` | Server announcements (3) | choice all/rarest/off, all | Other players' announced wins in chat: every one, only the rarest rarity the server announces (the last rarity with `announce: true`), or none. Was a switch: stored `true` reads as all, `false` as off | a rarity announces; rarest only while two or more do (otherwise it reads as all) |
+| `crate-receipt` | Crates & kits (1) | choice chat/actionbar/off, chat | Where the player's own "You won ..." line shows (`Messenger.alert`). Several openings in a row: the whole list in chat, or "You opened 10 Basic crates. Best: ..." above the hotbar. Rewards sent to the claim box are always told in chat; refusals are unaffected, except that the reason a bulk opening stopped early goes to chat when its receipt took the action bar (it would replace the receipt there at once); the result dialog always shows | always |
+| `crate-key-reminder` | Crates & kits (3) | toggle, on | The join reminder about unopened keys | `join-reminder` |
+| `keyall-countdown` | Crates & kits (4) | choice both/chat/actionbar/off, both | The keyall's chat announcements and/or its action bar count. The console always gets the announcements; "Keyall: everyone online got ..." always shows. Only what the server shows is offered: chat while `keyall.countdown.chat` has times, actionbar while `countdown.action-bar` is above 0s, both while both are. On a server with only one, both and the missing one read as the one there is (except both on a server with only the action bar count and a configured default of off, which reads as off) | the keyall is on and announces or counts down |
+| `crate-quick-open` | Crates & kits (5) | choice one/bulk/off, one | Sneak + right-click a crate block: open one key, open the player's Keys per bulk open in a row (one receipt), or show the crate window like a plain right-click | `quick-open`; bulk while `bulk-open` is 2 or more (otherwise it reads as one) |
+| `crate-bulk-amount` | Crates & kits (7) | number 2-64 keys, 10 | How many keys "Open n", "Open n more", a bulk quick-open and a right-click on the preview's open button open at once; never more than the player has or `bulk-open`. `/crates open <crate> <amount>` keeps its explicit amount | `bulk-open` is 2 or more |
+
+The kits feature fills the other places of Crates & kits (see `kits.md`). The preview menu remembers the sort a
+player last picked (`crate-preview-sort`, a remembered value, not a setting).
 
 ## How an opening works
 
@@ -126,7 +143,8 @@ storage closes.
 
 A global-thread timer ticks once a second. At the configured moments (`countdown.chat`, shipped 5m and 1m) it
 announces "Keyall in 5m. Everyone online gets 1 Basic key." in chat; for the last `countdown.action-bar` seconds
-(shipped 10s) everyone's action bar counts down. At zero `KeyallEvent` (cancellable) is fired with the crate, amount
+(shipped 10s) everyone's action bar counts down. Each player's Keyall countdown picks both, only the chat lines, only
+the action bar, or neither (the console always gets the chat lines). At zero `KeyallEvent` (cancellable) is fired with the crate, amount
 and recipients, then every online player (vanished staff left out unless `include-vanished`, AFK players left out
 when `include-afk` is false) gets the keys through
 `CrateKeys.give` with the reference `keyall:<run>:<uuid>`, so a player can never get one keyall twice. Everyone
@@ -144,7 +162,8 @@ entry wins when both name the same block; a placed block of a crate that no long
 loaded) stays stored but does nothing, and the self-test points it out. The blocks don't need to be anything special
 (a chest, an ender chest, a beacon...); interacting never opens or uses the block itself.
 
-- Right-click: the crate view. Sneak + right-click (`quick-open`): open a key straight away.
+- Right-click: the crate view. Sneak + right-click (`quick-open`): open a key straight away, several in a row, or the
+  crate view, as the player's Sneak + right-click a crate setting says.
 - Left-click: the preview menu.
 - Protection: breaking is cancelled for everyone (staff are told how to remove it), explosions skip the block,
   pistons can't move it, fire can't burn it and mobs can't change it. No physics, hopper or move events are used.
@@ -271,7 +290,16 @@ chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diam
   block inside the protected spawn opens without the spawn refusal while an ordinary chest next to it stays protected;
   a frozen player gets the freeze refusal and no crate screen, even sneaking; after the unfreeze it works), `crates-persist-setup`/`crates-persist-check` (keys, references and the keyall schedule
   across a restart), `crates-command-stored` (a command reward waits for its opening to be stored, runs once, and its
-  stored row is deleted).
+  stored row is deleted), `crates-settings` (the settings and their options in Crates & kits and Server
+  announcements; the receipt above the hotbar and 3 keys per bulk open saved in the settings dialog, then the receipt
+  above the hotbar, Open 3 more and the short batch receipt, a bulk opening a plugin cancels on its third key keeping
+  the short receipt above the hotbar with the reason in chat; through the API: rarest wins only, sneak + right-click
+  opening 3 keys from a crate block or showing the crate window, the keyall countdown in chat only while another player
+  gets the hotbar count, and no unopened key reminder on join while the other player gets one).
+- Unit: `CratePlayerSettingsTest` (groups and order, defaults, `crate-wins` legacy rows and config values, offering
+  that follows `crates.yml`, options that fall back, the keyall countdown offering only the chat lines and action bar
+  count the server shows, the win filter, the bulk amount, quick open, countdown and stop-reason deciders)
+  and the setting texts in `CratesResourcesTest`.
 
 Not verifiable without a real client: how the dialogs and the preview menu look, the waiting screen between Open and
 the result, and icons in the keyall line.

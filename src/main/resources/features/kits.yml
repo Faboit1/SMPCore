@@ -5,7 +5,8 @@
 block-in-combat: true
 
 # Tell players when they join which kits are ready to claim, and while they play when a kit's cooldown ends. Each
-# player can switch this off in the settings dialog (Kit reminders).
+# player picks in /settings (Crates & kits) how they are reminded (chat, above the hotbar, a title or not at all)
+# and when (on join, the moment a kit is ready, or both). false turns reminders off for everyone.
 reminders: true
 
 # Kits a player doesn't have the permission for:
@@ -130,3 +131,8 @@ perks:
   hat:
     # Items that can't be worn with /hat (item ids). Empty: anything can be worn.
     blocked: []
+  trash:
+    # Players pick their Trash protection in /settings (Crates & kits): gear (enchanted, named, shulker boxes,
+    # spawners, trial keys) is always given back instead of deleted, and with "valuables" also any stack worth at
+    # least this much at /sell (1500, 1.5k, 2m). 0 turns the valuables option off.
+    protect-worth: 10k

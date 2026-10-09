@@ -33,8 +33,9 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
 /**
- * Blocks that act as crates: right-click shows the crate (sneak + right-click opens a key straight away when
- * quick-open is on), left-click shows its rewards. They come from {@code features/crates.yml} and from
+ * Blocks that act as crates: right-click shows the crate (sneak + right-click opens keys straight away when
+ * quick-open is on and the player's Sneak + right-click a crate setting is not the crate window), left-click shows
+ * its rewards. They come from {@code features/crates.yml} and from
  * {@code /crates block add} (stored in {@code crate_blocks}); a file entry wins when both name the same block.
  * Crate blocks can't be broken, blown up, burnt, pushed by pistons or changed by mobs.
  * <p>
@@ -252,7 +253,8 @@ final class CrateBlocks implements Listener {
         }
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
             this.actions.preview(player, entry.crate());
-        } else if (player.isSneaking() && this.settings.get().quickOpen()) {
+        } else if (CratePlayerSettings.quickOpens(this.services.settings().get(player, CratePlayerSettings.QUICK_OPEN),
+            this.settings.get().quickOpen(), player.isSneaking())) {
             this.actions.quickOpen(player, entry.crate());
         } else {
             this.actions.view(player, entry.crate());

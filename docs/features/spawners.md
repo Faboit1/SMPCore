@@ -55,13 +55,13 @@ neither widen nor time) is accepted.
 
 ### Stacking
 Right click a placed spawner with a spawner item of the same mob to add one; sneak and right click to add the whole
-held stack. The stack cap is the mob's `stack-cap` (default `stacking.default-cap`, 1000) plus the player's
+held stack (a player's Right-click with spawners adds can swap the two). The stack cap is the mob's `stack-cap` (default `stacking.default-cap`, 1000) plus the player's
 `siftcore.spawners.stack.<n>` bonus, never above 10,000. Only what fits is taken; a full stack says so. The items
 leave the hand before the transaction; if it fails they go back (to the hand, else the inventory, else the claim
 box). Another mob's spawner says "Only zombie spawners stack here." and spawn eggs are refused, so a spawner's mob
 can never change. A teammate who stacks someone else's spawner is told whose stack it is ("Added 1 to Alex's zombie
-stack, now 4 of 1,000."): the added spawners belong to its owner from then on. `api.event.SpawnerStackEvent` fires
-first.
+stack, now 4 of 1,000."): the added spawners belong to its owner from then on, so with Confirm stacking onto others'
+spawners (on by default) that takes a second click. `api.event.SpawnerStackEvent` fires first.
 
 ### Virtual loot
 Spawners are kept in memory, indexed by block, chunk and owner (loaded from the database at startup). Chunk load and
@@ -157,6 +157,24 @@ payout any more (a collect, pickup or refund whose callback runs late leaves it 
 Its owner, members of the owner's team (`TeamLookup`), and staff with `siftcore.spawners.bypass`. Everyone else is
 told "This spawner belongs to <owner>." for stacking, opening and picking up.
 
+### Player settings
+Registered by `SpawnerPlayerSettings` into Spawners (text in `lang/spawners.yml` under `spawners.settings`). Options
+named "Server default" follow `spawners.yml`.
+
+| Id | Kind, default | What it does |
+|---|---|---|
+| `spawner-open-click` | choice server/sneak-right-click/right-click, server | Whether opening a storage with an empty hand needs sneaking (server: `interaction.open-requires-sneak`) |
+| `spawner-full-alert` | choice chat/actionbar/off, actionbar | When a storage fills up (a loot cycle loses loot it did not lose the cycle before), its owner is told "Your zombie spawner is full. New loot is lost until you empty or sell it (/spawners)." (`Messenger.alert`). At most one alert every 5 minutes per owner, and one alert covers every storage of theirs not reported yet ("3 of your spawners are full"). A storage stays owed an alert until one naming it goes out or it stops being full, so one the 5 minutes held back, or that filled while its owner was offline or had the alert off, is reported at a later cycle that still finds it full (`FullAlerts`). No coordinates (streamers) |
+| `spawner-stack-click` | choice one/whole-hand, one | What a plain right-click with spawner items adds; sneaking does the other |
+| `spawner-xp-mending` | choice server/repair-first/levels-only, server | Whether collected spawner XP (collect, pickup, refunds, XP waiting on join) repairs Mending gear first (server: `xp.apply-mending`) |
+| `spawner-pickup-storage` | choice server/claim-box/sell, server | Where the storage goes when the owner picks up their own spawner (server: `breaking.storage`); selling pays the owner's sell bonus like Sell all, and what can't be sold goes to the claim box. Teammates and staff always follow `breaking.storage`. The `max-claim-stacks` check uses the same choice |
+| `spawner-team-notices` | choice pickups/all/off, pickups | Notices about teammates using the player's spawners: only pickups (as before), also stacking, taking, selling and collecting XP ("Alex took 64 bones from your skeleton spawner.", at most one per teammate and kind every 30 seconds), or none. Staff pickups (bypass) are always told; vanished teammates are never named |
+| `spawner-confirm-give` | toggle, on | Adding spawners to someone else's stack (they become the owner's) needs a second click: the first says "Click again to add 3 to Alex's pig stack. The spawners you add become theirs.", a separate click on the same spawner within 5 seconds gives. Holding the use key repeats clicks every 200 ms, which never counts as the second click |
+
+Selling a storage (Sell all) follows the shared Sale receipts setting (`sell_receipts`): the hover receipt in chat,
+"Sold 1,200 items for $3,400" above the hotbar, or nothing; the spawners feature declares it reads it. The storage menu
+remembers the sort a player last picked (`spawner-storage-sort`, a remembered value, not a setting).
+
 ### Protection
 Explosions (entities and blocks) skip managed spawners, pistons can't move them, and withers and other entities can't
 change them. Nothing listens to the hopper, physics or entity move events that would slow the server, nor to Paper's
@@ -176,16 +194,16 @@ then refunds it (see Virtual loot).
 | `storage.xp-per-spawner` | 6000 | XP one stacked spawner holds. |
 | `storage.flush-interval` | 60s | Write-behind interval. |
 | `stacking.default-cap` | 1000 | Stack cap unless the mob sets `stack-cap`. |
-| `interaction.open-requires-sneak` | true | Opening needs sneaking. |
+| `interaction.open-requires-sneak` | true | Opening needs sneaking (players may pick otherwise: `spawner-open-click`). |
 | `interaction.remote-range` | 32 | Range for Open storage in `/spawners` (at least 6). |
 | `interaction.block-in-combat` | true | Combat-tagged players can't open or use storages. |
 | `breaking.require-silk-touch` | true | Picking up needs silk touch. |
-| `breaking.storage` | claim-box | `claim-box` or `sell`. |
+| `breaking.storage` | claim-box | `claim-box` or `sell` (owners may pick otherwise for their own pickups: `spawner-pickup-storage`). |
 | `breaking.max-claim-stacks` | 108 | Largest storage (in claim box stacks) a pickup accepts. |
 | `placement.max-per-chunk` | 0 | Spawner blocks per chunk, 0 = no limit. |
 | `placement.disabled-worlds` | [] | Worlds where spawners can't be placed. |
 | `natural-spawners.silk-touch-pickup` | false | Mining a natural spawner with silk touch (not in creative) gives a spawner item of its mob. A block SiftCore once set up (spawn count 0, e.g. a picked-up spawner brought back by a crash rollback) never counts as natural. |
-| `xp.apply-mending` | true | Collected XP repairs Mending gear first. |
+| `xp.apply-mending` | true | Collected XP repairs Mending gear first (players may pick otherwise: `spawner-xp-mending`). |
 | `page-size` | 10 | Spawners per page in `/spawners`. |
 | `mobs.<id>` | 16 mobs | `name`, `enabled`, `kills-per-cycle`, `xp-per-kill`, optional `stack-cap` and `slots`, and `drops.<item>` with `min`, `max`, `chance`. |
 
@@ -257,7 +275,11 @@ spawners are not SiftCore spawners, they never sell, unknown mobs make no item),
 
 ## Tests
 
-Unit tests (`src/test/java/.../feature/spawners`): `LootMathTest` (means and spreads on every path, ranges, a bounded
+Unit tests (`src/test/java/.../feature/spawners`): `SpawnerPlayerSettingsTest` (the Spawners group and order, the sale
+receipts reader, every decider, the give confirmation with a held key and a released one), `FullAlertsTest` (a full
+storage told once while it stays full and again after it drained, one held back by the 5 minutes or an offline owner
+told later, one line for every owed storage of an owner, alerts off, a delivery that failed, removed spawners), `SpawnersResourcesTest`
+(the lang file is complete and unused-free; setting texts), `LootMathTest` (means and spreads on every path, ranges, a bounded
 number of random draws for up to 10^12 kills, fair rounding), `StorageMathTest` (capacity, XP cap, stack caps,
 proportional fitting, storage counts), `SpawnersSettingsTest` (bundled file, optional values, precise problems),
 `SpawnerRegistryTest` (indexes, due cycles, access rules), `SpawnerStoreTest` (SQLite round trip, unique blocks,
@@ -272,4 +294,12 @@ player 40 blocks away keep nothing going, the status says so), storages closed i
 dialog while stacking still works, buying from the shop, TNT next to a spawner, a spawner removed by `/setblock ...
 destroy` refunded (stack and stored loot) to the owner's claim box by the next cycle, spawner rewards in the legendary
 crate preview, loot kept across a restart, and `spawners-left-before-commit` (taking and picking up while storage is
-held up, then leaving: the items wait in the claim box and the stored XP is paid out once on the next join).
+held up, then leaving: the items wait in the claim box and the stored XP is paid out once on the next join), and
+`spawners-settings` (the settings and their options; whole-hand stacking and every teammate notice saved in the
+settings dialog, then a plain right-click adding the whole hand; through the API: a plain right-click opening the
+storage, Sell all showing only the total above the hotbar, a teammate's first click asking and the second giving with
+the owner told, the confirmation off giving at once, collected XP going only to levels on levels-only while damaged mending boots
+stay damaged and repairing the boots first on repair-first, the owner's pickup selling the storage, a storage that fills
+up alerting its owner above the hotbar but not a player with the alert off, a second storage that fills within the
+5 minutes told once they have passed (this step fails on the code before the fix), and no repeat while both stay full). `spawners-access` clicks twice to stack
+a teammate's spawner, since giving spawners away asks first.

@@ -14,6 +14,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
@@ -100,7 +101,10 @@ final class SpawnerListener implements Listener {
         }
         Player player = event.getPlayer();
         ItemStack main = player.getInventory().getItemInMainHand();
-        boolean opening = main.isEmpty() && (player.isSneaking() || !this.settings.get().openRequiresSneak());
+        // Whether opening needs sneaking follows the player's Open spawner storage with (server: the config).
+        boolean requiresSneak = SpawnerPlayerSettings.requiresSneak(this.service.prefs().get(player, SpawnerPlayerSettings.OPEN_CLICK),
+            this.settings.get().openRequiresSneak());
+        boolean opening = main.isEmpty() && (player.isSneaking() || !requiresSneak);
         if (event.getHand() == EquipmentSlot.OFF_HAND) {
             ItemStack off = player.getInventory().getItemInOffHand();
             if (opening || off.getType() == Material.SPAWNER || spawnEgg(off) || main.getType() == Material.SPAWNER) {
@@ -113,7 +117,9 @@ final class SpawnerListener implements Listener {
         }
         if (this.service.items().mobOf(main) != null) {
             deny(event);
-            this.service.stack(player, spawner, player.isSneaking());
+            // A plain right-click adds what the player's Right-click with spawners adds says; sneaking does the other.
+            this.service.stack(player, spawner, SpawnerPlayerSettings.wholeStack(
+                this.service.prefs().get(player, SpawnerPlayerSettings.STACK_CLICK), player.isSneaking()));
         } else if (main.getType() == Material.SPAWNER) {
             deny(event);
         } else if (spawnEgg(main)) {
@@ -174,6 +180,12 @@ final class SpawnerListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void join(PlayerJoinEvent event) {
         this.service.payOutXp(event.getPlayer(), SpawnersMessages.XP_WAITING);
+    }
+
+    /** Forgets a half-confirmed give of spawners. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void quit(PlayerQuitEvent event) {
+        this.service.forget(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

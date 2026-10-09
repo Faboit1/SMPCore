@@ -8,16 +8,19 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.siftvanilla.siftcore.core.Services;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
  * Tells players about their kits: on join which kits are ready (and that kit items are waiting), and while they play
  * the moment a kit's cooldown ends. Each online player has at most one timer, on their own thread, set for the
- * soonest cooldown that ends; nothing scans players on a timer. Players switch reminders off in the settings dialog.
+ * soonest cooldown that ends; nothing scans players on a timer. Each player picks how they are reminded (Kit
+ * reminders: chat, above the hotbar, a title or not at all) and when (on join, when ready, or both); players who
+ * want no reminder the moment a kit is ready get no timer at all. Changing either setting sets the timer again.
  */
 final class KitReminders {
 
@@ -30,18 +33,28 @@ final class KitReminders {
 
     private final Services services;
     private final KitService kits;
-    private final Toggle toggle;
     private final Map<UUID, Pending> pending = new ConcurrentHashMap<>();
 
-    KitReminders(Services services, KitService kits, Toggle toggle) {
+    KitReminders(Services services, KitService kits) {
         this.services = services;
         this.kits = kits;
-        this.toggle = toggle;
     }
 
-    private boolean wanted(Player player) {
-        return this.kits.settings().reminders() && player.hasPermission(KitsFeature.PERMISSION_USE)
-            && this.services.settings().enabled(player.getUniqueId(), this.toggle);
+    /** How the player wants kit reminders, or OFF when they get none (config, permission or their setting). */
+    private AlertStyle style(Player player) {
+        if (!this.kits.settings().reminders() || !player.hasPermission(KitsFeature.PERMISSION_USE)) {
+            return AlertStyle.OFF;
+        }
+        return this.services.settings().get(player, KitPlayerSettings.REMINDERS);
+    }
+
+    private KitPlayerSettings.ReminderWhen when(Player player) {
+        return this.services.settings().get(player, KitPlayerSettings.REMINDER_WHEN);
+    }
+
+    /** A reminder in the player's style: the clickable chat line, or the short one above the hotbar or as a title. */
+    private void remind(Player player, AlertStyle style, MessageKey chat, MessageKey shorter, Arg... args) {
+        this.services.messenger().alert(player, style, style == AlertStyle.CHAT ? chat : shorter, args);
     }
 
     /** Called when a player joins: the join reminder a moment later, then the timer. */
@@ -50,14 +63,18 @@ final class KitReminders {
             if (!player.isOnline()) {
                 return;
             }
-            if (wanted(player)) {
+            AlertStyle style = style(player);
+            if (style != AlertStyle.OFF && when(player).onJoin()) {
                 List<Kit> ready = this.kits.ready(player);
-                if (!ready.isEmpty()) {
-                    this.services.messenger().send(player, KitsMessages.REMINDER_JOIN,
-                        Arg.component("kits", this.kits.text().names(ready)));
-                }
-                if (this.kits.waitingStacks(player.getUniqueId()) > 0) {
-                    this.services.messenger().send(player, KitsMessages.REMINDER_WAITING);
+                boolean waiting = this.kits.waitingStacks(player.getUniqueId()) > 0;
+                for (KitPlayerSettings.JoinLine line : KitPlayerSettings.joinLines(style, !ready.isEmpty(), waiting)) {
+                    switch (line) {
+                        case READY -> remind(player, style, KitsMessages.REMINDER_JOIN, KitsMessages.REMINDER_JOIN_SHORT,
+                            Arg.component("kits", this.kits.text().names(ready)));
+                        case WAITING -> remind(player, style, KitsMessages.REMINDER_WAITING, KitsMessages.REMINDER_WAITING_SHORT);
+                        case READY_AND_WAITING -> this.services.messenger().alert(player, style,
+                            KitsMessages.REMINDER_JOIN_WAITING_SHORT, Arg.component("kits", this.kits.text().names(ready)));
+                    }
                 }
             }
             schedule(player);
@@ -65,12 +82,13 @@ final class KitReminders {
     }
 
     /**
-     * Sets the player's timer for the soonest cooldown that ends (replacing any timer). Call on the player's thread.
+     * Sets the player's timer for the soonest cooldown that ends (replacing any timer); none when they want no
+     * reminder the moment a kit is ready. Call on the player's thread.
      */
     void schedule(Player player) {
         UUID uuid = player.getUniqueId();
         cancel(uuid);
-        if (!player.isOnline() || !this.kits.settings().reminders()) {
+        if (!player.isOnline() || !KitPlayerSettings.timer(style(player), when(player))) {
             return;
         }
         Duration soonest = null;
@@ -106,7 +124,8 @@ final class KitReminders {
         if (fired == null || !this.pending.remove(uuid, fired) || !player.isOnline()) {
             return;
         }
-        if (wanted(player)) {
+        AlertStyle style = style(player);
+        if (style != AlertStyle.OFF && when(player).whenReady()) {
             List<Kit> nowReady = new ArrayList<>();
             for (Kit kit : this.kits.settings().kits()) {
                 if (fired.waiting().contains(kit.id()) && this.kits.permitted(player, kit) && this.kits.status(player, kit).ready()) {
@@ -114,9 +133,11 @@ final class KitReminders {
                 }
             }
             if (nowReady.size() == 1) {
-                this.services.messenger().send(player, KitsMessages.REMINDER_READY, Arg.text("name", nowReady.getFirst().name()));
+                remind(player, style, KitsMessages.REMINDER_READY, KitsMessages.REMINDER_READY_SHORT,
+                    Arg.text("name", nowReady.getFirst().name()));
             } else if (!nowReady.isEmpty()) {
-                this.services.messenger().send(player, KitsMessages.REMINDER_JOIN, Arg.component("kits", this.kits.text().names(nowReady)));
+                remind(player, style, KitsMessages.REMINDER_JOIN, KitsMessages.REMINDER_JOIN_SHORT,
+                    Arg.component("kits", this.kits.text().names(nowReady)));
             }
         }
         schedule(player);

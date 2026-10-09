@@ -125,7 +125,7 @@ final class CrateDialogs {
         Supplier<View> origin = () -> crateView(player, crateId, back);
         List<Button> buttons = new ArrayList<>();
         buttons.add(Button.of(lang.get(CratesMessages.VIEW_OPEN), s -> open(s, crateId, self, origin)).width(150).waits());
-        int many = bulk(owned);
+        int many = bulk(player, owned);
         if (many >= 2) {
             buttons.add(Button.of(lang.get(CratesMessages.VIEW_OPEN_MANY, Arg.text("count", Integer.toString(many))),
                 s -> openMany(s, crateId, many, self, origin)).width(150).waits());
@@ -137,10 +137,13 @@ final class CrateDialogs {
 
     // ------------------------------------------------------------------ opening
 
-    /** How many keys an "Open n" button opens with this many keys: at most bulk-open, and 0 when it would be one. */
-    private int bulk(int keys) {
-        int many = Math.min(keys, this.settings.get().bulkOpen());
-        return many >= 2 ? many : 0;
+    /**
+     * How many keys an "Open n" button (or a bulk quick-open) opens for a player with this many keys: their Keys per
+     * bulk open, at most bulk-open, and 0 when it would be one.
+     */
+    int bulk(Player player, int keys) {
+        return CratePlayerSettings.bulkAmount(this.services.settings().get(player, CratePlayerSettings.BULK_AMOUNT), keys,
+            this.settings.get().bulkOpen());
     }
 
     /** Shows a refusal on the screen the player opened from (or on the action bar when that screen is gone). */
@@ -166,7 +169,7 @@ final class CrateDialogs {
         this.services.dialogs().markShown(player);
         this.opener.open(player, crateId, false, result -> {
             switch (result) {
-                case CrateOpener.Won won -> this.services.dialogs().show(player, resultView(won, returnTo, origin));
+                case CrateOpener.Won won -> this.services.dialogs().show(player, resultView(player, won, returnTo, origin));
                 case CrateOpener.Refused refused -> refuse(player, refused, origin);
             }
         });
@@ -186,12 +189,12 @@ final class CrateDialogs {
             }
             this.opener.receipt(player, batch);
             this.services.dialogs().show(player, batch.wins().size() == 1
-                ? resultView(batch.wins().getFirst(), returnTo, origin)
-                : batchView(batch, returnTo, origin));
+                ? resultView(player, batch.wins().getFirst(), returnTo, origin)
+                : batchView(player, batch, returnTo, origin));
         });
     }
 
-    private View resultView(CrateOpener.Won won, Runnable returnTo, Supplier<View> origin) {
+    private View resultView(Player player, CrateOpener.Won won, Runnable returnTo, Supplier<View> origin) {
         Lang lang = lang();
         Crate crate = won.crate();
         List<Body> body = new ArrayList<>();
@@ -207,21 +210,15 @@ final class CrateDialogs {
             : lang.lines(CratesMessages.RESULT_LAST));
         body.add(lines(lines));
         return new View(View.Kind.LIST, lang.get(CratesMessages.VIEW_TITLE, Arg.text("name", crate.name())), body, List.of(),
-            againButtons(crate.id(), won.keysLeft(), returnTo, origin), Button.of(lang.get(CoreMessages.UI_BACK), s -> returnTo.run())
+            againButtons(player, crate.id(), won.keysLeft(), returnTo, origin), Button.of(lang.get(CoreMessages.UI_BACK), s -> returnTo.run())
                 .width(Templates.WIDE), 2, true);
     }
 
     /** What several openings in a row won: the rarest reward's item, a line per reward, keys left. */
-    private View batchView(CrateOpener.Batch batch, Runnable returnTo, Supplier<View> origin) {
+    private View batchView(Player player, CrateOpener.Batch batch, Runnable returnTo, Supplier<View> origin) {
         Lang lang = lang();
         Crate crate = batch.crate();
-        CratesSettings settings = this.settings.get();
-        CrateOpener.Won rarest = batch.wins().getFirst();
-        for (CrateOpener.Won won : batch.wins()) {
-            if (settings.rarities().indexOf(won.rarity()) > settings.rarities().indexOf(rarest.rarity())) {
-                rarest = won;
-            }
-        }
+        CrateOpener.Won rarest = this.opener.rarest(batch);
         List<Component> won = new ArrayList<>(lang.lines(CratesMessages.RESULT_BATCH, Arg.number("count", batch.wins().size())));
         won.addAll(this.text.wins(batch.wins()));
         List<Body> body = new ArrayList<>();
@@ -235,18 +232,18 @@ final class CrateDialogs {
             : lang.lines(CratesMessages.RESULT_LAST));
         body.add(lines(lines));
         return new View(View.Kind.LIST, lang.get(CratesMessages.VIEW_TITLE, Arg.text("name", crate.name())), body, List.of(),
-            againButtons(crate.id(), batch.keysLeft(), returnTo, origin), Button.of(lang.get(CoreMessages.UI_BACK), s -> returnTo.run())
+            againButtons(player, crate.id(), batch.keysLeft(), returnTo, origin), Button.of(lang.get(CoreMessages.UI_BACK), s -> returnTo.run())
                 .width(Templates.WIDE), 2, true);
     }
 
     /** Open another, Open n more (while keys are left) and Preview, under a result. */
-    private List<Button> againButtons(String crateId, int keysLeft, Runnable returnTo, Supplier<View> origin) {
+    private List<Button> againButtons(Player player, String crateId, int keysLeft, Runnable returnTo, Supplier<View> origin) {
         Lang lang = lang();
         List<Button> buttons = new ArrayList<>();
         if (keysLeft > 0) {
             buttons.add(Button.of(lang.get(CratesMessages.RESULT_AGAIN), s -> open(s, crateId, returnTo, origin)).width(150).waits());
         }
-        int many = bulk(keysLeft);
+        int many = bulk(player, keysLeft);
         if (many >= 2) {
             buttons.add(Button.of(lang.get(CratesMessages.RESULT_MANY, Arg.text("count", Integer.toString(many))),
                 s -> openMany(s, crateId, many, returnTo, origin)).width(150).waits());
@@ -265,6 +262,6 @@ final class CrateDialogs {
             return;
         }
         new PreviewMenu(this.services.menus(), player, crate, this.settings, this.items, this.keys, this.opener, this.text,
-            this.worth, back).open();
+            this.worth, this.services.settings(), back).open();
     }
 }

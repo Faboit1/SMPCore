@@ -39,6 +39,10 @@ import org.bukkit.permissions.PermissionDefault;
  * collect XP from. Spawners are picked up with silk touch (stack back as items, storage to the owner's claim box or
  * sold), protected from explosions and pistons, usable by the owner's team, and listed by {@code /spawners}.
  * Offers {@link SpawnerItems} to the shop and crates.
+ * <p>
+ * Player settings ({@link SpawnerPlayerSettings}, in Spawners): how storage opens and stacking adds, the full storage
+ * alert, where collected XP goes, the storage when the owner picks a spawner up, teammate notices and the second click
+ * before giving spawners away. Selling a storage follows the shared sale receipts setting.
  */
 public final class SpawnersFeature implements Feature {
 
@@ -74,6 +78,7 @@ public final class SpawnersFeature implements Feature {
         this.settings = services.configs().register("features/spawners.yml",
             reader -> SpawnersSettings.parse(reader, catalog()), problems);
         services.lang().register(SpawnersMessages.class);
+        SpawnerPlayerSettings.register(services.settings());
         var perms = services.permissions();
         perms.declare(SpawnersCommands.COMMAND, "List your spawners with /spawners", true);
         perms.declare(SpawnersCommands.ADMIN, "Give spawners and inspect them with /spawners give, list, cycle and info", false);

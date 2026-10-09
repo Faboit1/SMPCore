@@ -37,29 +37,41 @@ final class StorageMenu extends PagedMenu<StorageMenu.Entry> {
     }
 
     private static final long REFRESH_TICKS = 40L;
+    /** The remembered sort of storage menus (a free per-player value, not a setting). */
+    static final String SORT_SETTING = "spawner-storage-sort";
 
     private final SpawnerService service;
     private final WorthLookup worth;
     private final ManagedSpawner spawner;
+    private final Cycle<Comparator<Entry>> sort;
+    private String savedSort;
     private long drawnVersion = -1;
     private Task refresher;
 
     StorageMenu(MenuContext ctx, Player viewer, SpawnerService service, WorthLookup worth, ManagedSpawner spawner, Runnable back) {
+        this(ctx, viewer, service, worth, spawner, back,
+            sorts(ctx.lang(), service.prefs().raw(viewer.getUniqueId(), SORT_SETTING, "amount")));
+    }
+
+    private StorageMenu(MenuContext ctx, Player viewer, SpawnerService service, WorthLookup worth, ManagedSpawner spawner, Runnable back,
+                        Cycle<Comparator<Entry>> sort) {
         super(ctx, viewer, Component.text(ctx.lang().plain(SpawnersMessages.MENU_TITLE, Arg.text("name", service.name(spawner.mob)))),
-            sorts(ctx.lang()), null, back);
+            sort, null, back);
         this.service = service;
         this.worth = worth;
         this.spawner = spawner;
+        this.sort = sort;
+        this.savedSort = sort.selected().id();
     }
 
-    private static Cycle<Comparator<Entry>> sorts(Lang lang) {
+    private static Cycle<Comparator<Entry>> sorts(Lang lang, String initial) {
         Comparator<Entry> byName = Comparator.comparing(Entry::item);
         return new Cycle<>(List.of(
             new Cycle.Option<>("amount", lang.get(SpawnersMessages.SORT_AMOUNT),
                 Comparator.comparingLong(Entry::amount).reversed().thenComparing(byName)),
             new Cycle.Option<>("value", lang.get(SpawnersMessages.SORT_VALUE),
                 Comparator.comparingLong(Entry::value).reversed().thenComparing(byName)),
-            new Cycle.Option<>("name", lang.get(SpawnersMessages.SORT_NAME), byName)), "amount");
+            new Cycle.Option<>("name", lang.get(SpawnersMessages.SORT_NAME), byName)), initial);
     }
 
     @Override
@@ -186,6 +198,12 @@ final class StorageMenu extends PagedMenu<StorageMenu.Entry> {
         this.refresher = null;
         if (task != null) {
             task.cancel();
+        }
+        // The next storage menu opens with the sort the player last picked.
+        String sortId = this.sort.selected().id();
+        if (!sortId.equals(this.savedSort)) {
+            this.service.prefs().setRaw(this.viewer.getUniqueId(), SORT_SETTING, sortId);
+            this.savedSort = sortId;
         }
     }
 }

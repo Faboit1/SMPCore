@@ -119,6 +119,47 @@ public final class SpawnersMessages {
     public static final MessageKey TOO_FAR = MessageKey.error("spawners.details.too-far", "range");
 
     // Hub
+    // ------------------------------------------------------------------ player settings (Spawners)
+
+    public static final MessageKey SETTING_OPEN_CLICK = MessageKey.ui("spawners.settings.open-click");
+    public static final MessageKey SETTING_OPEN_CLICK_DESCRIPTION = MessageKey.ui("spawners.settings.open-click-description");
+    public static final MessageKey SETTING_FULL_ALERT = MessageKey.ui("spawners.settings.full-alert");
+    public static final MessageKey SETTING_FULL_ALERT_DESCRIPTION = MessageKey.ui("spawners.settings.full-alert-description");
+    public static final MessageKey SETTING_STACK_CLICK = MessageKey.ui("spawners.settings.stack-click");
+    public static final MessageKey SETTING_STACK_CLICK_DESCRIPTION = MessageKey.ui("spawners.settings.stack-click-description");
+    public static final MessageKey SETTING_XP_MENDING = MessageKey.ui("spawners.settings.xp-mending");
+    public static final MessageKey SETTING_XP_MENDING_DESCRIPTION = MessageKey.ui("spawners.settings.xp-mending-description");
+    public static final MessageKey SETTING_PICKUP_STORAGE = MessageKey.ui("spawners.settings.pickup-storage");
+    public static final MessageKey SETTING_PICKUP_STORAGE_DESCRIPTION = MessageKey.ui("spawners.settings.pickup-storage-description");
+    public static final MessageKey SETTING_TEAM_NOTICES = MessageKey.ui("spawners.settings.team-notices");
+    public static final MessageKey SETTING_TEAM_NOTICES_DESCRIPTION = MessageKey.ui("spawners.settings.team-notices-description");
+    public static final MessageKey SETTING_CONFIRM_GIVE = MessageKey.ui("spawners.settings.confirm-give");
+    public static final MessageKey SETTING_CONFIRM_GIVE_DESCRIPTION = MessageKey.ui("spawners.settings.confirm-give-description");
+    public static final MessageKey OPTION_SNEAK_RIGHT_CLICK = MessageKey.ui("spawners.settings.options.sneak-right-click");
+    public static final MessageKey OPTION_RIGHT_CLICK = MessageKey.ui("spawners.settings.options.right-click");
+    public static final MessageKey OPTION_ONE = MessageKey.ui("spawners.settings.options.one");
+    public static final MessageKey OPTION_WHOLE_HAND = MessageKey.ui("spawners.settings.options.whole-hand");
+    public static final MessageKey OPTION_REPAIR_FIRST = MessageKey.ui("spawners.settings.options.repair-first");
+    public static final MessageKey OPTION_LEVELS_ONLY = MessageKey.ui("spawners.settings.options.levels-only");
+    public static final MessageKey OPTION_CLAIM_BOX = MessageKey.ui("spawners.settings.options.claim-box");
+    public static final MessageKey OPTION_SELL = MessageKey.ui("spawners.settings.options.sell");
+    public static final MessageKey OPTION_PICKUPS = MessageKey.ui("spawners.settings.options.pickups");
+    public static final MessageKey OPTION_ALL = MessageKey.ui("spawners.settings.options.all");
+
+    /** One of the owner's spawners filled up (Full storage alert). */
+    public static final MessageKey FULL_ONE = MessageKey.notify("spawners.full.one", "mob");
+    /** Several of the owner's spawners filled up in the same moment. */
+    public static final MessageKey FULL_MANY = MessageKey.notify("spawners.full.many", "count");
+    /** The first click on someone else's stack with spawners in hand (Confirm stacking onto others' spawners). */
+    public static final MessageKey GIVE_CONFIRM = MessageKey.info("spawners.stack.confirm", "amount", "owner", "mob");
+    /** The short sale receipt for players whose sale receipts show above the hotbar. */
+    public static final MessageKey SOLD_SHORT = MessageKey.success("spawners.sell.sold-short", "count", "total", "booster");
+    /** Teammates using the owner's spawners (Teammates using my spawners: everything). */
+    public static final MessageKey TEAM_STACKED = MessageKey.chat("spawners.team.stacked", "name", "amount", "mob", "stack");
+    public static final MessageKey TEAM_TOOK = MessageKey.chat("spawners.team.took", "name", "amount", "item", "mob");
+    public static final MessageKey TEAM_SOLD = MessageKey.chat("spawners.team.sold", "name", "count", "mob", "total");
+    public static final MessageKey TEAM_XP = MessageKey.chat("spawners.team.xp", "name", "xp", "mob");
+
     public static final MessageKey HUB_LABEL = MessageKey.ui("spawners.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("spawners.hub.description");
 

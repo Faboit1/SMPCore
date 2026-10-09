@@ -35,7 +35,7 @@ an online player; cancelling it gives nothing and starts no cooldown.
 | `/stonecutter`, `/grindstone`, `/loom` | perk | The workstation |
 | `/smithing` (`/smithingtable`) | perk | A smithing table |
 | `/cartography` (`/cartographytable`) | perk | A cartography table |
-| `/trash` (`/disposal`) | perk | A four-row bin titled "Trash: deleted when you close it"; everything in it is deleted when it closes |
+| `/trash` (`/disposal`) | perk | A four-row bin titled "Trash: deleted when you close it"; everything in it is deleted when it closes, except what the player's Trash protection gives back. With Trash bin mode set to the Delete button: a five-row bin titled "Trash: click Delete to delete" that only deletes on Delete and gives everything back when it closes |
 | `/hat` | perk | Wears one of the held item (the old helmet goes to the hand, or into the inventory when the hand keeps the rest of its stack) |
 
 | Permission | Default | Meaning |
@@ -80,10 +80,37 @@ Audit log actions: `kits.claim` (every claim, with the kit and the claim referen
 - **Perks dialog**: a button per perk the player has; it opens the perk (or wears the hat).
 - **Messages**: a claim says "You claimed the Daily kit." on the action bar; items that didn't fit add a chat line
   with a click to `/kits`; a kit with crate keys adds "The Event kit gave you 1 Basic key." with a click to `/crates`.
-- **Reminders** (`reminders: true`, and each player's Kit reminders setting): on join "Kits ready to claim: Starter,
-  Daily." and "Kit items are waiting for room in your inventory." when that is so; while playing "Your Daily kit is
-  ready." the moment a cooldown ends. Each online player has at most one timer, set on their own thread for the
-  soonest cooldown that ends (at most 6 hours ahead, then looked at again); nothing scans players on a timer.
+- **Reminders** (`reminders: true`, and each player's Kit reminders and When to remind about kits settings): on join
+  "Kits ready to claim: Starter, Daily." and "Kit items are waiting for room in your inventory." when that is so;
+  while playing "Your Daily kit is ready." the moment a cooldown ends. In chat they are clickable; above the hotbar or
+  as a title they read "Your Daily kit is ready (/kits)", and on join, when kits are ready and items are waiting at
+  once, one line says both ("Kits ready: Starter, Daily, kit items waiting (/kits)"): those places show one line at a
+  time, so a second line would replace the first at once. Each online player has at most one timer, set on their own
+  thread for the soonest cooldown that ends (at most 6 hours ahead, then looked at again), and none at all when they
+  get no reminder the moment a kit is ready (reminders off, or join only); changing either setting sets it again at
+  once. Nothing scans players on a timer.
+
+## Player settings
+
+Registered by `KitPlayerSettings` into Crates & kits (text in `lang/kits.yml` under `kits.settings`); the crates
+feature fills the other places of the group.
+
+| Id | Place | Kind, default | Permission | What it does |
+|---|---|---|---|---|
+| `kit-reminders` | 2 | choice chat/actionbar/title/off, chat | `siftcore.command.kits` | How kit reminders show (`Messenger.alert`). Was a switch: stored `true` reads as chat, `false` as off. Offered while `reminders` is on |
+| `trash-protect` | 6 | choice gear/valuables/off, gear | `siftcore.perk.trash` | What the trash gives back instead of deleting: gear (enchanted items and enchanted books, renamed items, shulker boxes, spawners, trial keys), also any stack worth at least `perks.trash.protect-worth` at /sell, or nothing. Valuables is offered while the server prices items (the sell feature's worth table has at least one price) and the threshold is above 0 (otherwise it reads as gear) |
+| `kit-reminder-when` | 8 | choice join-and-ready/join/ready, join-and-ready | `siftcore.command.kits` | On join, the moment a kit is ready, or both. Offered while `reminders` is on |
+| `kit-auto-equip` | 9 | toggle, off | `siftcore.command.kits` | Armour from claimed (or collected) kit items goes straight into empty armour slots: one helmet, chestplate, leggings and boots each, never one with curse of binding; worn armour is never replaced and the rest goes into the inventory |
+| `trash-confirm` | 10 | choice delete-on-close/delete-button, delete-on-close | `siftcore.perk.trash` | Trash bin mode: delete when the bin closes, or only on its Delete button (closing gives everything back) |
+
+**Trash and item safety.** The bin takes its items out of its slots before anything else happens to them. What is
+deleted is audited (`perks.trash`, as before). What is given back goes into the inventory, the player file is saved
+(with `save-player-after-trade`), and only then does what did not fit go to the claim box (source `trash`), so a crash
+never leaves an item both in the saved inventory and the claim box; if the claim box is unavailable it drops at the
+player's feet. When the bin closes because its player died (without keep-inventory), the items it gives back drop
+where they died with the rest of their inventory, like a crafting grid; a disconnect gives them back into the
+inventory before the player file is saved. Items in an open bin when the server crashes are lost, like items left in a
+crafting table.
 
 ## How a claim works (money and items rules)
 
@@ -120,7 +147,9 @@ blocks, and whatever is left in a crafting grid, anvil or other input slot goes 
 same as the blocks). The ender chest is the player's real ender chest (`openInventory(getEnderChest())`).
 `/ec <player>` copies the other player's ender chest on that player's thread and shows the copy in a read-only menu, so
 nothing can be taken or duplicated from it. The trash deletes its contents however it closes (closed, replaced by
-another screen, disconnect, death) and tells the player how many items were deleted. `/hat` refuses an empty hand,
+another screen, disconnect, death) and tells the player how many items were deleted, except what their Trash
+protection keeps ("Items deleted: 5. Protected items given back: 2"); in Delete button mode it deletes on Delete and
+gives everything back however it closes ("Nothing deleted. Items given back: 7"). `/hat` refuses an empty hand,
 items listed in `perks.hat.blocked`, a current helmet with curse of binding (outside creative) and, when the hand
 keeps part of its stack, an inventory without room for the old helmet.
 
@@ -135,12 +164,13 @@ only covers `/ec`, `/craft` and `/anvil`).
 | Key | Meaning |
 |---|---|
 | `block-in-combat` | No claims in combat (dialogs still show the kits) |
-| `reminders` | Join and ready reminders (players can also switch them off) |
+| `reminders` | Join and ready reminders (players pick how and when, or turn them off) |
 | `locked-kits` | `hide` (shipped) or `show` kits the player can't claim |
 | `kits.<id>` | `name`, `description`, `icon`, `everyone`, `cooldown` (`once` or 1s to 365d), `items` (keyed by item id or any name with `material:`; `amount` up to 640, `name`, `lore` up to 8 lines, `enchantments` up to the vanilla level or 255 with `unsafe-enchantments`, `unbreakable`), `keys` (`<crate>: <amount>`, 1 to 64) |
 | `perks.blocked-in-combat` | Perk ids refused in combat |
 | `perks.close-on-combat` | Close those perks' screens when combat starts |
 | `perks.hat.blocked` | Item ids `/hat` refuses |
+| `perks.trash.protect-worth` | Shipped 10k: with Trash protection set to valuables, stacks worth at least this much at /sell are given back; 0 turns that option off. Optional (a file without it reads 10k) |
 
 Every mistake is reported with its exact path; a broken item is left out of its kit and a kit that gives nothing (or
 has no usable cooldown) is left out, so `/sift reload` refuses a broken change and keeps the old kits. Kits added by a
@@ -177,16 +207,25 @@ the cooldown math, and that the claim times in memory equal the stored rows exac
   in the pause screen; this feature does not edit the hub's files.
 - The combat feature's `while-tagged.blocked-commands` already refuses `/kit`, `/kits`, `/ec`, `/craft` and `/anvil`;
   the other workstations are refused by this feature's own `blocked-in-combat` list, so nothing has to change there.
-- The settings dialog shows the Kit reminders switch (`kit-reminders`) once the settings feature lists toggles.
+- The settings dialog shows the kit and trash settings in Crates & kits (see Player settings).
 - `docs/permissions.md` should copy the per-rank table above.
 
 ## Tests
 
 - Unit tests: `CooldownTest` (parsing, readiness at the boundary, a clock that went back, changed cooldowns, rounding,
   overflow), `ClaimBookTest` (claim times and their undo), `StackFitTest` (which claim box stacks fit),
-  `KitsSettingsTest` (the shipped file, every setting, every mistake reported with its path, perks) and
+  `KitsSettingsTest` (the shipped file, every setting, every mistake reported with its path, perks),
   `KitsResourcesTest` (the lang file is complete, unused-free and follows the design system; statuses and lists read
-  naturally).
+  naturally) and `KitPlayerSettingsTest` (the Crates & kits order with the crate settings, permissions, the legacy
+  values of `kit-reminders`, config-dependent offering, the reminder timer, the join reminder in one line where only
+  one line shows, valuables needing a worth table that prices something, trash protection, auto-equip and
+  `perks.trash.protect-worth`).
 - End to end (`tools/e2e`, `KitsScenarios`): `kits-dialog`, `kits-claim-all`, `kits-cooldown`, `kits-ranks`,
   `kits-claim-box`, `kits-double-submit`, `kits-combat`, `kits-admin`, `kits-perks`, `kits-workstations`,
-  `kits-ec-others`, `kits-config`, `kits-persist-setup` / `kits-persist-check` (across a restart).
+  `kits-ec-others`, `kits-config`, `kits-persist-setup` / `kits-persist-check` (across a restart), `kits-settings`
+  (the kit and trash settings and their options; auto-equip and the Delete button bin saved in the settings dialog,
+  then the starter kit's leather armour worn and the bin giving back on close and deleting on Delete; through the
+  API: the classic bin keeping an enchanted sword and deleting it with protection off, valuables protection giving
+  back a plain stack of 64 diamonds ($25,600 at /sell) while deleting 10 diamonds, and gear protection deleting the
+  same stack, kit reminders above the hotbar on join, one short line when a kit is ready and kit items wait at once
+  (and no second line), and none on join when only ready reminders are wanted).

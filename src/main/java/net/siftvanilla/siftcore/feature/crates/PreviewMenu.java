@@ -11,6 +11,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -37,12 +38,26 @@ final class PreviewMenu extends PagedMenu<Reward> {
     private final CrateOpener opener;
     private final CrateText text;
     private final WorthLookup worth;
+    private final PlayerSettings prefs;
+    private final Cycle<Comparator<Reward>> sort;
+    private String savedSort;
     private Map<String, Long> chances = Map.of();
 
+    /** The remembered sort of preview menus (a free per-player value, not a setting). */
+    static final String SORT_SETTING = "crate-preview-sort";
+
+    /** @param prefs the players' settings (Keys per bulk open sets what a right-click opens; the remembered sort) */
     PreviewMenu(MenuContext ctx, Player viewer, Crate crate, Setting<CratesSettings> settings, RewardItems items, KeyService keys,
-                CrateOpener opener, CrateText text, WorthLookup worth, Runnable back) {
+                CrateOpener opener, CrateText text, WorthLookup worth, PlayerSettings prefs, Runnable back) {
+        this(ctx, viewer, crate, settings, items, keys, opener, text, worth, prefs, back,
+            sort(ctx.lang(), prefs.raw(viewer.getUniqueId(), SORT_SETTING, "order")));
+    }
+
+    private PreviewMenu(MenuContext ctx, Player viewer, Crate crate, Setting<CratesSettings> settings, RewardItems items, KeyService keys,
+                        CrateOpener opener, CrateText text, WorthLookup worth, PlayerSettings prefs, Runnable back,
+                        Cycle<Comparator<Reward>> sort) {
         super(ctx, viewer, Component.text(ctx.lang().plain(CratesMessages.PREVIEW_TITLE, Arg.text("name", crate.name()))),
-            sort(ctx.lang()), null, back);
+            sort, null, back);
         this.crateId = crate.id();
         this.settings = settings;
         this.items = items;
@@ -50,15 +65,28 @@ final class PreviewMenu extends PagedMenu<Reward> {
         this.opener = opener;
         this.text = text;
         this.worth = worth;
+        this.prefs = prefs;
+        this.sort = sort;
+        this.savedSort = sort.selected().id();
     }
 
-    private static Cycle<Comparator<Reward>> sort(Lang lang) {
+    private static Cycle<Comparator<Reward>> sort(Lang lang, String initial) {
         return new Cycle<>(List.of(
             new Cycle.Option<Comparator<Reward>>("order", lang.get(CratesMessages.PREVIEW_SORT_ORDER), (a, b) -> 0),
             new Cycle.Option<Comparator<Reward>>("likely", lang.get(CratesMessages.PREVIEW_SORT_LIKELY),
                 Comparator.comparingDouble(Reward::weight).reversed()),
             new Cycle.Option<Comparator<Reward>>("rarest", lang.get(CratesMessages.PREVIEW_SORT_RAREST),
-                Comparator.comparingDouble(Reward::weight))), "order");
+                Comparator.comparingDouble(Reward::weight))), initial);
+    }
+
+    /** The next preview opens with the sort the player last picked. */
+    @Override
+    protected void closed() {
+        String sortId = this.sort.selected().id();
+        if (!sortId.equals(this.savedSort)) {
+            this.prefs.setRaw(this.viewer.getUniqueId(), SORT_SETTING, sortId);
+            this.savedSort = sortId;
+        }
     }
 
     private Crate crate() {
@@ -134,7 +162,9 @@ final class PreviewMenu extends PagedMenu<Reward> {
                 lang.lines(CratesMessages.PREVIEW_NO_KEYS_LORE)), null);
             return;
         }
-        int many = Math.min(owned, this.settings.get().bulkOpen());
+        // A right-click opens the player's Keys per bulk open (never more than they have or the server allows).
+        int many = CratePlayerSettings.bulkAmount(this.prefs.get(this.viewer, CratePlayerSettings.BULK_AMOUNT), owned,
+            this.settings.get().bulkOpen());
         List<Component> lore = new ArrayList<>(lang.lines(CratesMessages.PREVIEW_OPEN_LORE,
             Arg.component("keys", this.text.keys(owned, crate.name()))));
         if (many >= 2) {

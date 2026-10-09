@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
+import net.siftvanilla.siftcore.core.money.MoneyFormat;
 
 /**
  * Parsed {@code features/kits.yml}. Every mistake is reported precisely; a broken item is left out of its kit and a
@@ -41,7 +42,9 @@ public record KitsSettings(boolean blockInCombat, boolean reminders, boolean sho
     private static final Set<String> KIT_KEYS = Set.of("name", "description", "icon", "everyone", "cooldown", "items", "keys");
     private static final Set<String> ITEM_KEYS = Set.of("material", "amount", "name", "lore", "enchantments", "unsafe-enchantments",
         "unbreakable");
-    private static final Set<String> PERK_KEYS = Set.of("blocked-in-combat", "close-on-combat", "hat");
+    private static final Set<String> PERK_KEYS = Set.of("blocked-in-combat", "close-on-combat", "hat", "trash");
+    /** What the trash protects as valuable by worth when the config does not say ($10,000 at /sell). */
+    static final long DEFAULT_PROTECT_WORTH = 10_000;
 
     /** What the kits do with kits a player can't claim. */
     enum LockedKits {
@@ -55,8 +58,10 @@ public record KitsSettings(boolean blockInCombat, boolean reminders, boolean sho
      * @param blockedInCombat perks refused while the player is in combat
      * @param closeOnCombat   a blocked perk's screen closes when its player gets into combat
      * @param hatBlocked      item ids that can't be worn with /hat
+     * @param protectWorth    the trash gives back items worth at least this much at /sell to players whose Trash
+     *                        protection is set to valuables (0 turns that option off)
      */
-    public record Perks(Set<Perk> blockedInCombat, boolean closeOnCombat, Set<String> hatBlocked) {
+    public record Perks(Set<Perk> blockedInCombat, boolean closeOnCombat, Set<String> hatBlocked, long protectWorth) {
         public Perks {
             blockedInCombat = blockedInCombat.isEmpty() ? Set.of() : Collections.unmodifiableSet(EnumSet.copyOf(blockedInCombat));
             hatBlocked = Set.copyOf(hatBlocked);
@@ -103,6 +108,11 @@ public record KitsSettings(boolean blockInCombat, boolean reminders, boolean sho
     // ------------------------------------------------------------------ parsing
 
     public static KitsSettings parse(ConfigReader r, Catalog catalog) {
+        return parse(r, catalog, MoneyFormat.defaults());
+    }
+
+    /** Parses with the server's money format (amounts like 10k). */
+    public static KitsSettings parse(ConfigReader r, Catalog catalog, MoneyFormat money) {
         for (String key : r.keys()) {
             if (!TOP_KEYS.contains(key)) {
                 r.problem(key, "is not a kits setting (settings: block-in-combat, reminders, locked-kits, kits, perks)");
@@ -128,7 +138,7 @@ public record KitsSettings(boolean blockInCombat, boolean reminders, boolean sho
                 kits.add(kit);
             }
         }
-        Perks perks = perks(r.section("perks"), catalog);
+        Perks perks = perks(r.section("perks"), catalog, money);
         return new KitsSettings(blockInCombat, reminders, locked == LockedKits.SHOW, kits, perks);
     }
 
@@ -262,10 +272,10 @@ public record KitsSettings(boolean blockInCombat, boolean reminders, boolean sho
         return keys;
     }
 
-    private static Perks perks(ConfigReader p, Catalog catalog) {
+    private static Perks perks(ConfigReader p, Catalog catalog, MoneyFormat money) {
         for (String key : p.keys()) {
             if (!PERK_KEYS.contains(key)) {
-                p.problem(key, "is not a perks setting (settings: blocked-in-combat, close-on-combat, hat)");
+                p.problem(key, "is not a perks setting (settings: blocked-in-combat, close-on-combat, hat, trash)");
             }
         }
         Set<Perk> blocked = EnumSet.noneOf(Perk.class);
@@ -288,7 +298,16 @@ public record KitsSettings(boolean blockInCombat, boolean reminders, boolean sho
             }
             hatBlocked.add(id);
         }
-        return new Perks(blocked, close, hatBlocked);
+        // Optional: a kits.yml from before trash protection has no trash section.
+        ConfigReader trash = p.section("trash", false);
+        for (String key : trash.keys()) {
+            if (!key.equals("protect-worth")) {
+                trash.problem(key, "is not a trash setting (settings: protect-worth)");
+            }
+        }
+        long protectWorth = trash.has("protect-worth") ? trash.money("protect-worth", money, true, DEFAULT_PROTECT_WORTH)
+            : DEFAULT_PROTECT_WORTH;
+        return new Perks(blocked, close, hatBlocked, protectWorth);
     }
 
     private static String item(ConfigReader c, String path, Catalog catalog) {
