@@ -279,7 +279,7 @@ Rank limits (homes, auction listings, team size and similar) are numeric nodes s
 | `siftcore.admin.selftest` | operators | Run the self-test |
 | `siftcore.admin.sell` | operators | Look at and change players' sell mastery with /sell admin |
 | `siftcore.admin.setspawn` | operators | Set the server spawn with /setspawn |
-| `siftcore.admin.settings` | operators | Staff tools for other players' settings (/sift settings, not in this version yet) |
+| `siftcore.admin.settings` | operators | See and change other players' settings with /sift settings |
 | `siftcore.admin.shards` | operators | Give, take and set shards, and see or retry waiting key purchases (/shards pending) |
 | `siftcore.admin.spawn` | operators | Send other players to spawn with /spawn &lt;player&gt; |
 | `siftcore.admin.spawners` | operators | Give spawners and inspect them with /spawners give, list, cycle and info |

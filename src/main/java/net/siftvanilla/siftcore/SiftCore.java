@@ -360,8 +360,7 @@ public final class SiftCore implements CoreControl {
         permissions.declare(SharedSettings.HIDE_FROM_LEADERBOARDS_NODE, "Offer the 'Hide me from leaderboards' setting (staff and test"
             + " accounts)", PermissionDefault.FALSE);
         permissions.declare(SharedSettings.HIDE_RANK_NODE, "Offer the 'Show my rank' setting (rank groups)", PermissionDefault.FALSE);
-        permissions.declare(SharedSettings.ADMIN_NODE, "Staff tools for other players' settings (/sift settings, not in this version"
-            + " yet)", false);
+        permissions.declare(SharedSettings.ADMIN_NODE, "See and change other players' settings with /sift settings", false);
     }
 
     private void listen(Listener listener) {
