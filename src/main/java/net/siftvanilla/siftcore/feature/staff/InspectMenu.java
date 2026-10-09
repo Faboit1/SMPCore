@@ -39,7 +39,7 @@ final class InspectMenu extends Menu {
     }
 
     private boolean canEdit() {
-        return this.viewer.hasPermission(Inspector.editNode(this.kind));
+        return this.inspector.mayEdit(this.viewer, this.target, this.kind);
     }
 
     @Override

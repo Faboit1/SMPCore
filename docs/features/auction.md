@@ -97,7 +97,8 @@ registered as usual. Changes apply after a restart.
 
 **Main menu.** The `auction` hub entry (main menu button and pause-menu entry) runs `/ah` for the player when
 AxAuctions is enabled, otherwise it opens SiftCore's own menu (`AuctionFeature#openFromHub`, checked on every
-click). AxAuctions' Back button (slot 46 of the auction house) runs `/menu`, SiftCore's main menu.
+click). That `/ah` is fired as `PlayerCommandPreprocessEvent` first, like a typed command, so the command guards
+(blocked in combat, blocked while frozen) apply to the button too. AxAuctions' Back button (slot 46 of the auction house) runs `/menu`, SiftCore's main menu.
 
 **Permissions** (AxAuctions'):
 

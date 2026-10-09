@@ -59,9 +59,13 @@ final class TeamFeedback {
             case NO_INVITE -> new Line(TeamsMessages.NO_INVITE, Arg.text("team", teamName));
             case INVITE_EXPIRED -> new Line(TeamsMessages.INVITE_EXPIRED);
             case ALREADY_INVITED -> new Line(TeamsMessages.ALREADY_INVITED, Arg.text("name", name));
+            case INVITE_BLOCKED -> new Line(TeamsMessages.INVITE_BLOCKED, Arg.text("name", name));
             case TOO_MANY_INVITES -> new Line(TeamsMessages.TOO_MANY_INVITES);
             case NO_HOME -> new Line(TeamsMessages.NO_HOME);
             case HOME_WORLD_MISSING -> new Line(TeamsMessages.HOME_WORLD_MISSING);
+            case HOME_WORLD_DISABLED -> new Line(TeamsMessages.HOME_WORLD_DISABLED);
+            case HOME_IN_SPAWN -> new Line(TeamsMessages.HOME_IN_SPAWN);
+            case HOME_AT_SPAWN -> new Line(TeamsMessages.HOME_AT_SPAWN);
             case NAME_TOO_SHORT, NAME_TOO_LONG -> new Line(TeamsMessages.NAME_LENGTH,
                 Arg.number("min", s.nameMinLength()), Arg.number("max", s.nameMaxLength()));
             case NAME_CHARACTERS -> new Line(TeamsMessages.NAME_CHARACTERS);

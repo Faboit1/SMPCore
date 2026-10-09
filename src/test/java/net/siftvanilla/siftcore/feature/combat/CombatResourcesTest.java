@@ -77,7 +77,7 @@ class CombatResourcesTest {
         List<String> shipped = settings.blockedCommands().rules().stream().map(CommandFilter.Rule::toString).toList();
         assertEquals(CombatSettings.DEFAULT_BLOCKED_COMMANDS, shipped, "the file and the built-in defaults agree");
         Function<String, Set<String>> names = Set::of;
-        for (String command : List.of("/spawn", "/home", "/tpa Alex", "/rtp", "/warp shop", "/team home", "/ec", "/craft")) {
+        for (String command : List.of("/spawn", "/home", "/tpa Alex", "/rtp", "/warp shop", "/team home", "/ec", "/craft", "/shardshop")) {
             assertTrue(settings.blockedCommands().blocks(command, names), command + " is blocked by default");
         }
         assertFalse(settings.blockedCommands().blocks("/balance", names));

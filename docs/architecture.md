@@ -34,7 +34,7 @@ net.siftvanilla.siftcore
 │   ├── combat              CombatTags (who is tagged until when)
 │   ├── link                contracts between features: StatsRecorder, WorthLookup, TeamLookup, AfkStatus,
 │   │                       CrateKeys, SpawnerItems, SpawnArea, MuteStatus, VanishStatus,
-│   │                       FriendLookup, IgnoreLookup
+│   │                       FreezeStatus (teleports and dialogs refuse frozen players), FriendLookup, IgnoreLookup
 │   ├── integration         Ranks (LuckPerms labels)
 │   ├── audit               AuditLog
 │   └── selftest            SelfTest

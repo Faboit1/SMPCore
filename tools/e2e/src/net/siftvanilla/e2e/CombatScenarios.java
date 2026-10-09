@@ -19,6 +19,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.economy.SystemAccounts;
 import net.siftvanilla.siftcore.feature.combat.CombatFeature;
+import net.siftvanilla.siftcore.feature.friends.FriendsFeature;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -76,6 +77,7 @@ final class CombatScenarios {
         list.add(of("combat-team", CombatScenarios::team));
         list.add(of("combat-vanish", CombatScenarios::vanish));
         list.add(of("combat-pair-memory", CombatScenarios::pairMemory));
+        list.add(of("combat-ex-friends", CombatScenarios::exFriends));
         list.add(of("bounty-place", CombatScenarios::bountyPlace));
         list.add(of("bounty-claim", CombatScenarios::bountyClaim));
         list.add(of("bounty-admin", CombatScenarios::bountyAdmin));
@@ -709,6 +711,35 @@ final class CombatScenarios {
             List<String> rows = kills(e2e, killerName, victimName);
             String expected = remembered ? "repeated_pair" : "counted";
             e2e.expect(rows.getLast().equals(expected), "the kill is " + expected + ": " + rows);
+        });
+    }
+
+    /** Unfriend, kill, re-friend: a friendship that ended within the friends window still blocks the credit. */
+    static void exFriends(E2E e2e) throws Exception {
+        withConfig(e2e, COMBAT, Map.of("same-ip: true", "same-ip: false"), x -> {
+            String killerName = e2e.name("ExKiller");
+            String victimName = e2e.name("ExVictim");
+            Bot killer = e2e.bot(killerName);
+            Bot victim = e2e.bot(victimName);
+            UUID killerId = known(e2e, killerName);
+            UUID victimId = known(e2e, victimName);
+            var friends = e2e.feature(FriendsFeature.class).lookup();
+
+            e2e.step("they are friends, then the killer removes the victim right before the fight");
+            List<String> made = output(e2e, "sift friends add " + killerName + " " + victimName, 500);
+            e2e.eventually(() -> friends.friends(killerId, victimId), "friends: " + made);
+            killer.command("friend remove " + victimName);
+            e2e.dialog(killer, "Remove friend");
+            e2e.click(killer, "Remove");
+            e2e.eventually(() -> !friends.friends(killerId, victimId), "no longer friends");
+            e2e.sleep(JOIN_PROTECTION_MILLIS);
+
+            e2e.step("the kill doesn't count: they were friends a moment ago");
+            long killsBefore = stat(e2e, killerName, "kills");
+            killWithHit(e2e, killer, victim);
+            e2e.eventually(() -> kills(e2e, killerName, victimName).equals(List.of("friends")),
+                "not counted, recently friends: " + kills(e2e, killerName, victimName));
+            e2e.expect(stat(e2e, killerName, "kills") == killsBefore, "no kill for the killer");
         });
     }
 

@@ -1,6 +1,6 @@
 # Permissions
 
-Every permission node SiftCore 1.0.0 declares (130 nodes), generated with `/sift docs`. Nodes are registered with the server at startup, so LuckPerms suggests them. "Everyone" nodes are granted by default; take them away with a negated node (`/lp group default permission set <node> false`).
+Every permission node SiftCore 1.0.0 declares (131 nodes), generated with `/sift docs`. Nodes are registered with the server at startup, so LuckPerms suggests them. "Everyone" nodes are granted by default; take them away with a negated node (`/lp group default permission set <node> false`).
 
 Rank limits (homes, auction listings, team size and similar) are numeric nodes such as `siftcore.homes.5`: the highest number a player has wins. They are described with the feature that reads them in `docs/features/`.
 
@@ -104,6 +104,12 @@ Rank limits (homes, auction listings, team size and similar) are numeric nodes s
 | `siftcore.command.tpatoggle` | everyone | Use /tpatoggle |
 | `siftcore.command.tpdeny` | everyone | Use /tpdeny |
 | `siftcore.command.worth` | everyone | See what items sell for with /worth and the price list |
+
+## Hierarchy
+
+| Node | Default | Description |
+|---|---|---|
+| `siftcore.hierarchy.owner` | nobody | Owner: punish, kick, freeze and vanish staff of any weight; only the console and other owners can do that to you. Give it to the owner only: a wildcard that covers it (siftcore.* or *) grants it too |
 
 ## Orders
 

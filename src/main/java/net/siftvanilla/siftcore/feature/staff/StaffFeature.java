@@ -9,6 +9,7 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.FreezeStatus;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.scheduler.Task;
@@ -21,7 +22,8 @@ import org.bukkit.plugin.PluginManager;
 /**
  * Staff moderation tools: vanish, freeze, mutes, bans, kicks, warnings and their history, staff chat, player
  * reports, inventory and ender chest inspection, alt and player lookups, broadcasts and clearing chat. Implements
- * {@link MuteStatus} and {@link VanishStatus} for the other features. Every staff action is written to the audit log.
+ * {@link MuteStatus}, {@link VanishStatus} and {@link FreezeStatus} for the other features and the core. Every staff
+ * action is written to the audit log.
  */
 public final class StaffFeature implements Feature {
 
@@ -38,6 +40,7 @@ public final class StaffFeature implements Feature {
     private final ReportDialogs reportDialogs;
     private final List<SiftCommand> commands;
     private final List<Task> timers = new ArrayList<>();
+    private volatile StaffRanks luckPerms;
 
     public StaffFeature(Services services, List<ConfigProblem> problems) {
         this.services = services;
@@ -56,13 +59,16 @@ public final class StaffFeature implements Feature {
         this.staffChat = new StaffChat(services.lang());
         this.reports = new Reports(this.store, services.audit(), services.messenger(), notices, this.settings, logger);
         this.reportDialogs = new ReportDialogs(services, this.reports, this.settings);
-        Inspector inspector = new Inspector(services, logger);
+        StaffHierarchy hierarchy = new StaffHierarchy(services.scheduler(), services.messenger(), services.audit(), this.settings,
+            this::ranks, Bukkit::getPlayer, logger);
+        Inspector inspector = new Inspector(services, hierarchy, logger);
         HistoryView history = new HistoryView(services, this.store, text, this.settings, logger);
         Lookups lookups = new Lookups(services, this.store, this.punishments, this.freeze, this.vanish, history, inspector, logger);
         Announcements announcements = new Announcements(services, this.settings);
         List<SiftCommand> all = new ArrayList<>();
-        all.addAll(new PunishCommands(services, this.punishments, history, notices, text, this.settings).all());
-        all.addAll(new ToolCommands(services, this.vanish, this.freeze, this.staffChat, announcements, inspector, lookups, notices, text).all());
+        all.addAll(new PunishCommands(services, this.punishments, history, notices, text, this.settings, hierarchy).all());
+        all.addAll(new ToolCommands(services, this.vanish, this.freeze, this.staffChat, announcements, inspector, lookups, notices, text,
+            hierarchy).all());
         all.addAll(new ReportCommands(services, this.reports, this.reportDialogs).all());
         this.commands = List.copyOf(all);
     }
@@ -70,6 +76,19 @@ public final class StaffFeature implements Feature {
     @Override
     public String id() {
         return "staff";
+    }
+
+    /** Staff weights for the hierarchy: LuckPerms group weights while LuckPerms is enabled, otherwise the bypass only. */
+    private StaffRanks ranks() {
+        if (!Bukkit.getPluginManager().isPluginEnabled(LuckPermsStaffRanks.PLUGIN)) {
+            return StaffRanks.PERMISSIONS;
+        }
+        StaffRanks ranks = this.luckPerms;
+        if (ranks == null) {
+            ranks = LuckPermsStaffRanks.connect();
+            this.luckPerms = ranks;
+        }
+        return ranks;
     }
 
     /** Who is muted, for the chat feature and private messages. Thread-safe. */
@@ -80,6 +99,11 @@ public final class StaffFeature implements Feature {
     /** Who is vanished, for join and quit messages, online counts and /seen. Thread-safe. */
     public VanishStatus vanish() {
         return this.vanish;
+    }
+
+    /** Who is frozen, for the shared teleports and the dialog router (frozen players can't use either). Lock-free. */
+    public FreezeStatus freezes() {
+        return this.freeze;
     }
 
     @Override
@@ -96,6 +120,8 @@ public final class StaffFeature implements Feature {
         plugins.registerEvents(new ChatGuard(this.staffChat, this.punishments, this.settings), plugin);
         plugins.registerEvents(this.vanish, plugin);
         plugins.registerEvents(this.freeze, plugin);
+        this.freeze.installAsyncTeleportGuard(plugin);
+        this.freeze.installAsyncPortalGuard(plugin);
         this.timers.add(this.services.scheduler().asyncTimer(() -> {
             this.punishments.sweep();
             this.reports.sweep();

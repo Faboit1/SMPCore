@@ -8,6 +8,7 @@ them in the shard shop on crate keys and items. Package `feature/shards`, config
 |---|---|---|
 | `CrateKeys` | crates feature | Key offers: shown only for crates the crates feature knows, given with `CrateKeys#give`; the purchase dialog shows how many keys of that crate the player has |
 | `AfkZoneInfo` | AFK feature | The shards page: what the zone pays this player, today's progress and the way there |
+| `CombatStatus` | core combat tags | Combat-tagged players can't open the shop or buy (`shop.block-in-combat`) |
 
 The balance placeholders (`shards`, `shards_raw`) and the shard side of `/eco` belong to the economy feature.
 
@@ -51,6 +52,11 @@ slider when more than one may be bought, and a Buy button that always names the 
 first shows the new total instead of buying. Purchases at or above `shop.confirm-above` (500) ask once more. Receipts
 name what was given (`You bought 2x Basic key for 100 shards.`, with a click to `/crates` for keys).
 
+**In combat** (`shop.block-in-combat`, on by default) the shop doesn't open and nothing can be bought: "You can't use
+the shard shop in combat. <time> left." It is checked when the shop or an offer opens, on every Buy and confirm press,
+and once more right before the transaction (the tag can start while the dialog is open), so no totem or golden apple
+is bought mid-fight. `shardshop` is also in the combat feature's default `while-tagged.blocked-commands`.
+
 When the player buys, everything is checked again: the offer still exists and is still available to them (permission,
 the crate still exists, the item is real), the price is the one they saw, they have the shards. The cancellable
 `ShardShopPurchaseEvent` fires, then one ledger transaction takes the shards (kind `shard_shop`, a unique ref) and
@@ -92,6 +98,7 @@ shard shop and `Go to the AFK zone` (hidden inside the zone or while the zone is
 | Key | Default | Meaning |
 |---|---|---|
 | `shop.confirm-above` | `500` | Ask once more at or above this total (0 = always) |
+| `shop.block-in-combat` | `true` | Combat-tagged players can't open the shop or buy |
 | `shop.offers.<id>.type` | | `key` or `item` |
 | `.crate`, `.keys` | | Key offers: the crate id, keys per unit (1 to 64, default 1) |
 | `.item`, `.amount` | | Item offers: the item id, items per unit (1 to 64, default 1) |

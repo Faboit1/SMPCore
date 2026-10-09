@@ -51,6 +51,7 @@ final class AfkScenarios {
         list.add(of("afk-zone", AfkScenarios::zone));
         list.add(of("afk-zone-cap", AfkScenarios::zoneCap));
         list.add(of("shard-shop", AfkScenarios::shardShop));
+        list.add(of("shard-shop-combat", AfkScenarios::shardShopCombat));
         return list;
     }
 
@@ -336,6 +337,47 @@ final class AfkScenarios {
     }
 
     // ------------------------------------------------------------------ the shard shop
+
+    /** No totems or golden apples mid-fight: the shard shop refuses players in combat, also from an open dialog. */
+    static void shardShopCombat(E2E e2e) throws Exception {
+        String name = e2e.name("ShardFight");
+        Bot bot = e2e.bot(name);
+        e2e.consoleOutput("shards give " + name + " 1000");
+        e2e.eventually(() -> e2e.shards(name) == 1000, "1,000 shards");
+
+        e2e.step("the shop is open, then a fight starts: the offer doesn't open");
+        bot.command("shardshop");
+        e2e.dialog(bot, "Shard shop");
+        e2e.console("combat tag " + name + " 60s");
+        bot.clearMessages();
+        e2e.click(bot, "Totem of Undying");
+        e2e.eventually(() -> bot.anyFeedbackContains("You can't use the shard shop in combat."), "refused: " + bot.actionBar());
+
+        e2e.step("the menu's way in is refused too");
+        e2e.sleep(1_000);
+        bot.command("menu");
+        e2e.dialog(bot, "SiftVanilla");
+        e2e.click(bot, "Shards");
+        e2e.dialog(bot, "Shards");
+        bot.clearMessages();
+        e2e.click(bot, "Shard shop");
+        e2e.eventually(() -> bot.anyFeedbackContains("You can't use the shard shop in combat."), "refused: " + bot.actionBar());
+
+        e2e.step("a purchase dialog opened before the fight buys nothing during it");
+        e2e.console("combat untag " + name);
+        bot.command("shardshop");
+        e2e.dialog(bot, "Shard shop");
+        e2e.click(bot, "Totem of Undying");
+        e2e.dialog(bot, "Buy Totem of Undying");
+        e2e.console("combat tag " + name + " 60s");
+        bot.clearMessages();
+        e2e.click(bot, "Buy 1", Map.of("amount", 1));
+        e2e.eventually(() -> bot.anyFeedbackContains("You can't use the shard shop in combat."), "refused: " + bot.actionBar());
+        e2e.sleep(1_000);
+        e2e.expect(e2e.shards(name) == 1000, "nothing charged");
+        e2e.expect(count(e2e, name, Material.TOTEM_OF_UNDYING) == 0, "no totem");
+        e2e.console("combat untag " + name);
+    }
 
     static void shardShop(E2E e2e) throws Exception {
         String name = e2e.name("ShardShop");

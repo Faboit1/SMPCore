@@ -22,6 +22,7 @@ core:
   slow-down: "<primary>Slow down a little."
   inventory-full: "<primary>Your inventory is full."
   disabled-here: "<primary>You can't do that here."
+  frozen: "<primary>You can't do that while frozen."
   loading: "<secondary>Loading..."
 
 ui:
@@ -62,5 +63,6 @@ teleport:
   cancelled-damage: "<primary>Teleport cancelled because you took damage."
   cancelled-replaced: "<secondary>Your previous teleport was cancelled."
   in-combat: "<primary>You can't teleport in combat. <time> left."
+  frozen: "<primary>You can't teleport while frozen."
   done: "<primary>Teleported."
   failed: "<primary>That teleport didn't work. Try again."

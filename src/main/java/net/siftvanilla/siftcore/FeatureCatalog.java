@@ -63,10 +63,13 @@ final class FeatureCatalog {
         AuctionFeature auction = new AuctionFeature(this.services, this.problems, this.combatTags);
         HubFeature hub = new HubFeature(this.services, this.problems);
         StaffFeature staff = new StaffFeature(this.services, this.problems);
+        // A frozen player can't teleport or use any menu: the shared teleports and the dialog router ask the staff feature.
+        this.services.teleports().freezes(staff.freezes());
+        this.services.dialogs().freezes(staff.freezes());
         SpawnFeature spawn = new SpawnFeature(this.services, this.problems);
         AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
-        StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin);
-        TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
+        StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin, staff.vanish());
+        TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish(), spawn.area());
         // Ranks are needed by chat and friends, store deliveries need crate keys, and crates are built later:
         // late-bound keys break the cycle.
         AtomicReference<CrateKeys> crateKeys = new AtomicReference<>(CrateKeys.NONE);
@@ -74,6 +77,9 @@ final class FeatureCatalog {
             CrateKeys.late(crateKeys::get), economy.economy());
         ChatFeature chat = new ChatFeature(this.services, this.problems, integrations.ranks(), teams.lookup(), stats.recorder(),
             staff.mutes(), staff.vanish(), afk.status());
+        // Payment notices and team invites respect ignore lists, but economy and teams are built before chat.
+        economy.ignores(chat.ignores());
+        teams.ignores(chat.ignores());
         FriendsFeature friends = new FriendsFeature(this.services, this.problems, admin, this.combatTags, chat.ignores(),
             staff.vanish(), afk.status(), teams.lookup(), integrations.ranks(), staff.mutes());
         // Selling routes items into buy orders, but orders are built after sell (they price with sell.worth()):
@@ -108,9 +114,13 @@ final class FeatureCatalog {
         sell.shop(shop.offers());
         features.add(shop);
         features.add(spawn);
-        features.add(new HomesFeature(this.services, this.problems, spawn.area()));
+        HomesFeature homes = new HomesFeature(this.services, this.problems, spawn.area(), this.combatTags);
+        // Team homes follow /sethome's disabled worlds too, but homes are built after teams.
+        teams.homeWorlds(homes.disabledWorlds());
+        features.add(homes);
         features.add(new RtpFeature(this.services, this.problems, spawn.area(), spawn.borders()));
-        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), friends.lookup(), chat.ignores()));
+        features.add(new TpaFeature(this.services, this.problems, staff.vanish(), afk.status(), friends.lookup(), chat.ignores(),
+            this.combatTags));
         features.add(new ExtrasFeature(this.services, this.problems, staff.vanish()));
         features.add(new DisplaysFeature(this.services, this.problems));
         features.add(new ScoreboardFeature(this.services, this.problems, stats.recorder(), teams.lookup(), afk.status(), integrations.ranks(),
@@ -118,7 +128,7 @@ final class FeatureCatalog {
         features.add(combat);
         features.add(new BountiesFeature(this.services, this.problems));
         features.add(afk);
-        features.add(new ShardsFeature(this.services, this.problems, afk.zone(), crates.keys()));
+        features.add(new ShardsFeature(this.services, this.problems, afk.zone(), crates.keys(), this.combatTags));
         features.add(integrations);
         features.add(admin);
         return features;

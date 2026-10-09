@@ -18,6 +18,7 @@ import net.siftvanilla.siftcore.core.link.FriendLookup;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
@@ -39,7 +40,9 @@ import org.bukkit.entity.Player;
  * <p>
  * Other features it consults: vanished staff can't be found (vanish), a player who ignores the sender never gets
  * the request (ignore lists), the sender is told when the target is AFK, and friends skip the request when the
- * target allows it (friends).
+ * target allows it (friends). Combat-tagged players can't send or accept requests, and nobody accepts a request while
+ * its sender is in combat, however they answer (command, chat dialog, main menu form). When the warmup ends, nobody
+ * arrives at a player who got into a fight meanwhile.
  */
 final class TpaService {
 
@@ -47,7 +50,7 @@ final class TpaService {
     private static final String COOLDOWN_KEY = "tpa:request";
 
     /** What the service asks other features. Every lookup is thread-safe and answers from memory. */
-    record Links(VanishStatus vanish, AfkStatus afk, FriendLookup friends, IgnoreLookup ignores) {
+    record Links(VanishStatus vanish, AfkStatus afk, FriendLookup friends, IgnoreLookup ignores, CombatStatus combat) {
     }
 
     private final Services services;
@@ -88,10 +91,23 @@ final class TpaService {
         return viewer.canSee(target) && (!this.links.vanish().vanished(target.getUniqueId()) || viewer.hasPermission(BYPASS));
     }
 
-    /** Whether {@code target} lets {@code sender} come without a request: they are friends and the target allows it. */
+    /**
+     * Whether {@code target} lets {@code sender} come without a request: they are friends, the target allows it and
+     * isn't in combat.
+     */
     private boolean skipsRequest(Kind kind, UUID target, UUID sender) {
         return this.friendsToggle != null && TpaGate.friendSkips(kind, this.links.friends().friends(target, sender),
-            this.services.settings().enabled(target, this.friendsToggle));
+            this.services.settings().enabled(target, this.friendsToggle), this.links.combat().tagged(target));
+    }
+
+    /** True (after telling the player) when combat keeps them from sending or accepting a request. */
+    private boolean inCombat(Player player) {
+        UUID id = player.getUniqueId();
+        if (!this.links.combat().tagged(id)) {
+            return false;
+        }
+        messenger().send(player, TpaMessages.IN_COMBAT, Arg.time("time", this.links.combat().remaining(id)));
+        return true;
     }
 
     /** Live requests waiting for the player (placeholder). */
@@ -125,6 +141,9 @@ final class TpaService {
 
     /** Sends a request that passed the gate: cooldown, the public event, then the request (or a friend's direct visit). */
     private void send(Player sender, Player target, Kind kind) {
+        if (inCombat(sender)) {
+            return;
+        }
         UUID senderId = sender.getUniqueId();
         UUID targetId = target.getUniqueId();
         TpaSettings s = this.settings.get();
@@ -153,7 +172,7 @@ final class TpaService {
     private void comeAsFriend(Player sender, Player target) {
         messenger().send(sender, TpaMessages.FRIEND_SENDER, Arg.text("name", target.getName()));
         messenger().send(target, TpaMessages.FRIEND_TARGET, Arg.text("name", sender.getName()));
-        this.services.teleports().teleport(sender, "tpa", this.settings.get().warmup(), () -> locationOf(sender, target), ok -> {
+        this.services.teleports().teleport(sender, "tpa", this.settings.get().warmup(), () -> meetingPoint(sender, target), ok -> {
             if (!ok && target.isOnline()) {
                 messenger().send(target, TpaMessages.NOT_MOVED, Arg.text("name", sender.getName()));
             }
@@ -182,10 +201,22 @@ final class TpaService {
 
     // ------------------------------------------------------------------ answering
 
-    /** Accepts one request ({@code id} -1 = whatever request that sender has pending). Target's thread. */
+    /**
+     * Accepts one request ({@code id} -1 = whatever request that sender has pending). Target's thread. Refused while
+     * either player is in combat; the request then stays, to be accepted once the fight is over.
+     */
     void accept(Player target, UUID sender, long id) {
-        Optional<Request> taken = this.requests.take(target.getUniqueId(), sender, id);
         String senderName = name(sender);
+        TpaGate.Fight fight = TpaGate.acceptBlocked(this.links.combat().tagged(target.getUniqueId()), this.links.combat().tagged(sender));
+        if (fight == TpaGate.Fight.YOU) {
+            inCombat(target);
+            return;
+        }
+        if (fight == TpaGate.Fight.OTHER && waiting(target.getUniqueId(), sender, id)) {
+            messenger().send(target, TpaMessages.OTHER_IN_COMBAT, Arg.text("name", senderName));
+            return;
+        }
+        Optional<Request> taken = this.requests.take(target.getUniqueId(), sender, id);
         if (taken.isEmpty()) {
             messenger().send(target, TpaMessages.NO_REQUEST_FROM, Arg.text("name", senderName));
             return;
@@ -201,7 +232,7 @@ final class TpaService {
         Player mover = request.kind() == Kind.TO_TARGET ? senderPlayer : target;
         Player other = mover == target ? senderPlayer : target;
         Runnable start = () -> this.services.teleports().teleport(mover, "tpa", this.settings.get().warmup(),
-            () -> locationOf(mover, other), ok -> {
+            () -> meetingPoint(mover, other), ok -> {
                 if (!ok && other.isOnline()) {
                     messenger().send(other, TpaMessages.NOT_MOVED, Arg.text("name", mover.getName()));
                 }
@@ -211,6 +242,26 @@ final class TpaService {
         } else {
             this.services.scheduler().entity(mover, start, null);
         }
+    }
+
+    /** Whether {@code sender}'s request ({@code id} -1 = any) is still waiting for {@code target}. */
+    private boolean waiting(UUID target, UUID sender, long id) {
+        for (Request request : this.requests.incoming(target)) {
+            if (request.sender().equals(sender) && (id < 0 || request.id() == id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Where the mover of an accepted request (or a friend's visit) goes: the other player's position when the warmup
+     * ends, unless the other player is in combat by then (they may have been attacked during the warmup). The shared
+     * teleports re-check only the mover's tag.
+     */
+    private CompletableFuture<Location> meetingPoint(Player mover, Player other) {
+        return TpaGate.unlessFighting(locationOf(mover, other), () -> this.links.combat().tagged(other.getUniqueId()),
+            () -> messenger().send(mover, TpaMessages.OTHER_FIGHTING, Arg.text("name", other.getName())));
     }
 
     /** Where the mover goes: the other player's position when the warmup ends, read on their thread. */

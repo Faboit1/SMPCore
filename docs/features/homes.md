@@ -4,11 +4,12 @@ Players save places with `/sethome` and go back with `/home`. Package `feature/h
 text `lang/homes.yml`, table `homes` (migration V006).
 
 Homes use the shared teleport (`core.teleport.Teleports`): a warmup with an action-bar countdown that moving or
-taking damage cancels, refused while combat-tagged, `teleportAsync` only. The feature consumes one contract:
+taking damage cancels, refused while combat-tagged, `teleportAsync` only. The feature consumes two contracts:
 
 | Contract | Used for |
 |---|---|
 | `SpawnArea` (spawn feature, wired) | No homes inside the protected spawn area |
+| `CombatStatus` (core combat tags) | No homes are set in combat ("You can't set a home in combat. <time> left."), by `/sethome` or the dialog's Set a home here form alike |
 
 ## Commands and permissions
 
@@ -18,7 +19,7 @@ taking damage cancels, refused while combat-tagged, `teleportAsync` only. The fe
 | `/home [name]` (alias `/h`) | everyone | Teleports to a home after the warmup. No name: the only home, or the homes dialog when there are several |
 | `/delhome [name]` (aliases `/deletehome`, `/removehome`) | everyone | Deletes a home after a confirmation dialog. No name: the homes dialog |
 | `/homes` | everyone | The homes dialog |
-| `/homes <player>` | `siftcore.admin.homes`, console | Another player's homes, online or offline: a dialog with teleport and delete buttons for staff, chat lines for the console |
+| `/homes <player>` | `siftcore.admin.homes`, console | Another player's homes, online or offline: a dialog with teleport and delete buttons for staff, chat lines for the console. Written to the audit log as `homes.view`; a staff teleport to one of the homes as `homes.teleport` (details: home name, world, block position) |
 | `/homes <player> delete <home>` | `siftcore.admin.homes`, console | Deletes another player's home (written to the audit log as `homes.delete`) |
 
 | Permission | Default | Meaning |
@@ -48,7 +49,7 @@ list. A wrong name in the form keeps the dialog open with the rule.
 | `default-limit` | `2` | Homes per player without a rank node |
 | `warmup` | `3s` | Standing still before the teleport |
 | `cooldown` | `5s` | Time between two home teleports |
-| `disabled-worlds` | `[]` | Worlds where homes can't be set or used (each name is checked against the loaded worlds) |
+| `disabled-worlds` | `[]` | Worlds where homes can't be set or used (each name is checked against the loaded worlds). Team homes follow this list too (`HomesFeature#disabledWorlds`) |
 
 ## Placeholders
 

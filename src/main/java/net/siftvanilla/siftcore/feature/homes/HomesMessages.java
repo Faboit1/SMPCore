@@ -12,6 +12,7 @@ public final class HomesMessages {
     public static final MessageKey WORLD_DISABLED = MessageKey.error("homes.world-disabled");
     public static final MessageKey HOME_WORLD_DISABLED = MessageKey.error("homes.home-world-disabled", "name");
     public static final MessageKey IN_SPAWN = MessageKey.error("homes.in-spawn");
+    public static final MessageKey IN_COMBAT = MessageKey.error("homes.in-combat", "time");
     public static final MessageKey LOADING = MessageKey.error("homes.loading");
     public static final MessageKey NOT_FOUND = MessageKey.error("homes.not-found", "name");
     public static final MessageKey NONE = MessageKey.error("homes.none");

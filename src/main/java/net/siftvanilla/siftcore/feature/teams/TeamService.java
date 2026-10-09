@@ -437,11 +437,21 @@ public final class TeamService {
     // ------------------------------------------------------------------ settings of a team
 
     public Outcome setHome(UUID actor, TeamHome home) {
+        return setHome(actor, home, false, false);
+    }
+
+    /**
+     * Sets the team home at a spot the caller checked against the home rules.
+     *
+     * @param worldDisabled homes are turned off in the spot's world
+     * @param inSpawn       the spot is inside the protected spawn area
+     */
+    public Outcome setHome(UUID actor, TeamHome home, boolean worldDisabled, boolean inSpawn) {
         Team team = this.registry.of(actor).orElse(null);
         if (team == null) {
             return Outcome.fail(TeamProblem.NOT_IN_TEAM);
         }
-        TeamProblem problem = TeamRules.setHome(team.role(actor));
+        TeamProblem problem = TeamRules.setHome(team.role(actor), worldDisabled, inSpawn);
         if (problem != null) {
             return Outcome.fail(problem, team);
         }
@@ -450,7 +460,7 @@ public final class TeamService {
             if (current == null) {
                 return Outcome.fail(TeamProblem.TEAM_GONE);
             }
-            TeamProblem again = TeamRules.setHome(current.role(actor));
+            TeamProblem again = TeamRules.setHome(current.role(actor), worldDisabled, inSpawn);
             if (again != null) {
                 return Outcome.fail(again, current);
             }

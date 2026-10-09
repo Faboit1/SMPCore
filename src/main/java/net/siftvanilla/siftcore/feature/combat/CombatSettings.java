@@ -27,13 +27,16 @@ record CombatSettings(
     /** The longest repeated-pair cooldown; the kill log is read back this far at startup. */
     static final Duration MAX_PAIR_COOLDOWN = Duration.ofHours(24);
 
+    /** The longest friends window (the friends feature remembers removals for its own anti-farm.remember, 7d). */
+    static final Duration MAX_FRIENDS_WINDOW = Duration.ofDays(30);
+
     /** The highest streak that can be named in the config. */
     static final int MAX_STREAK = 100_000;
 
     /** The commands refused in combat when the config does not list any. */
     static final List<String> DEFAULT_BLOCKED_COMMANDS = List.of(
         "spawn", "home", "homes", "sethome", "tpa", "tpahere", "tpaccept", "back", "rtp", "wild", "warp", "warps",
-        "team home", "afk", "ec", "enderchest", "craft", "workbench", "anvil", "kit", "kits", "shop", "ah");
+        "team home", "afk", "ec", "enderchest", "craft", "workbench", "anvil", "kit", "kits", "shop", "shardshop", "ah");
 
     /** The kill streaks announced by default. */
     static final List<Integer> DEFAULT_STREAKS = List.of(5, 10, 15, 20, 25, 30, 40, 50, 75, 100);
@@ -88,7 +91,9 @@ record CombatSettings(
                 farm.bool("same-team", true),
                 farm.bool("friends", true),
                 farm.bool("same-ip", true),
-                farm.duration("repeated-pair-cooldown", Duration.ZERO, MAX_PAIR_COOLDOWN, Duration.ofMinutes(10))));
+                farm.duration("repeated-pair-cooldown", Duration.ZERO, MAX_PAIR_COOLDOWN, Duration.ofMinutes(10)),
+                !farm.has("friends-window") ? AntiFarm.Rules.DEFAULT_FRIENDS_WINDOW
+                    : farm.duration("friends-window", Duration.ZERO, MAX_FRIENDS_WINDOW, AntiFarm.Rules.DEFAULT_FRIENDS_WINDOW)));
     }
 
     private static CommandFilter commands(ConfigReader tagged) {

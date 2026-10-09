@@ -38,12 +38,20 @@ public enum TeamProblem {
     INVITE_EXPIRED,
     /** The target already has an open invite from this team. */
     ALREADY_INVITED,
+    /** The target ignores the inviter (told like any refusal, so the inviter learns nothing about the ignore). */
+    INVITE_BLOCKED,
     /** The team has too many open invites. */
     TOO_MANY_INVITES,
     /** The team has no home. */
     NO_HOME,
     /** The team home's world is not loaded. */
     HOME_WORLD_MISSING,
+    /** Homes are turned off in that world ({@code home.disabled-worlds}). */
+    HOME_WORLD_DISABLED,
+    /** The spot is inside the protected spawn area. */
+    HOME_IN_SPAWN,
+    /** The stored team home lies inside the protected spawn area, so it can't be used. */
+    HOME_AT_SPAWN,
     NAME_TOO_SHORT,
     NAME_TOO_LONG,
     NAME_CHARACTERS,

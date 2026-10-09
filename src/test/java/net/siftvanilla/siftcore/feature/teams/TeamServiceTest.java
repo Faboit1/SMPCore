@@ -63,7 +63,7 @@ class TeamServiceTest {
 
     private static TeamsSettings settings(long cost, int limit) {
         return new TeamsSettings(cost, 3, 16, List.of("bad"), limit, Duration.ofMinutes(2), 10, Duration.ofSeconds(3),
-            Duration.ofSeconds(5), false, true, true, Duration.ofSeconds(60), 10, 10);
+            Duration.ofSeconds(5), false, true, true, Duration.ofSeconds(60), 10, 10, java.util.Set.of());
     }
 
     @BeforeEach
@@ -505,6 +505,19 @@ class TeamServiceTest {
         assertFalse(this.registry.friendlyFire(team.id()));
         assertEquals(home, this.registry.get(team.id()).orElseThrow().home());
         assertStorageMatchesMemory();
+    }
+
+    @Test
+    void theTeamHomeFollowsTheHomeRules() throws Exception {
+        Team team = createTeam(this.alice, "Testers");
+        addMember(team, this.alice, this.bob);
+        TeamHome atSpawn = new TeamHome("world", 0.5, 70, 0.5, 0f, 0f);
+        assertEquals(TeamProblem.HOME_IN_SPAWN, this.service.setHome(this.alice, atSpawn, false, true).problem());
+        assertEquals(TeamProblem.HOME_WORLD_DISABLED, this.service.setHome(this.alice, atSpawn, true, false).problem());
+        assertEquals(TeamProblem.ADMINS_ONLY, this.service.setHome(this.bob, atSpawn, false, true).problem());
+        assertNull(this.registry.get(team.id()).orElseThrow().home(), "nothing was set");
+        assertTrue(this.service.setHome(this.alice, atSpawn, false, false).ok());
+        assertEquals(atSpawn, this.registry.get(team.id()).orElseThrow().home());
     }
 
     @Test

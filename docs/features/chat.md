@@ -8,7 +8,7 @@ It provides one contract and consumes six:
 
 | Contract | Wired | Used for |
 |---|---|---|
-| `IgnoreLookup` (provided, `ChatFeature#ignores()`) | teleport requests; friends later | A player you ignore can't send you teleport (or friend) requests |
+| `IgnoreLookup` (provided, `ChatFeature#ignores()`) | teleport requests, friends, team invites, payment notices | A player you ignore can't send you teleport, friend or team requests, and their payments arrive without the "paid you" notice |
 | `Ranks` | `NONE` (integrations) | The rank label in front of the name and on the hover card |
 | `TeamLookup` | teams feature | The team on the hover card |
 | `StatsRecorder` | stats feature | Kills and playtime on the hover card |
@@ -122,10 +122,12 @@ The console can `/msg` players (no checks apply) and players can `/r` the consol
 `/ignore <player>` ignores a player (or stops ignoring them when already ignored), `/unignore <player>` stops.
 `/ignore` and `/ignore list` open a dialog listing ignored players; picking one asks to stop ignoring them, and
 "Ignore a player" opens a form. Ignoring hides the player's public chat and private messages, and stops their
-teleport requests (and friend requests once the friends feature consults `IgnoreLookup`). Online staff with
-`siftcore.chat.unignorable` can't be ignored (they reach everyone anyway). Staff the player can't see (vanished) and
-offline staff are added like anyone else, so the answer never tells that a vanished player is online; the entry has
-no effect on them. A player can ignore up to 100 players (`ignore.max`).
+teleport requests, friend requests and team invites (refused like any refusal: "You can't invite <name>."), and
+payments from them arrive without the "<name> paid you" notice (the money still arrives). Teams and economy are built
+before chat, so `FeatureCatalog` installs `IgnoreLookup` in them once chat is built (`EconomyFeature#ignores`,
+`TeamsFeature#ignores`). Online staff with `siftcore.chat.unignorable` can't be ignored (they reach everyone anyway).
+Staff the player can't see (vanished) and offline staff are added like anyone else, so the answer never tells that a
+vanished player is online; the entry has no effect on them. A player can ignore up to 100 players (`ignore.max`).
 
 Lists live in memory (loaded at startup; one row per entry, capped per player) and are written through to the
 `ignores` table in order by the database writer, so they survive restarts and `IgnoreLookup` answers from any

@@ -83,6 +83,17 @@ class TeamRulesTest {
         assertNull(TeamRules.setHome(ADMIN));
         assertEquals(TeamProblem.ADMINS_ONLY, TeamRules.setHome(MEMBER));
 
+        assertNull(TeamRules.setHome(OWNER, false, false));
+        assertEquals(TeamProblem.HOME_IN_SPAWN, TeamRules.setHome(OWNER, false, true), "the /sethome spawn rule applies");
+        assertEquals(TeamProblem.HOME_WORLD_DISABLED, TeamRules.setHome(ADMIN, true, false), "and the disabled worlds");
+        assertEquals(TeamProblem.HOME_WORLD_DISABLED, TeamRules.setHome(ADMIN, true, true));
+        assertEquals(TeamProblem.ADMINS_ONLY, TeamRules.setHome(MEMBER, true, true), "the role is told first");
+
+        assertNull(TeamRules.useHome(false, false));
+        assertEquals(TeamProblem.HOME_AT_SPAWN, TeamRules.useHome(false, true), "a home set at spawn before the rule can't be used");
+        assertEquals(TeamProblem.HOME_WORLD_DISABLED, TeamRules.useHome(true, false), "nor one in a disabled world");
+        assertEquals(TeamProblem.HOME_WORLD_DISABLED, TeamRules.useHome(true, true));
+
         assertNull(TeamRules.friendlyFire(OWNER));
         assertNull(TeamRules.friendlyFire(ADMIN));
         assertEquals(TeamProblem.ADMINS_ONLY, TeamRules.friendlyFire(MEMBER));

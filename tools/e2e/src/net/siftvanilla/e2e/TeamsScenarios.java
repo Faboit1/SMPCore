@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
@@ -40,6 +41,8 @@ final class TeamsScenarios {
         list.add(of("teams-ownership", TeamsScenarios::ownership));
         list.add(of("teams-chat", TeamsScenarios::chat));
         list.add(of("teams-home", TeamsScenarios::home));
+        list.add(of("teams-home-rules", TeamsScenarios::homeRules));
+        list.add(of("teams-ignored-invite", TeamsScenarios::ignoredInvite));
         list.add(of("teams-friendly-fire", TeamsScenarios::friendlyFire));
         list.add(of("teams-staff", TeamsScenarios::staff));
         list.add(of("teams-menu", TeamsScenarios::menu));
@@ -514,6 +517,115 @@ final class TeamsScenarios {
             "the home in the menu: " + main.body());
         e2e.expect(main.button("Team home") != null, "a home button: " + main.buttons());
         e2e.expect(main.button("Set home here") == null, "members get no set-home button: " + main.buttons());
+    }
+
+    /**
+     * The team home follows /sethome's rules: not inside the protected spawn, not in a world disabled in teams.yml or in
+     * homes.yml, and a home stored inside spawn (from before the rules) can't be used.
+     */
+    static void homeRules(E2E e2e) throws Exception {
+        String ownerName = e2e.name("Rules");
+        String team = e2e.name("Hotel");
+        Bot owner = e2e.botAtSpawn(ownerName);
+        startTeam(e2e, owner, team);
+
+        e2e.step("no team home at spawn");
+        owner.clearLogs();
+        owner.command("team sethome");
+        e2e.eventually(() -> owner.actionBarContains("You can't set the team home at spawn."), "refused at spawn: " + owner.actionBar());
+        e2e.sleep(500);
+        e2e.expect(!placeholder(e2e, ownerName, "team_home").contains(","), "no home: " + placeholder(e2e, ownerName, "team_home"));
+
+        e2e.step("outside spawn it works");
+        e2e.leaveSpawn(owner);
+        owner.clearLogs();
+        owner.command("team sethome");
+        e2e.eventually(() -> owner.anyFeedbackContains("set the team home") || owner.anyFeedbackContains("Team home set"),
+            "set outside spawn: " + owner.chat() + owner.actionBar());
+
+        e2e.step("in a world where team homes are off, the home can't be set or used");
+        String world = e2e.player(ownerName).getWorld().getName();
+        Path file = Bukkit.getPluginManager().getPlugin("SiftCore").getDataFolder().toPath().resolve("features/teams.yml");
+        String original = Files.readString(file);
+        e2e.expect(original.contains("  disabled-worlds: []"), "teams.yml has home.disabled-worlds");
+        Files.writeString(file, original.replace("  disabled-worlds: []", "  disabled-worlds: [" + world + "]"));
+        try {
+            e2e.expect(String.join(" ", e2e.consoleOutput("sift reload")).contains("Reloaded"), "teams.yml reloads");
+            owner.clearLogs();
+            owner.command("team sethome");
+            e2e.eventually(() -> owner.actionBarContains("Team homes are turned off in that world."), "set refused: " + owner.actionBar());
+            owner.clearLogs();
+            owner.command("team home");
+            e2e.eventually(() -> owner.actionBarContains("Team homes are turned off in that world."), "use refused: " + owner.actionBar());
+        } finally {
+            Files.writeString(file, original);
+            e2e.console("sift reload");
+        }
+
+        e2e.step("homes.yml's disabled worlds apply to team homes too");
+        Path homesFile = file.resolveSibling("homes.yml");
+        String homesOriginal = Files.readString(homesFile);
+        e2e.expect(homesOriginal.contains("\ndisabled-worlds: []"), "homes.yml has disabled-worlds");
+        Files.writeString(homesFile, homesOriginal.replace("\ndisabled-worlds: []", "\ndisabled-worlds: [" + world + "]"));
+        try {
+            e2e.expect(String.join(" ", e2e.consoleOutput("sift reload")).contains("Reloaded"), "homes.yml reloads");
+            owner.clearLogs();
+            owner.command("team sethome");
+            e2e.eventually(() -> owner.actionBarContains("Team homes are turned off in that world."), "set refused: " + owner.actionBar());
+            owner.clearLogs();
+            owner.command("team home");
+            e2e.eventually(() -> owner.actionBarContains("Team homes are turned off in that world."), "use refused: " + owner.actionBar());
+        } finally {
+            Files.writeString(homesFile, homesOriginal);
+            e2e.console("sift reload");
+        }
+
+        e2e.step("a team home stored inside spawn before the rules can't be used");
+        Location spawn = e2e.feature(net.siftvanilla.siftcore.feature.spawn.SpawnFeature.class).location();
+        e2e.expect(spawn != null && e2e.spawnArea().contains(spawn), "the spawn point is inside the protected area");
+        java.lang.reflect.Field field = net.siftvanilla.siftcore.feature.teams.TeamsFeature.class.getDeclaredField("service");
+        field.setAccessible(true);
+        var service = (net.siftvanilla.siftcore.feature.teams.TeamService) field.get(e2e.feature(net.siftvanilla.siftcore.feature.teams.TeamsFeature.class));
+        e2e.expect(service.setHome(e2e.uuid(ownerName), new net.siftvanilla.siftcore.feature.teams.TeamHome(spawn.getWorld().getName(),
+            spawn.getX(), spawn.getY(), spawn.getZ(), 0f, 0f)).ok(), "an old home at spawn is planted (no rules, as before them)");
+        Location before = e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getLocation());
+        owner.clearLogs();
+        owner.command("team home");
+        e2e.eventually(() -> owner.actionBarContains("The team home is at spawn, where team homes aren't allowed."),
+            "use refused: " + owner.actionBar());
+        e2e.sleep(4_000);
+        Location after = e2e.onPlayer(ownerName, () -> e2e.player(ownerName).getLocation());
+        e2e.expect(after.getWorld().equals(before.getWorld()) && after.distance(before) < 1.0, "not moved to spawn: " + before + " -> " + after);
+    }
+
+    /** A player who ignores someone gets no team invite from them; the inviter learns nothing about the ignore. */
+    static void ignoredInvite(E2E e2e) {
+        String ownerName = e2e.name("Inviter");
+        String targetName = e2e.name("Ignorer");
+        String team = e2e.name("India");
+        Bot owner = e2e.bot(ownerName);
+        Bot target = e2e.bot(targetName);
+        startTeam(e2e, owner, team);
+        var ignores = e2e.feature(net.siftvanilla.siftcore.feature.chat.ChatFeature.class).ignores();
+
+        e2e.step("the target ignores the inviter");
+        target.command("ignore " + ownerName);
+        e2e.eventually(() -> ignores.ignores(e2e.uuid(targetName), e2e.uuid(ownerName)), "ignored");
+
+        e2e.step("the invite is refused and never arrives");
+        owner.clearLogs();
+        target.clearLogs();
+        owner.command("team invite " + targetName);
+        e2e.eventually(() -> owner.actionBarContains("You can't invite " + targetName + "."), "refused: " + owner.actionBar());
+        e2e.sleep(1_000);
+        e2e.expect(!target.chatContains(ownerName), "no invite message: " + target.chat());
+
+        e2e.step("after unignoring, invites arrive again");
+        target.command("unignore " + ownerName);
+        e2e.eventually(() -> !ignores.ignores(e2e.uuid(targetName), e2e.uuid(ownerName)), "not ignored");
+        e2e.sleep(3_500);
+        owner.command("team invite " + targetName);
+        e2e.eventually(() -> target.chatContains(ownerName) && target.chatContains(team), "the invite arrives: " + target.chat());
     }
 
     static void friendlyFire(E2E e2e) {

@@ -9,6 +9,7 @@ homes:
   world-disabled: "<primary>You can't set homes in this world."
   home-world-disabled: "<primary>Home <name> is in a world where homes are turned off."
   in-spawn: "<primary>You can't set a home at spawn."
+  in-combat: "<primary>You can't set a home in combat. <time> left."
   loading: "<primary>Your homes are still loading. Try again in a moment."
   not-found: "<primary>You have no home called <name>."
   none: "<primary>You have no homes yet. Set one with /sethome."

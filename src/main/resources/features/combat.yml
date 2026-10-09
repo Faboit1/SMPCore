@@ -38,6 +38,7 @@ while-tagged:
     - kit
     - kits
     - shop
+    - shardshop
     - ah
   # Refuse throwing ender pearls.
   block-ender-pearls: false
@@ -82,8 +83,12 @@ streaks:
 anti-farm:
   # Members of the same team.
   same-team: true
-  # Players who are friends (/friends).
+  # Players who are friends (/friends), or were until recently: see friends-window.
   friends: true
+  # Players who stopped being friends within this time still count as friends, so removing a friend, killing them
+  # (and claiming the bounty on them) and adding them back gives nothing. 0s counts only current friends. The friends
+  # feature remembers removed friends for its own anti-farm.remember (7d), so a longer window works like that.
+  friends-window: 24h
   # Players last seen from the same IP address (alt accounts). Only a salted hash of the address is stored.
   same-ip: true
   # The same killer and victim again within this time after a counted kill. 0s turns this rule off; at most 24h.

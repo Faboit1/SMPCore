@@ -21,6 +21,7 @@ import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
+import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.placeholder.Placeholders;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
@@ -50,6 +51,7 @@ public final class StatsFeature implements Feature {
     private final Services services;
     private final Setting<StatsSettings> settings;
     private final AfkStatus afk;
+    private final VanishStatus vanish;
     private final Logger logger;
     private final StatsStorage storage;
     private final StatsStore store;
@@ -61,9 +63,15 @@ public final class StatsFeature implements Feature {
     private Duration scheduledSave;
     private Duration scheduledRefresh;
 
-    public StatsFeature(Services services, List<ConfigProblem> problems, AfkStatus afk, EconomyApi economy, AdminFeature admin) {
+    /**
+     * @param afk    AFK players earn no playtime
+     * @param vanish vanished staff earn no playtime either, so /playtime and /stats don't show that they are online
+     */
+    public StatsFeature(Services services, List<ConfigProblem> problems, AfkStatus afk, EconomyApi economy, AdminFeature admin,
+                        VanishStatus vanish) {
         this.services = services;
         this.afk = afk;
+        this.vanish = vanish;
         this.logger = services.plugin().getLogger();
         this.settings = services.configs().register("features/stats.yml",
             reader -> StatsSettings.parse(reader, StatsFeature::isBlock), problems);
@@ -158,14 +166,22 @@ public final class StatsFeature implements Feature {
         earned.forEach((player, amount) -> this.store.record(player, StatsDelta.add(Counter.EARNED, amount)));
     }
 
-    /** Active playtime: one second for every online player who is not AFK. */
+    /** Active playtime: one second for every online player who is playing (not AFK, not vanished). */
     private void tickPlaytime() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID uuid = player.getUniqueId();
-            if (!this.afk.afk(uuid)) {
+            if (playing(uuid, this.afk, this.vanish)) {
                 this.store.record(uuid, ONE_SECOND);
             }
         }
+    }
+
+    /**
+     * Whether an online player's second counts as active playtime. Vanished staff are not playing, and a counter that
+     * grows while they are hidden would tell anyone polling {@code /playtime <name>} that they are online.
+     */
+    static boolean playing(UUID player, AfkStatus afk, VanishStatus vanish) {
+        return !afk.afk(player) && !vanish.vanished(player);
     }
 
     // ------------------------------------------------------------------ timers

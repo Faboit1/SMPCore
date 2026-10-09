@@ -646,8 +646,11 @@ final class DisplayEntities implements Listener {
         }
     }
 
-    /** Right-clicking a leaderboard's click box runs its command for the player (player's region thread). */
-    @EventHandler(priority = EventPriority.HIGHEST)
+    /**
+     * Right-clicking a leaderboard's click box runs its command for the player (player's region thread). A click
+     * another listener already refused (a frozen player's, for example) runs nothing.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInteract(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof Interaction clicked)) {
             return;

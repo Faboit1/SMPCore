@@ -41,9 +41,22 @@ class TpaGateTest {
 
     @Test
     void onlyFriendsComingOverSkipTheRequest() {
-        assertTrue(TpaGate.friendSkips(Kind.TO_TARGET, true, true));
-        assertFalse(TpaGate.friendSkips(Kind.TO_SENDER, true, true), "a /tpahere always asks");
-        assertFalse(TpaGate.friendSkips(Kind.TO_TARGET, false, true), "strangers always ask");
-        assertFalse(TpaGate.friendSkips(Kind.TO_TARGET, true, false), "the target must allow it");
+        assertTrue(TpaGate.friendSkips(Kind.TO_TARGET, true, true, false));
+        assertFalse(TpaGate.friendSkips(Kind.TO_SENDER, true, true, false), "a /tpahere always asks");
+        assertFalse(TpaGate.friendSkips(Kind.TO_TARGET, false, true, false), "strangers always ask");
+        assertFalse(TpaGate.friendSkips(Kind.TO_TARGET, true, false, false), "the target must allow it");
+    }
+
+    @Test
+    void aFriendNeverArrivesInTheMiddleOfAFightWithoutAsking() {
+        assertFalse(TpaGate.friendSkips(Kind.TO_TARGET, true, true, true), "a target in combat is asked");
+    }
+
+    @Test
+    void nobodyAcceptsWhileEitherPlayerIsInCombat() {
+        assertEquals(TpaGate.Fight.NONE, TpaGate.acceptBlocked(false, false));
+        assertEquals(TpaGate.Fight.YOU, TpaGate.acceptBlocked(true, false), "a tagged target can't pull a teammate into the fight");
+        assertEquals(TpaGate.Fight.YOU, TpaGate.acceptBlocked(true, true));
+        assertEquals(TpaGate.Fight.OTHER, TpaGate.acceptBlocked(false, true), "nobody is pulled into the sender's fight");
     }
 }

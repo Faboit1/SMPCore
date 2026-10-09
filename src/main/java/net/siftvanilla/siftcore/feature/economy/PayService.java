@@ -7,6 +7,7 @@ import net.siftvanilla.siftcore.api.event.PlayerPayEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.economy.LedgerTx;
@@ -17,7 +18,8 @@ import org.bukkit.entity.Player;
 
 /**
  * /pay: validates, asks for confirmation above the configured amount, enforces the daily limit (which grows with
- * time played) atomically with the transfer, and tells both players.
+ * time played) atomically with the transfer, and tells both players (the receiver only when they want pay
+ * notifications and don't ignore the payer; the money arrives either way).
  */
 public final class PayService {
 
@@ -25,12 +27,26 @@ public final class PayService {
     private final Setting<EconomySettings> settings;
     private final PayLimits limits;
     private final Toggle notifications;
+    private volatile IgnoreLookup ignores = IgnoreLookup.NONE;
+
+    /** The chat feature's node for players who can't be ignored (staff). */
+    static final String UNIGNORABLE = "siftcore.chat.unignorable";
 
     public PayService(Services services, Setting<EconomySettings> settings, PayLimits limits, Toggle notifications) {
         this.services = services;
         this.settings = settings;
         this.limits = limits;
         this.notifications = notifications;
+    }
+
+    /** Installs the ignore lists (the chat feature is built after the economy). */
+    void ignores(IgnoreLookup ignores) {
+        this.ignores = ignores;
+    }
+
+    /** Whether the receiver is told about a payment: their pay notifications are on and they don't ignore the payer. */
+    static boolean notifies(boolean notificationsOn, boolean ignoresPayer, boolean payerUnignorable) {
+        return notificationsOn && (!ignoresPayer || payerUnignorable);
     }
 
     public PayLimits limits() {
@@ -128,7 +144,8 @@ public final class PayService {
                 String targetName = name(target);
                 this.services.messenger().send(payer, EconomyMessages.PAY_SENT, Arg.text("name", targetName), Arg.money("amount", amount));
                 Player online = Bukkit.getPlayer(target);
-                if (online != null && this.services.settings().enabled(target, this.notifications)) {
+                if (online != null && notifies(this.services.settings().enabled(target, this.notifications),
+                    this.ignores.ignores(target, from), payer.hasPermission(UNIGNORABLE))) {
                     this.services.messenger().send(online, EconomyMessages.PAY_RECEIVED, Arg.text("name", payer.getName()),
                         Arg.money("amount", amount));
                 }

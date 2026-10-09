@@ -34,6 +34,7 @@ final class Scenarios {
         list.add(of("menu", Scenarios::menu));
         list.add(of("pay", Scenarios::pay));
         list.add(of("pay-form", Scenarios::payForm));
+        list.add(of("pay-ignored", Scenarios::payIgnored));
         list.add(of("double-submit", Scenarios::doubleSubmit));
         list.add(of("forged-clicks", Scenarios::forgedClicks));
         list.add(of("baltop", Scenarios::baltop));
@@ -125,6 +126,35 @@ final class Scenarios {
         a.command("pay " + PAYEEBOT + " 1.2345k");
         e2e.eventually(() -> a.anyFeedbackContains("whole amount"), "fractional refused");
         e2e.expect(e2e.money(PAYERBOT) == afterLimit, "nothing moved by refused payments");
+    }
+
+    /** A payment from an ignored player arrives without the "paid you" notice. */
+    static void payIgnored(E2E e2e) {
+        String payerName = e2e.name("IgnPayer");
+        String payeeName = e2e.name("IgnPayee");
+        Bot payer = e2e.bot(payerName);
+        Bot payee = e2e.bot(payeeName);
+        var ignores = e2e.feature(net.siftvanilla.siftcore.feature.chat.ChatFeature.class).ignores();
+        e2e.console("eco set " + payerName + " 10k");
+        e2e.eventually(() -> e2e.money(payerName) == 10_000, "the payer has $10,000");
+        payee.command("ignore " + payerName);
+        e2e.eventually(() -> ignores.ignores(e2e.uuid(payeeName), e2e.uuid(payerName)), "the payee ignores the payer");
+
+        e2e.step("the money arrives, the notice doesn't");
+        long before = e2e.money(payeeName);
+        payee.clearLogs();
+        payer.command("pay " + payeeName + " 100");
+        e2e.eventually(() -> e2e.money(payeeName) == before + 100, "the payee received $100");
+        e2e.eventually(() -> payer.chatContains("You paid " + payeeName + " $100."), "the payer's receipt: " + payer.chat());
+        e2e.sleep(1_000);
+        e2e.expect(!payee.chatContains("paid you"), "no notice from an ignored player: " + payee.chat());
+
+        e2e.step("once unignored, notices come back");
+        payee.command("unignore " + payerName);
+        e2e.eventually(() -> !ignores.ignores(e2e.uuid(payeeName), e2e.uuid(payerName)), "not ignored");
+        e2e.sleep(2_100);
+        payer.command("pay " + payeeName + " 100");
+        e2e.eventually(() -> payee.chatContains(payerName + " paid you $100."), "the notice: " + payee.chat());
     }
 
     static void payForm(E2E e2e) {

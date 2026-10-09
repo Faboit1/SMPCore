@@ -20,7 +20,14 @@ staff:
     invalid: "<primary><secondary><input></secondary> is not a time. Try 30m, 12h or 7d."
     too-short: "<primary>That is too short. The shortest is 1s."
     too-long: "<primary>The longest is <max>. Leave the time out to make it permanent."
+    # /tempban always needs a time; a permanent ban is /ban.
+    too-long-ban: "<primary>The longest is <max>. Use /ban for a permanent ban."
   reason-too-long: "<primary>Keep the reason under <max> characters."
+
+  # The staff hierarchy (hierarchy in features/staff.yml).
+  hierarchy:
+    refused: "<primary>You can't do that to <name>. <secondary>Their staff rank is the same as or higher than yours."
+    unknown: "<primary>Couldn't check <name>'s staff rank, so nothing was done. Try again."
 
   vanish:
     "on": "<primary>You are vanished. Players can't see you."

@@ -5,7 +5,7 @@ tables: requests live in memory and expire within a minute.
 
 The player who moves gets the shared teleport warmup (`core.teleport.Teleports`: action-bar countdown, cancelled by
 moving or damage, refused while combat-tagged). The destination is wherever the other player stands when the warmup
-ends, read on that player's thread. The feature consumes four contracts:
+ends, read on that player's thread. The feature consumes five contracts:
 
 | Contract | Wired | Used for |
 |---|---|---|
@@ -13,6 +13,7 @@ ends, read on that player's thread. The feature consumes four contracts:
 | `IgnoreLookup` | `NONE` (chat) | A player who ignores the sender never gets the request; the sender is told they can't send one |
 | `AfkStatus` | `NONE` (AFK) | The sender is told the target is AFK, so an unanswered request makes sense |
 | `FriendLookup` | `NONE` (friends) | Friends may come without a request when the target allows it (see below) |
+| `CombatStatus` | core combat tags | Combat-tagged players can't send or accept requests (see "Combat" below) |
 
 ## Commands and permissions
 
@@ -49,6 +50,24 @@ who you asked) or online players you can see (`/tpa`, `/tpahere`); selectors are
    request) and starts the warmup for whoever moves. If they move, take damage or are in combat, the other player is
    told they didn't come.
 
+## Combat
+
+The combat feature refuses `/tpa`, `/tpahere` and `/tpaccept` while tagged, but requests are also sent from the main
+menu's form and answered from the chat dialog, so the feature checks combat itself, whichever way a player acts:
+
+- A combat-tagged player can't send a request ("You can't use teleport requests in combat. <time> left."). Without
+  this a tagged player could `/tpahere` an ally into the fight from the form.
+- Nobody accepts a request while either player is in combat (`TpaGate#acceptBlocked`): a tagged target can't pull a
+  teammate in by accepting their `/tpa` from the chat dialog, and nobody is pulled into the sender's fight
+  ("<name> is in combat. Their request waits; accept it once the fight is over."). The request stays where it was, so
+  it can be accepted once the fight is over. Denying always works.
+- A friend's `/tpa` skips the request only while the target isn't in combat; otherwise it becomes a normal request.
+- When the warmup ends, the player who stays put is checked again (`TpaGate#unlessFighting`, in the destination
+  supplier, after their position was read on their thread): the shared teleports re-check only the mover, so a player
+  attacked during the 3 second warmup would otherwise still get the ally delivered mid-fight. The mover is told
+  ("<name> is in combat now. The teleport was cancelled."), the other player hears they didn't come, and the request
+  is used up (send a new one after the fight). Staff `/tpa` (bypass, no request) is not checked.
+
 The main menu entry `tpa` (order 62) opens a form: a player name and who moves (I go to them / They come to me). It
 also says how many requests wait for you.
 
@@ -76,8 +95,9 @@ also says how many requests wait for you.
 ## Design decisions
 
 - Requests never touch storage: they are short-lived and meaningless after a restart.
-- Every answer re-checks at execution time: the request must still exist (and be the same request), both players
-  must be online, the mover must not be in combat when the warmup ends.
+- Every answer re-checks at execution time: neither player is in combat, the request must still exist (and be the
+  same request), both players must be online, and neither the mover nor the player they go to may be in combat
+  when the warmup ends.
 - A refused request because of an ignore list reads like any refusal ("You can't send X a teleport request"), so
   the sender learns nothing about the ignore.
 - Pending requests are swept once a second off the world threads; quitting drops every request of that player.

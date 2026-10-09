@@ -24,6 +24,7 @@ public final class CoreMessages {
     public static final MessageKey SLOW_DOWN = MessageKey.error("core.slow-down");
     public static final MessageKey INVENTORY_FULL = MessageKey.error("core.inventory-full");
     public static final MessageKey DISABLED_WORLD = MessageKey.error("core.disabled-here");
+    public static final MessageKey FROZEN = MessageKey.error("core.frozen");
     public static final MessageKey LOADING = MessageKey.info("core.loading");
 
     /** Dialog and GUI building blocks shared everywhere. */

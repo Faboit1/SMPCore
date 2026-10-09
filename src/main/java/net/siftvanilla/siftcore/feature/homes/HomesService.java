@@ -13,6 +13,7 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.player.Limits;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
@@ -45,12 +46,14 @@ final class HomesService {
     private final Setting<HomesSettings> settings;
     private final HomeStore store;
     private final SpawnArea spawn;
+    private final CombatStatus combat;
 
-    HomesService(Services services, Setting<HomesSettings> settings, HomeStore store, SpawnArea spawn) {
+    HomesService(Services services, Setting<HomesSettings> settings, HomeStore store, SpawnArea spawn, CombatStatus combat) {
         this.services = services;
         this.settings = settings;
         this.store = store;
         this.spawn = spawn;
+        this.combat = combat;
     }
 
     HomeStore store() {
@@ -77,7 +80,11 @@ final class HomesService {
         tell(player, trySet(player, input));
     }
 
+    /** Sets a home where the player stands: /sethome and the "Set a home here" form, refused in combat either way. */
     private Result trySet(Player player, String input) {
+        if (this.combat.tagged(player.getUniqueId())) {
+            return new Result(false, HomesMessages.IN_COMBAT, Arg.time("time", this.combat.remaining(player.getUniqueId())));
+        }
         Optional<String> name = HomeNames.normalize(input);
         if (name.isEmpty()) {
             return new Result(false, HomesMessages.INVALID_NAME);
@@ -380,7 +387,13 @@ final class HomesService {
                         this.services.messenger().send(s.player(), HomesMessages.WORLD_MISSING, Arg.text("name", home.name()));
                     }
                     return CompletableFuture.completedFuture(location);
-                }, null)).width(150));
+                }, ok -> {
+                    // A staff member visiting a player's base is written down like invsee and whois are.
+                    if (ok) {
+                        this.services.audit().record(s.player().getUniqueId().toString(), "homes.teleport", target.toString(),
+                            staffTeleportDetails(home));
+                    }
+                })).width(150));
             buttons.add(Button.of(lang.get(HomesMessages.LIST_DELETE), lang.get(HomesMessages.LIST_DELETE_TOOLTIP, Arg.text("name", home.name())),
                 s -> confirmOtherDelete(s.player(), target, targetName, home)).width(150));
         }
@@ -392,6 +405,11 @@ final class HomesService {
         }
         this.services.dialogs().show(staff, this.services.templates().list(lang.get(HomesMessages.OTHER_TITLE, Arg.text("name", targetName)),
             lines, buttons, 2, null));
+    }
+
+    /** The audit details of a staff teleport to a home: its name, world and block position. */
+    static String staffTeleportDetails(Home home) {
+        return home.name() + " " + home.world() + " " + home.blockX() + "," + home.blockY() + "," + home.blockZ();
     }
 
     private void confirmOtherDelete(Player staff, UUID target, String targetName, Home home) {

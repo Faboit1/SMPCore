@@ -29,6 +29,12 @@ final class StaffNodes {
     static final String BROADCAST = "siftcore.staff.broadcast";
     static final String CLEARCHAT = "siftcore.staff.clearchat";
     static final String CLEARCHAT_BYPASS = "siftcore.staff.clearchat.bypass";
+    /**
+     * The owner: acts on staff of any weight, and only the console and other owners can act on them. Deliberately
+     * outside {@code siftcore.staff.}, so a staff group given {@code siftcore.staff.*} doesn't make every moderator an
+     * owner (only {@code siftcore.*} and {@code *} cover it).
+     */
+    static final String HIERARCHY_OWNER = "siftcore.hierarchy.owner";
     static final String REPORT = "siftcore.command.report";
 
     private StaffNodes() {
@@ -58,6 +64,9 @@ final class StaffNodes {
         staff(permissions, BROADCAST, "Announce to everyone with /broadcast");
         staff(permissions, CLEARCHAT, "Clear everyone's chat with /clearchat");
         staff(permissions, CLEARCHAT_BYPASS, "Keep your chat when it is cleared");
+        permissions.declare(HIERARCHY_OWNER, "Owner: punish, kick, freeze and vanish staff of any weight; only the console and other "
+            + "owners can do that to you. Give it to the owner only: a wildcard that covers it (siftcore.* or *) grants it too",
+            PermissionDefault.FALSE);
         permissions.declare(REPORT, "Report a player to staff with /report", PermissionDefault.TRUE);
     }
 

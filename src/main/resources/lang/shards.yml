@@ -68,6 +68,7 @@ shards:
   giving: "<secondary>Giving your keys..."
   no-longer-sold: "<primary>That isn't sold anymore."
   unavailable: "<primary>That isn't available right now."
+  in-combat: "<primary>You can't use the shard shop in combat. <time> left."
   cancelled: "<secondary>Purchase cancelled."
   failed: "<primary>The purchase didn't go through. You weren't charged."
   hub:

@@ -8,6 +8,9 @@
 shop:
   # Ask once more before a purchase that costs at least this many shards (0 = always ask).
   confirm-above: 500
+  # Players in combat can't open the shop or buy (no totems or golden apples in the middle of a fight). Checked again
+  # when they press Buy, so a shop opened before the fight sells nothing during it.
+  block-in-combat: true
   # What the shop sells, in this order. Each offer:
   #   type:        key (crate keys, given by the crates feature) or item
   #   crate:       for keys: the crate id; keys: how many keys one purchase unit gives (1 to 64)

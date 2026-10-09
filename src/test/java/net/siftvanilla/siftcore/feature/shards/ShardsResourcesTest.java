@@ -69,6 +69,18 @@ class ShardsResourcesTest {
         assertEquals(32, bottles.amount());
         assertEquals("", bottles.name(), "an empty name means the item's own name");
         assertNull(settings.offer("money"), "shards never buy money");
+        assertTrue(settings.blockInCombat(), "the shop refuses players in combat (totems and golden apples)");
+    }
+
+    @Test
+    void combatBlockCanBeTurnedOffAndIsOnWhenMissing() throws Exception {
+        YamlConfiguration yaml = yaml("features/shards.yml");
+        yaml.set("shop.block-in-combat", false);
+        List<ConfigProblem> problems = new ArrayList<>();
+        assertFalse(parse(yaml, problems).blockInCombat());
+        yaml.set("shop.block-in-combat", null);
+        assertTrue(parse(yaml, problems).blockInCombat(), "an older shards.yml without the key keeps the block");
+        assertEquals(List.of(), problems);
     }
 
     @Test

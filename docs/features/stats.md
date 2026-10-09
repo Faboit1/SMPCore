@@ -9,7 +9,7 @@ Lifetime counters per player and cached leaderboards. Package `feature/stats`, c
 | Mobs killed | `EntityDeathEvent` of a `Mob` (never players or armor stands) with a player killer in survival or adventure |
 | Blocks mined | `BlockBreakEvent` in survival or adventure, with the anti-farm rules below |
 | Money earned | Committed ledger transactions (`Ledger#subscribe`), see below |
-| Playtime | One second per second for every online player who is not AFK (`core.link.AfkStatus`) |
+| Playtime | One second per second for every online player who is not AFK (`core.link.AfkStatus`) and not vanished (`core.link.VanishStatus`) |
 
 The feature implements `core.link.StatsRecorder`; `StatsFeature#recorder()` returns it.
 
@@ -132,8 +132,10 @@ two players cannot farm each other's blocks either. Placed positions are kept in
 five minutes. The rule is checked on the region thread of the event, in memory only. The cache is not persisted, so
 a block placed just before a restart counts when mined after it.
 
-**Playtime.** An async one-second timer adds a second for every online player who is not AFK. It touches no world
-state. The AFK feature is wired in through `AfkStatus` (`NONE` until it exists, so everyone counts as active).
+**Playtime.** An async one-second timer adds a second for every online player who is not AFK and not vanished. It
+touches no world state. The AFK feature is wired in through `AfkStatus`, the staff feature through `VanishStatus`.
+Vanished time is not active play, and a counter that kept growing while a staff member is hidden would tell anyone
+polling `/playtime <name>` or `/stats <name>` that they are online.
 
 **Threading.** Event handlers run on the event's region thread and only touch memory. Loads, saves and leaderboard
 queries run on the database threads; dialogs opened after a load hop back to the viewer's thread. Console output is
@@ -141,8 +143,7 @@ thread-safe. Nothing blocks a region thread.
 
 ## Integration
 
-- `FeatureCatalog`: `new StatsFeature(services, problems, AfkStatus.NONE, economy.economy(), admin)`. When the AFK
-  feature exists, pass its `AfkStatus` instead of `NONE`.
+- `FeatureCatalog`: `new StatsFeature(services, problems, afk.status(), economy.economy(), admin, staff.vanish())`.
 - The combat feature takes `stats.recorder()` (a `StatsRecorder`) and calls `kill(killer, victim)` for a counted kill
   and `death(victim)` for a death without kill credit. It must not call both for one death.
 - Other features may call `recorder().add(player, stat, amount)`; it is thread-safe and memory-only.

@@ -29,6 +29,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.PermissionDefault;
@@ -124,12 +125,17 @@ public final class AuctionFeature implements Feature, Listener {
      * The main menu's (and pause menu's) auction house button. When AxAuctions runs, it is the server's auction house
      * (SiftCore's own /ah yields to it through {@code yield-to: AxAuctions} in commands.yml), so the button runs /ah
      * for the player; otherwise it opens this feature's menu. Checked on every click, so a failed AxAuctions start
-     * falls back to SiftCore's menu.
+     * falls back to SiftCore's menu. The command goes through {@link PlayerCommandPreprocessEvent} first, like a typed
+     * one ({@link Player#performCommand} alone skips it), so the server's command guards (combat, freeze) apply.
      */
     private void openFromHub(Player player) {
         Plugin axAuctions = Bukkit.getPluginManager().getPlugin(AXAUCTIONS);
         if (axAuctions != null && axAuctions.isEnabled()) {
-            player.performCommand("ah");
+            PlayerCommandPreprocessEvent asTyped = new PlayerCommandPreprocessEvent(player, "/ah");
+            if (asTyped.callEvent()) {
+                String line = asTyped.getMessage();
+                player.performCommand(line.startsWith("/") ? line.substring(1) : line);
+            }
             return;
         }
         this.menus.openMain(player);

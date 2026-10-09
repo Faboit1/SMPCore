@@ -5,14 +5,16 @@ other from friendly fire and compete on team leaderboards. Package `feature/team
 `lang/teams.yml`, tables `teams` and `team_members` (migration V005) plus the `teams.size_limit` column (V035).
 
 The feature implements `core.link.TeamLookup`; `TeamsFeature#lookup()` returns it (team of a player, team name,
-members, friendly fire, same-team checks; thread-safe, lock-free). It consumes three contracts, each wired as `NONE`
-until the providing feature is integrated:
+members, friendly fire, same-team checks; thread-safe, lock-free). It consumes five contracts:
 
 | Contract | Used for |
 |---|---|
 | `StatsRecorder` | Team kills and deaths (sum of the members) in `/team info` and the kills leaderboard |
 | `MuteStatus` | A muted player can't use team chat (`/tc` or chat mode) |
 | `VanishStatus` | A vanished member shows as offline in member lists, online counts and placeholders |
+| `IgnoreLookup` (chat, installed with `TeamsFeature#ignores` once chat is built) | A player who ignores the inviter gets no invite; the inviter hears "You can't invite <name>." (players with `siftcore.chat.unignorable` still invite) |
+| `SpawnArea` (spawn) | No team home inside the protected spawn area, as with `/sethome`; a team home already stored there can't be used |
+| Homes' disabled worlds (installed with `TeamsFeature#homeWorlds` once homes are built) | `homes.yml`'s `disabled-worlds` apply to team homes too, on top of `home.disabled-worlds` here |
 
 ## Commands and permissions
 
@@ -29,8 +31,8 @@ until the providing feature is integrated:
 | `/team promote <player>` / `/team demote <player>` | owner | Member to admin and back |
 | `/team transfer <player>` | owner | Hands the team to a member after a confirmation; the old owner becomes an admin |
 | `/team disband` | owner | Disbands the team after a confirmation. Nothing is refunded |
-| `/team sethome` | owner, admins | Sets the team home where the player stands |
-| `/team home` | members | Teleports to the team home after the warmup |
+| `/team sethome` | owner, admins | Sets the team home where the player stands, where `/sethome` would allow a home: not inside the protected spawn area, not in a world listed in `home.disabled-worlds` here or in `homes.yml`'s `disabled-worlds` |
+| `/team home` | members | Teleports to the team home after the warmup. Refused when the home is in a disabled world (either list) or inside the protected spawn area (a home set there before these rules, or before the spawn area grew): "The team home is at spawn, where team homes aren't allowed. Set a new one." |
 | `/team friendlyfire [on\|off]` | owner, admins | Toggles (or sets) friendly fire |
 | `/team chat` | members | Turns team chat mode on or off |
 | `/team info [team]` | everyone, console | Owner, members, online count, kills, deaths, total money, age, leaderboard places, friendly fire; the home only for members and staff |
@@ -166,6 +168,7 @@ The creation is also a ledger transaction of kind `team_create`, so `EconomyTran
 | `invites.max-open` | `10` | Open invites per team |
 | `invites.cooldown` | `3s` | Time between two invites by the same player |
 | `home.warmup` | `5s` | `/team home` warmup; moving or taking damage cancels it, combat refuses it |
+| `home.disabled-worlds` | `[]` | Worlds where the team home can't be set or used, on top of `homes.yml`'s `disabled-worlds` (which always apply to team homes too, so filling only `homes.yml` is enough); names must be loaded worlds |
 | `friendly-fire.default` | `false` | Friendly fire of new teams |
 | `friendly-fire.protect-members` | `true` | Whether the guard above is active (turn off only if another plugin handles it) |
 | `chat.log-to-console` | `true` | Print team chat to the console |

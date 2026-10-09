@@ -15,6 +15,7 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -38,6 +39,8 @@ import org.bukkit.inventory.ItemStack;
  * still available to them, the balance covers it), and the price once more inside the transaction. Items: the shards
  * are taken in one transaction that also puts what won't fit into the claim box; the rest is handed out only after
  * that transaction is stored. Crate keys: see {@link KeyGrants}. Shards never buy money (see features/shards.yml).
+ * Combat-tagged players can't open the shop or buy ({@code shop.block-in-combat}), checked on every screen and
+ * once more right before the purchase.
  */
 final class ShardShop {
 
@@ -48,13 +51,35 @@ final class ShardShop {
     private final CrateKeys crates;
     private final KeyGrants grants;
     private final ShardHandouts handouts;
+    private final CombatStatus combat;
 
-    ShardShop(Services services, Setting<ShardsSettings> settings, CrateKeys crates, KeyGrants grants, ShardHandouts handouts) {
+    ShardShop(Services services, Setting<ShardsSettings> settings, CrateKeys crates, KeyGrants grants, ShardHandouts handouts,
+              CombatStatus combat) {
         this.services = services;
         this.settings = settings;
         this.crates = crates;
         this.grants = grants;
         this.handouts = handouts;
+        this.combat = combat;
+    }
+
+    /** True (after telling the player) when combat keeps them out of the shop. */
+    boolean blocked(Player player) {
+        UUID id = player.getUniqueId();
+        if (!this.settings.get().blockInCombat() || !this.combat.tagged(id)) {
+            return false;
+        }
+        this.services.messenger().send(player, ShardsMessages.IN_COMBAT, Arg.time("time", this.combat.remaining(id)));
+        return true;
+    }
+
+    /** A dialog press while tagged: closes the dialog and says why. */
+    private boolean blocked(Submission s) {
+        if (blocked(s.player())) {
+            s.close();
+            return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ offers
@@ -111,6 +136,9 @@ final class ShardShop {
 
     /** Opens the shop. {@code back} null shows Close instead of Back. Player's thread. */
     void open(Player player, Runnable back) {
+        if (blocked(player)) {
+            return;
+        }
         Lang lang = this.services.lang();
         long shards = this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS);
         List<Component> lines = new ArrayList<>(lang.lines(ShardsMessages.SHOP_BODY, Arg.number("shards", shards)));
@@ -136,6 +164,9 @@ final class ShardShop {
 
     /** Opens the purchase dialog of an offer. Player's thread. */
     void openOffer(Player player, String id, Runnable back) {
+        if (blocked(player)) {
+            return;
+        }
         ShardOffer offer = this.settings.get().offer(id);
         if (offer == null) {
             this.services.messenger().send(player, ShardsMessages.NO_LONGER_SOLD);
@@ -192,6 +223,9 @@ final class ShardShop {
 
     /** The Buy button: buys what it said, or shows the new total when the player moved the slider. */
     private void onBuy(Submission s, String id, long price, int amount, Runnable back) {
+        if (blocked(s)) {
+            return;
+        }
         Player player = s.player();
         ShardOffer offer = current(s, id, back);
         if (offer == null) {
@@ -230,6 +264,9 @@ final class ShardShop {
     }
 
     private void onConfirm(Submission s, String id, long price, int amount, Runnable back) {
+        if (blocked(s)) {
+            return;
+        }
         ShardOffer offer = current(s, id, back);
         if (offer == null) {
             return;
@@ -282,6 +319,10 @@ final class ShardShop {
         if (!this.services.ledger().available()) {
             s.close();
             this.services.messenger().send(player, CoreMessages.ECONOMY_UNAVAILABLE);
+            return;
+        }
+        // Once more right before the purchase: the tag can start while the dialog is open.
+        if (blocked(s)) {
             return;
         }
         if (!new ShardShopPurchaseEvent(player, offer.id(), offer.kind().id(), amount, total).callEvent()) {

@@ -25,9 +25,13 @@ public final class TeamsMessages {
     public static final MessageKey NO_INVITE = MessageKey.error("teams.error.no-invite", "team");
     public static final MessageKey INVITE_EXPIRED = MessageKey.error("teams.error.invite-expired");
     public static final MessageKey ALREADY_INVITED = MessageKey.error("teams.error.already-invited", "name");
+    public static final MessageKey INVITE_BLOCKED = MessageKey.error("teams.error.invite-blocked", "name");
     public static final MessageKey TOO_MANY_INVITES = MessageKey.error("teams.error.too-many-invites");
     public static final MessageKey NO_HOME = MessageKey.error("teams.error.no-home");
     public static final MessageKey HOME_WORLD_MISSING = MessageKey.error("teams.error.home-world-missing");
+    public static final MessageKey HOME_WORLD_DISABLED = MessageKey.error("teams.error.home-world-disabled");
+    public static final MessageKey HOME_IN_SPAWN = MessageKey.error("teams.error.home-in-spawn");
+    public static final MessageKey HOME_AT_SPAWN = MessageKey.error("teams.error.home-at-spawn");
     public static final MessageKey NAME_LENGTH = MessageKey.error("teams.error.name-length", "min", "max");
     public static final MessageKey NAME_CHARACTERS = MessageKey.error("teams.error.name-characters");
     public static final MessageKey NAME_BLOCKED = MessageKey.error("teams.error.name-blocked");

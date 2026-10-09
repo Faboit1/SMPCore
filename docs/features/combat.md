@@ -9,7 +9,7 @@ adds the index the startup read uses).
 | `core.combat.CombatTags` | core (shared state) | Writes who is in combat until when; teleports (`core.teleport.Teleports`) and the auction house read it |
 | `StatsRecorder` | stats (`StatsFeature#recorder()`) | Counted kills go to `kill(killer, victim)`, every other death to `death(victim)`; streaks are read back for announcements |
 | `TeamLookup` | teams (`TeamsFeature#lookup()`) | Same-team kills never count |
-| `FriendLookup` | friends (`NONE` until the friends feature is merged) | Kills between friends never count |
+| `FriendLookup` | friends | Kills between friends, or players who were friends within `anti-farm.friends-window`, never count |
 | `VanishStatus` | staff (`StaffFeature#vanish()`) | Vanished staff take no part in combat and are never named to players who can't see them |
 | `SpawnArea` | spawn (`NONE` until the spawn feature is merged) | Tagged players can't walk, pearl or chorus into the protected spawn area |
 
@@ -41,6 +41,12 @@ While tagged:
 
 Each refusal is an action bar line with the time left.
 
+The command list only covers typed commands. What the same commands do from dialogs (the pause menu, chat dialogs,
+main menu forms) is refused by the features themselves, so a dialog is never a way around a blocked command: teleport
+requests can't be sent or accepted in combat (`tpa.md`), homes can't be set (`homes.md`), the shop, shard shop, sell,
+orders, auction house, crates, kits and spawner storage refuse tagged players, and the auction house button runs `/ah`
+through `PlayerCommandPreprocessEvent` so this list applies to it.
+
 ## Kill credit and anti-farm
 
 The last player who hit the victim within the tag window gets the kill, even when a fall, lava, the void or a mob
@@ -51,7 +57,7 @@ A credited kill is then decided, in this order (the first rule that applies is t
 | Rule (`anti-farm`) | Reason in the log |
 |---|---|
 | `same-team`: both in the same team (`TeamLookup`) | `same_team` |
-| `friends`: they are friends (`FriendLookup`) | `friends` |
+| `friends`: they are friends, or were within `anti-farm.friends-window` (24h; `FriendLookup#recentlyFriends`), so unfriend, kill and re-friend gives no credit or bounty | `friends` |
 | `same-ip`: both last seen from the same IP (a salted hash in the player directory) | `same_ip` |
 | `repeated-pair-cooldown`: the same killer got a counted kill on the same victim less than 10m ago | `repeated_pair` |
 | A plugin cancelled `PlayerKillCreditEvent` | `cancelled` |
@@ -131,7 +137,7 @@ Staff commands work from the console.
 | `tag.duration` | `20s` | How long a tag lasts after the last hit (1s-5m) |
 | `tag.pets` | `true` | Tamed animals tag for their owner |
 | `tag.action-bar` | `true` | Show the `In combat 12s` timer |
-| `while-tagged.blocked-commands` | spawn, home, homes, sethome, tpa, tpahere, tpaccept, back, rtp, wild, warp, warps, team home, afk, ec, enderchest, craft, workbench, anvil, kit, kits, shop, ah | Commands refused in combat |
+| `while-tagged.blocked-commands` | spawn, home, homes, sethome, tpa, tpahere, tpaccept, back, rtp, wild, warp, warps, team home, afk, ec, enderchest, craft, workbench, anvil, kit, kits, shop, shardshop, ah | Commands refused in combat |
 | `while-tagged.block-ender-pearls` | `false` | Refuse pearls in combat |
 | `while-tagged.disable-elytra` | `true` | No gliding in combat |
 | `while-tagged.block-spawn-entry` | `true` | Keep tagged players out of the protected spawn |
@@ -143,6 +149,7 @@ Staff commands work from the console.
 | `streaks.announce-at` | 5, 10, 15, 20, 25, 30, 40, 50, 75, 100 | Streaks announced when reached (`[]` turns it off) |
 | `streaks.announce-ended-from` | `5` | Ending a streak this long is announced (`0` turns it off) |
 | `anti-farm.same-team` / `friends` / `same-ip` | `true` | The rules above |
+| `anti-farm.friends-window` | `24h` | An ended friendship still counts this long (0s to 30d; the friends feature remembers removals for its `anti-farm.remember`, 7d) |
 | `anti-farm.repeated-pair-cooldown` | `10m` | `0s` turns it off; at most 24h |
 
 Everything applies with `/sift reload`.

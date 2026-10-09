@@ -52,6 +52,7 @@ public final class ShardsMessages {
     public static final MessageKey GIVING = MessageKey.info("shards.giving");
     public static final MessageKey NO_LONGER_SOLD = MessageKey.error("shards.no-longer-sold");
     public static final MessageKey UNAVAILABLE = MessageKey.error("shards.unavailable");
+    public static final MessageKey IN_COMBAT = MessageKey.error("shards.in-combat", "time");
     public static final MessageKey CANCELLED = MessageKey.info("shards.cancelled");
     public static final MessageKey FAILED = MessageKey.error("shards.failed");
 

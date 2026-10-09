@@ -61,7 +61,7 @@ class StaffStorageTest {
         Lang lang = new Lang(new TextStyle(Palette.defaults(), new Icons(Set.of())), () -> null);
         StaffSettings settings = new StaffSettings(Duration.ofSeconds(3), Duration.ofSeconds(2), Set.of("msg"), false, null,
             "Logged out while frozen", Set.of("me"), "appeal", Duration.ofDays(3650),
-            new ReportRules.Limits(3, 100, 5, Duration.ofSeconds(60)), 6, 6, 100);
+            new ReportRules.Limits(3, 100, 5, Duration.ofSeconds(60)), 6, 6, 100, StaffSettings.Hierarchy.DEFAULT);
         Punishments service = new Punishments(this.store, new AuditLog(this.database), new Messenger(lang, new Sounds()),
             new StaffText(lang), () -> settings, LOGGER);
         service.load();

@@ -21,7 +21,12 @@ public final class StaffMessages {
     public static final MessageKey DURATION_INVALID = MessageKey.error("staff.duration.invalid", "input");
     public static final MessageKey DURATION_TOO_SHORT = MessageKey.error("staff.duration.too-short");
     public static final MessageKey DURATION_TOO_LONG = MessageKey.error("staff.duration.too-long", "max");
+    public static final MessageKey DURATION_TOO_LONG_BAN = MessageKey.error("staff.duration.too-long-ban", "max");
     public static final MessageKey REASON_TOO_LONG = MessageKey.error("staff.reason-too-long", "max");
+
+    // ------------------------------------------------------------------ hierarchy
+    public static final MessageKey HIERARCHY_REFUSED = MessageKey.error("staff.hierarchy.refused", "name");
+    public static final MessageKey HIERARCHY_UNKNOWN = MessageKey.error("staff.hierarchy.unknown", "name");
 
     // ------------------------------------------------------------------ vanish
     public static final MessageKey VANISH_ON = MessageKey.success("staff.vanish.on");

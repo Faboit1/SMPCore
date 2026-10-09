@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.core.Feature;
@@ -20,6 +21,7 @@ import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.player.Limits;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
@@ -57,7 +59,11 @@ public final class HomesFeature implements Feature, Listener {
     private final HomesService service;
     private Task sweeper = Task.NONE;
 
-    public HomesFeature(Services services, List<ConfigProblem> problems, SpawnArea spawn) {
+    /**
+     * @param spawn  no homes inside the protected spawn area
+     * @param combat no homes are set in combat (the /sethome command and the menu's form alike)
+     */
+    public HomesFeature(Services services, List<ConfigProblem> problems, SpawnArea spawn, CombatStatus combat) {
         this.services = services;
         this.logger = services.plugin().getLogger();
         this.settings = services.configs().register("features/homes.yml",
@@ -70,7 +76,12 @@ public final class HomesFeature implements Feature, Listener {
         perms.declare(HOMES, "Use /homes", true);
         perms.declare(ADMIN, "See, use and delete other players' homes with /homes <player>", false);
         this.store = new HomeStore(services.database());
-        this.service = new HomesService(services, this.settings, this.store, spawn);
+        this.service = new HomesService(services, this.settings, this.store, spawn, combat);
+    }
+
+    /** Whether homes are turned off in a world ({@code disabled-worlds}, follows reloads). Any thread. */
+    public Predicate<String> disabledWorlds() {
+        return world -> this.settings.get().disabled(world);
     }
 
     @Override
@@ -241,6 +252,9 @@ public final class HomesFeature implements Feature, Listener {
                         }
                         String name = this.services.directory().name(target.get());
                         CommandSender sender = ctx.getSource().getSender();
+                        // Every home with its position is shown: written down like invsee and whois are.
+                        this.services.audit().record(sender instanceof Player p ? p.getUniqueId().toString() : "console", "homes.view",
+                            target.get().toString(), null);
                         if (sender instanceof Player staff) {
                             this.service.openOther(staff, target.get(), name, 1);
                         } else {

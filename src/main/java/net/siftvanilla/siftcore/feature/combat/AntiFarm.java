@@ -39,10 +39,24 @@ final class AntiFarm {
         }
     }
 
-    /** Which rules are on; a zero cooldown turns the repeated-pair rule off. */
-    record Rules(boolean sameTeam, boolean friends, boolean sameIp, Duration repeatedPairCooldown) {
+    /**
+     * Which rules are on; a zero cooldown turns the repeated-pair rule off.
+     *
+     * @param friendsWindow players who stopped being friends within this time still count as friends, so removing a
+     *                      friend, killing them and adding them back gives no credit (zero: friends right now only)
+     */
+    record Rules(boolean sameTeam, boolean friends, boolean sameIp, Duration repeatedPairCooldown, Duration friendsWindow) {
+
+        /** How long an ended friendship still counts when the config doesn't say. */
+        static final Duration DEFAULT_FRIENDS_WINDOW = Duration.ofHours(24);
+
         Rules {
             Objects.requireNonNull(repeatedPairCooldown);
+            Objects.requireNonNull(friendsWindow);
+        }
+
+        Rules(boolean sameTeam, boolean friends, boolean sameIp, Duration repeatedPairCooldown) {
+            this(sameTeam, friends, sameIp, repeatedPairCooldown, DEFAULT_FRIENDS_WINDOW);
         }
     }
 
@@ -50,7 +64,7 @@ final class AntiFarm {
      * What is known about one kill.
      *
      * @param sameTeam        killer and victim are in the same team
-     * @param friends         killer and victim are friends
+     * @param friends         killer and victim are friends, or were within the friends window
      * @param sameIp          killer and victim were last seen from the same IP
      * @param lastCountedPair when this killer last got a counted kill on this victim
      */

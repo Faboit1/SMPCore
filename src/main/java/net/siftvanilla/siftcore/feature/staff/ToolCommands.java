@@ -18,7 +18,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** /vanish, /freeze, /staffchat, /broadcast, /clearchat, /invsee, /ecsee, /alts and /whois. */
+/**
+ * /vanish, /freeze, /staffchat, /broadcast, /clearchat, /invsee, /ecsee, /alts and /whois. Vanishing another staff
+ * member and freezing follow the staff hierarchy ({@link StaffHierarchy}); unfreezing is never refused.
+ */
 final class ToolCommands {
 
     private final Services services;
@@ -32,9 +35,10 @@ final class ToolCommands {
     private final Lookups lookups;
     private final StaffNotices notices;
     private final StaffText text;
+    private final StaffHierarchy hierarchy;
 
     ToolCommands(Services services, VanishService vanish, FreezeService freeze, StaffChat staffChat, Announcements announcements,
-                 Inspector inspector, Lookups lookups, StaffNotices notices, StaffText text) {
+                 Inspector inspector, Lookups lookups, StaffNotices notices, StaffText text, StaffHierarchy hierarchy) {
         this.services = services;
         this.support = services.commands();
         this.messenger = services.messenger();
@@ -46,6 +50,7 @@ final class ToolCommands {
         this.lookups = lookups;
         this.notices = notices;
         this.text = text;
+        this.hierarchy = hierarchy;
     }
 
     List<SiftCommand> all() {
@@ -73,7 +78,9 @@ final class ToolCommands {
                 .requires(CommandSupport.permission(StaffNodes.VANISH_OTHERS))
                 .executes(ctx -> {
                     Optional<UUID> target = this.support.known(ctx, "player");
-                    target.ifPresent(uuid -> vanishOther(ctx.getSource().getSender(), uuid));
+                    CommandSender sender = ctx.getSource().getSender();
+                    target.ifPresent(uuid -> this.hierarchy.guard(sender, uuid, this.services.directory().name(uuid), "vanish",
+                        () -> vanishOther(sender, uuid)));
                     return CommandSupport.OK;
                 })));
     }
@@ -105,14 +112,23 @@ final class ToolCommands {
                     this.messenger.send(sender, CoreMessages.NOT_YOURSELF);
                     return CommandSupport.OK;
                 }
-                boolean now = !this.freeze.frozen(target.get());
-                this.freeze.set(target.get(), now, actor);
-                Arg name = Arg.text("name", this.services.directory().name(target.get()));
-                this.messenger.chat(sender, now ? StaffMessages.FREEZE_DONE : StaffMessages.UNFREEZE_DONE, name);
-                this.notices.send(StaffNodes.NOTIFY, actor, now ? StaffMessages.NOTIFY_FREEZE : StaffMessages.NOTIFY_UNFREEZE,
-                    Arg.text("staff", this.text.staff(actor)), name);
+                UUID uuid = target.get();
+                String name = this.services.directory().name(uuid);
+                if (this.freeze.frozen(uuid)) {
+                    toggleFreeze(sender, actor, uuid, name, false);
+                } else {
+                    this.hierarchy.guard(sender, uuid, name, "freeze", () -> toggleFreeze(sender, actor, uuid, name, true));
+                }
                 return CommandSupport.OK;
             })));
+    }
+
+    private void toggleFreeze(CommandSender sender, Actor actor, UUID target, String targetName, boolean now) {
+        this.freeze.set(target, now, actor);
+        Arg name = Arg.text("name", targetName);
+        this.messenger.chat(sender, now ? StaffMessages.FREEZE_DONE : StaffMessages.UNFREEZE_DONE, name);
+        this.notices.send(StaffNodes.NOTIFY, actor, now ? StaffMessages.NOTIFY_FREEZE : StaffMessages.NOTIFY_UNFREEZE,
+            Arg.text("staff", this.text.staff(actor)), name);
     }
 
     // ------------------------------------------------------------------ staff chat

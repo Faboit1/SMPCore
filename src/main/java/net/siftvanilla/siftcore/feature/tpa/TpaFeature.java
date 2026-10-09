@@ -25,6 +25,7 @@ import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.feature.tpa.TpaRequests.Kind;
 import net.siftvanilla.siftcore.feature.tpa.TpaRequests.Request;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
@@ -64,9 +65,10 @@ public final class TpaFeature implements Feature, Listener {
      * @param afk     the sender is told when the target is AFK (AFK module)
      * @param friends friends may skip the request when the target allows it (friends module)
      * @param ignores players who ignore the sender never get the request (chat module)
+     * @param combat  combat-tagged players can't send or accept requests (command, chat dialog or menu form)
      */
     public TpaFeature(Services services, List<ConfigProblem> problems, VanishStatus vanish, AfkStatus afk, FriendLookup friends,
-                      IgnoreLookup ignores) {
+                      IgnoreLookup ignores, CombatStatus combat) {
         this.services = services;
         this.settings = services.configs().register("features/tpa.yml", TpaSettings::parse, problems);
         services.lang().register(TpaMessages.class);
@@ -84,7 +86,7 @@ public final class TpaFeature implements Feature, Listener {
         perms.declare(TPATOGGLE, "Use /tpatoggle", true);
         perms.declare(TpaService.BYPASS, "Staff: /tpa teleports at once without a request, and /tpahere reaches players who turned requests off", false);
         this.service = new TpaService(services, this.settings, new TpaRequests(System::currentTimeMillis), REQUESTS,
-            withFriends ? FRIENDS : null, new TpaService.Links(vanish, afk, friends, ignores));
+            withFriends ? FRIENDS : null, new TpaService.Links(vanish, afk, friends, ignores, combat));
     }
 
     @Override

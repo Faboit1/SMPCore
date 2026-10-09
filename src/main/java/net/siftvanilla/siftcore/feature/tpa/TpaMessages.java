@@ -30,6 +30,9 @@ public final class TpaMessages {
     public static final MessageKey NO_OUTGOING_TO = MessageKey.error("tpa.no-outgoing-to", "name");
     public static final MessageKey TARGET_DISABLED = MessageKey.error("tpa.target-disabled", "name");
     public static final MessageKey BLOCKED = MessageKey.error("tpa.blocked", "name");
+    public static final MessageKey IN_COMBAT = MessageKey.error("tpa.in-combat", "time");
+    public static final MessageKey OTHER_IN_COMBAT = MessageKey.error("tpa.other-in-combat", "name");
+    public static final MessageKey OTHER_FIGHTING = MessageKey.error("tpa.other-fighting", "name");
     public static final MessageKey INSTANT = MessageKey.info("tpa.instant", "name");
     public static final MessageKey OTHER_LEFT = MessageKey.error("tpa.other-left", "name");
     public static final MessageKey NOT_MOVED = MessageKey.info("tpa.not-moved", "name");

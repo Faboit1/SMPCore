@@ -16,6 +16,7 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
+import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.feature.afk.AfkZoneInfo;
@@ -49,8 +50,9 @@ public final class ShardsFeature implements Feature {
     /**
      * @param zone   what the AFK zone pays, for the shards page (the AFK feature)
      * @param crates gives crate keys bought in the shop (the crates feature)
+     * @param combat keeps combat-tagged players out of the shop
      */
-    public ShardsFeature(Services services, List<ConfigProblem> problems, AfkZoneInfo zone, CrateKeys crates) {
+    public ShardsFeature(Services services, List<ConfigProblem> problems, AfkZoneInfo zone, CrateKeys crates, CombatStatus combat) {
         this.services = services;
         this.logger = services.plugin().getLogger();
         this.zone = zone;
@@ -70,7 +72,7 @@ public final class ShardsFeature implements Feature {
         }
         this.grants = new KeyGrants(services.ledger(), services.database(), crates, services.scheduler().asyncExecutor(), this.logger);
         this.handouts = new ShardHandouts(services);
-        this.shop = new ShardShop(services, this.settings, crates, this.grants, this.handouts);
+        this.shop = new ShardShop(services, this.settings, crates, this.grants, this.handouts, combat);
         this.commands = new ShardsCommands(services, this.shop, this);
     }
 

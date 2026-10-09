@@ -1,5 +1,6 @@
 package net.siftvanilla.siftcore.feature.combat;
 
+import java.time.Duration;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -92,9 +93,13 @@ final class KillTracker {
         return new Credit(killer.getUniqueId(), weapon);
     }
 
-    /** The facts the anti-farm rules decide on. */
+    /**
+     * The facts the anti-farm rules decide on. Friends are friends now or within the friends window, so removing a
+     * friend just to kill them (and claim the bounty on them) gives no credit.
+     */
     AntiFarm.Facts facts(UUID killer, UUID victim) {
-        return new AntiFarm.Facts(this.teams.sameTeam(killer, victim), this.friends.friends(killer, victim),
+        Duration window = this.settings.get().antiFarm().friendsWindow();
+        return new AntiFarm.Facts(this.teams.sameTeam(killer, victim), this.friends.recentlyFriends(killer, victim, window),
             this.directory.sameIp(killer, victim), this.pairs.last(killer, victim));
     }
 

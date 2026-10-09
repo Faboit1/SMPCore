@@ -22,6 +22,7 @@ import net.minecraft.server.network.EventLoopGroupHolder;
 import net.minecraft.server.players.NameAndId;
 import net.siftvanilla.siftcore.SiftCore;
 import net.siftvanilla.siftcore.SiftCorePlugin;
+import net.siftvanilla.siftcore.api.event.PlayerPayEvent;
 import net.siftvanilla.siftcore.core.audit.AuditLog;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.feature.staff.StaffFeature;
@@ -59,6 +60,9 @@ final class StaffScenarios {
         list.add(of("staff-mute", StaffScenarios::mute));
         list.add(of("staff-ban", StaffScenarios::ban));
         list.add(of("staff-freeze", StaffScenarios::freeze));
+        list.add(of("staff-freeze-escapes", StaffScenarios::freezeEscapes));
+        list.add(of("staff-freeze-portal", StaffScenarios::freezePortal));
+        list.add(of("staff-hierarchy", StaffScenarios::hierarchy));
         list.add(of("staff-vanish", StaffScenarios::vanish));
         list.add(of("staff-vanish-join-messages", StaffScenarios::vanishJoinMessages));
         list.add(of("staff-report", StaffScenarios::report));
@@ -300,6 +304,10 @@ final class StaffScenarios {
         mod.clearLogs();
         mod.command("tempban " + BANNED + " soon");
         expectSaw(e2e, mod, "Give a time");
+        mod.clearLogs();
+        mod.command("tempban " + BANNED + " 9999d spam");
+        expectSaw(e2e, mod, "Use /ban for a permanent ban.");
+        e2e.expect(!saw(mod, "Leave the time out"), "a /tempban without a time is refused, so it isn't suggested: " + mod.actionBar());
 
         e2e.step("history lists everything, newest first");
         mod.clearLogs();
@@ -408,6 +416,272 @@ final class StaffScenarios {
         e2e.expect(!rejoined.actionBarContains("Frozen by staff"), "no freeze reminder: " + rejoined.actionBar());
         e2e.expect(!e2e.onPlayer(SUSPECT, () -> e2e.player(SUSPECT).getAllowFlight()), "the flight given while frozen is gone");
         e2e.console("deop " + MOD);
+    }
+
+    /**
+     * A frozen player can't escape through the pause menu, dialogs from chat, plugin teleports, containers or payments:
+     * the shared teleports and the dialog router refuse them, and the freeze closes what was open.
+     */
+    static void freezeEscapes(E2E e2e) throws Exception {
+        String MOD = e2e.name("EscMod");
+        String SUSPECT = e2e.name("Escapee");
+        String ALLY = e2e.name("Ally");
+        Bot mod = e2e.bot(MOD);
+        e2e.console("op " + MOD);
+        Bot suspect = e2e.bot(SUSPECT);
+        Bot ally = e2e.bot(ALLY);
+        UUID suspectId = e2e.uuid(SUSPECT);
+        UUID allyId = e2e.uuid(ALLY);
+
+        e2e.step("before the freeze the pause menu works and an open menu stays");
+        suspect.rawClick("siftcore:hub/menu", null);
+        e2e.dialog(suspect, "SiftVanilla");
+
+        e2e.step("freezing closes the open dialog");
+        int cleared = suspect.dialogsCleared();
+        suspect.clearLogs();
+        mod.command("freeze " + SUSPECT);
+        expectSaw(e2e, suspect, "Staff froze you");
+        e2e.eventually(() -> suspect.dialogsCleared() > cleared && suspect.dialog() == null, "the dialog was closed");
+        Location start = location(e2e, SUSPECT);
+
+        e2e.step("the pause menu's spawn route does nothing: no teleport, even after the warmup");
+        suspect.clearLogs();
+        suspect.rawClick("siftcore:hub/spawn", null);
+        expectSaw(e2e, suspect, "You can't do that while frozen.");
+        suspect.rawClick("siftcore:hub/money", null);
+        e2e.sleep(5_000);
+        e2e.expect(suspect.dialog() == null, "no money menu: " + suspect.dialog());
+        Location after = location(e2e, SUSPECT);
+        e2e.expect(after.getWorld().equals(start.getWorld()) && after.distance(start) < 0.01, "not moved: " + start + " -> " + after);
+
+        e2e.step("a teleport through the shared teleports is refused");
+        CompletableFuture<Boolean> moved = new CompletableFuture<>();
+        Location far = start.clone().add(400, 0, 400);
+        suspect.clearLogs();
+        e2e.onPlayer(SUSPECT, () -> {
+            e2e.services().teleports().teleport(e2e.player(SUSPECT), "e2e", java.time.Duration.ZERO,
+                () -> CompletableFuture.completedFuture(far), moved::complete);
+            return null;
+        });
+        e2e.expect(!moved.get(10, TimeUnit.SECONDS), "the shared teleport refused");
+        expectSaw(e2e, suspect, "You can't teleport while frozen.");
+
+        e2e.step("a direct plugin teleport is cancelled too");
+        Boolean direct = e2e.player(SUSPECT).teleportAsync(far).get(10, TimeUnit.SECONDS);
+        e2e.expect(!Boolean.TRUE.equals(direct), "teleportAsync(PLUGIN) was cancelled");
+        e2e.expect(location(e2e, SUSPECT).distance(start) < 0.01, "still in place");
+
+        e2e.step("a teleport request answered from the chat dialog moves nobody, and stays for later");
+        suspect.clearLogs();
+        ally.command("tpahere " + SUSPECT);
+        e2e.eventually(() -> suspect.chatContains("wants you to teleport to them"), "the request arrived: " + suspect.chat());
+        e2e.expect(suspect.openChatDialog("wants you to teleport to them"), "the request's dialog opens from chat");
+        e2e.click(suspect, "Accept");
+        expectSaw(e2e, suspect, "You can't do that while frozen.");
+        e2e.sleep(4_000);
+        e2e.expect(location(e2e, SUSPECT).distance(start) < 0.01, "the frozen player didn't go to the ally");
+
+        e2e.step("no containers or menus open");
+        Object view = e2e.onPlayer(SUSPECT, () -> e2e.player(SUSPECT).openInventory(Bukkit.createInventory(null, 9)));
+        e2e.expect(view == null, "the inventory open was cancelled");
+        e2e.sleep(500);
+        e2e.expect(suspect.screen() == null, "no screen on the client: " + suspect.screen());
+
+        e2e.step("no payments");
+        boolean paid = e2e.onPlayer(SUSPECT, () -> new PlayerPayEvent(suspectId, allyId, 100).callEvent());
+        e2e.expect(!paid, "a payment from a frozen player is cancelled");
+        boolean received = e2e.onPlayer(ALLY, () -> new PlayerPayEvent(allyId, suspectId, 100).callEvent());
+        e2e.expect(received, "paying a frozen player is not blocked");
+
+        e2e.step("unfreezing gives the menus back, and the request can be accepted");
+        suspect.clearLogs();
+        mod.command("freeze " + SUSPECT);
+        expectSaw(e2e, suspect, "You can move again.");
+        suspect.rawClick("siftcore:hub/menu", null);
+        e2e.dialog(suspect, "SiftVanilla");
+        suspect.clearLogs();
+        suspect.command("tpaccept " + ALLY);
+        e2e.eventually(() -> suspect.chatContains("Accepted " + ALLY + "'s request.") || suspect.actionBarContains("Accepted " + ALLY),
+            "the request waited: " + suspect.chat() + " " + suspect.actionBar());
+        e2e.console("deop " + MOD);
+    }
+
+    /**
+     * A frozen player whom staff /tp into a nether portal stays in the overworld: Canvas carries players through
+     * portals without any teleport event, so the freeze cancels the portal events themselves. Unfrozen, the same
+     * portal takes them (so the portal really works).
+     */
+    static void freezePortal(E2E e2e) throws Exception {
+        org.bukkit.World nether = Bukkit.getWorlds().stream()
+            .filter(world -> world.getEnvironment() == org.bukkit.World.Environment.NETHER).findFirst().orElse(null);
+        e2e.expect(nether != null, "the server has a nether");
+        String MOD = e2e.name("PortMod");
+        String SUSPECT = e2e.name("Portaler");
+        Bot mod = e2e.bot(MOD);
+        e2e.console("op " + MOD);
+        Bot suspect = e2e.bot(SUSPECT);
+        Location start = location(e2e, SUSPECT);
+        Location portal = e2e.ground(start.getWorld(), start.getBlockX() + 24, start.getBlockZ() + 24, 0f);
+        try {
+            e2e.step("a two-block nether portal near the suspect");
+            setPortal(e2e, portal, Material.NETHER_PORTAL);
+
+            e2e.step("staff freeze the suspect and /tp them into the portal; it never takes them");
+            suspect.clearLogs();
+            mod.command("freeze " + SUSPECT);
+            expectSaw(e2e, suspect, "Staff froze you");
+            e2e.console("tp " + SUSPECT + " " + portal.getX() + " " + portal.getY() + " " + portal.getZ());
+            e2e.eventually(() -> location(e2e, SUSPECT).distance(portal) < 0.5, "staff teleports still move a frozen player");
+            e2e.sleep(8_000);
+            Location after = location(e2e, SUSPECT);
+            e2e.expect(after.getWorld().equals(portal.getWorld()) && after.distance(portal) < 0.5,
+                "still in the portal in the overworld after twice the portal time: " + after);
+
+            e2e.step("unfrozen, the same portal takes them to the nether");
+            suspect.clearLogs();
+            mod.command("freeze " + SUSPECT);
+            expectSaw(e2e, suspect, "You can move again.");
+            e2e.eventually(() -> location(e2e, SUSPECT).getWorld().equals(nether), 20_000, "the portal works: " + location(e2e, SUSPECT));
+        } finally {
+            setPortal(e2e, portal, Material.AIR);
+            e2e.console("deop " + MOD);
+        }
+    }
+
+    /** Sets the block at {@code at} and the one above it, without physics, on the region thread that owns them. */
+    private static void setPortal(E2E e2e, Location at, Material type) throws Exception {
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        Bukkit.getRegionScheduler().run(e2e.services().plugin(), at, task -> {
+            try {
+                at.getBlock().setType(type, false);
+                at.clone().add(0, 1, 0).getBlock().setType(type, false);
+                done.complete(null);
+            } catch (Throwable t) {
+                done.completeExceptionally(t);
+            }
+        });
+        done.get(10, TimeUnit.SECONDS);
+    }
+
+    /**
+     * The staff hierarchy: nobody punishes, kicks, freezes or vanishes the owner (siftcore.hierarchy.owner) but
+     * the console; with LuckPerms, staff can't act on staff of the same or a higher group weight, online or offline.
+     */
+    static void hierarchy(E2E e2e) throws Exception {
+        String MOD = e2e.name("HierMod");
+        String OWNER = e2e.name("Owner");
+        String PLAYER = e2e.name("Plain");
+        Bot mod = e2e.bot(MOD);
+        e2e.console("op " + MOD);
+        Bot owner = e2e.bot(OWNER);
+        Bot plain = e2e.bot(PLAYER);
+        UUID ownerId = e2e.uuid(OWNER);
+        UUID plainId = e2e.uuid(PLAYER);
+        MuteStatus mutes = staff().mutes();
+        e2e.onPlayer(OWNER, () -> {
+            var attachment = e2e.player(OWNER).addAttachment(e2e.services().plugin());
+            attachment.setPermission("siftcore.hierarchy.owner", true);
+            attachment.setPermission("siftcore.staff.mute", true);
+            return null;
+        });
+
+        e2e.step("a moderator can't mute, warn, freeze, kick, vanish or ban the owner");
+        String refused = "You can't do that to " + OWNER + ".";
+        for (String command : List.of("mute " + OWNER + " 10m test", "warn " + OWNER + " test", "freeze " + OWNER,
+            "kick " + OWNER + " test", "vanish " + OWNER, "ban " + OWNER + " test")) {
+            mod.clearLogs();
+            mod.command(command);
+            e2e.eventually(() -> saw(mod, refused), "/" + command + " is refused: " + mod.actionBar() + mod.chat());
+        }
+        e2e.sleep(500);
+        e2e.expect(mutes.mute(ownerId).isEmpty(), "the owner isn't muted");
+        e2e.expect(!owner.disconnected(), "the owner wasn't kicked or banned");
+        e2e.expect(!owner.actionBarContains("Frozen by staff"), "the owner wasn't frozen");
+        e2e.eventually(() -> recentAudit(e2e, "staff.hierarchy.refused", ownerId), "the attempts are audited");
+
+        e2e.step("players who aren't staff can still be punished");
+        mod.clearLogs();
+        mod.command("mute " + PLAYER + " 5m test");
+        e2e.eventually(() -> mutes.mute(plainId).isPresent(), "the player is muted");
+        mod.command("unmute " + PLAYER);
+        e2e.eventually(() -> mutes.mute(plainId).isEmpty(), "and unmuted");
+
+        e2e.step("the console is never refused");
+        e2e.console("mute " + OWNER + " 1m console test");
+        e2e.eventually(() -> mutes.mute(ownerId).isPresent(), "the console muted the owner");
+        e2e.console("unmute " + OWNER);
+        e2e.eventually(() -> mutes.mute(ownerId).isEmpty(), "and unmuted");
+
+        e2e.step("the owner acts on anyone");
+        owner.command("mute " + MOD + " 1m owner test");
+        e2e.eventually(() -> mutes.mute(e2e.uuid(MOD)).isPresent(), "the owner muted the moderator");
+        e2e.console("unmute " + MOD);
+        e2e.eventually(() -> mutes.mute(e2e.uuid(MOD)).isEmpty(), "unmuted");
+
+        if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
+            String ADMIN = e2e.name("HierAdm");
+            Bot admin = e2e.bot(ADMIN);
+            UUID adminId = e2e.uuid(ADMIN);
+            UUID modId = e2e.uuid(MOD);
+            e2e.step("LuckPerms weights: a moderator (200) can't act on an admin (300); the admin can act on the moderator");
+            e2e.console("lp creategroup e2estaffmod");
+            e2e.console("lp group e2estaffmod setweight 200");
+            e2e.console("lp creategroup e2estaffadmin");
+            e2e.console("lp group e2estaffadmin setweight 300");
+            e2e.console("lp user " + MOD + " parent add e2estaffmod");
+            e2e.console("lp user " + ADMIN + " parent add e2estaffadmin");
+            e2e.console("lp user " + ADMIN + " permission set siftcore.staff.mute true");
+            e2e.eventually(() -> e2e.onPlayer(MOD, () -> e2e.player(MOD).hasPermission("group.e2estaffmod"))
+                && e2e.onPlayer(ADMIN, () -> e2e.player(ADMIN).hasPermission("group.e2estaffadmin")
+                    && e2e.player(ADMIN).hasPermission("siftcore.staff.mute")), "the groups are applied");
+            try {
+                mod.clearLogs();
+                mod.command("mute " + ADMIN + " 10m test");
+                e2e.eventually(() -> saw(mod, "You can't do that to " + ADMIN + "."), "a higher weight is refused: " + mod.actionBar());
+                e2e.expect(mutes.mute(adminId).isEmpty(), "the admin isn't muted");
+                admin.command("mute " + MOD + " 1m test");
+                e2e.eventually(() -> mutes.mute(modId).isPresent(), "the admin muted the moderator");
+                e2e.console("unmute " + MOD);
+
+                e2e.step("an offline admin is looked up in LuckPerms first and stays protected");
+                admin.quit();
+                e2e.eventually(() -> Bukkit.getPlayerExact(ADMIN) == null, "the admin left");
+                mod.clearLogs();
+                mod.command("ban " + ADMIN + " offline test");
+                e2e.eventually(() -> saw(mod, "You can't do that to " + ADMIN + "."), "refused offline: " + mod.actionBar());
+                e2e.expect(staffBanned(adminId).isEmpty(), "the offline admin isn't banned");
+
+                e2e.step("the same weight is refused too");
+                e2e.console("lp user " + ADMIN + " parent remove e2estaffadmin");
+                e2e.console("lp user " + ADMIN + " parent add e2estaffmod");
+                e2e.sleep(1_000);
+                mod.clearLogs();
+                mod.command("ban " + ADMIN + " same weight");
+                e2e.eventually(() -> saw(mod, "You can't do that to " + ADMIN + "."), "refused at the same weight: " + mod.actionBar());
+                e2e.expect(staffBanned(adminId).isEmpty(), "still not banned");
+            } finally {
+                e2e.console("lp user " + MOD + " parent remove e2estaffmod");
+                e2e.console("lp user " + ADMIN + " parent remove e2estaffmod");
+                e2e.console("lp user " + ADMIN + " permission unset siftcore.staff.mute");
+                e2e.console("lp deletegroup e2estaffmod");
+                e2e.console("lp deletegroup e2estaffadmin");
+            }
+        } else {
+            e2e.log("LuckPerms is not installed: group weights were not exercised");
+        }
+        e2e.console("deop " + MOD);
+    }
+
+    /** The active ban of a player, read through the staff feature's punishments (test-only reflection). */
+    private static java.util.Optional<?> staffBanned(UUID player) throws ReflectiveOperationException {
+        StaffFeature feature = staff();
+        Field field = StaffFeature.class.getDeclaredField("punishments");
+        field.setAccessible(true);
+        Object punishments = field.get(feature);
+        java.lang.reflect.Method activeBan = punishments.getClass().getDeclaredMethod("activeBan", UUID.class);
+        activeBan.setAccessible(true);
+        return (java.util.Optional<?>) activeBan.invoke(punishments, player);
     }
 
     // ------------------------------------------------------------------ vanish

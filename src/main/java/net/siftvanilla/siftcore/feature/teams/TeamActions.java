@@ -5,12 +5,15 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.IgnoreLookup;
+import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -31,6 +34,8 @@ import org.bukkit.entity.Player;
 final class TeamActions {
 
     static final String INVITE_COOLDOWN = "teams:invite";
+    /** The chat feature's node for players who can't be ignored (staff); their invites always arrive. */
+    static final String UNIGNORABLE = "siftcore.chat.unignorable";
 
     private final Services services;
     private final TeamService service;
@@ -41,9 +46,12 @@ final class TeamActions {
     private final Setting<TeamsSettings> settings;
     private final Messenger messenger;
     private final Lang lang;
+    private final SpawnArea spawn;
+    private volatile IgnoreLookup ignores = IgnoreLookup.NONE;
+    private volatile Predicate<String> homesDisabled = world -> false;
 
     TeamActions(Services services, TeamService service, TeamChat chat, TeamFeedback feedback, OwnerLimits limits,
-                Setting<TeamsSettings> settings) {
+                Setting<TeamsSettings> settings, SpawnArea spawn) {
         this.services = services;
         this.service = service;
         this.registry = service.registry();
@@ -53,6 +61,22 @@ final class TeamActions {
         this.settings = settings;
         this.messenger = services.messenger();
         this.lang = services.lang();
+        this.spawn = spawn;
+    }
+
+    /** Installs the ignore lists (the chat feature is built after teams). */
+    void ignores(IgnoreLookup ignores) {
+        this.ignores = ignores;
+    }
+
+    /** Installs the worlds where /sethome is turned off (the homes feature is built after teams). */
+    void homeWorlds(Predicate<String> disabled) {
+        this.homesDisabled = disabled;
+    }
+
+    /** Whether team homes are off in this world: teams.yml's home.disabled-worlds or homes.yml's disabled-worlds. */
+    private boolean homeDisabled(String world) {
+        return this.settings.get().homeDisabled(world) || this.homesDisabled.test(world);
     }
 
     // ------------------------------------------------------------------ create
@@ -89,6 +113,9 @@ final class TeamActions {
     }
 
     TeamService.Outcome invite(Player inviter, Player target) {
+        if (this.ignores.ignores(target.getUniqueId(), inviter.getUniqueId()) && !inviter.hasPermission(UNIGNORABLE)) {
+            return TeamService.Outcome.fail(TeamProblem.INVITE_BLOCKED);
+        }
         TeamService.Outcome outcome = this.service.invite(inviter.getUniqueId(), target.getUniqueId());
         if (!outcome.ok()) {
             return outcome;
@@ -244,11 +271,13 @@ final class TeamActions {
 
     // ------------------------------------------------------------------ home, friendly fire, chat
 
+    /** Sets the team home where the actor stands, where /sethome would allow a home (not at spawn, not in a disabled world). */
     TeamService.Outcome setHome(Player actor) {
         Location location = actor.getLocation();
         TeamHome home = new TeamHome(location.getWorld().getName(), location.getX(), location.getY(), location.getZ(),
             location.getYaw(), location.getPitch());
-        TeamService.Outcome outcome = this.service.setHome(actor.getUniqueId(), home);
+        TeamService.Outcome outcome = this.service.setHome(actor.getUniqueId(), home,
+            homeDisabled(home.world()), this.spawn.contains(location));
         if (outcome.ok()) {
             broadcast(outcome.team(), null, TeamsMessages.TEAM_HOME_SET, Arg.text("actor", actor.getName()));
         }
@@ -273,8 +302,13 @@ final class TeamActions {
         if (team.home() == null) {
             return TeamProblem.NO_HOME;
         }
-        if (Bukkit.getWorld(team.home().world()) == null) {
+        World world = Bukkit.getWorld(team.home().world());
+        if (world == null) {
             return TeamProblem.HOME_WORLD_MISSING;
+        }
+        TeamProblem refused = TeamRules.useHome(homeDisabled(team.home().world()), this.spawn.contains(location(world, team.home())));
+        if (refused != null) {
+            return refused;
         }
         this.services.teleports().teleport(player, "team_home", this.settings.get().homeWarmup(),
             () -> CompletableFuture.completedFuture(destination(player)), null);
@@ -289,11 +323,18 @@ final class TeamActions {
         if (problem == null && world == null) {
             problem = TeamProblem.HOME_WORLD_MISSING;
         }
+        Location home = problem == null ? location(world, team.home()) : null;
+        if (problem == null) {
+            problem = TeamRules.useHome(homeDisabled(team.home().world()), this.spawn.contains(home));
+        }
         if (problem != null) {
             this.feedback.send(player, problem, team, null);
             return null;
         }
-        TeamHome home = team.home();
+        return home;
+    }
+
+    private static Location location(World world, TeamHome home) {
         return new Location(world, home.x(), home.y(), home.z(), home.yaw(), home.pitch());
     }
 

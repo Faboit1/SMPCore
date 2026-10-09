@@ -7,8 +7,12 @@ import java.util.Map;
 import java.util.function.Predicate;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 
-/** Parsed {@code features/shards.yml}. */
-record ShardsSettings(long confirmAbove, List<ShardOffer> offers) {
+/**
+ * Parsed {@code features/shards.yml}.
+ *
+ * @param blockInCombat combat-tagged players can't open the shop or buy (no totems or golden apples mid-fight)
+ */
+record ShardsSettings(long confirmAbove, boolean blockInCombat, List<ShardOffer> offers) {
 
     static final long MAX_PRICE = 1_000_000_000_000L;
     static final int MAX_UNITS = 64;
@@ -33,6 +37,7 @@ record ShardsSettings(long confirmAbove, List<ShardOffer> offers) {
     static ShardsSettings parse(ConfigReader r, Predicate<String> itemExists) {
         ConfigReader shop = r.section("shop");
         long confirmAbove = shop.longValue("confirm-above", 0, MAX_PRICE, 500);
+        boolean blockInCombat = !shop.has("block-in-combat") || shop.bool("block-in-combat", true);
         List<ShardOffer> offers = new ArrayList<>();
         for (Map.Entry<String, ConfigReader> entry : shop.children("offers").entrySet()) {
             String id = entry.getKey();
@@ -83,6 +88,6 @@ record ShardsSettings(long confirmAbove, List<ShardOffer> offers) {
             }
             offers.add(new ShardOffer(id, kind, name, description, target, amount, price, max, permission));
         }
-        return new ShardsSettings(confirmAbove, offers);
+        return new ShardsSettings(confirmAbove, blockInCombat, offers);
     }
 }

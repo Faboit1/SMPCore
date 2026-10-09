@@ -41,10 +41,12 @@ final class Inspector {
     }
 
     private final Services services;
+    private final StaffHierarchy hierarchy;
     private final Logger logger;
 
-    Inspector(Services services, Logger logger) {
+    Inspector(Services services, StaffHierarchy hierarchy, Logger logger) {
         this.services = services;
+        this.hierarchy = hierarchy;
         this.logger = logger;
     }
 
@@ -54,6 +56,14 @@ final class Inspector {
 
     static String viewNode(InspectLayout.Kind kind) {
         return kind == InspectLayout.Kind.INVENTORY ? StaffNodes.INVSEE : StaffNodes.ECSEE;
+    }
+
+    /**
+     * Whether {@code staff} may take and delete items in the view: the edit permission, and the staff hierarchy (no
+     * emptying the inventory of staff of the same or a higher weight). Any thread.
+     */
+    boolean mayEdit(Player staff, Player target, InspectLayout.Kind kind) {
+        return staff.hasPermission(editNode(kind)) && this.hierarchy.allowsNow(staff, target);
     }
 
     static String editNode(InspectLayout.Kind kind) {

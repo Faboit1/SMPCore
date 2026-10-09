@@ -283,7 +283,7 @@ own side in the integration pass):
 | Feature | Uses today | Still to do on its side |
 |---|---|---|
 | TPA | `friends(target, sender)` plus its own `tpa-friends` toggle (`/tpatoggle friends`, `/settings`) | call `autoAcceptTeleport(target, sender)` for plain `/tpa` instead (one line in `TpaService#skipsRequest`), drop the `tpa-friends` toggle, and add `tpa` back to the friends settings (`FriendPrefs.Key` and the settings form), so the friends choice (nobody, favourites, all) is the only switch; until then players aren't offered it |
-| Combat | `friends(killer, victim)` for anti-farm | use `recentlyFriends(killer, victim, Duration.ofHours(24))` so a removed friend gives no credit for a while |
+| Combat | `recentlyFriends(killer, victim, anti-farm.friends-window)` (24h) for anti-farm, so a removed friend gives no credit or bounty for a while | nothing |
 
 ## Hub and pause menu
 

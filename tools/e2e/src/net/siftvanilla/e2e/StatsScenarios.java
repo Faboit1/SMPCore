@@ -50,7 +50,37 @@ final class StatsScenarios {
         list.add(of("stats-sources", StatsScenarios::sources));
         list.add(of("stats-top", StatsScenarios::top));
         list.add(of("stats-persist", StatsScenarios::persist));
+        list.add(of("stats-vanish-playtime", StatsScenarios::vanishPlaytime));
         return list;
+    }
+
+    /** A vanished staff member's playtime stands still, so /playtime <name> doesn't show they are online. */
+    static void vanishPlaytime(E2E e2e) {
+        String modName = e2e.name("PlayMod");
+        e2e.bot(modName);
+        e2e.console("op " + modName);
+        UUID mod = e2e.uuid(modName);
+        try {
+            e2e.step("visible: the playtime grows");
+            long start = stat(e2e, mod, Stat.PLAYTIME_SECONDS);
+            e2e.eventually(() -> stat(e2e, mod, Stat.PLAYTIME_SECONDS) >= start + 2, "the counter grows: " + stat(e2e, mod, Stat.PLAYTIME_SECONDS));
+
+            e2e.step("vanished: it stands still");
+            e2e.console("vanish " + modName);
+            e2e.eventually(() -> "true".equals(placeholder(e2e, modName, "staff_vanished")), "vanished");
+            e2e.sleep(1_200);
+            long hidden = stat(e2e, mod, Stat.PLAYTIME_SECONDS);
+            e2e.sleep(3_500);
+            e2e.expect(stat(e2e, mod, Stat.PLAYTIME_SECONDS) == hidden, "no playtime while vanished: " + hidden + " -> "
+                + stat(e2e, mod, Stat.PLAYTIME_SECONDS));
+
+            e2e.step("visible again: it grows again");
+            e2e.console("vanish " + modName);
+            e2e.eventually(() -> "false".equals(placeholder(e2e, modName, "staff_vanished")), "visible");
+            e2e.eventually(() -> stat(e2e, mod, Stat.PLAYTIME_SECONDS) >= hidden + 2, "the counter grows again");
+        } finally {
+            e2e.console("deop " + modName);
+        }
     }
 
     // ------------------------------------------------------------------ helpers

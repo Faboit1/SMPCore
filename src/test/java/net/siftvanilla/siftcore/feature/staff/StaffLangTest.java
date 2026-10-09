@@ -1,6 +1,7 @@
 package net.siftvanilla.siftcore.feature.staff;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -69,6 +70,16 @@ class StaffLangTest {
         assertEquals("Staff Mod: hi <b>there</b>", lang.plain(StaffMessages.CHAT_FORMAT, Arg.text("name", "Mod"),
             Arg.text("message", "hi <b>there</b>")));
         assertEquals("Chat was cleared by staff.", lang.plain(StaffMessages.CLEARCHAT_DONE));
+    }
+
+    @Test
+    void aTempbanTooLongPointsToBanNotToLeavingTheTimeOut() throws Exception {
+        Lang lang = lang();
+        String tempban = lang.plain(PunishCommands.tooLong(true), Arg.time("max", Duration.ofDays(3650)));
+        assertTrue(tempban.endsWith("Use /ban for a permanent ban."), tempban);
+        assertFalse(tempban.contains("Leave the time out"), "a /tempban without a time is refused: " + tempban);
+        String mute = lang.plain(PunishCommands.tooLong(false), Arg.time("max", Duration.ofDays(3650)));
+        assertTrue(mute.endsWith("Leave the time out to make it permanent."), "a mute without a time is permanent: " + mute);
     }
 
     @Test

@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import net.siftvanilla.siftcore.core.link.FreezeStatus;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -25,7 +26,9 @@ import org.bukkit.event.player.PlayerTeleportEvent;
  * Every plugin teleport (homes, TPA, RTP, spawn, team home) goes through here: it refuses while the player is
  * combat-tagged, runs a warmup with an action-bar countdown that is cancelled if the player moves to another block
  * or takes damage, resolves the destination (possibly async, e.g. RTP), and teleports with {@code teleportAsync} so
- * chunks load off the region thread. One pending teleport per player; a new one replaces the old.
+ * chunks load off the region thread. One pending teleport per player; a new one replaces the old. A player frozen
+ * by staff is refused at the start, after the warmup and right before the move (a frozen player never changes block,
+ * so the warmup alone would not stop them).
  */
 public final class Teleports implements Listener {
 
@@ -39,11 +42,27 @@ public final class Teleports implements Listener {
     private final Messenger messenger;
     private final CombatStatus combat;
     private final Map<UUID, Pending> pending = new ConcurrentHashMap<>();
+    private volatile FreezeStatus freezes = FreezeStatus.NONE;
 
     public Teleports(Scheduler scheduler, Messenger messenger, CombatStatus combat) {
         this.scheduler = scheduler;
         this.messenger = messenger;
         this.combat = combat;
+    }
+
+    /** Installs who is frozen by staff (the staff feature, wired once at startup): frozen players never teleport. */
+    public void freezes(FreezeStatus freezes) {
+        this.freezes = freezes;
+    }
+
+    /** True (after telling the player and the callback) when a staff freeze keeps the player in place. */
+    private boolean frozen(Player player, Consumer<Boolean> callback) {
+        if (!this.freezes.frozen(player.getUniqueId())) {
+            return false;
+        }
+        this.messenger.send(player, TeleportMessages.FROZEN);
+        callback.accept(false);
+        return true;
     }
 
     /**
@@ -59,6 +78,9 @@ public final class Teleports implements Listener {
                          Consumer<Boolean> done) {
         Consumer<Boolean> callback = done == null ? ok -> { } : done;
         UUID id = player.getUniqueId();
+        if (frozen(player, callback)) {
+            return;
+        }
         if (this.combat.tagged(id)) {
             this.messenger.send(player, TeleportMessages.IN_COMBAT, Arg.time("time", this.combat.remaining(id)));
             callback.accept(false);
@@ -98,6 +120,9 @@ public final class Teleports implements Listener {
 
     private void go(Player player, Supplier<CompletableFuture<Location>> destination, Consumer<Boolean> callback) {
         UUID id = player.getUniqueId();
+        if (frozen(player, callback)) {
+            return;
+        }
         if (this.combat.tagged(id)) {
             this.messenger.send(player, TeleportMessages.IN_COMBAT, Arg.time("time", this.combat.remaining(id)));
             callback.accept(false);
@@ -131,6 +156,9 @@ public final class Teleports implements Listener {
         }
         if (location == null) {
             callback.accept(false);
+            return;
+        }
+        if (frozen(player, callback)) {
             return;
         }
         if (this.combat.tagged(id)) {

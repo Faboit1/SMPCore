@@ -64,6 +64,9 @@ final class TeleportScenarios {
         list.add(of("homes-safety", TeleportScenarios::homesSafety));
         list.add(of("tpa-flow", TeleportScenarios::tpaFlow));
         list.add(of("tpa-switches", TeleportScenarios::tpaSwitches));
+        list.add(of("tpa-combat", TeleportScenarios::tpaCombat));
+        list.add(of("tpa-combat-warmup", TeleportScenarios::tpaCombatWarmup));
+        list.add(of("homes-combat", TeleportScenarios::homesCombat));
         list.add(of("rtp-flow", TeleportScenarios::rtpFlow));
         list.add(of("rtp-limits", TeleportScenarios::rtpLimits));
         return list;
@@ -574,6 +577,147 @@ final class TeleportScenarios {
         }, "the row is gone");
         e2e.log("delete: " + deleted);
         output(e2e, "homes " + name, name + " has no homes.", 10_000);
+
+        e2e.step("a staff member looking at the homes and teleporting to one is audited");
+        String staffName = e2e.name("HomeStaff");
+        Bot owner = e2e.bot(name);
+        Bot staff = e2e.bot(staffName);
+        e2e.console("op " + staffName);
+        try {
+            owner.command("sethome cabin");
+            e2e.eventually(() -> "1".equals(placeholder(e2e, name, "homes_count")), "a home was set");
+            Location cabin = location(e2e, name);
+            shift(e2e, staff, 12, 0);
+            staff.command("homes " + name);
+            e2e.dialog(staff, "Homes of " + name);
+            e2e.eventually(() -> audited(e2e, "homes.view", id), "homes.view is in the audit log");
+            e2e.click(staff, "cabin");
+            e2e.eventually(() -> location(e2e, staffName).distance(cabin) < 1.5, 15_000, "the staff member is at the home");
+            e2e.eventually(() -> audited(e2e, "homes.teleport", id), "homes.teleport is in the audit log");
+        } finally {
+            e2e.console("deop " + staffName);
+        }
+    }
+
+    private static boolean audited(E2E e2e, String action, UUID target) {
+        try {
+            return !e2e.services().audit().recent(action, target.toString(), 5).get(5, TimeUnit.SECONDS).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Teleport requests can't be sent or accepted in combat, from a command, the chat dialog or the menu form. */
+    static void tpaCombat(E2E e2e) {
+        String fighterName = e2e.name("Fighter");
+        String allyName = e2e.name("Ally");
+        Bot fighter = e2e.bot(fighterName);
+        Bot ally = e2e.bot(allyName);
+        Location allyAt = location(e2e, allyName);
+
+        e2e.step("a request reaches the fighter, who is then put in combat");
+        ally.command("tpa " + fighterName);
+        e2e.eventually(() -> fighter.chatContains(allyName + " wants to teleport to you"), "the request: " + fighter.chat());
+        e2e.console("combat tag " + fighterName + " 60s");
+
+        e2e.step("accepting from the chat dialog in combat is refused and the ally stays");
+        fighter.clearMessages();
+        e2e.expect(fighter.openChatDialog("wants to teleport to you"), "the request's dialog opens from chat");
+        e2e.click(fighter, "Accept");
+        e2e.eventually(() -> fighter.anyFeedbackContains("You can't use teleport requests in combat."), "refused: " + fighter.actionBar());
+        e2e.sleep(4_000);
+        e2e.expect(location(e2e, allyName).distance(allyAt) < 1.0, "the ally was not pulled into the fight");
+
+        e2e.step("the fighter can't send a request from the menu form either");
+        ally.clearLogs();
+        fighter.command("menu");
+        e2e.dialog(fighter, "SiftVanilla");
+        e2e.click(fighter, "Teleport to a player");
+        e2e.dialog(fighter, "Teleport request");
+        e2e.click(fighter, "Send request", Map.of("player", allyName, "direction", "here"));
+        e2e.eventually(() -> fighter.anyFeedbackContains("You can't use teleport requests in combat."), "refused: " + fighter.actionBar());
+        e2e.sleep(800);
+        e2e.expect(!ally.chatContains("wants you to teleport"), "the ally got no request: " + ally.chat());
+
+        e2e.step("accepting a request while its sender is in combat is refused; it waits");
+        e2e.console("combat untag " + fighterName);
+        e2e.sleep(2_500);
+        fighter.command("tpa " + allyName);
+        e2e.eventually(() -> ally.chatContains(fighterName + " wants to teleport to you"), "the fighter's request: " + ally.chat());
+        e2e.console("combat tag " + fighterName + " 60s");
+        ally.clearLogs();
+        ally.command("tpaccept " + fighterName);
+        e2e.eventually(() -> ally.anyFeedbackContains(fighterName + " is in combat."), "the sender is in combat: " + ally.actionBar());
+
+        e2e.step("after the fight, the waiting requests can be accepted");
+        e2e.console("combat untag " + fighterName);
+        fighter.clearLogs();
+        fighter.command("tpaccept " + allyName);
+        e2e.eventually(() -> fighter.anyFeedbackContains("Accepted " + allyName), "accepted after the fight: " + fighter.chat() + fighter.actionBar());
+    }
+
+    /**
+     * A request accepted before any fight: when the player who stays put is attacked during the warmup, nobody is
+     * delivered into that fight, whichever way the request went (/tpa or /tpahere).
+     */
+    static void tpaCombatWarmup(E2E e2e) {
+        String stayName = e2e.name("Stayer");
+        String comeName = e2e.name("Comer");
+        Bot stayer = e2e.bot(stayName);
+        Bot comer = e2e.bot(comeName);
+        shift(e2e, stayer, 10, 0);
+        Location comerAt = location(e2e, comeName);
+
+        e2e.step("/tpa: the target accepts, then is attacked during the warmup; the sender stays");
+        comer.command("tpa " + stayName);
+        e2e.eventually(() -> stayer.chatContains(comeName + " wants to teleport to you"), "the request: " + stayer.chat());
+        comer.clearLogs();
+        stayer.clearLogs();
+        stayer.command("tpaccept");
+        e2e.eventually(() -> comer.actionBarContains(stayName + " accepted your request"), "accepted: " + comer.actionBar());
+        e2e.console("combat tag " + stayName + " 60s");
+        e2e.eventually(() -> comer.anyFeedbackContains(stayName + " is in combat now."), 10_000, "the sender is told: " + comer.actionBar());
+        e2e.eventually(() -> stayer.anyFeedbackContains(comeName + " didn't teleport."), "the target is told: " + stayer.actionBar());
+        e2e.sleep(1_000);
+        e2e.expect(location(e2e, comeName).distance(comerAt) < 1.0, "the sender was not delivered into the fight");
+
+        e2e.step("/tpahere: the target accepts, then the sender is attacked during the warmup; the target stays");
+        e2e.console("combat untag " + stayName);
+        stayer.command("tpahere " + comeName);
+        e2e.eventually(() -> comer.chatContains(stayName + " wants you to teleport to them"), "the request: " + comer.chat());
+        comer.clearLogs();
+        comer.command("tpaccept");
+        e2e.eventually(() -> comer.anyFeedbackContains("Accepted " + stayName), "accepted: " + comer.chat() + comer.actionBar());
+        e2e.console("combat tag " + stayName + " 60s");
+        e2e.eventually(() -> comer.anyFeedbackContains(stayName + " is in combat now."), 10_000, "refused on arrival: " + comer.actionBar());
+        e2e.sleep(1_000);
+        e2e.expect(location(e2e, comeName).distance(comerAt) < 1.0, "the target was not pulled into the sender's fight");
+
+        e2e.step("without a fight the same request goes through");
+        e2e.console("combat untag " + stayName);
+        comer.command("tpa " + stayName);
+        e2e.eventually(() -> stayer.chatContains(comeName + " wants to teleport to you"), "the request: " + stayer.chat());
+        stayer.command("tpaccept");
+        e2e.eventually(() -> near(location(e2e, comeName), location(e2e, stayName), 1.0), 15_000, "the sender arrived");
+    }
+
+    /** Setting a home is refused in combat, also from the homes dialog's form. */
+    static void homesCombat(E2E e2e) {
+        String name = e2e.name("HomeFight");
+        Bot bot = e2e.bot(name);
+        bot.command("homes");
+        e2e.dialog(bot, "Homes");
+        // /homes and /sethome are refused in combat; the dialog that was already open is the way around that.
+        e2e.console("combat tag " + name + " 60s");
+        e2e.click(bot, "Set a home here");
+        e2e.dialog(bot, "Set a home");
+        e2e.click(bot, "Set home", Map.of("name", "fort"));
+        Bot.SeenDialog refused = e2e.dialog(bot, "Set a home");
+        e2e.expect(refused.bodyText().contains("You can't set a home in combat."), "refused in the form: " + refused.body());
+        e2e.expect("0".equals(placeholder(e2e, name, "homes_count")), "no home was set");
+        e2e.console("combat untag " + name);
+        e2e.click(bot, "Set home", Map.of("name", "fort"));
+        e2e.eventually(() -> "1".equals(placeholder(e2e, name, "homes_count")), "set once the fight is over");
     }
 
     /** A home someone walled in or flooded with lava asks first; the player decides. */

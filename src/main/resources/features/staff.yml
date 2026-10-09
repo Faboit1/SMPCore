@@ -57,6 +57,17 @@ reports:
   # Reports listed per page in /reports.
   page-size: 6
 
+hierarchy:
+  # Staff can't ban, mute, kick, warn, freeze or vanish a staff member whose staff weight is the same as or higher
+  # than their own, or take items from their inventory. A player's staff weight is the highest LuckPerms group weight
+  # they have (groups they inherit count), counting only groups that weigh at least min-weight: staff groups use 100
+  # or more, the ranks weigh 10 to 30 and are not staff. Players who aren't staff can always be punished.
+  # The console and players with siftcore.hierarchy.owner (give it to the owner, and only to them: a wildcard that
+  # covers it, siftcore.* or *, grants it too) are never refused, and only they can do this to a player who has it.
+  # Without LuckPerms only that permission is known (of online players).
+  enabled: true
+  min-weight: 100
+
 history:
   # Punishments listed per page in /history.
   page-size: 6

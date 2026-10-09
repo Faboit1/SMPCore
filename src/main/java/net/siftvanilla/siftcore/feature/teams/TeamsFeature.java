@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.siftvanilla.siftcore.api.economy.Currency;
@@ -16,7 +17,9 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
+import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
@@ -64,13 +67,16 @@ public final class TeamsFeature implements Feature {
     private final List<Task> tasks = new ArrayList<>();
     private volatile Task topTask = Task.NONE;
 
+    /**
+     * @param spawn no team home inside the protected spawn area, as with /sethome
+     */
     public TeamsFeature(Services services, List<ConfigProblem> problems, StatsRecorder stats, MuteStatus mutes,
-                        VanishStatus vanish) {
+                        VanishStatus vanish, SpawnArea spawn) {
         this.services = services;
         this.stats = stats;
         this.logger = services.plugin().getLogger();
         this.settings = services.configs().register("features/teams.yml",
-            reader -> TeamsSettings.parse(reader, services.core().get().money()), problems);
+            reader -> TeamsSettings.parse(reader, services.core().get().money(), name -> Bukkit.getWorld(name) != null), problems);
         services.lang().register(TeamsMessages.class);
         services.settings().register(SPY);
         var perms = services.permissions();
@@ -88,7 +94,7 @@ public final class TeamsFeature implements Feature {
         this.chat = new TeamChat(this.registry, services.messenger(), services.settings(), SPY, this.settings, mutes);
         this.feedback = new TeamFeedback(services.messenger(), this.settings, this.service);
         this.limits = new OwnerLimits(this.registry, this.service, services.scheduler());
-        this.actions = new TeamActions(services, this.service, this.chat, this.feedback, this.limits, this.settings);
+        this.actions = new TeamActions(services, this.service, this.chat, this.feedback, this.limits, this.settings, spawn);
         this.menus = new TeamMenus(services, this.service, this.actions, this.feedback, this.top, stats, this.presence,
             this.settings);
         this.commands = new TeamCommands(services, this.service, this.actions, this.menus, this.feedback, this.presence,
@@ -99,6 +105,22 @@ public final class TeamsFeature implements Feature {
     @Override
     public String id() {
         return "teams";
+    }
+
+    /**
+     * The ignore lists (the chat feature, built after this one): a player who ignores the inviter gets no team invite.
+     * Until set, nobody ignores anybody.
+     */
+    public void ignores(IgnoreLookup ignores) {
+        this.actions.ignores(ignores);
+    }
+
+    /**
+     * The worlds where /sethome is turned off (the homes feature, built after this one): team homes can't be set or
+     * used there either, on top of teams.yml's own home.disabled-worlds. Until set, only teams.yml's list applies.
+     */
+    public void homeWorlds(Predicate<String> disabled) {
+        this.actions.homeWorlds(disabled);
     }
 
     /** Read-only view of teams for other features. Thread-safe. */

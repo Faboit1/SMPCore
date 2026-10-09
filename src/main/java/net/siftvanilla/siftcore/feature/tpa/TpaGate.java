@@ -1,11 +1,14 @@
 package net.siftvanilla.siftcore.feature.tpa;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 import net.siftvanilla.siftcore.feature.tpa.TpaRequests.Kind;
+import org.bukkit.Location;
 
 /**
  * Who may send whom a teleport request, as a pure decision so it can be tested without a server. The order of the
  * checks is the order of the messages a player can get: yourself, not online (or vanished), staff teleport, ignored,
- * requests turned off, then allowed.
+ * requests turned off, then allowed. Also the combat rules of accepting and arriving.
  */
 final class TpaGate {
 
@@ -57,9 +60,56 @@ final class TpaGate {
     /**
      * Whether an allowed request skips the answer because the two are friends and the target lets friends come
      * without asking. Only a /tpa (the friend comes to the target) skips; a /tpahere would move the target without
-     * their consent, so it always asks.
+     * their consent, so it always asks. A target in combat is asked too: nobody arrives in the middle of their fight
+     * without them saying yes once it is over.
      */
-    static boolean friendSkips(Kind kind, boolean friends, boolean targetAllowsFriends) {
-        return kind == Kind.TO_TARGET && friends && targetAllowsFriends;
+    static boolean friendSkips(Kind kind, boolean friends, boolean targetAllowsFriends, boolean targetInCombat) {
+        return kind == Kind.TO_TARGET && friends && targetAllowsFriends && !targetInCombat;
+    }
+
+    /** Who of the two players keeps a request from being accepted now because they are in combat. */
+    enum Fight {
+        /** Nobody: the request can be accepted. */
+        NONE,
+        /** The player answering. */
+        YOU,
+        /** The player who sent it. */
+        OTHER
+    }
+
+    /**
+     * Whether a request can be accepted while someone is in combat: never. The answering player can't pull a sender
+     * into their fight (or leave it), and nobody is pulled into the sender's fight. The request stays, so it can be
+     * accepted once the fight is over. Combat-tagged players can't send requests either (the commands are refused in
+     * combat, and so is the main menu's request form).
+     *
+     * @param answererInCombat the player accepting is combat-tagged
+     * @param senderInCombat   the player who sent the request is combat-tagged
+     */
+    static Fight acceptBlocked(boolean answererInCombat, boolean senderInCombat) {
+        if (answererInCombat) {
+            return Fight.YOU;
+        }
+        return senderInCombat ? Fight.OTHER : Fight.NONE;
+    }
+
+    /**
+     * Where the moving player arrives after an accepted request (or a friend's visit), checked once more when the
+     * warmup is over: the shared teleports re-check only the player who moves, so if the player who stays put got into
+     * a fight during the warmup, nobody arrives in the middle of it. The destination then completes with null (no
+     * teleport) after {@code refused} told the mover.
+     *
+     * @param destination     the staying player's position, read when the warmup ends
+     * @param stayingInCombat whether the player who doesn't move is combat-tagged right now
+     */
+    static CompletableFuture<Location> unlessFighting(CompletableFuture<Location> destination, BooleanSupplier stayingInCombat,
+                                                      Runnable refused) {
+        return destination.thenApply(location -> {
+            if (location != null && stayingInCombat.getAsBoolean()) {
+                refused.run();
+                return null;
+            }
+            return location;
+        });
     }
 }

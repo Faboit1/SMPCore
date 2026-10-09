@@ -24,6 +24,7 @@ import net.siftvanilla.siftcore.core.config.Durations;
  * @param historyPageSize       entries per page in /history
  * @param reportsPageSize       reports per page in /reports
  * @param clearChatLines        blank lines sent by /clearchat
+ * @param hierarchy             who may punish whom among staff
  */
 public record StaffSettings(
     Duration vanishReminder,
@@ -38,7 +39,19 @@ public record StaffSettings(
     ReportRules.Limits reports,
     int historyPageSize,
     int reportsPageSize,
-    int clearChatLines) {
+    int clearChatLines,
+    Hierarchy hierarchy) {
+
+    /**
+     * The staff hierarchy ({@link StaffHierarchy}).
+     *
+     * @param enabled   whether staff are kept from punishing staff of the same or a higher weight
+     * @param minWeight the lightest LuckPerms group that counts as a staff group
+     */
+    public record Hierarchy(boolean enabled, int minWeight) {
+
+        static final Hierarchy DEFAULT = new Hierarchy(true, 100);
+    }
 
     private static final List<String> DEFAULT_FREEZE_ALLOWED = List.of("msg", "r", "reply", "tell", "w", "whisper");
     private static final List<String> DEFAULT_MUTE_BLOCKED = List.of("me", "say", "tell", "msg", "w", "whisper", "r",
@@ -97,8 +110,15 @@ public record StaffSettings(
         int historyPage = r.section("history").integer("page-size", 3, 12, 6);
         int clearLines = r.section("clear-chat").integer("lines", 20, 300, 100);
 
+        // Older staff.yml files have no hierarchy section yet: the default keeps staff from punishing their superiors.
+        Hierarchy hierarchy = Hierarchy.DEFAULT;
+        if (r.has("hierarchy")) {
+            ConfigReader h = r.section("hierarchy");
+            hierarchy = new Hierarchy(h.bool("enabled", true), h.integer("min-weight", 1, 1_000_000, 100));
+        }
+
         return new StaffSettings(vanishReminder, freezeReminder, allowed, banOnLogout, banLength, banReason, blocked,
-            appeal, maxLength, new ReportRules.Limits(min, max, openPerPlayer, cooldown), historyPage, reportsPage, clearLines);
+            appeal, maxLength, new ReportRules.Limits(min, max, openPerPlayer, cooldown), historyPage, reportsPage, clearLines, hierarchy);
     }
 
     private static Set<String> labels(ConfigReader section, String path, List<String> fallback) {

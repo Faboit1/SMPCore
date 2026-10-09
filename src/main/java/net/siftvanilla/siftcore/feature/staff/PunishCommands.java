@@ -16,6 +16,7 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -25,7 +26,8 @@ import org.bukkit.event.player.PlayerKickEvent;
 /**
  * /ban, /tempban, /unban, /kick, /warn, /mute, /unmute and /history. All work from the console. Brigadier lets
  * plugin commands replace vanilla ones, so /ban and /kick are SiftCore's; vanilla's stay reachable as
- * /minecraft:ban and /minecraft:kick.
+ * /minecraft:ban and /minecraft:kick. Bans, kicks, warnings and mutes follow the staff hierarchy ({@link StaffHierarchy}):
+ * nobody punishes staff of the same or a higher weight, or the owner; lifting a ban or mute is never refused.
  */
 final class PunishCommands {
 
@@ -39,9 +41,10 @@ final class PunishCommands {
     private final StaffNotices notices;
     private final StaffText text;
     private final Setting<StaffSettings> settings;
+    private final StaffHierarchy hierarchy;
 
     PunishCommands(Services services, Punishments punishments, HistoryView history, StaffNotices notices, StaffText text,
-                   Setting<StaffSettings> settings) {
+                   Setting<StaffSettings> settings, StaffHierarchy hierarchy) {
         this.services = services;
         this.support = services.commands();
         this.messenger = services.messenger();
@@ -50,6 +53,7 @@ final class PunishCommands {
         this.notices = notices;
         this.text = text;
         this.settings = settings;
+        this.hierarchy = hierarchy;
     }
 
     List<SiftCommand> all() {
@@ -143,12 +147,17 @@ final class PunishCommands {
         DurationInput.Parsed parsed = timeAndReason == null
             ? DurationInput.reasonOnly(reasonOnly)
             : DurationInput.requiredLength(timeAndReason, this.settings.get().maxLength());
-        if (refused(sender, parsed)) {
+        if (refused(sender, parsed, tooLong(timeAndReason != null))) {
             return CommandSupport.OK;
         }
         UUID uuid = target.get();
-        Actor actor = Actor.of(sender);
         String name = this.services.directory().name(uuid);
+        this.hierarchy.guard(sender, uuid, name, "ban", () -> ban(sender, uuid, name, parsed));
+        return CommandSupport.OK;
+    }
+
+    private void ban(CommandSender sender, UUID uuid, String name, DurationInput.Parsed parsed) {
+        Actor actor = Actor.of(sender);
         Punishments.Issued issued = this.punishments.issue(PunishmentType.BAN, uuid, name, actor, parsed.reason(), parsed.length(), true);
         Player online = Bukkit.getPlayer(uuid);
         if (online != null) {
@@ -164,7 +173,6 @@ final class PunishCommands {
             this.messenger.chat(sender, StaffMessages.BAN_DONE, nameArg, Arg.time("time", parsed.length()));
             this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_BAN, staff, nameArg, Arg.time("time", parsed.length()), reason);
         }
-        return CommandSupport.OK;
     }
 
     private int unban(CommandContext<CommandSourceStack> ctx) {
@@ -199,13 +207,15 @@ final class PunishCommands {
         if (refused(sender, parsed)) {
             return CommandSupport.OK;
         }
-        this.punishments.issue(PunishmentType.KICK, online.getUniqueId(), online.getName(), actor, parsed.reason(), null, true);
-        Component screen =this.punishments.kickScreen(parsed.reason());
-        onPlayerThread(online, () -> online.kick(screen, PlayerKickEvent.Cause.KICKED));
-        Arg name = Arg.text("name", online.getName());
-        this.messenger.chat(sender, StaffMessages.KICK_DONE, name);
-        this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_KICK, Arg.text("staff", this.text.staff(actor)), name,
-            Arg.text("reason", this.text.reason(parsed.reason())));
+        this.hierarchy.guard(sender, online.getUniqueId(), online.getName(), "kick", () -> {
+            this.punishments.issue(PunishmentType.KICK, online.getUniqueId(), online.getName(), actor, parsed.reason(), null, true);
+            Component screen = this.punishments.kickScreen(parsed.reason());
+            onPlayerThread(online, () -> online.kick(screen, PlayerKickEvent.Cause.KICKED));
+            Arg name = Arg.text("name", online.getName());
+            this.messenger.chat(sender, StaffMessages.KICK_DONE, name);
+            this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_KICK, Arg.text("staff", this.text.staff(actor)), name,
+                Arg.text("reason", this.text.reason(parsed.reason())));
+        });
         return CommandSupport.OK;
     }
 
@@ -220,8 +230,13 @@ final class PunishCommands {
             return CommandSupport.OK;
         }
         UUID uuid = target.get();
-        Actor actor = Actor.of(sender);
         String name = this.services.directory().name(uuid);
+        this.hierarchy.guard(sender, uuid, name, "warn", () -> warn(sender, uuid, name, parsed));
+        return CommandSupport.OK;
+    }
+
+    private void warn(CommandSender sender, UUID uuid, String name, DurationInput.Parsed parsed) {
+        Actor actor = Actor.of(sender);
         Player online = Bukkit.getPlayer(uuid);
         this.punishments.issue(PunishmentType.WARN, uuid, name, actor, parsed.reason(), null, online != null);
         Arg reason = Arg.text("reason", this.text.reason(parsed.reason()));
@@ -233,7 +248,6 @@ final class PunishCommands {
         }
         this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_WARN, Arg.text("staff", this.text.staff(actor)),
             Arg.text("name", name), reason);
-        return CommandSupport.OK;
     }
 
     private int mute(CommandContext<CommandSourceStack> ctx, String timeAndReason) {
@@ -247,8 +261,13 @@ final class PunishCommands {
             return CommandSupport.OK;
         }
         UUID uuid = target.get();
-        Actor actor = Actor.of(sender);
         String name = this.services.directory().name(uuid);
+        this.hierarchy.guard(sender, uuid, name, "mute", () -> mute(sender, uuid, name, parsed));
+        return CommandSupport.OK;
+    }
+
+    private void mute(CommandSender sender, UUID uuid, String name, DurationInput.Parsed parsed) {
+        Actor actor = Actor.of(sender);
         this.punishments.issue(PunishmentType.MUTE, uuid, name, actor, parsed.reason(), parsed.length(), true);
         Arg nameArg = Arg.text("name", name);
         Arg reason = Arg.text("reason", this.text.reason(parsed.reason()));
@@ -268,7 +287,6 @@ final class PunishCommands {
             this.messenger.chat(sender, StaffMessages.MUTE_DONE, nameArg, time);
             this.notices.send(StaffNodes.NOTIFY, actor, StaffMessages.NOTIFY_MUTE, staff, nameArg, time, reason);
         }
-        return CommandSupport.OK;
     }
 
     private int unmute(CommandContext<CommandSourceStack> ctx) {
@@ -316,8 +334,20 @@ final class PunishCommands {
         return target;
     }
 
+    /**
+     * What a time over the longest allowed says: a mute without a time is permanent, but /tempban always needs one
+     * (a permanent ban is /ban).
+     */
+    static MessageKey tooLong(boolean temporaryBan) {
+        return temporaryBan ? StaffMessages.DURATION_TOO_LONG_BAN : StaffMessages.DURATION_TOO_LONG;
+    }
+
     /** Tells the sender what is wrong with the time or reason; returns true when the input can't be used. */
     private boolean refused(CommandSender sender, DurationInput.Parsed parsed) {
+        return refused(sender, parsed, tooLong(false));
+    }
+
+    private boolean refused(CommandSender sender, DurationInput.Parsed parsed, MessageKey tooLong) {
         Duration max = this.settings.get().maxLength();
         switch (parsed.problem()) {
             case NONE -> {
@@ -326,7 +356,7 @@ final class PunishCommands {
             case MISSING -> this.messenger.send(sender, StaffMessages.DURATION_MISSING);
             case INVALID -> this.messenger.send(sender, StaffMessages.DURATION_INVALID, Arg.text("input", parsed.token()));
             case TOO_SHORT -> this.messenger.send(sender, StaffMessages.DURATION_TOO_SHORT);
-            case TOO_LONG -> this.messenger.send(sender, StaffMessages.DURATION_TOO_LONG, Arg.time("max", max));
+            case TOO_LONG -> this.messenger.send(sender, tooLong, Arg.time("max", max));
             case REASON_TOO_LONG -> this.messenger.send(sender, StaffMessages.REASON_TOO_LONG, Arg.number("max", DurationInput.MAX_REASON));
         }
         return true;

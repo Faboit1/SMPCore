@@ -1,11 +1,18 @@
 package net.siftvanilla.siftcore.feature.teams;
 
 import java.time.Duration;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 
-/** Parsed {@code features/teams.yml}. */
+/**
+ * Parsed {@code features/teams.yml}.
+ *
+ * @param homeDisabledWorlds worlds where team homes can't be set or used ({@code home.disabled-worlds})
+ */
 public record TeamsSettings(
     long createCost,
     int nameMinLength,
@@ -21,13 +28,21 @@ public record TeamsSettings(
     boolean chatToConsole,
     Duration topRefresh,
     int topSize,
-    int pageSize) {
+    int pageSize,
+    Set<String> homeDisabledWorlds) {
 
     public TeamsSettings {
         blockedWords = List.copyOf(blockedWords);
+        homeDisabledWorlds = Set.copyOf(homeDisabledWorlds);
     }
 
-    public static TeamsSettings parse(ConfigReader r, MoneyFormat money) {
+    /** Whether team homes are turned off in this world. */
+    public boolean homeDisabled(String world) {
+        return this.homeDisabledWorlds.contains(world);
+    }
+
+    /** @param worldExists whether a world with that name is loaded (a disabled world must exist) */
+    public static TeamsSettings parse(ConfigReader r, MoneyFormat money, Predicate<String> worldExists) {
         ConfigReader create = r.section("create");
         ConfigReader names = r.section("names");
         ConfigReader members = r.section("members");
@@ -41,6 +56,13 @@ public record TeamsSettings(
         if (max < min) {
             names.problem("max-length", "must be at least min-length (" + min + ")");
             max = Math.max(min, TeamNames.MAX_LENGTH);
+        }
+        Set<String> disabled = new LinkedHashSet<>();
+        for (String world : home.optionalStringList("disabled-worlds")) {
+            if (!worldExists.test(world)) {
+                home.problem("disabled-worlds", "contains '" + world + "', but no world with that name is loaded");
+            }
+            disabled.add(world);
         }
         return new TeamsSettings(
             create.money("cost", money, true, 50_000),
@@ -57,6 +79,7 @@ public record TeamsSettings(
             chat.bool("log-to-console", true),
             top.duration("refresh", Duration.ofSeconds(10), Duration.ofHours(1), Duration.ofSeconds(60)),
             top.integer("size", 3, 100, 10),
-            r.integer("page-size", 5, 20, 10));
+            r.integer("page-size", 5, 20, 10),
+            disabled);
     }
 }

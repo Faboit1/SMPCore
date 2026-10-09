@@ -85,6 +85,34 @@ public final class TeamRules {
         return atLeastAdmin(actor);
     }
 
+    /**
+     * Setting the home at a spot: admins and the owner, and only where {@code /sethome} would allow a home (not in a
+     * world where homes are turned off, not inside the protected spawn area), so members never get a team home where
+     * their own homes are refused.
+     */
+    public static TeamProblem setHome(TeamRole actor, boolean worldDisabled, boolean inSpawn) {
+        TeamProblem problem = setHome(actor);
+        if (problem != null) {
+            return problem;
+        }
+        if (worldDisabled) {
+            return TeamProblem.HOME_WORLD_DISABLED;
+        }
+        return inSpawn ? TeamProblem.HOME_IN_SPAWN : null;
+    }
+
+    /**
+     * Using the team home: refused in a world where homes are turned off, and when the home lies inside the protected
+     * spawn area (a home set there before the rule, or before the spawn area grew), so a team home never goes where
+     * {@code /sethome} refuses a home.
+     */
+    public static TeamProblem useHome(boolean worldDisabled, boolean inSpawn) {
+        if (worldDisabled) {
+            return TeamProblem.HOME_WORLD_DISABLED;
+        }
+        return inSpawn ? TeamProblem.HOME_AT_SPAWN : null;
+    }
+
     public static TeamProblem friendlyFire(TeamRole actor) {
         return atLeastAdmin(actor);
     }

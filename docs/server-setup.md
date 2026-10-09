@@ -98,6 +98,30 @@ commands, prices and the reasoning are in [monetization.md](monetization.md); ev
 Store purchases should use SiftCore's idempotent store commands (`/sift store ...`) from the store's
 command delivery, so a retried delivery never grants twice.
 
+## Staff
+
+Staff groups are separate from the ranks and weigh 100 or more (`hierarchy.min-weight` in `features/staff.yml`), so
+the staff hierarchy can tell them apart: staff can't ban, mute, kick, warn, freeze or vanish staff of the same or a
+higher weight. **Until these groups exist every staff member weighs 0 and staff can punish each other, and until the
+owner has the owner node the owner can be punished like anyone.** Set it up before relying on the hierarchy:
+
+```
+lp creategroup moderator
+lp group moderator setweight 100
+lp group moderator permission set siftcore.staff.* true
+lp creategroup admin
+lp group admin setweight 200
+lp group admin parent add moderator
+lp user <owner> permission set siftcore.hierarchy.owner true
+lp user <name> parent add moderator
+```
+
+Narrow the moderator nodes as needed (every `siftcore.staff.*` node is in [permissions.md](permissions.md)). The
+owner node `siftcore.hierarchy.owner` is deliberately outside `siftcore.staff.*`, but `siftcore.*` and `*` cover it:
+never give a wildcard that broad to a staff group, or every member is treated as an owner. Check with
+`lp user <name> permission check siftcore.hierarchy.owner` (only the owner should get `true`). Details are in
+[features/staff.md](features/staff.md) ("Staff hierarchy").
+
 ## Operating the server
 
 | Task | How |

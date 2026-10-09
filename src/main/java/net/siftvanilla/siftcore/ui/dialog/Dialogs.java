@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.CoreMessages;
+import net.siftvanilla.siftcore.core.link.FreezeStatus;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Messenger;
@@ -52,6 +53,10 @@ import org.bukkit.event.player.PlayerQuitEvent;
  * nothing (within a short grace, for screens that load data first), the router closes the dialog. A dialog with a {@link Button#waits() waiting} button (searches) shows the
  * client's waiting screen instead, and one whose buttons all close does so on the client at once. A second click
  * that lands before the next dialog arrives hits a consumed session and is ignored without a message.
+ * <p>
+ * A player frozen by staff can't use any of it: every click except a plain close button is refused (and the dialog
+ * closed) before a route or handler runs, so the pause-menu hub and dialogs opened from chat can't pay, trade or
+ * teleport for them. The session is left unused, so a dialog from chat still works once they are unfrozen.
  */
 public final class Dialogs implements Listener {
 
@@ -82,11 +87,17 @@ public final class Dialogs implements Listener {
     private final AtomicLong rejected = new AtomicLong();
     private final AtomicLong handled = new AtomicLong();
     private volatile FormBridge bedrock;
+    private volatile FreezeStatus freezes = FreezeStatus.NONE;
 
     public Dialogs(Scheduler scheduler, Messenger messenger, Logger logger) {
         this.scheduler = scheduler;
         this.messenger = messenger;
         this.logger = logger;
+    }
+
+    /** Installs who is frozen by staff (the staff feature, wired once at startup): frozen players can't use menus. */
+    public void freezes(FreezeStatus freezes) {
+        this.freezes = freezes;
     }
 
     /** Installs the Bedrock form bridge (only when Floodgate is present). */
@@ -195,6 +206,10 @@ public final class Dialogs implements Listener {
                 this.rejected.incrementAndGet();
                 return;
             }
+            if (this.freezes.frozen(player.getUniqueId())) {
+                refuseFrozen(player);
+                return;
+            }
             this.handled.incrementAndGet();
             this.scheduler.entity(player, () -> {
                 long shownBefore = shownCount(player);
@@ -264,6 +279,10 @@ public final class Dialogs implements Listener {
     /** Validates and runs one click. {@code values} holds raw client values (String, Boolean or Float). */
     void dispatch(Player player, long token, int buttonIndex, Map<String, Object> values) {
         Session session = session(player, token);
+        if (session != null && this.freezes.frozen(player.getUniqueId()) && !closesOnly(session.view(), buttonIndex)) {
+            refuseFrozen(player);
+            return;
+        }
         if (session == null || !session.consumedAt().compareAndSet(0, Math.max(1, System.currentTimeMillis()))) {
             this.rejected.incrementAndGet();
             return;
@@ -310,6 +329,19 @@ public final class Dialogs implements Listener {
         } else {
             this.scheduler.entity(player, run, null);
         }
+    }
+
+    /** Whether the button only closes the dialog (no handler), which is all a frozen player may click. */
+    private static boolean closesOnly(View view, int buttonIndex) {
+        List<Button> buttons = view.allButtons();
+        return buttonIndex >= 0 && buttonIndex < buttons.size() && buttons.get(buttonIndex).handler() == null;
+    }
+
+    /** Refuses a frozen player's click: tells them, and closes the dialog (and any screen) they clicked in. */
+    private void refuseFrozen(Player player) {
+        this.rejected.incrementAndGet();
+        this.messenger.send(player, CoreMessages.FROZEN);
+        closeAfterClick(player);
     }
 
     /**

@@ -5,12 +5,13 @@ player reports, inventory and ender chest inspection, alt and player lookups, br
 Package `feature/staff`, config `features/staff.yml`, text `lang/staff.yml`, tables `staff_punishments`,
 `staff_reports`, `staff_vanish` and `staff_freeze` (migration V090; the range 90-94 is reserved for this feature).
 
-The feature implements two `core.link` contracts for the other features:
+The feature implements three `core.link` contracts for the other features and the core:
 
 | Contract | Getter | Meaning |
 |---|---|---|
 | `MuteStatus` | `StaffFeature#mutes()` | The player's active mute (reason, end, staff name), or empty. Lock-free map lookup, safe on the async chat thread |
 | `VanishStatus` | `StaffFeature#vanish()` | Whether a player is vanished. Lock-free set lookup, safe from any thread |
+| `FreezeStatus` | `StaffFeature#freezes()` | Whether a player is frozen. Lock-free map lookup, safe from any thread. `FeatureCatalog` installs it in the shared teleports (`Teleports#freezes`) and the dialog router (`Dialogs#freezes`) |
 
 Both are wired as `NONE` in features that are integrated before this one. At integration, pass `staff.mutes()` to
 the chat feature and private messages, and `staff.vanish()` to join/quit messages, online counts, `/seen`, tab and
@@ -54,6 +55,7 @@ Every staff node defaults to `op` and none is granted to everyone. Player names 
 | `siftcore.staff.notify` | op | Be told about bans, mutes, kicks, warnings and freezes by other staff |
 | `siftcore.staff.invsee.edit` / `siftcore.staff.ecsee.edit` | op | Take and delete items in the views |
 | `siftcore.staff.clearchat.bypass` | op | Keep your chat when it is cleared |
+| `siftcore.hierarchy.owner` | nobody (not even op) | The owner: acts on staff of any weight, and only the console and other holders can ban, mute, kick, warn, freeze or vanish them (see "Staff hierarchy") |
 | `siftcore.bypass.cooldown` | op | No report cooldown (core node) |
 
 The ranks (`default`, `prospector`, `baron`, `tycoon`) get none of these; give staff a separate group (weight 100 or
@@ -65,7 +67,38 @@ is 1 second, the longest is `punishments.max-duration` (3650 days); reasons are 
 and control characters are removed and reasons are always shown literally.
 
 A ban or mute replaces the player's current one of the same type (the old one is closed as lifted by the same
-staff member). Staff can't punish, kick or freeze themselves.
+staff member). Staff can't punish, kick or freeze themselves, nor staff of the same or a higher rank (below).
+
+### Staff hierarchy
+
+Staff can't ban, tempban, mute, warn, kick, freeze or `/vanish <player>` a staff member whose staff weight is the
+same as or higher than their own, and the take and clear buttons of `/invsee` and `/ecsee` stay off for them (the view
+itself still opens). Lifting a ban or mute and unfreezing are never refused. Refused attempts tell the staff member
+("You can't do that to <name>. Their staff rank is the same as or higher than yours.") and are audited as
+`staff.hierarchy.refused` with the command in the details.
+
+- **Staff weight:** the highest LuckPerms group weight the player has, including groups inherited through other groups,
+  counting only groups that weigh at least `hierarchy.min-weight` (100). Staff groups use weight 100 or more; the ranks
+  (prospector 10, baron 20, tycoon 30) are not staff. Players who aren't staff (weight 0) can always be punished.
+- **The owner:** `siftcore.hierarchy.owner` (default `false`, so ops don't get it: give it to the owner explicitly,
+  `lp user <owner> permission set siftcore.hierarchy.owner true`). A holder acts on anyone, and only the console and
+  other holders act on a holder. **Any wildcard that covers the node grants owner status**: LuckPerms' `*` and
+  `siftcore.*` do. Never give those to a staff group; give staff the exact `siftcore.staff.<tool>` nodes (or
+  `siftcore.staff.*`, which the owner node is deliberately outside of). Check a staff member with
+  `lp user <name> permission check siftcore.hierarchy.owner`.
+- **The console** is never refused, and neither is acting on yourself (`/vanish <own name>`).
+- **Offline targets** are looked up in LuckPerms' storage first (`UserManager#loadUser`); the command finishes on the
+  staff member's thread once the rank is known. If the lookup fails, nothing is done and the staff member is told to
+  try again. Online players are answered from LuckPerms' loaded user at once.
+- **Without LuckPerms** only the owner node of online players is known, so only the owner is protected, and only
+  while online.
+- **It needs setting up.** Until staff groups with a weight of at least `hierarchy.min-weight` exist, every staff
+  member weighs 0 and staff can punish each other; until the owner has the owner node, the owner can be punished like
+  anyone. The steps are in [server-setup.md](../server-setup.md) ("Staff").
+- `hierarchy.enabled: false` turns the whole check off.
+
+`StaffHierarchy` holds the rules (`decide`, pure and unit tested) and the guard the commands run through;
+`LuckPermsStaffRanks` reads the weights (`StaffRanks.PERMISSIONS` without LuckPerms).
 
 ### Vanilla commands
 
@@ -174,9 +207,35 @@ only then starts tracking. In `PlayerJoinEvent` (LOWEST, on the joining player's
 `/freeze <player>` toggles. A frozen player:
 
 - can't change position (looking around is allowed): moves are reset to the old position with the new rotation;
-  pearls, chorus fruit, portals and spectator teleports are cancelled, staff teleports still work;
+  pearls, chorus fruit, portals and spectator teleports are cancelled, and so are plugin teleports that would take
+  them away (another world or more than a block); staff teleports (`/tp`, `/spawn <player>`, `/rtp <player>`, all
+  cause `COMMAND`) still work. On Canvas every `teleportAsync`, pearl, chorus fruit and end gateway fires Canvas'
+  `EntityTeleportAsyncEvent` instead of `PlayerTeleportEvent` (decompiled `Entity#teleportAsync`), so the rule
+  (`FreezeRules#teleportRefused`) is applied to both events (the Canvas one registered by name, like the combat
+  feature's pearl guard). A plugin teleport to where the player stands is allowed: Canvas applies a changed or
+  cancelled `PlayerMoveEvent` with one (decompiled `ServerGamePacketListenerImpl#handleMovePlayer`), and that is how
+  the freeze resets their position and lets them look around;
+- can't go through a portal, also when staff `/tp` them into one or they were frozen standing in one. Canvas carries
+  players through nether and end portals with `Entity#portalToAsync`, which fires neither teleport event nor
+  `PlayerPortalEvent` (that one only fires from `Portal#getPortalDestination`, which Canvas never calls), only
+  Canvas' `EntityPortalAsyncEvent`. So three events are cancelled for frozen players: `EntityPortalEnterEvent` (fired
+  every tick an entity stands in a nether portal, end portal, the end's exit portal or an end gateway, before the
+  trip can start), Canvas' `EntityPortalAsyncEvent` (registered by name) and `PlayerPortalEvent` (Paper and Folia;
+  it has its own handler list, so the `PlayerTeleportEvent` handler never sees it);
+- can't teleport through SiftCore at all: the shared teleports (homes, spawn, RTP, TPA, team home, AFK zone) refuse
+  frozen players when the teleport starts, when the warmup ends and right before the move ("You can't teleport while
+  frozen."). The warmup alone would not stop them, since a frozen player never changes block;
 - can only use `freeze.allowed-commands` (`/msg`, `/r`, `/reply`, `/tell`, `/w`, `/whisper`);
-- can't break, place, interact with blocks or entities, attack, drop items or mount;
+- can't use menus: the dialog router refuses every click of a frozen player (the pause-menu hub, `/menu`, dialogs
+  opened from chat such as a teleport request or a team invite, Bedrock forms) before any route or handler runs,
+  says "You can't do that while frozen." and closes the dialog. Only a plain close button still works. A refused click
+  doesn't use the dialog up, so a dialog from chat still works once they are unfrozen. So money and items can't be
+  moved through pay, auction, sell, orders or the shop while staff check them, and `PlayerPayEvent` is cancelled for a
+  frozen payer as well;
+- can't open containers or menus (`InventoryOpenEvent` is cancelled), and whatever was open (a dialog, a menu, a
+  chest) is closed the moment they are frozen;
+- can't break, place, interact with blocks or entities, attack, drop items or mount (a cancelled click on a
+  leaderboard runs nothing either);
 - isn't hurt by players or their projectiles and doesn't hurt anyone;
 - sees "Frozen by staff. Do not log out." on the action bar every 2 seconds (`freeze.reminder-interval`);
 - is allowed to fly while frozen (otherwise the server kicks them for "flying" when they are pinned in the air).
@@ -252,7 +311,8 @@ staff." to everyone; the staff member is told how many players were cleared.
 `staff.ban`, `staff.mute`, `staff.kick`, `staff.warn` (details: id, length, reason, replaced id), `staff.unban`,
 `staff.unmute`, `staff.history`, `staff.vanish.on|off`, `staff.freeze.on|off`, `staff.freeze.logout` (actor
 `system`), `staff.report.handled|dismissed|teleport`, `staff.invsee.open|take|clear`, `staff.ecsee.open|take|clear`,
-`staff.alts`, `staff.whois`, `staff.broadcast`, `staff.clearchat`. The target is the player's UUID.
+`staff.alts`, `staff.whois`, `staff.broadcast`, `staff.clearchat`, `staff.hierarchy.refused` (details: the command).
+The target is the player's UUID.
 
 ## Placeholders
 
@@ -275,6 +335,8 @@ staff." to everyone; the staff member is told how many players were cleared.
 | `mutes.blocked-commands` | me, say, tell, msg, w, whisper, r, reply, teammsg, tm | Commands a muted player can't use |
 | `bans.appeal` | Appeal on our Discord: ... | Last line of the ban screen |
 | `punishments.max-duration` | `3650d` | Longest temporary ban or mute |
+| `hierarchy.enabled` | `true` | Staff can't act on staff of the same or a higher weight |
+| `hierarchy.min-weight` | `100` | The lightest LuckPerms group that counts as a staff group |
 | `reports.cooldown` | `60s` | Time between two reports |
 | `reports.reason-min-length` / `reason-max-length` | `3` / `100` | Reason length |
 | `reports.max-open-per-player` | `5` | Open reports per reporter |

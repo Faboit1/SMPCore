@@ -33,6 +33,10 @@ home:
   # Wait before /team home teleports. Moving or taking damage cancels it.
   # Players with siftcore.teleport.bypass-warmup teleport right away.
   warmup: 5s
+  # Worlds where the team home can't be set or used (world folder names), on top of the worlds in homes.yml's
+  # disabled-worlds, which apply to team homes as well. A team home can't be set or used inside the protected spawn
+  # area either.
+  disabled-worlds: []
 
 friendly-fire:
   # Whether new teams start with friendly fire on.

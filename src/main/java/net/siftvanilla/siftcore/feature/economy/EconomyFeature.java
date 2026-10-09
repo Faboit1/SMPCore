@@ -7,6 +7,7 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
+import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -64,6 +65,14 @@ public final class EconomyFeature implements Feature, Listener {
 
     public EconomyService economy() {
         return this.economy;
+    }
+
+    /**
+     * The ignore lists (the chat feature, built after this one): a player who ignores the payer isn't told about the
+     * payment. Until set, nobody ignores anybody.
+     */
+    public void ignores(IgnoreLookup ignores) {
+        this.pay.ignores(ignores);
     }
 
     @Override
