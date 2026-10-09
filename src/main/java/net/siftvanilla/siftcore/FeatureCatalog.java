@@ -97,6 +97,8 @@ final class FeatureCatalog {
         CosmeticsFeature cosmetics = new CosmeticsFeature(this.services, this.problems, integrations.ranks(), chat.textChecks(),
             spawn.area(), this.combatTags, ChatFeature.SETTINGS, ScoreboardFeature.DISPLAY);
         cosmeticsLink.set(cosmetics.cosmetics());
+        // Staff fake join and leave lines (vanish) copy the cosmetic rank lines and nicknames.
+        staff.cosmetics(cosmetics.cosmetics());
         FriendsFeature friends = new FriendsFeature(this.services, this.problems, admin, this.combatTags, chat.ignores(),
             staff.vanish(), afk.status(), teams.lookup(), integrations.ranks(), staff.mutes());
         // Selling routes items into buy orders, but orders are built after sell (they price with sell.worth()):

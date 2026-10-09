@@ -78,6 +78,9 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public final class SiftCore implements CoreControl {
 
+    /** The config problems found at startup, for staff alerts on join (null until the startup finished). */
+    private volatile List<ConfigProblem> startupProblems;
+
     private final JavaPlugin plugin;
     private final Logger logger;
     private final List<Feature> features = new ArrayList<>();
@@ -221,6 +224,7 @@ public final class SiftCore implements CoreControl {
         for (ConfigProblem problem : problems) {
             this.logger.severe("Config problem: " + problem);
         }
+        this.startupProblems = List.copyOf(problems);
         long millis = (System.nanoTime() - start) / 1_000_000;
         this.logger.info("SiftCore " + this.plugin.getPluginMeta().getVersion() + " enabled in " + millis + " ms: "
             + this.enabled.size() + " features, " + this.commandService.all().size() + " commands, "
@@ -253,6 +257,11 @@ public final class SiftCore implements CoreControl {
         Files.createDirectories(file.getParent());
         Files.write(file, salt);
         return salt;
+    }
+
+    @Override
+    public java.util.Optional<List<ConfigProblem>> startupProblems() {
+        return java.util.Optional.ofNullable(this.startupProblems);
     }
 
     private void reportInvalidIcons(java.util.Set<String> invalid, List<ConfigProblem> problems) {
