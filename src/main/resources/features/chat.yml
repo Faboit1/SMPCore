@@ -57,6 +57,35 @@ filter:
     - kys
     - kill yourself
     - kill urself
+  # Milder swear words that only players who turn on "Strict word filter" (/settings, Chat) stop reading: for them
+  # these are replaced like filtered words, in public chat and in private messages to them. Everyone else, and the
+  # sender, still read the message with the words above filtered only. Same rules as words (whole words, * at the
+  # end, leetspeak and spaced letters as set above), and it works even with the filter above turned off. An empty
+  # list removes the setting.
+  strict-words:
+    - fuck*
+    - fck*
+    - fuk*
+    - motherfuck*
+    - shit*
+    - bullshit*
+    - bitch*
+    - bastard*
+    - asshole*
+    - ass
+    - dick
+    - dickhead*
+    - piss
+    - pissed
+    - crap
+    - damn*
+    - wtf
+    - stfu
+    - cunt*
+    - twat*
+    - wanker*
+    - slut*
+    - whore*
 
 links:
   # Stops players advertising other servers: links (https://...), IP addresses (1.2.3.4:25565) and domain names
@@ -79,9 +108,12 @@ links:
 
 mentions:
   # Writing @name (or just the name, see below) of an online player plays a sound for them and tells them on the
-  # action bar. Players turn this off for themselves in /settings. Players who ignore you are never pinged.
+  # action bar. Each player picks in /settings (Chat) how they are told (above the hotbar, in chat, as a title or
+  # not at all), from whom, whether their name is shown bold or underlined, and the sound (Sounds). Players who
+  # ignore you are never pinged. false turns mentions and those settings off.
   enabled: true
-  # A player's name written as a whole word mentions them too, not only @name.
+  # A player's name written as a whole word mentions them too, not only @name. Each player can still limit their
+  # own pings to @name ("Ping on plain name"); false removes that setting.
   plain-names: true
   # Names shorter than this only mention with @, so a player called "ok" isn't pinged all day.
   min-plain-length: 3
@@ -89,7 +121,8 @@ mentions:
   cooldown: 3s
 
 private-messages:
-  # How long /r keeps answering the last person you talked to.
+  # How long /r keeps answering the last person you talked to (or, for players who chose so in /settings, the last
+  # person who wrote to them).
   reply-expiry: 10m
   # Write every private message to the console.
   log-to-console: true
@@ -99,3 +132,9 @@ ignore:
   max: 100
   # Names per page in the /ignore list dialog.
   page-size: 10
+
+new-players:
+  # Players can turn on "Hide brand-new players" (/settings, Chat) to stop reading public chat from players with
+  # less active playtime than this (spam and advert bots). Staff (siftcore.chat.unignorable or siftcore.chat.bypass)
+  # are never hidden, and nobody is told they are hidden. 0s removes the setting.
+  playtime: 30m

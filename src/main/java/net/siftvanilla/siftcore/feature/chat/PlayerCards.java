@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -20,11 +21,20 @@ import net.siftvanilla.siftcore.economy.Ledger;
 
 /**
  * Player names as they appear in chat and private messages: the name (or the nickname the player shows, in its
- * colour), a card shown on hover (real name for nicknames, rank, team, balance, kills, playtime) and a click that
- * starts a private message to the real name. Everything is read from thread-safe in-memory sources (rank labels,
- * cosmetics, the team registry, the ledger, the stats store), so it is safe on the async chat thread.
+ * colour), a card shown on hover (real name for nicknames, rank, team, balance, kills, playtime) and a click. In
+ * public chat the click opens the player's profile ({@code /profile <name>}: friend actions, message, teleport
+ * request, team invite, pay, stats) for readers who may use {@code /profile} while the server has SiftCore's profiles,
+ * and shift-click puts {@code /msg <name> } in the chat box; for other readers the click starts a private message.
+ * The balance line follows the player's {@code balance-privacy}. The caller builds the name each kind of reader needs
+ * and hands it to them.
+ * <p>
+ * Everything is read from thread-safe in-memory sources (rank labels, cosmetics, the team registry, the ledger, the
+ * stats store), so it is safe on the async chat thread.
  */
 final class PlayerCards {
+
+    /** Who may open profiles ({@code /profile}, declared by the friends feature). */
+    static final String PROFILE_PERMISSION = "siftcore.command.profile";
 
     private final Lang lang;
     private final Ranks ranks;
@@ -32,14 +42,22 @@ final class PlayerCards {
     private final Ledger ledger;
     private final StatsRecorder stats;
     private final Cosmetics cosmetics;
+    private final Supplier<String> profileCommand;
 
-    PlayerCards(Lang lang, Ranks ranks, TeamLookup teams, Ledger ledger, StatsRecorder stats, Cosmetics cosmetics) {
+    /**
+     * @param profileCommand what a click on a name runs to open a profile, before the name ({@code "/profile "}, or
+     *                       the namespaced form while another plugin holds {@code /profile}); null while SiftCore has
+     *                       no profiles (friends off, {@code /profile} turned off in {@code commands.yml})
+     */
+    PlayerCards(Lang lang, Ranks ranks, TeamLookup teams, Ledger ledger, StatsRecorder stats, Cosmetics cosmetics,
+                Supplier<String> profileCommand) {
         this.lang = lang;
         this.ranks = ranks;
         this.teams = teams;
         this.ledger = ledger;
         this.stats = stats;
         this.cosmetics = cosmetics;
+        this.profileCommand = profileCommand;
     }
 
     /** The player's rank label, empty when they have none. */
@@ -61,8 +79,19 @@ final class PlayerCards {
         return styled == null || ChatText.plain(styled).isBlank() ? Component.text(label) : styled;
     }
 
-    /** The hover card of a player: the name they show, their real name when that is a nickname, then their stats. */
-    Component card(UUID player, String name) {
+    /** What a click on a name in public chat runs to open a profile (followed by the name), or null without profiles. */
+    String profileCommand() {
+        return this.profileCommand.get();
+    }
+
+    /**
+     * The hover card of a player: the name they show, their real name when that is a nickname, then their stats and
+     * what clicking does.
+     *
+     * @param balance whether the card shows the balance (the reader may see it)
+     * @param profile whether clicking opens the profile (else it starts a private message)
+     */
+    Component card(UUID player, String name, boolean balance, boolean profile) {
         List<Component> lines = new ArrayList<>();
         org.bukkit.entity.Player online = org.bukkit.Bukkit.getPlayer(player);
         String nick = online == null ? null : this.cosmetics.nick(online);
@@ -80,11 +109,13 @@ final class PlayerCards {
         lines.add(team.isPresent()
             ? this.lang.get(ChatMessages.CARD_TEAM, Arg.text("team", team.get()))
             : this.lang.get(ChatMessages.CARD_NO_TEAM));
-        lines.add(this.lang.get(ChatMessages.CARD_BALANCE, Arg.money("balance", this.ledger.balance(player, Currency.MONEY))));
+        if (balance) {
+            lines.add(this.lang.get(ChatMessages.CARD_BALANCE, Arg.money("balance", this.ledger.balance(player, Currency.MONEY))));
+        }
         lines.add(this.lang.get(ChatMessages.CARD_KILLS, Arg.number("kills", this.stats.get(player, StatsRecorder.Stat.KILLS))));
         lines.add(this.lang.get(ChatMessages.CARD_PLAYTIME,
             Arg.time("playtime", Duration.ofSeconds(Math.max(0, this.stats.get(player, StatsRecorder.Stat.PLAYTIME_SECONDS))))));
-        lines.add(this.lang.get(ChatMessages.CARD_CLICK, Arg.text("name", name)));
+        lines.add(this.lang.get(profile ? ChatMessages.CARD_CLICK_PROFILE : ChatMessages.CARD_CLICK, Arg.text("name", name)));
         return Component.join(JoinConfiguration.newlines(), lines);
     }
 
@@ -95,17 +126,26 @@ final class PlayerCards {
 
     /**
      * A name in public chat: the name the player shows, the card on hover (when enabled, otherwise just the real name
-     * of a nickname) and a click that suggests {@code /msg <real name> }.
+     * of a nickname), and a click that runs {@code profileCommand} with their real name (shift-click:
+     * {@code /msg <real name> } in the chat box), or suggests {@code /msg <real name> } when {@code profileCommand} is
+     * null (no profiles, or a reader who may not open them).
+     *
+     * @param balance whether the card shows the balance
      */
-    Component chatName(org.bukkit.entity.Player player, boolean withCard) {
+    Component chatName(org.bukkit.entity.Player player, boolean withCard, boolean balance, String profileCommand) {
         String name = player.getName();
-        Component text = (withCard ? shown(player) : this.cosmetics.name(player)).clickEvent(ClickEvent.suggestCommand("/msg " + name + " "));
-        return withCard ? text.hoverEvent(HoverEvent.showText(card(player.getUniqueId(), name))) : text;
+        Component text = withCard ? shown(player) : this.cosmetics.name(player);
+        if (profileCommand != null) {
+            text = text.clickEvent(ClickEvent.runCommand(profileCommand + name)).insertion("/msg " + name + " ");
+        } else {
+            text = text.clickEvent(ClickEvent.suggestCommand("/msg " + name + " "));
+        }
+        return withCard ? text.hoverEvent(HoverEvent.showText(card(player.getUniqueId(), name, balance, profileCommand != null))) : text;
     }
 
-    /** A name in public chat, with or without a chat tag before it. */
-    Component taggedName(org.bukkit.entity.Player player, boolean withCard) {
-        Component name = chatName(player, withCard);
+    /** A name in public chat, with or without a chat tag before it ({@link #chatName}). */
+    Component taggedName(org.bukkit.entity.Player player, boolean withCard, boolean balance, String profileCommand) {
+        Component name = chatName(player, withCard, balance, profileCommand);
         Component tag = this.cosmetics.tag(player);
         return tag == null ? name : this.lang.get(ChatMessages.TAGGED_NAME, Arg.component("tag", tag), Arg.component("name", name));
     }

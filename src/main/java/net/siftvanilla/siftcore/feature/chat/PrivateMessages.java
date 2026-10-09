@@ -8,7 +8,7 @@ import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.Messenger;
@@ -20,10 +20,10 @@ import org.bukkit.entity.Player;
  * Private messages: {@code /msg}, {@code /r}, social spy and the console log.
  * <p>
  * A message from a player goes through these checks, in the order a player can meet them: empty, muted, yourself,
- * the receiver is offline or hidden (vanished staff), you ignore them, they ignore you (unless you are staff), they
- * turned private messages off (unless you are staff), anti-spam and the word filter, then the cancellable
- * {@link PrivateMessageEvent}. Someone who wrote to you recently can always be answered, even if they are hidden or
- * turned messages off: they started the conversation.
+ * the receiver is offline or hidden (vanished staff), you ignore them, they ignore you (unless you are staff), you
+ * are not in their "who can message me" audience (unless you are staff), anti-spam and the word filter, then the
+ * cancellable {@link PrivateMessageEvent}. Someone who wrote to you recently can always be answered, even if they are
+ * hidden or don't take messages from you: they started the conversation.
  * <p>
  * Runs on the sender's thread (commands); every call it makes is a packet send or a thread-safe lookup.
  */
@@ -39,12 +39,9 @@ final class PrivateMessages {
     private final PlayerCards cards;
     private final HeldItems items;
     private final ChatListener.Links links;
-    private final Toggle privateToggle;
-    private final Toggle spyToggle;
 
     PrivateMessages(Services services, Setting<ChatSettings> settings, IgnoreList ignores, Conversations conversations,
-                    MessageScreen screen, PlayerCards cards, HeldItems items, ChatListener.Links links, Toggle privateToggle,
-                    Toggle spyToggle) {
+                    MessageScreen screen, PlayerCards cards, HeldItems items, ChatListener.Links links) {
         this.services = services;
         this.messenger = services.messenger();
         this.lang = services.lang();
@@ -55,8 +52,6 @@ final class PrivateMessages {
         this.cards = cards;
         this.items = items;
         this.links = links;
-        this.privateToggle = privateToggle;
-        this.spyToggle = spyToggle;
     }
 
     Conversations conversations() {
@@ -88,9 +83,13 @@ final class PrivateMessages {
         fromConsole(sender, target, raw);
     }
 
-    /** {@code /r <message>}: answers whoever the player talked to last. */
+    /**
+     * {@code /r <message>}: answers whoever the player talked to last, or whoever last wrote to them when they chose
+     * so ({@code reply-target}).
+     */
     void reply(Player player, String raw) {
-        Optional<UUID> partner = this.conversations.replyTarget(player.getUniqueId());
+        Optional<UUID> partner = this.conversations.replyTarget(player.getUniqueId(),
+            this.services.settings().get(player.getUniqueId(), ChatFeature.REPLY_TARGET));
         if (partner.isEmpty()) {
             this.messenger.send(player, ChatMessages.PM_NO_REPLY);
             return;
@@ -139,7 +138,8 @@ final class PrivateMessages {
                 this.messenger.send(sender, ChatMessages.PM_BLOCKED, Arg.text("name", targetName));
                 return;
             }
-            if (!answering && !this.services.settings().enabled(to, this.privateToggle) && !sender.hasPermission(ChatNodes.MSG_BYPASS)) {
+            boolean allowed = this.services.relations().allows(this.services.settings().get(to, ChatFeature.PRIVATE_MESSAGES), to, from);
+            if (!ChatRules.acceptsMessage(allowed, answering, sender.hasPermission(ChatNodes.MSG_BYPASS))) {
                 this.messenger.send(sender, ChatMessages.PM_DISABLED, Arg.text("name", targetName));
                 return;
             }
@@ -184,7 +184,8 @@ final class PrivateMessages {
 
     /**
      * Sends the message both ways (names as the players show them, the sender's chat colour for the sender and for a
-     * receiver who sees chat colours), to social spy and to the console log (both plain).
+     * receiver who sees chat colours), to social spy and to the console log (both plain). The receiver's copy follows
+     * their settings: the strict word filter, their private message sound and the optional pop-up.
      */
     private void deliver(CommandSender sender, String senderName, UUID from, Player target, String targetName, UUID to,
                          Component message) {
@@ -195,16 +196,27 @@ final class PrivateMessages {
         this.messenger.send(sender, ChatMessages.PM_TO,
             Arg.component("name", this.cards.messageName(targetName, target, targetIsConsole)), Arg.component("message", painted));
         CommandSender receiver = targetIsConsole ? Bukkit.getConsoleSender() : target;
-        boolean colours = target == null || this.links.cosmetics().showsChatColours(target.getUniqueId());
-        this.messenger.send(receiver, ChatMessages.PM_FROM,
-            Arg.component("name", this.cards.messageName(senderName, senderPlayer, senderIsConsole)),
-            Arg.component("message", colours ? painted : message));
+        Component name = this.cards.messageName(senderName, senderPlayer, senderIsConsole);
+        if (target == null) {
+            this.messenger.send(receiver, ChatMessages.PM_FROM, Arg.component("name", name), Arg.component("message", painted));
+        } else {
+            var prefs = this.services.settings();
+            ChatSettings settings = this.settings.get();
+            boolean strict = settings.strictFilter().size() > 0 && prefs.get(to, ChatFeature.CHAT_FILTER_STRICT);
+            Component read = strict ? ReaderText.filterTyped(message, settings::strict) : message;
+            boolean colours = this.links.cosmetics().showsChatColours(to);
+            Component shown = colours && senderPlayer != null ? (strict ? this.links.cosmetics().paint(senderPlayer, read) : painted) : read;
+            this.messenger.send(target, ChatMessages.PM_FROM, Arg.component("name", name), Arg.component("message", shown));
+            this.messenger.sounds().ping(target, prefs.get(to, SharedSettings.SOUND_PM));
+            this.messenger.alert(target, prefs.get(to, ChatFeature.PM_ALERT), ChatMessages.PM_ALERT,
+                Arg.component("name", name.hoverEvent(null).clickEvent(null)));
+        }
         Component spy = this.lang.get(ChatMessages.PM_SPY, Arg.text("from", senderName), Arg.text("to", targetName),
             Arg.component("message", message));
         for (Player online : Bukkit.getOnlinePlayers()) {
             UUID id = online.getUniqueId();
             if (!id.equals(from) && !id.equals(to) && online.hasPermission(ChatNodes.SOCIALSPY)
-                && this.services.settings().enabled(id, this.spyToggle)) {
+                && this.services.settings().enabled(id, ChatFeature.SOCIAL_SPY)) {
                 online.sendMessage(spy);
             }
         }

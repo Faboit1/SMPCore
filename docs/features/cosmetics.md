@@ -35,7 +35,7 @@ once: the contract then answers like `NONE`, and so do the placeholders (choices
 
 | Place | What changes |
 |---|---|
-| Public chat | `<rank> <tag> <name>: <message>`: the tag before the name (hover: its description), the nickname in its colour (the hover card gets a `Real name` line, clicking still writes to the real name), the message in the sender's colour. `[item]` keeps the chat colour; viewers who turned chat colours off see the message plain |
+| Public chat | `<rank> <tag> <name>: <message>`: the tag before the name (hover: its description), the nickname in its colour (the hover card gets a `Real name` line; clicking opens the real name's profile and shift-click writes to the real name), the message in the sender's colour. `[item]` keeps the chat colour; viewers who turned chat colours off see the message plain |
 | Private messages | Both names as shown (hover gives the real name), the sender's colour on the text for the sender and for receivers who see colours; social spy and the console log stay plain with real names. `/msg <nickname>` reaches an online player by the nickname they show |
 | Mentions | A player can be mentioned by the nickname they show (`@Shadow` or `Shadow`); the notice names the sender as they show themselves |
 | Death messages, kill streaks, combat logs | Names as shown (the nickname with its colour, real name on hover). The kill log, `/combat kills` and the audit log keep real names |
@@ -132,6 +132,9 @@ Staff tools (inspect, punishments, reports, the audit log, `/seen`, social spy) 
 - The lines show even when the plain join and leave messages are off (`features/extras.yml`). Vanished staff are never
   announced, a brand-new player gets the first-join welcome instead, and a player's line shows at most every
   `join-messages.cooldown` (60s): quicker rejoins fall back to the plain message, or nothing when that is off.
+- Readers filter them like every join and leave line (`join-leave-messages`, extras feature). `Cosmetics#joinLines()`
+  says whether these lines are on (`enabled` and `join-messages.enabled`), so the extras feature offers that setting
+  while they are, even with every plain line off.
 
 ## Kill effects (`/killeffect`)
 
@@ -166,10 +169,13 @@ clickable and answer `That comes with the Baron rank. Ranks are at /store.`
 
 ## Player settings
 
-| Toggle | Group | Default | Meaning |
-|---|---|---|---|
-| `show-chat-colors` | Chat | on | See the colours other players chose for their messages (off: their messages are plain; your own always shows yours) |
-| `show-kill-effects` | Display | on | See particles and sounds of kill effects nearby (32 blocks). Off also keeps the lightning effect from striking its bolt anywhere within your view distance |
+| Toggle | Group (place) | Default | Offered | Meaning |
+|---|---|---|---|---|
+| `show-chat-colors` | Chat (11th, after chat's own ten) | on | `enabled: true` | See the colours other players chose for their messages (off: their messages are plain; your own always shows yours) |
+| `show-kill-effects` | Display | on | always | See particles and sounds of kill effects nearby (32 blocks). Off also keeps the lightning effect from striking its bolt anywhere within your view distance |
+
+The chat colour switch is not shown while the cosmetics feature is off, so it never does nothing. The kill effect
+switch belongs to the Display group, whose package places it.
 
 ## Commands and permissions
 

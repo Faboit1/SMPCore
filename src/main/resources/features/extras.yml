@@ -7,3 +7,6 @@ messages:
   quit: false
   # Welcome brand-new players in chat with their join number ("Welcome Alex, player #1,204").
   first-join-welcome: true
+  # Each player picks which of these lines they read in /settings (Server announcements, "Join and leave
+  # messages"): every line (with the rank and custom join lines of cosmetics), only the welcomes of new players, or
+  # none. A player never reads a line the server turned off here. With all three off the setting is not shown.

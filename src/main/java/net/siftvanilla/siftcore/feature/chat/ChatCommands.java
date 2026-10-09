@@ -20,8 +20,12 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.PlayerSetting;
+import net.siftvanilla.siftcore.core.player.SetResult;
+import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -39,11 +43,9 @@ final class ChatCommands {
     private final IgnoreList ignores;
     private final IgnoreViews views;
     private final ChatModeration moderation;
-    private final Toggle privateToggle;
-    private final Toggle spyToggle;
 
     ChatCommands(Services services, Setting<ChatSettings> settings, PrivateMessages messages, IgnoreList ignores,
-                 IgnoreViews views, ChatModeration moderation, Toggle privateToggle, Toggle spyToggle) {
+                 IgnoreViews views, ChatModeration moderation) {
         this.services = services;
         this.support = services.commands();
         this.settings = settings;
@@ -51,8 +53,6 @@ final class ChatCommands {
         this.ignores = ignores;
         this.views = views;
         this.moderation = moderation;
-        this.privateToggle = privateToggle;
-        this.spyToggle = spyToggle;
     }
 
     List<SiftCommand> all() {
@@ -89,6 +89,10 @@ final class ChatCommands {
                     })));
     }
 
+    /**
+     * {@code /msgtoggle}: switches "Who can message me" between nobody and everyone (any other choice counts as on,
+     * so it goes to nobody). Says so when the server locked or hides the setting.
+     */
     private SiftCommand msgToggle() {
         return new SimpleCommand("msgtoggle", List.of("togglemsg", "pmtoggle", "togglepm"), "Turns private messages to you on or off",
             ChatNodes.MSGTOGGLE,
@@ -97,9 +101,10 @@ final class ChatCommands {
                 .executes(ctx -> {
                     Player player = this.support.player(ctx);
                     if (player != null) {
-                        boolean on = !this.services.settings().enabled(player.getUniqueId(), this.privateToggle);
-                        this.services.settings().set(player.getUniqueId(), this.privateToggle, on);
-                        this.services.messenger().send(player, on ? ChatMessages.PM_TOGGLED_ON : ChatMessages.PM_TOGGLED_OFF);
+                        boolean on = this.services.settings().get(player, ChatFeature.PRIVATE_MESSAGES) == Audience.NOBODY;
+                        SetResult result = this.services.settings().set(player, ChatFeature.PRIVATE_MESSAGES,
+                            on ? Audience.EVERYONE : Audience.NOBODY, Change.feature());
+                        report(player, result, ChatFeature.PRIVATE_MESSAGES, on ? ChatMessages.PM_TOGGLED_ON : ChatMessages.PM_TOGGLED_OFF);
                     }
                     return CommandSupport.OK;
                 }));
@@ -112,12 +117,27 @@ final class ChatCommands {
                 .executes(ctx -> {
                     Player player = this.support.player(ctx);
                     if (player != null) {
-                        boolean on = !this.services.settings().enabled(player.getUniqueId(), this.spyToggle);
-                        this.services.settings().set(player.getUniqueId(), this.spyToggle, on);
-                        this.services.messenger().send(player, on ? ChatMessages.SPY_ON : ChatMessages.SPY_OFF);
+                        boolean on = !this.services.settings().get(player, ChatFeature.SOCIAL_SPY);
+                        SetResult result = this.services.settings().set(player, ChatFeature.SOCIAL_SPY, on, Change.feature());
+                        report(player, result, ChatFeature.SOCIAL_SPY, on ? ChatMessages.SPY_ON : ChatMessages.SPY_OFF);
                     }
                     return CommandSupport.OK;
                 }));
+    }
+
+    /**
+     * Tells a player what a switch command did: {@code done} when the value now is what they asked for, that the
+     * server sets it (locked, hidden or not offered), or that it couldn't be changed (another plugin refused).
+     */
+    private void report(Player player, SetResult result, PlayerSetting<?> setting, MessageKey done) {
+        var messenger = this.services.messenger();
+        if (result.succeeded()) {
+            messenger.send(player, done);
+        } else if (result == SetResult.LOCKED || result == SetResult.NOT_ALLOWED) {
+            messenger.send(player, ChatMessages.SETTING_FIXED, Arg.text("setting", this.services.lang().plain(setting.label())));
+        } else {
+            messenger.send(player, ChatMessages.SETTING_REFUSED, Arg.text("setting", this.services.lang().plain(setting.label())));
+        }
     }
 
     // ------------------------------------------------------------------ ignore

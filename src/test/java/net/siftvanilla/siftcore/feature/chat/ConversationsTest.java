@@ -68,6 +68,18 @@ class ConversationsTest {
     }
 
     @Test
+    void lastReceivedAnswersWhoeverWroteLastEvenAfterYouWroteToSomeoneElse() {
+        this.conversations.record(SAM, ALEX);
+        this.clock.addAndGet(1_000);
+        this.conversations.record(ALEX, KAI);
+        assertEquals(Optional.of(KAI), this.conversations.replyTarget(ALEX, ReplyTarget.LAST_CONVERSATION), "the classic /r");
+        assertEquals(Optional.of(SAM), this.conversations.replyTarget(ALEX, ReplyTarget.LAST_RECEIVED), "Sam wrote last");
+        assertEquals(Optional.empty(), this.conversations.lastReceived(SAM), "nobody wrote to Sam");
+        this.clock.addAndGet(Duration.ofMinutes(10).toMillis());
+        assertEquals(Optional.empty(), this.conversations.replyTarget(ALEX, ReplyTarget.LAST_RECEIVED), "it expires like the rest");
+    }
+
+    @Test
     void theConsoleTakesPart() {
         this.conversations.record(Conversations.CONSOLE, ALEX);
         assertEquals(Optional.of(Conversations.CONSOLE), this.conversations.replyTarget(ALEX));

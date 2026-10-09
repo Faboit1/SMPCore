@@ -79,6 +79,34 @@ class ChatResourcesTest {
         assertTrue(settings.logPrivate());
         assertEquals(100, settings.maxIgnores());
         assertEquals("you *** now", settings.filter().apply("you k y s now", settings.filterAction(), settings.filterReplacement()).text());
+        assertEquals(23, settings.strictFilter().size(), "the milder words of the strict filter");
+        assertEquals("what the ***, *** it", settings.strict("what the fuck, damn it"));
+        assertEquals("*** this, k y s", settings.strict("sh!t this, k y s"), "leetspeak too; the strict list alone misses kys");
+        assertEquals("a classic pass, hello", settings.strict("a classic pass, hello"), "whole words only");
+        assertTrue(settings.filter().apply("damn", settings.filterAction(), "***").clean(), "the normal filter leaves the milder words");
+        assertEquals(Duration.ofMinutes(30), settings.newPlayerPlaytime());
+    }
+
+    @Test
+    void strictWordsAndTheNewPlayerThresholdCanBeTurnedOff() throws Exception {
+        YamlConfiguration custom = yaml("features/chat.yml");
+        custom.set("filter.strict-words", List.of());
+        custom.set("new-players.playtime", "0s");
+        custom.set("filter.enabled", false);
+        ConfigReader reader = new ConfigReader("features/chat.yml", custom);
+        ChatSettings settings = ChatSettings.parse(reader);
+        assertEquals(List.of(), reader.problems());
+        assertEquals(0, settings.strictFilter().size());
+        assertEquals("damn", settings.strict("damn"));
+        assertEquals(Duration.ZERO, settings.newPlayerPlaytime());
+
+        YamlConfiguration personal = yaml("features/chat.yml");
+        personal.set("filter.enabled", false);
+        personal.set("filter.strict-words", List.of("heck", "???"));
+        ConfigReader second = new ConfigReader("features/chat.yml", personal);
+        ChatSettings strictOnly = ChatSettings.parse(second);
+        assertEquals(1, second.problems().size(), "a strict word that can never match is reported: " + second.problems());
+        assertEquals("oh ***", strictOnly.strict("oh heck"), "the strict list works with the normal filter off");
     }
 
     @Test

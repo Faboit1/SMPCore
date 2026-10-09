@@ -71,6 +71,11 @@ public interface Cosmetics {
             }
 
             @Override
+            public boolean joinLines() {
+                return cosmetics.get().joinLines();
+            }
+
+            @Override
             public void kill(Player killer, Player victim, Location at) {
                 cosmetics.get().kill(killer, victim, at);
             }
@@ -126,6 +131,14 @@ public interface Cosmetics {
     /** The line announcing that a player left, or null to use the default leave message. */
     default Component quitLine(Player player) {
         return null;
+    }
+
+    /**
+     * Whether rank and custom join and leave lines can show now (the cosmetics feature and its join lines are on), so
+     * a viewer setting that filters join and leave lines is worth offering even while the plain lines are off.
+     */
+    default boolean joinLines() {
+        return false;
     }
 
     /**

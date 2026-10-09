@@ -1,5 +1,8 @@
 package net.siftvanilla.e2e;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,18 +15,31 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
-import net.siftvanilla.siftcore.core.player.Toggle;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.PlayerSetting;
+import net.siftvanilla.siftcore.core.player.SetResult;
+import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.feature.chat.ChatFeature;
 import net.siftvanilla.siftcore.feature.staff.StaffFeature;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.command.PluginIdentifiableCommand;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.permissions.PermissionAttachment;
+import org.bukkit.plugin.Plugin;
 
 /**
- * End-to-end scenarios of public chat (format, hover card, [item], mentions, anti-spam, the filter, chat lock and
- * slow mode), private messages (/msg, /r, social spy, /msgtoggle), ignore lists (/ignore and its dialogs, and the
- * teleport requests they block). The settings dialog has its own scenarios ({@link SettingsScenarios}).
+ * End-to-end scenarios of public chat (format, hover card, profile click, [item], mentions, anti-spam, the filter, chat
+ * lock and slow mode), private messages (/msg, /r, social spy, /msgtoggle), ignore lists (/ignore and its dialogs,
+ * and the teleport requests they block), and every chat setting doing what it says: mention alerts, who can ping and
+ * message me, the name highlight, the strict filter, public chat, hiding new players, the message pop-up, the ping
+ * sounds, the /r target and balance privacy on the card, and server locks. Settings are changed through the settings
+ * dialog (one choice and one switch at least), through {@code /settings chat <setting> <value>} where the settings
+ * command takes values, and otherwise through the setting API that command uses. The settings dialog itself has its
+ * own scenarios ({@link SettingsScenarios}).
  */
 final class ChatScenarios {
 
@@ -58,6 +74,10 @@ final class ChatScenarios {
         list.add(of("chat-links", ChatScenarios::links));
         list.add(of("chat-mention", ChatScenarios::mentions));
         list.add(of("chat-admin", ChatScenarios::admin));
+        list.add(of("chat-mention-settings", ChatScenarios::mentionSettings));
+        list.add(of("chat-reading-settings", ChatScenarios::readingSettings));
+        list.add(of("chat-msg-settings", ChatScenarios::messageSettings));
+        list.add(of("chat-balance-privacy", ChatScenarios::balancePrivacy));
         return list;
     }
 
@@ -150,8 +170,126 @@ final class ChatScenarios {
         return e2e.services().placeholders().resolve(e2e.player(name), placeholder);
     }
 
-    private static boolean setting(E2E e2e, String name, Toggle toggle) {
-        return e2e.services().settings().enabled(e2e.uuid(name), toggle);
+    /** A player's effective value of a setting. */
+    private static <T> T choice(E2E e2e, String name, PlayerSetting<T> setting) {
+        return e2e.services().settings().get(e2e.uuid(name), setting);
+    }
+
+    /**
+     * Changes a setting the way a settings command does (by its id and a typed value, with the player's permissions).
+     * {@code /settings <setting> <value>} comes with the settings dialog's next version; until then this is its API.
+     */
+    private static void set(E2E e2e, String name, String id, String value) {
+        SetResult result = e2e.onPlayer(name, () -> e2e.services().settings().setParsed(e2e.player(name), id, value,
+            Change.command(name)));
+        e2e.expect(result.succeeded(), name + " sets " + id + " to " + value + ": " + result);
+    }
+
+    /**
+     * Changes a setting with {@code /settings <group> <setting> <value>} where the settings command takes values (that
+     * form comes with the settings dialog's next version, together with its public {@code SettingsView} API), else
+     * through the setting API that command uses. Either way the stored value must then be the one asked for.
+     */
+    private static void setByCommand(E2E e2e, Bot bot, String name, String group, String id, String value) {
+        if (!settingsCommandTakesValues()) {
+            e2e.log("/settings <group> <setting> <value> is not on this server yet: " + id + " is set through the setting API");
+            set(e2e, name, id, value);
+            return;
+        }
+        bot.clearLogs();
+        bot.command("settings " + group + " " + id + " " + value);
+        e2e.eventually(() -> value.equals(e2e.services().settings().encoded(e2e.uuid(name), id)),
+            "/settings " + group + " " + id + " " + value + " stores it (chat " + bot.chat() + ", action bar " + bot.actionBar() + ")");
+    }
+
+    /** Whether this server's {@code /settings} changes values (its public SettingsView API is there). */
+    private static boolean settingsCommandTakesValues() {
+        try {
+            Class.forName("net.siftvanilla.siftcore.api.SettingsView", false, ChatScenarios.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Opens the Chat group with {@code /settings chat}, changes the given inputs wherever they are (the group has two
+     * pages) and saves, then waits for the confirmation.
+     */
+    private static void editChat(E2E e2e, Bot bot, Map<String, Object> wanted, String confirmation) {
+        bot.clearLogs();
+        bot.command("settings chat");
+        java.util.Set<String> left = new java.util.HashSet<>(wanted.keySet());
+        for (int guard = 0; guard < 5; guard++) {
+            Bot.SeenDialog current = chatGroup(e2e, bot);
+            Map<String, Object> values = inputs(current);
+            for (String key : List.copyOf(left)) {
+                if (current.inputs().containsKey(key)) {
+                    values.put(key, wanted.get(key));
+                    left.remove(key);
+                }
+            }
+            if (left.isEmpty()) {
+                e2e.click(bot, "Save", values);
+                expectSaw(e2e, bot, confirmation);
+                return;
+            }
+            e2e.expect(current.button("Next page") != null, "inputs " + left + " on a later page (last page: " + current.inputs().keySet() + ")");
+            e2e.click(bot, "Next page", values);
+        }
+        throw new E2E.Failure("too many chat settings pages");
+    }
+
+    /**
+     * The style a part of a line is drawn with (its own style over its parents'), for the first part whose own text is
+     * {@code text}; null when no part has that text.
+     */
+    private static net.minecraft.network.chat.Style styleOf(Component root, String text) {
+        return styleOf(root, text, net.minecraft.network.chat.Style.EMPTY);
+    }
+
+    private static net.minecraft.network.chat.Style styleOf(Component component, String text, net.minecraft.network.chat.Style parent) {
+        net.minecraft.network.chat.Style style = component.getStyle().applyTo(parent);
+        if (component.getContents() instanceof net.minecraft.network.chat.contents.PlainTextContents plain && plain.text().equals(text)) {
+            return style;
+        }
+        for (Component sibling : component.getSiblings()) {
+            net.minecraft.network.chat.Style found = styleOf(sibling, text, style);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /** Makes two players friends with the staff command and waits until the relation reads true. */
+    private static void befriend(E2E e2e, String a, String b) {
+        e2e.console("sift friends add " + a + " " + b);
+        e2e.eventually(() -> e2e.services().relations().areFriends(e2e.uuid(a), e2e.uuid(b)), a + " and " + b + " are friends");
+    }
+
+    /**
+     * Runs {@code body} with a setting locked in {@code features/settings.yml} (written the way an owner would, then
+     * reloaded), and removes the lock again afterwards.
+     */
+    private static void withSettingsLock(E2E e2e, String id, String value, Body body) throws Exception {
+        Path file = Bukkit.getPluginManager().getPlugin("SiftCore").getDataFolder().toPath().resolve("features/settings.yml");
+        String original = Files.readString(file, StandardCharsets.UTF_8);
+        e2e.expect(original.contains("hidden: []"), "features/settings.yml has its hidden line");
+        Files.writeString(file, original.replace("hidden: []", "hidden: []\nlocked:\n  " + id + ": " + value), StandardCharsets.UTF_8);
+        try {
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(String.join(" ", reload).contains("Reloaded"), "the lock reloads: " + reload);
+            body.run(e2e);
+        } finally {
+            Files.writeString(file, original, StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
+    }
+
+    /** Whether the bot heard a SiftCore sound with this id since its logs were cleared. */
+    private static boolean heard(Bot bot, String sound) {
+        return bot.sounds().stream().anyMatch(seen -> seen.sound().equals(sound));
     }
 
     // ------------------------------------------------------------------ scenarios
@@ -169,15 +307,57 @@ final class ChatScenarios {
         Component line = line(e2e, reader, "hello from the chat test");
         e2e.expect(line.getString().equals(talkerName + ": hello from the chat test"), "the unranked format: " + line.getString());
 
-        e2e.step("the name shows a card on hover and starts a message on click");
+        e2e.step("the name shows a card on hover, opens the profile on click and starts a message on shift-click");
         Component name = part(line, talkerName);
         e2e.expect(name != null, "the name is its own part: " + line);
         e2e.expect(name.getStyle().getHoverEvent() instanceof HoverEvent.ShowText, "a hover card on the name: " + name.getStyle());
         String card = ((HoverEvent.ShowText) name.getStyle().getHoverEvent()).value().getString();
         e2e.expect(card.contains(talkerName) && card.contains("Balance $12,345") && card.contains("Kills 0")
             && card.contains("Playtime") && card.contains("No team"), "the card's lines: " + card);
-        e2e.expect(name.getStyle().getClickEvent() instanceof ClickEvent.SuggestCommand suggest
-            && suggest.command().equals("/msg " + talkerName + " "), "a click that suggests /msg: " + name.getStyle().getClickEvent());
+        e2e.expect(card.contains("Click for " + talkerName + "'s profile, shift-click to message"), "the card says what clicks do: " + card);
+        e2e.expect(name.getStyle().getClickEvent() instanceof ClickEvent.RunCommand run
+            && run.command().equals("/profile " + talkerName), "a click that opens the profile: " + name.getStyle().getClickEvent());
+        e2e.expect(("/msg " + talkerName + " ").equals(name.getStyle().getInsertion()), "shift-click puts /msg in the chat box: "
+            + name.getStyle().getInsertion());
+        reader.clearLogs();
+        reader.command("profile " + talkerName);
+        Bot.SeenDialog profile = e2e.dialog(reader, talkerName);
+        e2e.expect(profile.button("Message") != null, "the profile the click opens offers a message: " + profile.buttons());
+        if (profile.button("Close") != null) {
+            e2e.click(reader, "Close");
+        }
+        Plugin core = e2e.services().plugin();
+        e2e.expect(Bukkit.getCommandMap().getCommand("profile") instanceof PluginIdentifiableCommand owned && owned.getPlugin() == core
+            && Bukkit.getCommandMap().getCommand(core.getPluginMeta().namespace() + ":profile") != null,
+            "/profile is SiftCore's own, which is what makes names open profiles");
+
+        e2e.step("a reader who may not open profiles gets a click that starts a message; everyone else keeps the profile");
+        // The talker reads this time (their own five messages in ten seconds are needed for the [item] steps).
+        PermissionAttachment noProfiles = e2e.onPlayer(talkerName, () -> e2e.player(talkerName).addAttachment(core,
+            "siftcore.command.profile", false));
+        try {
+            e2e.eventually(() -> e2e.onPlayer(talkerName, () -> !e2e.player(talkerName).hasPermission("siftcore.command.profile")),
+                "the talker lost /profile");
+            reader.clearLogs();
+            talker.clearLogs();
+            say(e2e, reader, "a line for readers with and without profiles");
+            Component plainName = part(line(e2e, talker, "a line for readers with and without profiles"), readerName);
+            e2e.expect(plainName != null && plainName.getStyle().getClickEvent() instanceof ClickEvent.SuggestCommand suggest
+                && suggest.command().equals("/msg " + readerName + " "), "the click starts a message: "
+                + (plainName == null ? null : plainName.getStyle().getClickEvent()));
+            String plainCard = ((HoverEvent.ShowText) plainName.getStyle().getHoverEvent()).value().getString();
+            e2e.expect(plainCard.contains("Click to message " + readerName) && !plainCard.contains("profile"),
+                "the card says what the click does for this reader: " + plainCard);
+            Component ownName = part(line(e2e, reader, "a line for readers with and without profiles"), readerName);
+            e2e.expect(ownName != null && ownName.getStyle().getClickEvent() instanceof ClickEvent.RunCommand run
+                && run.command().equals("/profile " + readerName), "a reader with /profile keeps the profile click: "
+                + (ownName == null ? null : ownName.getStyle().getClickEvent()));
+        } finally {
+            e2e.onPlayer(talkerName, () -> {
+                e2e.player(talkerName).removeAttachment(noProfiles);
+                return null;
+            });
+        }
 
         e2e.step("[item] shows the held item with its hover");
         hold(e2e, talkerName, new ItemStack(Material.DIAMOND_SWORD));
@@ -410,7 +590,7 @@ final class ChatScenarios {
             b.clearLogs();
             b.command("msgtoggle");
             expectSaw(e2e, b, "Private messages to you are off");
-            e2e.expect(!setting(e2e, bName, ChatFeature.PRIVATE_MESSAGES), "the toggle is stored");
+            e2e.expect(choice(e2e, bName, ChatFeature.PRIVATE_MESSAGES) == Audience.NOBODY, "who can message me is nobody now");
             c.clearLogs();
             pm(e2e, c, "msg " + bName + " are you there");
             expectSaw(e2e, c, bName + " isn't taking private messages");
@@ -424,6 +604,7 @@ final class ChatScenarios {
             e2e.eventually(() -> b.chatContains("From " + spyName + ": staff can always write"), "staff reach them: " + b.chat());
             b.command("msgtoggle");
             expectSaw(e2e, b, "Players can send you private messages again");
+            e2e.expect(choice(e2e, bName, ChatFeature.PRIVATE_MESSAGES) == Audience.EVERYONE, "everyone again");
 
             e2e.step("the console can message a player, who can answer it");
             a.clearLogs();
@@ -597,12 +778,14 @@ final class ChatScenarios {
         called.clearLogs();
         called.command("settings chat");
         Bot.SeenDialog dialog = chatGroup(e2e, called);
-        e2e.expect(dialog.inputs().containsKey("mentions"), "a mentions switch: " + dialog.inputs());
+        e2e.expect("choice".equals(dialog.inputs().get("mentions")), "a mention alerts choice: " + dialog.inputs());
+        e2e.expect(List.of("actionbar", "chat", "title", "off").equals(dialog.options().get("mentions")),
+            "its options: " + dialog.options().get("mentions"));
         Map<String, Object> values = inputs(dialog);
-        values.put("mentions", false);
+        values.put("mentions", "off");
         e2e.click(called, "Save", values);
-        expectSaw(e2e, called, "Mention alerts turned off");
-        e2e.expect(!setting(e2e, calledName, ChatFeature.MENTIONS), "stored");
+        expectSaw(e2e, called, "Mention alerts set to Off");
+        e2e.expect(choice(e2e, calledName, ChatFeature.MENTIONS) == AlertStyle.OFF, "stored");
         e2e.sleep(3_000);
         called.clearLogs();
         say(e2e, caller, "@" + calledName + " ping again");
@@ -672,5 +855,283 @@ final class ChatScenarios {
             e2e.console("chat slow off");
             e2e.console("deop " + staffName);
         }
+    }
+
+    // ------------------------------------------------------------------ chat settings
+
+    /** The sounds of the default ping (the notify sound), the bell and the chime. */
+    private static final String PLING = "minecraft:block.note_block.pling";
+    private static final String BELL = "minecraft:block.note_block.bell";
+    private static final String CHIME = "minecraft:block.amethyst_block.chime";
+    /** One sender pings the same player at most once per 3 seconds; a little more for jitter. */
+    private static final long MENTION_GAP = 3_400;
+
+    static void mentionSettings(E2E e2e) {
+        String callerName = e2e.name("Pinger");
+        String calledName = e2e.name("Pinged");
+        String palName = e2e.name("PingPal");
+        Bot caller = e2e.bot(callerName);
+        Bot called = e2e.bot(calledName);
+        Bot pal = e2e.bot(palName);
+
+        e2e.step("mention alerts can go to chat instead, chosen in the settings dialog, with the default ping");
+        editChat(e2e, called, Map.of("mentions", "chat"), "Mention alerts set to Chat");
+        e2e.expect(choice(e2e, calledName, ChatFeature.MENTIONS) == AlertStyle.CHAT, "stored");
+        called.clearLogs();
+        say(e2e, caller, "@" + calledName + " over here");
+        e2e.eventually(() -> called.chatContains(callerName + " mentioned you"), "a chat line: " + called.chat());
+        e2e.eventually(() -> heard(called, PLING), "the default ping: " + called.sounds());
+        e2e.expect(!called.actionBarContains("mentioned you"), "nothing above the hotbar: " + called.actionBar());
+
+        e2e.step("as a title, chosen with /settings chat mentions title, with the mention sound picked in the Sounds settings");
+        setByCommand(e2e, called, calledName, "chat", "mentions", "title");
+        set(e2e, calledName, "sound-mention", "bell");
+        e2e.sleep(MENTION_GAP);
+        called.clearLogs();
+        say(e2e, caller, "@" + calledName + " second ping please");
+        e2e.eventually(() -> called.titles().stream().anyMatch(title -> title.contains(callerName + " mentioned you")),
+            "a title: " + called.titles());
+        e2e.eventually(() -> heard(called, BELL), "the bell: " + called.sounds());
+        e2e.expect(!called.chatContains("mentioned you"), "no chat line: " + called.chat());
+
+        e2e.step("pings on the bare name can be turned off; @name still pings");
+        set(e2e, calledName, "mention-plain-names", "off");
+        set(e2e, calledName, "mentions", "actionbar");
+        e2e.sleep(MENTION_GAP);
+        called.clearLogs();
+        say(e2e, caller, calledName + " are you around");
+        e2e.eventually(() -> called.chatContains("are you around"), "the line arrives");
+        e2e.sleep(800);
+        e2e.expect(!called.actionBarContains("mentioned you"), "no alert for the bare name: " + called.actionBar());
+        say(e2e, caller, "@" + calledName + " now with the at sign");
+        e2e.eventually(() -> called.actionBarContains(callerName + " mentioned you"), "@name alerts: " + called.actionBar());
+
+        e2e.step("who can ping me: friends only");
+        befriend(e2e, calledName, palName);
+        set(e2e, calledName, "mention-from", "friends");
+        e2e.sleep(6_000); // the caller stays inside the rate limit of five messages in ten seconds
+        called.clearLogs();
+        say(e2e, caller, "@" + calledName + " a stranger calls");
+        e2e.eventually(() -> called.chatContains("a stranger calls"), "the line still shows");
+        e2e.sleep(800);
+        e2e.expect(!called.actionBarContains("mentioned you"), "no alert from a stranger: " + called.actionBar());
+        say(e2e, pal, "@" + calledName + " your friend calls");
+        e2e.eventually(() -> called.actionBarContains(palName + " mentioned you"), "a friend alerts: " + called.actionBar());
+
+        e2e.step("the mention sound off: the alert comes without a sound");
+        set(e2e, calledName, "sound-mention", "off");
+        e2e.sleep(MENTION_GAP);
+        called.clearLogs();
+        say(e2e, pal, "@" + calledName + " quiet one this time");
+        e2e.eventually(() -> called.actionBarContains(palName + " mentioned you"), "the alert: " + called.actionBar());
+        e2e.sleep(400);
+        e2e.expect(!heard(called, BELL) && !heard(called, PLING), "no ping: " + called.sounds());
+    }
+
+    static void readingSettings(E2E e2e) throws Exception {
+        String talkerName = e2e.name("Speaker");
+        String readerName = e2e.name("Listener");
+        String otherName = e2e.name("Bystand");
+        String staffName = e2e.name("ReadMod");
+        Bot talker = e2e.bot(talkerName);
+        Bot reader = e2e.bot(readerName);
+        Bot other = e2e.bot(otherName);
+        Bot staff = e2e.bot(staffName);
+        e2e.console("op " + staffName);
+        try {
+            e2e.step("the reader's name stands out in lines that mention them: bold by default");
+            reader.clearLogs();
+            talker.clearLogs();
+            say(e2e, talker, "hello @" + readerName + " and friends");
+            Component line = line(e2e, reader, "and friends");
+            net.minecraft.network.chat.Style bold = styleOf(line, "@" + readerName);
+            e2e.expect(bold != null && bold.isBold() && !bold.isUnderlined(), "the name is bold: " + line);
+            Component own = line(e2e, talker, "and friends");
+            net.minecraft.network.chat.Style plain = styleOf(own, "@" + readerName);
+            e2e.expect(plain == null || !plain.isBold(), "the sender's own line is not highlighted: " + own);
+            e2e.expect(line(e2e, reader, "and friends").getString().equals(talkerName + ": hello @" + readerName + " and friends"),
+                "the text is unchanged");
+
+            e2e.step("underlined instead, chosen in the settings dialog; or not at all");
+            editChat(e2e, reader, Map.of("mention_highlight", "underline"), "Highlight my name set to Underlined");
+            reader.clearLogs();
+            say(e2e, talker, "hey " + readerName + " look here");
+            Component underlined = line(e2e, reader, "look here");
+            net.minecraft.network.chat.Style under = styleOf(underlined, readerName);
+            e2e.expect(under != null && under.isUnderlined() && !under.isBold(), "the bare name is underlined: " + underlined);
+            set(e2e, readerName, "mention-highlight", "off");
+            reader.clearLogs();
+            say(e2e, talker, "@" + readerName + " no highlight now");
+            Component none = line(e2e, reader, "no highlight now");
+            net.minecraft.network.chat.Style off = styleOf(none, "@" + readerName);
+            e2e.expect(off == null || (!off.isBold() && !off.isUnderlined()), "nothing stands out: " + none);
+
+            e2e.step("the strict word filter hides milder words for the reader only, in chat and private messages");
+            set(e2e, readerName, "chat-filter-strict", "on");
+            e2e.sleep(6_000); // the talker stays inside the rate limit
+            reader.clearLogs();
+            other.clearLogs();
+            say(e2e, talker, "damn this crap weather");
+            e2e.eventually(() -> reader.chatContains(talkerName + ": *** this *** weather"), "filtered for the reader: " + reader.chat());
+            e2e.eventually(() -> other.chatContains(talkerName + ": damn this crap weather"), "not for others: " + other.chat());
+            pm(e2e, talker, "msg " + readerName + " damn it all");
+            e2e.eventually(() -> reader.chatContains("From " + talkerName + ": *** it all"), "the private copy too: " + reader.chat());
+            e2e.eventually(() -> talker.chatContains("To " + readerName + ": damn it all"), "the sender's copy is as typed");
+
+            e2e.step("public chat off: no public lines, private messages still arrive, one reminder when you talk");
+            editChat(e2e, reader, Map.of("public_chat", false), "Show public chat turned off");
+            e2e.sleep(6_000);
+            reader.clearLogs();
+            say(e2e, talker, "a public line nobody reads");
+            e2e.eventually(() -> other.chatContains("a public line nobody reads"), "others read it");
+            e2e.sleep(800);
+            e2e.expect(!reader.chatContains("a public line nobody reads"), "the reader doesn't: " + reader.chat());
+            pm(e2e, talker, "msg " + readerName + " private still works");
+            e2e.eventually(() -> reader.chatContains("From " + talkerName + ": private still works"), "a private message: " + reader.chat());
+            say(e2e, reader, "talking with public chat off");
+            expectSaw(e2e, reader, "Your public chat is off");
+            e2e.eventually(() -> talker.chatContains("talking with public chat off"), "others read the reader");
+            reader.clearLogs();
+            say(e2e, reader, "and talking once more");
+            e2e.eventually(() -> talker.chatContains("and talking once more"), "the second line arrives");
+            e2e.sleep(500);
+            e2e.expect(!reader.chatContains("Your public chat is off"), "the reminder comes once a session: " + reader.chat());
+            set(e2e, readerName, "public-chat", "on");
+
+            e2e.step("public chat locked off by the server: the reminder says so instead of pointing to /settings");
+            withSettingsLock(e2e, "public-chat", "false", x -> {
+                e2e.expect(!choice(e2e, otherName, ChatFeature.PUBLIC_CHAT), "the lock turns public chat off for everyone");
+                other.clearLogs();
+                say(e2e, other, "talking while the server keeps public chat off");
+                expectSaw(e2e, other, "Public chat is turned off by the server");
+                e2e.expect(!saw(other, "/settings chat"), "no pointer to a setting the player can't change: " + other.chat());
+            });
+            e2e.eventually(() -> choice(e2e, otherName, ChatFeature.PUBLIC_CHAT), "public chat on again without the lock");
+
+            e2e.step("hiding brand-new players (a switch on the second page) hides fresh accounts but never staff");
+            editChat(e2e, reader, Map.of("chat_hide_new", true), "Hide brand-new players turned on");
+            e2e.sleep(6_000);
+            reader.clearLogs();
+            say(e2e, talker, "a brand new account speaks");
+            e2e.eventually(() -> other.chatContains("a brand new account speaks"), "others read it");
+            e2e.sleep(800);
+            e2e.expect(!reader.chatContains("a brand new account speaks"), "hidden from the reader: " + reader.chat());
+            say(e2e, staff, "staff are never hidden");
+            e2e.eventually(() -> reader.chatContains("staff are never hidden"), "staff reach the reader: " + reader.chat());
+            set(e2e, readerName, "chat-hide-new", "off");
+            say(e2e, talker, "visible again for everyone");
+            e2e.eventually(() -> reader.chatContains("visible again for everyone"), "back with the switch off: " + reader.chat());
+        } finally {
+            e2e.console("deop " + staffName);
+        }
+    }
+
+    static void messageSettings(E2E e2e) throws Exception {
+        String aName = e2e.name("MsgA");
+        String bName = e2e.name("MsgB");
+        String cName = e2e.name("MsgC");
+        String strangerName = e2e.name("MsgD");
+        String palName = e2e.name("MsgPal");
+        Bot a = e2e.bot(aName);
+        Bot b = e2e.bot(bName);
+        Bot c = e2e.bot(cName);
+        Bot stranger = e2e.bot(strangerName);
+        Bot pal = e2e.bot(palName);
+
+        e2e.step("a private message pop-up as a title, chosen in the settings dialog, with the chosen message sound");
+        editChat(e2e, b, Map.of("pm_alert", "title"), "Private message pop-up set to Title");
+        set(e2e, bName, "sound-pm", "chime");
+        b.clearLogs();
+        pm(e2e, a, "msg " + bName + " hello with a pop-up");
+        e2e.eventually(() -> b.chatContains("From " + aName + ": hello with a pop-up"), "the chat line stays: " + b.chat());
+        e2e.eventually(() -> b.titles().stream().anyMatch(title -> title.contains("Message from " + aName)), "the title: " + b.titles());
+        e2e.eventually(() -> heard(b, CHIME), "the chime: " + b.sounds());
+        e2e.expect(!heard(b, PLING), "not the default ping: " + b.sounds());
+
+        e2e.step("/r answers whoever wrote last, when chosen");
+        set(e2e, bName, "reply-target", "last-received");
+        pm(e2e, c, "msg " + bName + " a second writer here");
+        e2e.eventually(() -> b.chatContains("a second writer here"), "C's message arrives");
+        pm(e2e, b, "msg " + aName + " back to you A");
+        e2e.eventually(() -> a.chatContains("back to you A"), "B wrote to A");
+        e2e.expect(cName.equals(placeholder(e2e, bName, "chat_reply")), "the reply placeholder follows the choice: "
+            + placeholder(e2e, bName, "chat_reply"));
+        c.clearLogs();
+        pm(e2e, b, "r this goes to the last writer");
+        e2e.eventually(() -> c.chatContains("From " + bName + ": this goes to the last writer"), "/r reached C: " + c.chat());
+        set(e2e, bName, "reply-target", "last-conversation");
+        e2e.expect(cName.equals(placeholder(e2e, bName, "chat_reply")), "the classic /r: the last conversation is C now: "
+            + placeholder(e2e, bName, "chat_reply"));
+
+        e2e.step("who can message me: friends only refuses strangers and lets friends through");
+        befriend(e2e, bName, palName);
+        set(e2e, bName, "private-messages", "friends");
+        stranger.clearLogs();
+        pm(e2e, stranger, "msg " + bName + " a stranger writes");
+        expectSaw(e2e, stranger, bName + " isn't taking private messages");
+        e2e.expect(!b.chatContains("a stranger writes"), "nothing arrived");
+        pm(e2e, pal, "msg " + bName + " your friend writes");
+        e2e.eventually(() -> b.chatContains("From " + palName + ": your friend writes"), "a friend's message: " + b.chat());
+
+        e2e.step("/msgtoggle from friends only turns messages off, and back on to everyone");
+        b.clearLogs();
+        b.command("msgtoggle");
+        expectSaw(e2e, b, "Private messages to you are off");
+        e2e.expect(choice(e2e, bName, ChatFeature.PRIVATE_MESSAGES) == Audience.NOBODY, "nobody");
+        b.command("msgtoggle");
+        expectSaw(e2e, b, "Players can send you private messages again");
+        e2e.expect(choice(e2e, bName, ChatFeature.PRIVATE_MESSAGES) == Audience.EVERYONE, "everyone");
+
+        e2e.step("a lock in features/settings.yml, written the old way (false), wins and /msgtoggle says so");
+        withSettingsLock(e2e, "private-messages", "false", x -> {
+            e2e.expect(choice(e2e, bName, ChatFeature.PRIVATE_MESSAGES) == Audience.NOBODY, "the old 'false' reads as nobody");
+            b.clearLogs();
+            b.command("msgtoggle");
+            expectSaw(e2e, b, "Who can message me is set by the server");
+            e2e.expect(choice(e2e, bName, ChatFeature.PRIVATE_MESSAGES) == Audience.NOBODY, "still locked");
+            stranger.clearLogs();
+            pm(e2e, stranger, "msg " + bName + " locked out now");
+            expectSaw(e2e, stranger, bName + " isn't taking private messages");
+        });
+        e2e.eventually(() -> choice(e2e, bName, ChatFeature.PRIVATE_MESSAGES) == Audience.EVERYONE, "unlocked again");
+    }
+
+    static void balancePrivacy(E2E e2e) {
+        String ownerName = e2e.name("Rich");
+        String viewerName = e2e.name("Curious");
+        String staffName = e2e.name("EcoMod");
+        Bot owner = e2e.bot(ownerName);
+        Bot viewer = e2e.bot(viewerName);
+        Bot staff = e2e.bot(staffName);
+        e2e.console("op " + staffName);
+        e2e.console("eco set " + ownerName + " 4242");
+        try {
+            e2e.step("balance privacy nobody: the hover card leaves the balance out, except for the owner and staff");
+            set(e2e, ownerName, "balance-privacy", "nobody");
+            viewer.clearLogs();
+            staff.clearLogs();
+            owner.clearLogs();
+            say(e2e, owner, "is my balance private now");
+            e2e.expect(!card(e2e, viewer, ownerName, "is my balance private now").contains("Balance"), "no balance for a stranger");
+            e2e.expect(card(e2e, staff, ownerName, "is my balance private now").contains("Balance $4,242"), "staff see it");
+            e2e.expect(card(e2e, owner, ownerName, "is my balance private now").contains("Balance $4,242"), "the owner sees it");
+
+            e2e.step("friends only: a friend sees it");
+            befriend(e2e, ownerName, viewerName);
+            set(e2e, ownerName, "balance-privacy", "friends");
+            viewer.clearLogs();
+            say(e2e, owner, "and now for my friends");
+            e2e.expect(card(e2e, viewer, ownerName, "and now for my friends").contains("Balance $4,242"), "a friend sees it");
+        } finally {
+            e2e.console("deop " + staffName);
+        }
+    }
+
+    /** The hover card on {@code name} in the line containing {@code text} that {@code bot} received. */
+    private static String card(E2E e2e, Bot bot, String name, String text) {
+        Component line = line(e2e, bot, text);
+        Component part = part(line, name);
+        e2e.expect(part != null && part.getStyle().getHoverEvent() instanceof HoverEvent.ShowText, "a card on " + name + ": " + line);
+        return ((HoverEvent.ShowText) part.getStyle().getHoverEvent()).value().getString();
     }
 }

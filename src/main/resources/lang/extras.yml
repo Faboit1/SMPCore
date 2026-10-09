@@ -33,6 +33,15 @@ extras:
   seen:
     online: "<primary><name> is online now. <secondary>Joined <since> ago."
     offline: "<primary><name> was last online <ago> ago. <secondary>First joined <first>."
+    # A player whose "Who sees when I was last online" setting leaves the asker out (staff always see it).
+    hidden: "<primary><name> keeps their last online time private."
   join: "<secondary><name> joined"
   quit: "<secondary><name> left"
   first-join: "<primary>Welcome <name> to SiftVanilla. <secondary>Player number <number>."
+  # The setting in the settings dialog (Server announcements). "All" and "Off" are the shared option names in
+  # lang/settings.yml.
+  settings:
+    join-leave-messages: "Join and leave messages"
+    join-leave-messages-description: "See every join and leave line, only welcomes for brand-new players, or none. Friend alerts are separate."
+    options:
+      first-joins: "New players only"

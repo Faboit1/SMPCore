@@ -43,6 +43,15 @@ class MentionsTest {
     }
 
     @Test
+    void matchesSayWhereAndHow() {
+        List<Mentions.Match> matches = Mentions.matches("hi @Alex, notch!", ONLINE, true, 3);
+        assertEquals(List.of(new Mentions.Match("Alex", 3, 8, true), new Mentions.Match("Notch", 10, 15, false)), matches);
+        assertEquals(List.of(new Mentions.Match("Alex", 0, 4, false), new Mentions.Match("Alex", 5, 10, true)),
+            Mentions.matches("alex @alex", ONLINE, true, 3), "every mention, not only the first per name");
+        assertEquals(List.of(new Mentions.Match("Alex", 1, 6, true)), Mentions.matches("@@alex", ONLINE, false, 3));
+    }
+
+    @Test
     void nothingToFind() {
         assertTrue(Mentions.find("", ONLINE, true, 3).isEmpty());
         assertTrue(Mentions.find("@alex", List.of(), true, 3).isEmpty());

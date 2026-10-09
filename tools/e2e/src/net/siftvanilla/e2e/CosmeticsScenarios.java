@@ -490,7 +490,7 @@ final class CosmeticsScenarios {
         e2e.expect(("<aqua>" + nick + "</aqua>").equals(placeholder(e2e, nickedName, "display_name_mm")),
             "display_name_mm: " + placeholder(e2e, nickedName, "display_name_mm"));
 
-        e2e.step("chat shows the nickname in its colour, the real name on hover, and /msg goes to the real name");
+        e2e.step("chat shows the nickname in its colour, the real name on hover, and the profile and /msg go to the real name");
         watcher.clearLogs();
         say(e2e, nicked, "hi from a nickname");
         Component seen = line(e2e, watcher, "hi from a nickname");
@@ -499,8 +499,10 @@ final class CosmeticsScenarios {
         e2e.expect(name != null && name.color() != null && name.color() == 0x55FFFF, "the nickname is aqua: " + seen);
         String card = hoverText(name.component());
         e2e.expect(card != null && card.contains("Real name " + nickedName), "the hover card has the real name: " + card);
-        e2e.expect(name.component().getStyle().getClickEvent() instanceof ClickEvent.SuggestCommand suggest
-            && suggest.command().equals("/msg " + nickedName + " "), "clicking starts a message to the real name");
+        e2e.expect(name.component().getStyle().getClickEvent() instanceof ClickEvent.RunCommand run
+            && run.command().equals("/profile " + nickedName), "clicking opens the real name's profile: " + name.component().getStyle());
+        e2e.expect(("/msg " + nickedName + " ").equals(name.component().getStyle().getInsertion()),
+            "shift-click starts a message to the real name");
 
         e2e.step("a second change right away waits for the cooldown");
         command(e2e, nicked, "nick " + e2e.name("Nq"));

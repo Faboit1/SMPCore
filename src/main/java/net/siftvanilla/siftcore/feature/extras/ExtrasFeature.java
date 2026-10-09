@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
@@ -20,7 +22,13 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.player.PlayerDirectory;
+import net.siftvanilla.siftcore.core.player.PlayerSettings;
+import net.siftvanilla.siftcore.core.player.Registry;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
@@ -37,10 +45,28 @@ import org.bukkit.event.player.PlayerQuitEvent;
  * for first-time players. Vanished staff join and leave without a message. Players with a rank join line (Baron) or
  * their own join message (Tycoon) are announced with it, even when the plain messages are off ({@link Cosmetics});
  * a brand-new player always gets the welcome instead.
+ * <p>
+ * Two player settings: which join and leave lines a player reads ({@code join-leave-messages}, Server announcements),
+ * and who sees in {@code /seen} when a player was last online (the shared {@code seen-privacy}, Privacy).
  */
 public final class ExtrasFeature implements Feature, Listener {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
+
+    /**
+     * Which of other players' join and leave lines a player reads: every line, only the welcome of brand-new players,
+     * or none (Server announcements group). An unquoted {@code off} in {@code features/settings.yml} is the YAML
+     * boolean {@code false}, so {@code false} reads as off too.
+     */
+    public static final Choice<JoinLines> JOIN_LEAVE_MESSAGES = Choice.ofEnum("join-leave-messages", JoinLines.class, JoinLines::id,
+            JoinLines.ALL)
+        .option(JoinLines.ALL, JoinLines.ALL.label())
+        .option(JoinLines.FIRST_JOINS, JoinLines.FIRST_JOINS.label(), null, JoinLines.OFF.id())
+        .option(JoinLines.OFF, JoinLines.OFF.label())
+        .legacyValue("false", JoinLines.OFF.id())
+        .text(ExtrasMessages.SETTING_JOIN_LINES, ExtrasMessages.SETTING_JOIN_LINES_DESCRIPTION).build();
+    /** Staff who always see when a player was last online (the staff tools' {@code /whois} node). */
+    static final String SEEN_BYPASS = "siftcore.staff.whois";
 
     private final Services services;
     private final Setting<ExtrasSettings> settings;
@@ -57,6 +83,7 @@ public final class ExtrasFeature implements Feature, Listener {
         this.cosmetics = cosmetics;
         this.settings = services.configs().register("features/extras.yml", ExtrasSettings::parse, problems);
         services.lang().register(ExtrasMessages.class);
+        registerSettings(services.settings(), this.settings::get, cosmetics::joinLines);
         var perms = services.permissions();
         perms.declare("siftcore.command.rules", "Read the rules with /rules", true);
         perms.declare("siftcore.command.help", "Open the help with /help", true);
@@ -64,6 +91,24 @@ public final class ExtrasFeature implements Feature, Listener {
         perms.declare("siftcore.command.ping.others", "See other players' ping", true);
         perms.declare("siftcore.command.seen", "See when a player was last online with /seen", true);
         perms.declare("siftcore.command.links", "Open the server links with /links", true);
+    }
+
+    /**
+     * Registers the join and leave setting in Server announcements (offered while the server can show any join or
+     * leave line: a plain one, a welcome, or a rank or custom line of the cosmetics; "new players only" while it
+     * welcomes them) and declares that {@code /seen} acts on seen privacy.
+     *
+     * @param rankLines whether rank and custom join and leave lines are on (cosmetics)
+     */
+    static Registry.Entry<JoinLines> registerSettings(PlayerSettings registry, Supplier<ExtrasSettings> config,
+                                                      BooleanSupplier rankLines) {
+        Registry.Entry<JoinLines> entry = registry.register(SettingCategories.ANNOUNCEMENTS, JOIN_LEAVE_MESSAGES,
+            SettingOptions.<JoinLines>builder().order(2)
+                .availableWhen(() -> config.get().offersSetting(rankLines.getAsBoolean()))
+                .optionAvailableWhen(JoinLines.FIRST_JOINS.id(), () -> config.get().firstJoinWelcome())
+                .build());
+        registry.reads(SharedSettings.SEEN_PRIVACY);
+        return entry;
     }
 
     @Override
@@ -172,48 +217,104 @@ public final class ExtrasFeature implements Feature, Listener {
                 Arg.time("since", Duration.ofMillis(Math.max(0, now - known.get().lastSeen()))));
             return;
         }
+        String name = known.get().name();
         String first = DATE.format(Instant.ofEpochMilli(known.get().firstJoin()).atZone(ZoneId.systemDefault()));
-        this.services.messenger().chat(sender, ExtrasMessages.SEEN_OFFLINE, Arg.text("name", known.get().name()),
-            Arg.time("ago", Duration.ofMillis(Math.max(0, now - known.get().lastSeen()))), Arg.text("first", first));
+        Duration ago = Duration.ofMillis(Math.max(0, now - known.get().lastSeen()));
+        if (!(sender instanceof Player viewer) || seenShown(false, viewer.getUniqueId().equals(uuid), viewer.hasPermission(SEEN_BYPASS), false)) {
+            this.services.messenger().chat(sender, ExtrasMessages.SEEN_OFFLINE, Arg.text("name", name), Arg.time("ago", ago), Arg.text("first", first));
+            return;
+        }
+        // Who may see it is the player's choice (seen-privacy), read from storage when they are offline.
+        UUID viewerId = viewer.getUniqueId();
+        this.services.settings().lookup(uuid, SharedSettings.SEEN_PRIVACY).whenComplete((audience, error) -> {
+            boolean allowed = error == null && audience != null && this.services.relations().allows(audience, uuid, viewerId);
+            if (seenShown(false, false, false, allowed)) {
+                this.services.messenger().chat(viewer, ExtrasMessages.SEEN_OFFLINE, Arg.text("name", name), Arg.time("ago", ago),
+                    Arg.text("first", first));
+            } else {
+                this.services.messenger().chat(viewer, ExtrasMessages.SEEN_HIDDEN, Arg.text("name", name));
+            }
+        });
     }
 
+    /**
+     * Whether {@code /seen} tells when a player was last online: always to the console, the player themselves and staff
+     * with {@link #SEEN_BYPASS}; to anyone else when they are in the player's {@code seen-privacy} audience.
+     */
+    static boolean seenShown(boolean console, boolean self, boolean staff, boolean allowed) {
+        return console || self || staff || allowed;
+    }
+
+    /**
+     * Join lines go to each online player by their {@code join-leave-messages} choice instead of the server's broadcast:
+     * the welcome of a brand-new player (in the "new players only" choice too), the rank or custom join line of the
+     * cosmetics, or the plain join line when the server shows it. The joining player always reads their own line and
+     * the console logs every line. Vanished staff join without a line.
+     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         ExtrasSettings s = this.settings.get();
+        event.joinMessage(null);
         if (this.vanish.vanished(player.getUniqueId())) {
-            event.joinMessage(null);
             return;
         }
-        if (!player.hasPlayedBefore() && s.firstJoinWelcome()) {
-            event.joinMessage(this.services.lang().get(ExtrasMessages.FIRST_JOIN, Arg.text("name", player.getName()),
-                Arg.number("number", this.services.directory().size())));
-            return;
-        }
-        Component line = this.cosmetics.joinLine(player);
-        if (line != null) {
-            event.joinMessage(line);
-        } else if (s.joinMessages()) {
-            event.joinMessage(this.services.lang().get(ExtrasMessages.JOIN, Arg.component("name", this.cosmetics.name(player))));
+        boolean welcome = !player.hasPlayedBefore() && s.firstJoinWelcome();
+        Component line;
+        if (welcome) {
+            line = this.services.lang().get(ExtrasMessages.FIRST_JOIN, Arg.text("name", player.getName()),
+                Arg.number("number", this.services.directory().size()));
         } else {
-            event.joinMessage(null);
+            line = this.cosmetics.joinLine(player);
+            if (line == null && s.joinMessages()) {
+                line = this.services.lang().get(ExtrasMessages.JOIN, Arg.component("name", this.cosmetics.name(player)));
+            }
         }
+        announce(player, line, welcome, true);
     }
 
+    /** Leave lines, like join lines: to each other player by their choice, and to the console. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        event.quitMessage(null);
         if (this.vanish.vanished(player.getUniqueId())) {
-            event.quitMessage(null);
             return;
         }
         Component line = this.cosmetics.quitLine(player);
-        if (line != null) {
-            event.quitMessage(line);
-        } else if (this.settings.get().quitMessages()) {
-            event.quitMessage(this.services.lang().get(ExtrasMessages.QUIT, Arg.component("name", this.cosmetics.name(player))));
-        } else {
-            event.quitMessage(null);
+        if (line == null && this.settings.get().quitMessages()) {
+            line = this.services.lang().get(ExtrasMessages.QUIT, Arg.component("name", this.cosmetics.name(player)));
         }
+        announce(player, line, false, false);
+    }
+
+    /**
+     * Sends a join or leave line to the console and to every online player whose choice shows it ({@code subject}
+     * itself only when {@code toSubject}). The choice is read as the settings resolve it, whether or not the setting
+     * is offered right now: a server lock wins, and "new players only" reads as off while the server welcomes nobody.
+     * Sending is a packet per player, fine from the subject's thread.
+     */
+    private void announce(Player subject, Component line, boolean welcome, boolean toSubject) {
+        if (line == null) {
+            return;
+        }
+        Bukkit.getConsoleSender().sendMessage(line);
+        PlayerSettings prefs = this.services.settings();
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            boolean self = viewer.getUniqueId().equals(subject.getUniqueId());
+            if (receives(self, toSubject, prefs.get(viewer.getUniqueId(), JOIN_LEAVE_MESSAGES), welcome)) {
+                viewer.sendMessage(line);
+            }
+        }
+    }
+
+    /**
+     * Whether an online player gets a join or leave line: the player it is about only for their own join
+     * ({@code toSubject}), everyone else by their {@code join-leave-messages} choice.
+     *
+     * @param welcome true for the welcome of a brand-new player
+     */
+    static boolean receives(boolean self, boolean toSubject, JoinLines choice, boolean welcome) {
+        return self ? toSubject : choice.shows(welcome);
     }
 }

@@ -16,7 +16,9 @@ import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
 import net.siftvanilla.siftcore.core.link.TextChecks;
+import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
@@ -50,6 +52,9 @@ public final class CosmeticsFeature implements Feature {
     public static final Toggle KILL_EFFECTS = new Toggle("show-kill-effects", true, CosmeticsMessages.SETTING_KILL_EFFECTS,
         CosmeticsMessages.SETTING_KILL_EFFECTS_DESCRIPTION, null);
 
+    /** The chat colour switch's place in the Chat group: after chat's ten settings. */
+    static final int CHAT_COLORS_ORDER = 11;
+
     private static final Duration SWEEP = Duration.ofMinutes(2);
     private static final UUID SELF_TEST_PLAYER = new UUID(0L, 7L);
 
@@ -75,11 +80,9 @@ public final class CosmeticsFeature implements Feature {
         this.settings = services.configs().register("features/cosmetics.yml", CosmeticsSettings::parse, problems);
         services.lang().register(CosmeticsMessages.class);
         CosmeticsNodes.declare(services.permissions());
-        if (chatCategory != null) {
-            services.settings().register(chatCategory, CHAT_COLORS);
-        } else {
-            services.settings().register(CHAT_COLORS);
-        }
+        // Offered while the server has chat colours: the chat colour switch after chat's own settings.
+        services.settings().register(chatCategory == null ? SettingCategories.CHAT : chatCategory, CHAT_COLORS,
+            SettingOptions.<Boolean>builder().order(CHAT_COLORS_ORDER).availableWhen(() -> this.settings.get().enabled()).build());
         if (displayCategory != null) {
             services.settings().register(displayCategory, KILL_EFFECTS);
         } else {

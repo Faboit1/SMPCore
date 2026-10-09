@@ -320,6 +320,12 @@ final class CosmeticsService implements Cosmetics {
         return line(player, false);
     }
 
+    @Override
+    public boolean joinLines() {
+        CosmeticsSettings settings = this.settings.get();
+        return settings.enabled() && settings.join().enabled();
+    }
+
     private Component line(Player player, boolean join) {
         CosmeticsSettings settings = this.settings.get();
         if (!settings.enabled() || !settings.join().enabled() || !player.hasPermission(CosmeticsNodes.JOIN)) {

@@ -10,7 +10,8 @@ import java.util.function.Supplier;
 
 /**
  * Who a player is talking to in private messages. After a message both players reply to each other with
- * {@code /r}; a reply target expires after a while without messages. It also remembers who last wrote to whom,
+ * {@code /r} (players who chose {@link ReplyTarget#LAST_RECEIVED} answer whoever last wrote to them instead); a
+ * reply target expires after a while without messages. It also remembers who last wrote to whom,
  * because a player who wrote to you may get an answer even if they turned private messages off or are hidden.
  * <p>
  * The console takes part as {@link #CONSOLE}. Thread-safe; the clock is injected for tests.
@@ -47,6 +48,20 @@ final class Conversations {
     Optional<UUID> replyTarget(UUID player) {
         Partner partner = this.replyTo.get(player);
         return partner != null && fresh(partner) ? Optional.of(partner.other()) : Optional.empty();
+    }
+
+    /**
+     * Who last wrote to {@code player}, if within the reply window: the {@code /r} target of players who answer
+     * whoever last messaged them ({@link ReplyTarget#LAST_RECEIVED}), even after they wrote to someone else.
+     */
+    Optional<UUID> lastReceived(UUID player) {
+        Partner partner = this.lastFrom.get(player);
+        return partner != null && fresh(partner) ? Optional.of(partner.other()) : Optional.empty();
+    }
+
+    /** Who {@code /r} answers for a player who chose {@code target}. */
+    Optional<UUID> replyTarget(UUID player, ReplyTarget target) {
+        return target == ReplyTarget.LAST_RECEIVED ? lastReceived(player) : replyTarget(player);
     }
 
     /** Whether {@code other} sent {@code player} a message recently (within the reply window). */

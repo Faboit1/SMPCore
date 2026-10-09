@@ -1,6 +1,5 @@
 package net.siftvanilla.siftcore.feature.chat;
 
-import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 
 /** Text of the chat feature ({@code lang/chat.yml}). */
@@ -20,6 +19,7 @@ public final class ChatMessages {
     public static final MessageKey CARD_KILLS = MessageKey.ui("chat.card.kills", "kills");
     public static final MessageKey CARD_PLAYTIME = MessageKey.ui("chat.card.playtime", "playtime");
     public static final MessageKey CARD_CLICK = MessageKey.ui("chat.card.click", "name");
+    public static final MessageKey CARD_CLICK_PROFILE = MessageKey.ui("chat.card.click-profile", "name");
 
     public static final MessageKey ITEM = MessageKey.ui("chat.item.single", "item");
     public static final MessageKey ITEM_STACK = MessageKey.ui("chat.item.stack", "item", "amount");
@@ -34,11 +34,19 @@ public final class ChatMessages {
     public static final MessageKey LOCKED = MessageKey.error("chat.blocked.locked");
     public static final MessageKey SLOW = MessageKey.error("chat.blocked.slow", "time");
 
-    public static final MessageKey MENTIONED = MessageKey.info("chat.mention.notice", "name").withFeedback(Feedback.NOTIFY);
+    /** The mention alert, shown where the player's {@code mentions} setting says; its sound is {@code sound-mention}. */
+    public static final MessageKey MENTIONED = MessageKey.info("chat.mention.notice", "name");
     public static final MessageKey MENTION_AFK = MessageKey.info("chat.mention.afk", "name");
+    /** Told once a session to a player who writes in public chat with public chat turned off. */
+    public static final MessageKey PUBLIC_OFF = MessageKey.chat("chat.public-off");
+    /** The same reminder while the server sets public chat (locked or hidden), so the player can't turn it on. */
+    public static final MessageKey PUBLIC_OFF_SERVER = MessageKey.chat("chat.public-off-server");
 
     public static final MessageKey PM_TO = MessageKey.chat("chat.private.to", "name", "message");
-    public static final MessageKey PM_FROM = MessageKey.notify("chat.private.from", "name", "message");
+    /** What the receiver sees; its sound is the receiver's {@code sound-pm}. */
+    public static final MessageKey PM_FROM = MessageKey.chat("chat.private.from", "name", "message");
+    /** The extra pop-up of a private message ({@code pm-alert}): above the hotbar or as a title. */
+    public static final MessageKey PM_ALERT = MessageKey.info("chat.private.alert", "name");
     public static final MessageKey PM_SPY = MessageKey.chat("chat.private.spy", "from", "to", "message");
     public static final MessageKey PM_NAME_HOVER = MessageKey.ui("chat.private.name-hover", "name");
     public static final MessageKey PM_CONSOLE = MessageKey.ui("chat.private.console");
@@ -106,12 +114,39 @@ public final class ChatMessages {
     public static final MessageKey ADMIN_IGNORES_LINE = MessageKey.chat("chat.admin.ignores-line", "name");
     public static final MessageKey ADMIN_IGNORES_NONE = MessageKey.chat("chat.admin.ignores-none", "name");
 
+    /** A switch command ({@code /msgtoggle}, {@code /socialspy}) on a setting the server locked or hides. */
+    public static final MessageKey SETTING_FIXED = MessageKey.error("chat.setting-fixed", "setting");
+    /** A switch command whose change another plugin stopped. */
+    public static final MessageKey SETTING_REFUSED = MessageKey.error("chat.setting-refused", "setting");
+
     public static final MessageKey SETTING_MENTIONS = MessageKey.ui("chat.settings.mentions");
     public static final MessageKey SETTING_MENTIONS_DESCRIPTION = MessageKey.ui("chat.settings.mentions-description");
     public static final MessageKey SETTING_PRIVATE = MessageKey.ui("chat.settings.private-messages");
     public static final MessageKey SETTING_PRIVATE_DESCRIPTION = MessageKey.ui("chat.settings.private-messages-description");
+    public static final MessageKey SETTING_PUBLIC = MessageKey.ui("chat.settings.public-chat");
+    public static final MessageKey SETTING_PUBLIC_DESCRIPTION = MessageKey.ui("chat.settings.public-chat-description");
+    public static final MessageKey SETTING_PM_ALERT = MessageKey.ui("chat.settings.pm-alert");
+    public static final MessageKey SETTING_PM_ALERT_DESCRIPTION = MessageKey.ui("chat.settings.pm-alert-description");
+    public static final MessageKey SETTING_MENTION_FROM = MessageKey.ui("chat.settings.mention-from");
+    public static final MessageKey SETTING_MENTION_FROM_DESCRIPTION = MessageKey.ui("chat.settings.mention-from-description");
+    public static final MessageKey SETTING_HIGHLIGHT = MessageKey.ui("chat.settings.mention-highlight");
+    public static final MessageKey SETTING_HIGHLIGHT_DESCRIPTION = MessageKey.ui("chat.settings.mention-highlight-description");
+    public static final MessageKey SETTING_STRICT = MessageKey.ui("chat.settings.chat-filter-strict");
+    public static final MessageKey SETTING_STRICT_DESCRIPTION = MessageKey.ui("chat.settings.chat-filter-strict-description");
+    public static final MessageKey SETTING_REPLY = MessageKey.ui("chat.settings.reply-target");
+    public static final MessageKey SETTING_REPLY_DESCRIPTION = MessageKey.ui("chat.settings.reply-target-description");
+    public static final MessageKey SETTING_PLAIN_NAMES = MessageKey.ui("chat.settings.mention-plain-names");
+    public static final MessageKey SETTING_PLAIN_NAMES_DESCRIPTION = MessageKey.ui("chat.settings.mention-plain-names-description");
+    public static final MessageKey SETTING_HIDE_NEW = MessageKey.ui("chat.settings.chat-hide-new");
+    public static final MessageKey SETTING_HIDE_NEW_DESCRIPTION = MessageKey.ui("chat.settings.chat-hide-new-description");
     public static final MessageKey SETTING_SPY = MessageKey.ui("chat.settings.social-spy");
     public static final MessageKey SETTING_SPY_DESCRIPTION = MessageKey.ui("chat.settings.social-spy-description");
+
+    public static final MessageKey HIGHLIGHT_BOLD = MessageKey.ui("chat.settings.options.highlight-bold");
+    public static final MessageKey HIGHLIGHT_UNDERLINE = MessageKey.ui("chat.settings.options.highlight-underline");
+    public static final MessageKey HIGHLIGHT_OFF = MessageKey.ui("chat.settings.options.highlight-off");
+    public static final MessageKey REPLY_LAST_CONVERSATION = MessageKey.ui("chat.settings.options.reply-last-conversation");
+    public static final MessageKey REPLY_LAST_RECEIVED = MessageKey.ui("chat.settings.options.reply-last-received");
 
     private ChatMessages() {
     }

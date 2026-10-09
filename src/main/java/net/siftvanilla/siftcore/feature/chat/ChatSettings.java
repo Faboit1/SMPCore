@@ -15,6 +15,8 @@ import net.siftvanilla.siftcore.core.config.ConfigReader;
  * @param itemTag            {@code [item]} shows the held item
  * @param spam               anti-spam rules for public chat (private messages use them without the repeat check)
  * @param filter             the word filter ({@link ChatFilter#none()} when turned off)
+ * @param strictFilter       the milder words players who turn on "Strict word filter" don't read
+ *                           ({@link ChatFilter#none()} when the list is empty, which also removes the setting)
  * @param filterAction       replace filtered words or refuse the message
  * @param filterReplacement  what a filtered word becomes
  * @param filterPrivate      whether private messages are filtered too
@@ -30,12 +32,15 @@ import net.siftvanilla.siftcore.core.config.ConfigReader;
  * @param logPrivate         private messages are written to the console
  * @param maxIgnores         the most players one player can ignore
  * @param ignorePageSize     names per page of the ignore list dialog
+ * @param newPlayerPlaytime  senders with less active playtime are hidden from players who turned on "Hide brand-new
+ *                           players" (zero removes the setting)
  */
 record ChatSettings(
     boolean hoverCard,
     boolean itemTag,
     SpamGuard.Rules spam,
     ChatFilter filter,
+    ChatFilter strictFilter,
     ChatFilter.Action filterAction,
     String filterReplacement,
     boolean filterPrivate,
@@ -50,7 +55,8 @@ record ChatSettings(
     Duration replyExpiry,
     boolean logPrivate,
     int maxIgnores,
-    int ignorePageSize) {
+    int ignorePageSize,
+    Duration newPlayerPlaytime) {
 
     /** The longest chat message a client can send. */
     static final int CLIENT_MAX_LENGTH = 256;
@@ -71,6 +77,7 @@ record ChatSettings(
         ConfigReader mentions = r.section("mentions");
         ConfigReader messages = r.section("private-messages");
         ConfigReader ignore = r.section("ignore");
+        ConfigReader newPlayers = r.section("new-players");
 
         SpamGuard.Rules rules = new SpamGuard.Rules(
             spam.integer("max-length", 16, CLIENT_MAX_LENGTH, 200),
@@ -87,16 +94,8 @@ record ChatSettings(
         boolean filterOn = filter.bool("enabled", true);
         boolean leetspeak = filter.bool("leetspeak", true);
         boolean joinLetters = filter.bool("join-spaced-letters", true);
-        List<ChatFilter.Entry> entries = new ArrayList<>();
-        for (String raw : filter.stringList("words", List.of())) {
-            String[] problem = new String[1];
-            ChatFilter.Entry entry = ChatFilter.entry(raw, leetspeak, problem);
-            if (entry == null) {
-                filter.problem("words", "entry '" + raw + "' " + problem[0] + "; it is skipped");
-            } else {
-                entries.add(entry);
-            }
-        }
+        List<ChatFilter.Entry> entries = entries(filter, "words", leetspeak);
+        List<ChatFilter.Entry> strictEntries = entries(filter, "strict-words", leetspeak);
         String replacement = filter.string("replacement", "***");
         if (replacement.length() > 32) {
             filter.problem("replacement", "must be at most 32 characters");
@@ -131,6 +130,7 @@ record ChatSettings(
             format.bool("item-tag", true),
             rules,
             filterOn ? new ChatFilter(entries, leetspeak, joinLetters) : ChatFilter.none(),
+            strictEntries.isEmpty() ? ChatFilter.none() : new ChatFilter(strictEntries, leetspeak, joinLetters),
             filter.enumValue("action", ChatFilter.Action.class, ChatFilter.Action.REPLACE),
             ChatText.clean(replacement),
             filter.bool("private-messages", true),
@@ -145,6 +145,27 @@ record ChatSettings(
             messages.duration("reply-expiry", Duration.ofMinutes(1), Duration.ofDays(1), Duration.ofMinutes(10)),
             messages.bool("log-to-console", true),
             ignore.integer("max", 1, 1000, 100),
-            ignore.integer("page-size", 4, 30, 10));
+            ignore.integer("page-size", 4, 30, 10),
+            newPlayers.duration("playtime", Duration.ZERO, Duration.ofDays(7), Duration.ofMinutes(30)));
+    }
+
+    /** A word list of the filter section; entries that can never match are reported and skipped. */
+    private static List<ChatFilter.Entry> entries(ConfigReader filter, String key, boolean leetspeak) {
+        List<ChatFilter.Entry> entries = new ArrayList<>();
+        for (String raw : filter.stringList(key, List.of())) {
+            String[] problem = new String[1];
+            ChatFilter.Entry entry = ChatFilter.entry(raw, leetspeak, problem);
+            if (entry == null) {
+                filter.problem(key, "entry '" + raw + "' " + problem[0] + "; it is skipped");
+            } else {
+                entries.add(entry);
+            }
+        }
+        return entries;
+    }
+
+    /** The text a reader with the strict filter on reads: the milder words replaced (never refused). */
+    String strict(String text) {
+        return this.strictFilter.apply(text, ChatFilter.Action.REPLACE, this.filterReplacement).text();
     }
 }

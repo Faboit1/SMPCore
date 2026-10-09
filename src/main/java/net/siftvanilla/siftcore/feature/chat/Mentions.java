@@ -1,8 +1,10 @@
 package net.siftvanilla.siftcore.feature.chat;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -13,6 +15,17 @@ import java.util.Set;
  * letter ({@code mail@alex}) is not a mention. Pure and thread-safe.
  */
 final class Mentions {
+
+    /**
+     * One mention in a text.
+     *
+     * @param name  the mentioned name, as spelled in the names searched for
+     * @param start where it starts in the text (the {@code @} of an {@code @name})
+     * @param end   where it ends (exclusive)
+     * @param at    whether it was written with {@code @}
+     */
+    record Match(String name, int start, int end, boolean at) {
+    }
 
     private Mentions() {
     }
@@ -27,6 +40,15 @@ final class Mentions {
      */
     static Set<String> find(String text, Collection<String> names, boolean plainNames, int minPlainLength) {
         Set<String> found = new LinkedHashSet<>();
+        for (Match match : matches(text, names, plainNames, minPlainLength)) {
+            found.add(match.name());
+        }
+        return found;
+    }
+
+    /** Every mention in the text, in order, with where it is and whether it was written with {@code @}. */
+    static List<Match> matches(String text, Collection<String> names, boolean plainNames, int minPlainLength) {
+        List<Match> found = new ArrayList<>();
         if (text.isEmpty() || names.isEmpty()) {
             return found;
         }
@@ -43,6 +65,7 @@ final class Mentions {
                 continue;
             }
             boolean at = c == '@';
+            int atIndex = i;
             if (at) {
                 boolean afterWord = i > 0 && isNameChar(text.charAt(i - 1));
                 i++;
@@ -63,7 +86,7 @@ final class Mentions {
             String word = text.substring(start, i);
             String name = byLower.get(word.toLowerCase(Locale.ROOT));
             if (name != null && (at || (plainNames && word.length() >= minPlainLength))) {
-                found.add(name);
+                found.add(new Match(name, at ? atIndex : start, i, at));
             }
         }
         return found;
