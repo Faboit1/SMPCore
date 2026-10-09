@@ -23,8 +23,8 @@ chat:
     team: "<secondary><icon:team> Team <primary><team>"
     no-team: "<secondary><icon:team> No team"
     balance: "<secondary><icon:money> Balance <balance>"
-    kills: "<secondary><icon:kill> Kills <kills>"
-    playtime: "<secondary><icon:playtime> Playtime <playtime>"
+    kills: "<secondary><icon:kill> Kills <accent><kills>"
+    playtime: "<secondary><icon:playtime> Playtime <accent><playtime>"
     # The last line while the server has profiles (/profile): clicking the name opens the player's profile (friend
     # actions, teleport, pay, stats), shift-clicking it puts "/msg <name> " in the chat box.
     click-profile: "<secondary>Click for <name>'s profile, shift-click to message"
@@ -96,20 +96,19 @@ chat:
     staff: "<primary>You can't ignore <name>, they are staff."
     full: "<primary>You can ignore up to <max> players. <secondary>Stop ignoring someone first."
     not-ignored: "<primary>You don't ignore <name>."
+    # The /ignore dialog: one button per ignored player, what each does in its tooltip.
     list:
       title: "Ignored players"
       empty: "<secondary>You don't ignore anyone."
-      one: "<primary>You ignore 1 player. <secondary>Pick them to stop ignoring them."
-      many: "<primary>You ignore <count> players. <secondary>Pick one to stop ignoring them."
-      page: "<secondary>Page <page> of <pages>"
+      count: "<secondary>Ignoring <accent><count></accent> of <accent><max></accent> players"
+      name-tooltip: "<primary>Stop ignoring <name>.<newline><secondary>Asks first."
       add: "Ignore a player"
-      next: "Next page"
-      previous: "Previous page"
+      add-tooltip: "<primary>Stop seeing someone's chat, private messages and requests."
     form:
       title: "Ignore a player"
-      body: "<secondary>You won't see their chat, private messages or teleport requests."
       name: "Player name"
       submit: "Ignore"
+      submit-tooltip: "<primary>You won't see their chat, private messages or teleport requests."
     confirm:
       title: "Stop ignoring"
       body: "<primary>Stop ignoring <name>? <secondary>You will see their chat and messages again."

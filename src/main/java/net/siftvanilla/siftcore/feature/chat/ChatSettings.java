@@ -30,8 +30,7 @@ import net.siftvanilla.siftcore.core.config.ConfigReader;
  * @param mentionCooldown    how often one player can ping the same player
  * @param replyExpiry        how long {@code /r} keeps its target
  * @param logPrivate         private messages are written to the console
- * @param maxIgnores         the most players one player can ignore
- * @param ignorePageSize     names per page of the ignore list dialog
+ * @param maxIgnores         the most players one player can ignore (the ignore list dialog shows them all, it scrolls)
  * @param newPlayerPlaytime  senders with less active playtime are hidden from players who turned on "Hide brand-new
  *                           players" (zero removes the setting)
  */
@@ -55,7 +54,6 @@ record ChatSettings(
     Duration replyExpiry,
     boolean logPrivate,
     int maxIgnores,
-    int ignorePageSize,
     Duration newPlayerPlaytime) {
 
     /** The longest chat message a client can send. */
@@ -145,7 +143,6 @@ record ChatSettings(
             messages.duration("reply-expiry", Duration.ofMinutes(1), Duration.ofDays(1), Duration.ofMinutes(10)),
             messages.bool("log-to-console", true),
             ignore.integer("max", 1, 1000, 100),
-            ignore.integer("page-size", 4, 30, 10),
             newPlayers.duration("playtime", Duration.ZERO, Duration.ofDays(7), Duration.ofMinutes(30)));
     }
 

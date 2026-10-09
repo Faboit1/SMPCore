@@ -12,6 +12,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.SpawnArea;
@@ -22,6 +23,7 @@ import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
+import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -153,10 +155,10 @@ final class TeamActions {
         List<Component> body = this.lang.lines(TeamsMessages.INVITE_BODY,
             Arg.text("inviter", inviterName),
             Arg.text("team", team.name()),
-            Arg.number("members", team.size()),
-            this.feedback.limit("limit", team),
-            Arg.time("time", left));
-        return this.services.templates().confirm(this.lang.get(TeamsMessages.INVITE_TITLE), body,
+            Arg.text("members", Lang.number(team.size())),
+            this.feedback.limitText("limit", team),
+            Arg.text("time", Durations.format(left)));
+        View view = this.services.templates().confirm(this.lang.get(TeamsMessages.INVITE_TITLE), body,
             this.lang.get(TeamsMessages.INVITE_JOIN), this.lang.get(TeamsMessages.INVITE_DECLINE),
             submission -> {
                 submission.close();
@@ -171,7 +173,12 @@ final class TeamActions {
                 if (!outcome.ok()) {
                     this.feedback.send(submission.player(), outcome.problem(), outcome.team(), team.name());
                 }
-            }).closing();
+            });
+        List<Button> buttons = List.of(
+            view.buttons().get(0).tooltip(this.lang.get(TeamsMessages.INVITE_JOIN_TOOLTIP, Arg.text("team", team.name()))),
+            view.buttons().get(1).tooltip(this.lang.get(TeamsMessages.INVITE_DECLINE_TOOLTIP, Arg.text("inviter", inviterName))));
+        return new View(view.kind(), view.title(), view.body(), view.inputs(), buttons, view.exit(), view.columns(), view.escapable())
+            .closing();
     }
 
     TeamService.Outcome accept(Player player, long teamId) {
@@ -299,10 +306,22 @@ final class TeamActions {
     }
 
     TeamService.Outcome friendlyFire(Player actor, Boolean on) {
+        return friendlyFire(actor, on, false);
+    }
+
+    /**
+     * Turns friendly fire on or off. The team is told; the actor too, unless the change came from the switch of the
+     * team dialog ({@code fromSwitch}), whose new state already shows it (no message per click).
+     */
+    TeamService.Outcome friendlyFire(Player actor, Boolean on, boolean fromSwitch) {
         TeamService.Outcome outcome = this.service.friendlyFire(actor.getUniqueId(), on);
         if (outcome.ok()) {
-            news(outcome.team(), Set.of(actor.getUniqueId()), outcome.team().friendlyFire() ? TeamsMessages.TEAM_FRIENDLY_FIRE_ON
-                : TeamsMessages.TEAM_FRIENDLY_FIRE_OFF, Arg.text("actor", actor.getName()));
+            MessageKey key = outcome.team().friendlyFire() ? TeamsMessages.TEAM_FRIENDLY_FIRE_ON : TeamsMessages.TEAM_FRIENDLY_FIRE_OFF;
+            if (fromSwitch) {
+                broadcast(outcome.team(), actor.getUniqueId(), key, Arg.text("actor", actor.getName()));
+            } else {
+                news(outcome.team(), Set.of(actor.getUniqueId()), key, Arg.text("actor", actor.getName()));
+            }
         }
         return outcome;
     }
@@ -352,15 +371,25 @@ final class TeamActions {
         return new Location(world, home.x(), home.y(), home.z(), home.yaw(), home.pitch());
     }
 
-    /** Switches team chat mode; returns why it could not, or null. */
+    /** Switches team chat mode and says so; returns why it could not, or null. */
     TeamProblem toggleChat(Player player) {
+        return toggleChat(player, true);
+    }
+
+    /**
+     * Switches team chat mode; returns why it could not, or null. {@code tell} false (the switch of the team dialog,
+     * which shows the new state) sends no message.
+     */
+    TeamProblem toggleChat(Player player, boolean tell) {
         Team team = this.registry.of(player.getUniqueId()).orElse(null);
         if (team == null) {
             this.chat.off(player.getUniqueId());
             return TeamProblem.NOT_IN_TEAM;
         }
         boolean on = this.chat.toggle(player.getUniqueId(), team);
-        this.messenger.send(player, on ? TeamsMessages.CHAT_ON : TeamsMessages.CHAT_OFF);
+        if (tell) {
+            this.messenger.send(player, on ? TeamsMessages.CHAT_ON : TeamsMessages.CHAT_OFF);
+        }
         return null;
     }
 

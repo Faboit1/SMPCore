@@ -80,6 +80,21 @@ class CosmeticsResourcesTest {
     }
 
     @Test
+    void pickersMarkTheChosenOptionAndNamePerksPlainly() throws Exception {
+        Lang lang = lang();
+        YamlConfiguration file = yaml("lang/cosmetics.yml");
+        assertEquals(List.of(), lang.load(file, file, "lang/cosmetics.yml"));
+        assertEquals("Gold (now)", lang.plain(CosmeticsMessages.CURRENT_OPTION, Arg.text("option", "Gold")));
+        assertEquals("locked", lang.plain(CosmeticsMessages.MENU_LOCKED));
+        for (String path : List.of("cosmetics.menu.body", "cosmetics.color.body", "cosmetics.color.premium-body",
+            "cosmetics.color.custom-body", "cosmetics.nick.body", "cosmetics.tags.body", "cosmetics.join.body", "cosmetics.join.rank-body",
+            "cosmetics.kill.body", "cosmetics.page", "cosmetics.next-page")) {
+            assertFalse(file.contains(path), path + ": explanations live in tooltips now, and nothing is paged");
+        }
+        assertEquals("Click to use it.", lang.plain(CosmeticsMessages.TAGS_PICK_TOOLTIP));
+    }
+
+    @Test
     void langFileHasNoUnusedEntries() throws Exception {
         Lang lang = lang();
         YamlConfiguration file = yaml("lang/cosmetics.yml");

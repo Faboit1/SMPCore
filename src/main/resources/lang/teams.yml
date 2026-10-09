@@ -56,15 +56,17 @@ teams:
     declined: "<secondary>You declined the invite from <team>."
     declined-inviter: "<secondary><name> declined your team invite."
     form-title: "Invite a player"
-    form-body: "<secondary>They have <time> to accept."
     form-player: "Player name"
     form-button: "Invite"
+    form-button-tooltip: "<primary>They get an invite in chat.<newline><secondary>It lasts <accent><time></accent>."
     title: "Team invite"
     body:
       - "<primary><inviter> invited you to join <team>."
-      - "<secondary>It has <members> of <limit> members. The invite lasts <time>."
+      - "<secondary>It has <accent><members></accent> of <accent><limit></accent> members. The invite lasts <accent><time></accent>."
     join: "Join"
+    join-tooltip: "<primary>Join <team>."
     decline: "Decline"
+    decline-tooltip: "<primary><inviter> is told you declined."
 
   friendly-fire:
     already-on: "<secondary>Friendly fire is already on."
@@ -107,29 +109,16 @@ teams:
     friendly-fire-off: "<primary><actor> <secondary>turned friendly fire off."
     renamed: "<secondary>Your team is now called <primary><name><secondary>."
 
+  # The /team dialogs: buttons, with what each does in its tooltip (hover it). Values are coloured (accent), labels plain.
   menu:
     title: "Team"
     team-title: "Team <name>"
-    none:
-      - "<primary>You're not in a team."
-      - "<secondary>Start one for <cost>, or join a team that invites you."
-    none-free:
-      - "<primary>You're not in a team."
-      - "<secondary>Start one, or join a team that invites you."
-    invites: "<primary>Invites"
-    invite-line: "<primary><team> <secondary>from <inviter>, <time> left"
+    # The one status line of the dialog for players without a team.
+    none: "<secondary>You're not in a team."
+    # The status lines above the buttons of your team's dialog.
     summary:
       - "<secondary>Owner <primary><owner>"
-      - "<secondary>Members <primary><members><secondary> of <primary><limit><secondary>, <primary><online><secondary> online"
-    home: "<icon:home> <secondary>Home at <primary><x>, <y>, <z><secondary> in <primary><world>"
-    no-home: "<icon:home> <secondary>No team home yet"
-    friendly-fire-on: "<secondary>Friendly fire is <primary>on"
-    friendly-fire-off: "<secondary>Friendly fire is <primary>off"
-    chat-on: "<secondary>Your team chat is <primary>on"
-    members: "<primary>Members"
-    member-online: "<primary><name> <secondary><role>, online"
-    member-offline: "<primary><name> <secondary><role>, seen <time> ago"
-    member-offline-hidden: "<primary><name> <secondary><role>, offline"
+      - "<secondary>Members <accent><members></accent> of <accent><limit></accent>, <on><online></on> online"
 
   roles:
     owner: "owner"
@@ -139,58 +128,84 @@ teams:
 
   button:
     create: "Start a team"
-    create-tooltip: "<secondary>Costs <cost>"
+    create-tooltip: "<primary>Pick a name and start your own team.<newline><secondary>Invite your friends once it exists."
+    # Added to the tooltip while starting a team costs money (teams.yml create.cost).
+    create-cost-tooltip: "<secondary>Costs <cost>."
     answer-invite: "Invite from <team>"
+    answer-invite-tooltip: "<primary><inviter> invited you.<newline><secondary><accent><time></accent> left to answer."
     home: "Team home"
-    home-tooltip: "<secondary>Teleports after <time>"
-    chat-on: "Turn team chat on"
-    chat-off: "Turn team chat off"
-    chat-tooltip: "<secondary>Or use /tc and a message for one message"
+    home-tooltip: "<primary>At <accent><x>, <y>, <z></accent> in <accent><world></accent>.<newline><secondary>Teleports after <accent><time></accent>."
+    # A switch: "Team chat: ON" (green) or "Team chat: OFF" (red).
+    chat: "Team chat"
+    chat-tooltip: "<primary>Your messages only reach your team while it's on.<newline><secondary>/tc and a message sends just one."
+    friendly-fire: "Friendly fire"
+    friendly-fire-tooltip: "<primary>Whether members can hurt each other."
+    # The friendly fire switch of members who can't change it, greyed.
+    friendly-fire-locked: "<secondary>Friendly fire: <value>"
+    friendly-fire-locked-tooltip: "<primary>Whether members can hurt each other.<newline><secondary>The owner and admins change it."
+    members: "Members"
+    members-tooltip: "<primary>See who's in the team and who's online."
+    members-manage-tooltip: "<primary>See who's in the team and who's online.<newline><secondary>Click a member to make them an admin or remove them."
     invite: "Invite a player"
-    kick: "Remove a member"
-    promote: "Make an admin"
-    demote: "Remove an admin"
+    invite-tooltip: "<primary>Invite someone who is online.<newline><secondary>They have <accent><time></accent> to accept."
     set-home: "Set home here"
-    set-home-tooltip: "<secondary>Moves the team home to where you stand"
-    friendly-fire-on: "Turn friendly fire on"
-    friendly-fire-off: "Turn friendly fire off"
-    friendly-fire-tooltip: "<secondary>Whether members can hurt each other"
-    transfer: "Hand over the team"
-    transfer-tooltip: "<secondary>You stay in the team as an admin"
-    disband: "Disband the team"
-    leave: "Leave the team"
+    set-home-tooltip: "<primary>Moves the team home to where you stand."
     stats: "Team stats"
+    stats-tooltip: "<primary>Kills, money and places on the leaderboards."
     top: "Top teams"
+    top-tooltip: "<primary>The best teams by kills and by money."
     list: "All teams"
+    list-tooltip: "<primary>Every team, biggest first."
+    settings: "Settings"
+    settings-tooltip: "<primary>Team news, teammate login alerts and who can invite you."
+    disband: "Disband the team"
+    disband-tooltip: "<primary>Ends the team for everyone.<newline><secondary>Asks first."
+    leave: "Leave the team"
+    leave-tooltip: "<primary>You need a new invite to come back.<newline><secondary>Asks first."
+
+  # The members dialog: one button per member ("Alex: owner, online").
+  members:
+    title: "Members of <team>"
+    online: "<name>: <accent><role></accent>, <on>online"
+    offline: "<name>: <accent><role></accent>, <secondary>seen <time> ago"
+    # An offline member whose last online time the viewer may not see (their privacy setting).
+    offline-hidden: "<name>: <accent><role></accent>, <secondary>offline"
+    tooltip: "<secondary>In the team for <accent><time>"
+    tooltip-manage: "<secondary>Click to make them an admin or remove them."
+    tooltip-you: "<secondary>That's you."
+
+  # One member's dialog (opened from the members dialog).
+  member-view:
+    role: "<secondary>Role <accent><role>"
+    online: "<on>Online"
+    seen: "<secondary>Seen <accent><time></accent> ago"
+    offline: "<secondary>Offline"
+    joined: "<secondary>In the team for <accent><time>"
+    promote: "Make admin"
+    promote-tooltip: "<primary>Admins can invite, remove members and set the team home."
+    demote: "Make member"
+    demote-tooltip: "<primary>Takes their admin role away."
+    kick: "Remove from the team"
+    kick-tooltip: "<primary>They leave the team.<newline><secondary>Asks first."
+    transfer: "Hand over the team"
+    transfer-tooltip: "<primary>Makes them the owner. You stay as an admin.<newline><secondary>Asks first."
+    kick-title: "Remove a member"
+    kick-body: "<primary>Remove <name> from <team>?"
+    kick-button: "Remove"
+    gone: "<primary><name> is not in your team anymore."
 
   create:
     form-title: "Start a team"
-    form-body:
-      - "<primary>Pick a name for your team."
-      - "<secondary><min> to <max> letters, numbers or _. Starting a team costs <cost>."
-    form-body-free:
-      - "<primary>Pick a name for your team."
-      - "<secondary><min> to <max> letters, numbers or _."
     form-name: "Team name"
     form-button: "Continue"
+    form-button-tooltip: "<primary>A name of <accent><min></accent> to <accent><max></accent> letters, numbers or _."
+    # Added to the tooltip while starting a team costs money (teams.yml create.cost).
+    form-cost-tooltip: "<secondary>Starting a team costs <cost>."
     confirm-title: "Start a team"
     confirm-body:
       - "<primary>Start the team <name> for <cost>?"
       - "<secondary>The money isn't refunded if the team is disbanded."
     confirm-button: "Start team"
-
-  pick:
-    kick-title: "Remove a member"
-    promote-title: "Make an admin"
-    demote-title: "Remove an admin"
-    transfer-title: "Hand over the team"
-    label: "Member"
-    option: "<primary><name> <secondary><role>"
-    kick-button: "Remove"
-    promote-button: "Make admin"
-    demote-button: "Make member"
-    transfer-button: "Continue"
-    nobody: "<secondary>There's nobody to pick."
 
   transfer:
     title: "Hand over the team"
@@ -201,9 +216,13 @@ teams:
 
   disband:
     title: "Disband the team"
+    # While starting a team costs money (teams.yml create.cost).
     body:
       - "<primary>Disband <team>?"
       - "<secondary>Everyone is removed from it and the cost to start it isn't refunded."
+    body-free:
+      - "<primary>Disband <team>?"
+      - "<secondary>Everyone is removed from it."
     button: "Disband"
 
   leave:
@@ -216,11 +235,14 @@ teams:
   info:
     body:
       - "<secondary>Owner <primary><owner>"
-      - "<secondary>Members <primary><members><secondary> of <primary><limit><secondary>, <primary><online><secondary> online"
-      - "<icon:kill> <secondary>Kills <primary><kills><secondary>, deaths <primary><deaths>"
+      - "<secondary>Members <accent><members></accent> of <accent><limit></accent>, <on><online></on> online"
+      - "<icon:kill> <secondary>Kills <accent><kills></accent>, deaths <accent><deaths>"
       - "<icon:money> <money><secondary> between the members"
-      - "<secondary>Started <primary><age><secondary> ago"
-    places: "<secondary>Place <primary><kills><secondary> by kills, <primary><money><secondary> by money"
+      - "<secondary>Started <accent><age></accent> ago"
+    places: "<secondary>Place <accent><kills></accent> by kills, <accent><money></accent> by money"
+    friendly-fire: "<secondary>Friendly fire <value>"
+    home: "<icon:home> <secondary>Home at <accent><x>, <y>, <z></accent> in <accent><world>"
+    no-home: "<icon:home> <secondary>No team home yet"
     # The same facts as plain lines for the console (no icons there).
     text:
       - "<secondary>Owner <primary><owner><secondary>, members <primary><members><secondary> of <primary><limit><secondary>, <primary><online><secondary> online"
@@ -230,31 +252,36 @@ teams:
     no-home-text: "<secondary>No team home yet"
     header: "<primary>Team <name>"
     member-names: "<secondary>Members: <primary><names>"
+    members: "Members"
+    members-tooltip: "<primary>See who's in the team and who's online."
 
   list:
     title: "All teams"
-    page: "<secondary>Page <page> of <pages>, <count> in all"
+    # Above a list that shows only the biggest teams (teams.yml list-size).
+    capped: "<secondary>The <accent><count></accent> biggest teams"
     header: "<primary>Teams <secondary>page <page> of <pages>, <count> in all"
     line: "<primary><name> <secondary>members <primary><members><secondary>, online <primary><online>"
     empty: "<secondary>There are no teams yet."
-    button-tooltip: "<secondary>Members <primary><members><secondary>, online <primary><online>"
-
-  page:
-    next: "Next page"
-    previous: "Previous page"
+    # A team's button: "Alpha: 4 members".
+    button: "<name>: <accent><members></accent> members"
+    button-one: "<name>: <accent>1</accent> member"
+    button-tooltip: "<on><online></on><secondary> online<newline><secondary>Click for their stats"
 
   top:
     kills-title: "Top teams by kills"
     money-title: "Top teams by money"
     kills-header: "<primary>Top teams by kills"
     money-header: "<primary>Top teams by money"
-    kills-line: "<secondary><rank>. <primary><name> <value>"
+    kills-line: "<secondary><rank>. <primary><name> <accent><value>"
     money-line: "<secondary><rank>. <primary><name> <value>"
-    kills-you: "<secondary>Your team is number <rank> with <value> in total."
-    money-you: "<secondary>Your team is number <rank> with <value>."
+    kills-you: "<secondary>Your team is number <accent><rank></accent> with <accent><value></accent> in total."
+    money-you: "<secondary>Your team is number <accent><rank></accent> with <value>."
     empty: "<secondary>No team is ranked yet."
-    by-kills: "By kills"
-    by-money: "By money"
+    # A choice: "Ranked by: Kills"; clicking moves to the other board.
+    ranked-by: "Ranked by"
+    ranked-by-tooltip: "<primary>Click to rank the teams by the other one."
+    by-kills: "Kills"
+    by-money: "Money"
 
   help:
     - "<primary>/team <secondary>opens your team menu"

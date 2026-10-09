@@ -150,14 +150,14 @@ final class ChatCommands {
                 .executes(ctx -> {
                     Player player = this.support.player(ctx);
                     if (player != null) {
-                        this.views.openList(player, 1);
+                        this.views.openList(player);
                     }
                     return CommandSupport.OK;
                 })
                 .then(Commands.literal("list").executes(ctx -> {
                     Player player = this.support.player(ctx);
                     if (player != null) {
-                        this.views.openList(player, 1);
+                        this.views.openList(player);
                     }
                     return CommandSupport.OK;
                 }))

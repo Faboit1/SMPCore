@@ -154,10 +154,10 @@ staff:
     too-many: "<primary>You have <count> open reports. Wait until staff look at them."
     handled: "<primary>Staff looked at your report about <name>. Thanks for helping."
     form-title: "Report a player"
-    form-body: "<secondary>Tell staff who broke the rules and what happened."
     form-player: "Player name"
     form-reason: "What happened"
     form-submit: "Send report"
+    form-submit-tooltip: "<primary>Tell staff who broke the rules and what happened.<newline><secondary>Only staff see it."
     notify: "<secondary>Report <primary>#<id><secondary>: <primary><reporter><secondary> reported <primary><target><secondary>: <primary><reason>"
     notify-hover: "<secondary>Click to review this report"
   hub:

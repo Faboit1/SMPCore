@@ -117,7 +117,7 @@ public final class StaffMessages {
     public static final MessageKey REPORT_TOO_MANY = MessageKey.error("staff.report.too-many", "count");
     public static final MessageKey REPORT_HANDLED = MessageKey.notify("staff.report.handled", "name");
     public static final MessageKey REPORT_FORM_TITLE = MessageKey.ui("staff.report.form-title");
-    public static final MessageKey REPORT_FORM_BODY = MessageKey.ui("staff.report.form-body");
+    public static final MessageKey REPORT_FORM_SUBMIT_TOOLTIP = MessageKey.ui("staff.report.form-submit-tooltip");
     public static final MessageKey REPORT_FORM_PLAYER = MessageKey.ui("staff.report.form-player");
     public static final MessageKey REPORT_FORM_REASON = MessageKey.ui("staff.report.form-reason");
     public static final MessageKey REPORT_FORM_SUBMIT = MessageKey.ui("staff.report.form-submit");

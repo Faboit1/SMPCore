@@ -11,6 +11,9 @@ import net.siftvanilla.siftcore.core.money.MoneyFormat;
 /**
  * Parsed {@code features/teams.yml}.
  *
+ * @param createCost         what starting a team costs; 0 (the shipped value) makes it free, and no cost is named anywhere
+ * @param pageSize           teams per page of {@code /team list} in the console
+ * @param listSize           how many teams, biggest first, the All teams dialog shows (it scrolls, no pages)
  * @param homeDisabledWorlds worlds where team homes can't be set or used ({@code home.disabled-worlds})
  * @param memberAlerts       timing of teammate login alerts ({@code member-alerts})
  */
@@ -30,6 +33,7 @@ public record TeamsSettings(
     Duration topRefresh,
     int topSize,
     int pageSize,
+    int listSize,
     Set<String> homeDisabledWorlds,
     MemberAlerts memberAlerts) {
 
@@ -84,7 +88,7 @@ public record TeamsSettings(
             disabled.add(world);
         }
         return new TeamsSettings(
-            create.money("cost", money, true, 50_000),
+            create.money("cost", money, true, 0),
             min,
             max,
             TeamNames.cleanBlockList(names.stringList("blocked-words", List.of())),
@@ -99,6 +103,7 @@ public record TeamsSettings(
             top.duration("refresh", Duration.ofSeconds(10), Duration.ofHours(1), Duration.ofSeconds(60)),
             top.integer("size", 3, 100, 10),
             r.integer("page-size", 5, 20, 10),
+            r.integer("list-size", 10, 1000, 100),
             disabled,
             new MemberAlerts(
                 alerts.duration("join-delay", Duration.ofMillis(50), Duration.ofMinutes(1), MemberAlerts.DEFAULTS.joinDelay()),

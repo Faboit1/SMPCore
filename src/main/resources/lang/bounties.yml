@@ -18,14 +18,16 @@ bounties:
     confirm-title: "Confirm bounty"
     confirm-body:
       - "<primary>Put <amount> on <name>?"
-      - "<secondary>Whoever kills them gets it, minus <tax>% tax."
-      - "<secondary>If nobody does within <time>, you get it back."
-      - "<secondary>You can't take it back before then."
+      - "<secondary>You get it back if nobody kills them within <accent><time></accent>."
+    # Only while bounties.yml claim.tax-percent is above 0.
+    confirm-tax: "<secondary>The killer gets it minus <accent><tax>%</accent> tax."
     confirm-button: "Place bounty"
+    confirm-tooltip: "<primary>Whoever kills them gets the money.<newline><secondary>You can't take it back before it runs out."
     form-title: "Place a bounty"
-    form-body: "<secondary>The money is held until someone kills them. If nobody does within <time>, you get it back."
     form-player: "Player name"
     form-amount: "Amount, at least <minimum>"
+    form-submit: "Place bounty"
+    form-submit-tooltip: "<primary>The money waits until someone kills them.<newline><secondary>If nobody does within <accent><time></accent>, you get it back."
   claim:
     claimed: "<primary>You claimed <payout> for killing <name>. <secondary><tax> went to tax."
     claimed-no-tax: "<primary>You claimed <payout> for killing <name>."
@@ -38,20 +40,25 @@ bounties:
     removed: "<primary>Your <amount> bounty on <name> was removed by staff. You got it back."
   list:
     title: "Bounties"
-    intro: "<secondary>The biggest bounties right now. Kill the player to claim one."
+    # Above a list that shows only the biggest ones (bounties.yml list-size).
+    capped: "<secondary>The <accent><count></accent> biggest bounties"
+    # Hovering a bounty's button ("Name: $5,000").
+    tooltip: "<secondary>Number <accent><rank></accent>, put up by <primary><sponsors><newline><secondary>Kill them to claim it"
     line: "<secondary><rank>. <primary><name> <total> <secondary>from <sponsors>"
     empty: "<secondary>Nobody has a bounty right now."
     yours: "<secondary>The bounty on you is <total><secondary>."
     header: "<primary>Biggest bounties"
     place: "Place a bounty"
+    place-tooltip: "<primary>Put money on a player's head.<newline><secondary>Whoever kills them gets it."
   details:
     title: "Bounty on <name>"
     total: "<primary><icon:bounty> <total>"
     sponsors: "<secondary>Put up by <primary><sponsors>"
     yours: "<secondary>Your part <amount>"
-    expiry: "<secondary>The oldest part runs out in <time>"
-    hint: "<secondary>Kill <primary><name> <secondary>to claim it. <tax>% goes to tax."
-    hint-self: "<secondary>Stay alive and it runs out, part by part."
+    expiry: "<secondary>The oldest part runs out in <accent><time>"
+    claim-tooltip: "<primary>Add money to it.<newline><secondary>Whoever kills <name> gets all of it."
+    # Only while bounties.yml claim.tax-percent is above 0.
+    tax-tooltip: "<secondary><accent><tax>%</accent> of it goes to tax."
     none: "<primary><name> has no bounty."
     add: "Add to this bounty"
     place: "Put a bounty on them"

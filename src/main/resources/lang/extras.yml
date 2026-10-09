@@ -18,20 +18,21 @@ extras:
       - "<primary>6. PvP and raiding are part of the game, but no spawn camping."
       - ""
       - "<secondary>Staff decisions are final. Breaking the rules can mean a ban."
+  # /help: one button per place to start (the menu's own names), what it is in the tooltip.
   help:
     title: "Getting started"
     menu: "Open the menu"
-    body:
-      - "<primary>Welcome to SiftVanilla."
-      - "<secondary>Everything is in the menu: press Escape and pick SiftVanilla, or type /menu."
-      - ""
-      - "<primary>/rtp <secondary>takes you somewhere new to start."
-      - "<primary>/sell <secondary>turns what you gather into money."
-      - "<primary>/shop <secondary>and <primary>/ah <secondary>are where you spend it."
-      - "<primary>/sethome <secondary>and <primary>/home <secondary>bring you back."
-      - "<primary>/team <secondary>lets you play with friends."
-      - "<primary>/friend <secondary>shows who's online and lets you add friends."
-      - "<primary>/spawn <secondary>takes you back here."
+    menu-tooltip: "<primary>Everything is in the menu.<newline><secondary>Press Escape and pick SiftVanilla, or type /menu."
+    tooltips:
+      rtp: "<primary>Somewhere new to start.<newline><secondary>Or type /rtp"
+      sell: "<primary>Turn what you gather into money.<newline><secondary>Or type /sell"
+      shop: "<primary>Spend your money on what you need.<newline><secondary>Or type /shop"
+      auction: "<primary>Buy from and sell to other players.<newline><secondary>Or type /ah"
+      homes: "<primary>Places that bring you back.<newline><secondary>/sethome saves one, /home takes you there"
+      teams: "<primary>Play together with friends.<newline><secondary>Or type /team"
+      friends: "<primary>See who's online and add friends.<newline><secondary>Or type /friend"
+      spawn: "<primary>Back to spawn.<newline><secondary>Or type /spawn"
+      rules: "<primary>What's allowed here.<newline><secondary>Or type /rules"
   ping:
     self: "<primary>Your ping is <ping> ms."
     other: "<primary><name>'s ping is <ping> ms."

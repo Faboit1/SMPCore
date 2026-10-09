@@ -82,23 +82,22 @@ class FriendsResourcesTest {
             lang.plain(FriendsMessages.REQUEST_OUTGOING_FULL, Arg.number("count", 20)));
         assertEquals("You can send friend requests in 9m 30s.", lang.plain(FriendsMessages.REQUEST_TOO_NEW,
             Arg.time("time", Duration.ofSeconds(570))));
-        assertEquals("2 of 5 online, 5 of 50 friends.", lang.plain(FriendsMessages.LIST_SUMMARY, Arg.number("online", 2),
-            Arg.number("total", 5), Arg.number("limit", 50)));
-        assertEquals("Alex, seen 3d ago", lang.plain(FriendsMessages.LIST_ROW, Arg.text("name", "Alex"),
-            Arg.text("status", lang.plain(FriendsMessages.STATUS_SEEN, Arg.text("ago", "3d")))));
-        assertEquals("Cancel: Cara, 1d ago", lang.plain(FriendsMessages.REQUESTS_OUTGOING_ROW, Arg.text("name", "Cara"),
+        assertEquals("2 online, 5 of 50 friends", lang.plain(FriendsMessages.LIST_SUMMARY, Arg.text("online", "2"),
+            Arg.text("total", "5"), Arg.text("limit", "50")));
+        assertEquals("Alex, seen 3d ago", lang.plain(FriendsMessages.LIST_ROW_SEEN, Arg.text("name", "Alex"), Arg.text("ago", "3d")));
+        assertEquals("Alex, online", lang.plain(FriendsMessages.LIST_ROW_ONLINE, Arg.text("name", "Alex")));
+        assertEquals("Sent to Cara, 1d ago", lang.plain(FriendsMessages.REQUESTS_OUTGOING_ROW, Arg.text("name", "Cara"),
             Arg.text("ago", "1d")));
         assertEquals("Remove Alex? They won't be told.", lang.plain(FriendsMessages.PROFILE_REMOVE_BODY, Arg.text("name", "Alex")));
         assertEquals("Your note: <b>x</b>", lang.plain(FriendsMessages.PROFILE_NOTE, Arg.text("note", "<b>x</b>")),
             "player text stays literal");
-        assertEquals("Requests (4)", lang.plain(FriendsMessages.LIST_REQUESTS, Arg.number("count", 4)));
+        assertEquals("Requests", lang.plain(FriendsMessages.LIST_REQUESTS));
         assertEquals("Mutual friends: 3 (Bob, Cara and 1 more)", lang.plain(FriendsMessages.PROFILE_MUTUAL_NAMES,
             Arg.number("count", 3), Arg.text("names", "Bob, Cara and 1 more")));
         assertEquals("Your friend list is full (500).", lang.plain(FriendsMessages.REQUEST_SENDER_FULL_MAX, Arg.number("limit", 500)),
             "no rank hint at the hard cap");
         assertEquals("Your favourites are full (1).", lang.plain(FriendsMessages.PROFILE_FAVOURITES_FULL, Arg.number("count", 1)));
         assertEquals("Alex went offline.", lang.plain(FriendsMessages.ALERT_OFFLINE, Arg.component("name", Component.text("Alex"))));
-        assertEquals("Page 2 of 3.", lang.plain(FriendsMessages.PAGE, Arg.number("page", 2), Arg.number("pages", 3)));
         assertEquals("Cancel your request to Cara?", lang.plain(FriendsMessages.REQUESTS_CANCEL_BODY, Arg.text("name", "Cara")));
         assertEquals("Use one of these for requests: everyone, known, nobody.", lang.plain(FriendsMessages.SETTINGS_UNKNOWN_VALUE,
             Arg.text("setting", "requests"), Arg.text("values", "everyone, known, nobody")));
@@ -145,7 +144,8 @@ class FriendsResourcesTest {
         assertEquals(Duration.ofSeconds(30), settings.leaveDelay());
         assertEquals(Duration.ofSeconds(60), settings.startupQuiet());
         assertEquals(Duration.ofSeconds(10), settings.requestBatch());
-        assertEquals(16, settings.pageSize());
+        assertEquals(16, settings.pageSize(), "pages of /friend list in chat; the dialog shows every friend");
+        assertEquals(20, settings.findFrom());
         assertEquals(6, settings.suggestions());
         assertTrue(settings.sneakClick());
         assertEquals(Duration.ofSeconds(1), settings.sneakClickCooldown());

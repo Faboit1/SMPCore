@@ -75,21 +75,28 @@ public final class FriendsMessages {
 
     public static final MessageKey LIST_TITLE = MessageKey.ui("friends.list.title");
     public static final MessageKey LIST_SUMMARY = MessageKey.ui("friends.list.summary", "online", "total", "limit");
-    public static final MessageKey LIST_FULL = MessageKey.ui("friends.list.full");
-    public static final MessageKey PAGE = MessageKey.ui("friends.page", "page", "pages");
     public static final MessageKey LIST_EMPTY = MessageKey.ui("friends.list.empty");
     public static final MessageKey LIST_FILTERED = MessageKey.ui("friends.list.filtered", "query", "count");
-    public static final MessageKey LIST_ROW = MessageKey.ui("friends.list.row", "name", "status");
+    public static final MessageKey LIST_ROW_ONLINE = MessageKey.ui("friends.list.row-online", "name");
+    public static final MessageKey LIST_ROW_AFK = MessageKey.ui("friends.list.row-afk", "name");
+    public static final MessageKey LIST_ROW_SEEN = MessageKey.ui("friends.list.row-seen", "name", "ago");
+    /** An offline friend whose last-seen time the viewer may not see ({@code seen-privacy}). */
+    public static final MessageKey LIST_ROW_OFFLINE = MessageKey.ui("friends.list.row-offline", "name");
     public static final MessageKey LIST_TOOLTIP_FAVOURITE = MessageKey.ui("friends.list.tooltip-favourite");
     public static final MessageKey LIST_TOOLTIP_SINCE = MessageKey.ui("friends.list.tooltip-since", "date");
     public static final MessageKey LIST_TOOLTIP_NOTE = MessageKey.ui("friends.list.tooltip-note", "note");
+    public static final MessageKey LIST_TOOLTIP_OPEN = MessageKey.ui("friends.list.tooltip-open");
     public static final MessageKey LIST_ADD = MessageKey.ui("friends.list.add");
-    public static final MessageKey LIST_REQUESTS = MessageKey.ui("friends.list.requests", "count");
+    public static final MessageKey LIST_ADD_TOOLTIP = MessageKey.ui("friends.list.add-tooltip");
+    public static final MessageKey LIST_ADD_FULL_TOOLTIP = MessageKey.ui("friends.list.add-full-tooltip");
+    public static final MessageKey LIST_REQUESTS = MessageKey.ui("friends.list.requests");
+    public static final MessageKey LIST_REQUESTS_TOOLTIP = MessageKey.ui("friends.list.requests-tooltip");
     public static final MessageKey LIST_SETTINGS = MessageKey.ui("friends.list.settings");
+    public static final MessageKey LIST_SETTINGS_TOOLTIP = MessageKey.ui("friends.list.settings-tooltip");
     public static final MessageKey LIST_FIND = MessageKey.ui("friends.list.find");
+    public static final MessageKey LIST_FIND_TOOLTIP = MessageKey.ui("friends.list.find-tooltip");
     public static final MessageKey LIST_SHOW_ALL = MessageKey.ui("friends.list.show-all");
-    public static final MessageKey LIST_PREVIOUS = MessageKey.ui("friends.list.previous");
-    public static final MessageKey LIST_NEXT = MessageKey.ui("friends.list.next");
+    public static final MessageKey LIST_SHOW_ALL_TOOLTIP = MessageKey.ui("friends.list.show-all-tooltip");
     public static final MessageKey LIST_CHAT_HEADER = MessageKey.chat("friends.list.chat-header", "total", "online", "page", "pages");
     public static final MessageKey LIST_CHAT_ROW = MessageKey.chat("friends.list.chat-row", "name", "status");
     public static final MessageKey LIST_CHAT_EMPTY = MessageKey.chat("friends.list.chat-empty");
@@ -109,17 +116,16 @@ public final class FriendsMessages {
     public static final MessageKey REQUESTS_OUTGOING_ROW = MessageKey.ui("friends.requests.outgoing-row", "name", "ago");
     public static final MessageKey REQUESTS_TOOLTIP_MUTUAL = MessageKey.ui("friends.requests.tooltip-mutual", "count");
     public static final MessageKey REQUESTS_TOOLTIP_TEAM = MessageKey.ui("friends.requests.tooltip-team", "team");
+    public static final MessageKey REQUESTS_TOOLTIP_OPEN = MessageKey.ui("friends.requests.tooltip-open");
     public static final MessageKey REQUESTS_TOOLTIP_CANCEL = MessageKey.ui("friends.requests.tooltip-cancel");
-    public static final MessageKey REQUESTS_SENT_HINT = MessageKey.ui("friends.requests.sent-hint");
     public static final MessageKey REQUESTS_CANCEL_TITLE = MessageKey.ui("friends.requests.cancel-title");
     public static final MessageKey REQUESTS_CANCEL_BODY = MessageKey.ui("friends.requests.cancel-body", "name");
     public static final MessageKey REQUESTS_CANCEL_YES = MessageKey.ui("friends.requests.cancel-yes");
     public static final MessageKey REQUESTS_DENY_ALL = MessageKey.ui("friends.requests.deny-all");
+    public static final MessageKey REQUESTS_DENY_ALL_TOOLTIP = MessageKey.ui("friends.requests.deny-all-tooltip");
     public static final MessageKey REQUESTS_DENY_ALL_TITLE = MessageKey.ui("friends.requests.deny-all-title");
     public static final MessageKey REQUESTS_DENY_ALL_BODY = MessageKey.ui("friends.requests.deny-all-body", "count");
     public static final MessageKey REQUESTS_DENY_ALL_YES = MessageKey.ui("friends.requests.deny-all-yes");
-    public static final MessageKey REQUESTS_PREVIOUS = MessageKey.ui("friends.requests.previous");
-    public static final MessageKey REQUESTS_NEXT = MessageKey.ui("friends.requests.next");
 
     public static final MessageKey REQUEST_VIEW_TITLE = MessageKey.ui("friends.request-view.title");
     public static final MessageKey REQUEST_VIEW_WANTS = MessageKey.ui("friends.request-view.wants", "name");
@@ -128,23 +134,25 @@ public final class FriendsMessages {
     public static final MessageKey REQUEST_VIEW_TEAM = MessageKey.ui("friends.request-view.team", "team");
     public static final MessageKey REQUEST_VIEW_SENT = MessageKey.ui("friends.request-view.sent", "ago");
     public static final MessageKey REQUEST_VIEW_ACCEPT = MessageKey.ui("friends.request-view.accept");
+    public static final MessageKey REQUEST_VIEW_ACCEPT_TOOLTIP = MessageKey.ui("friends.request-view.accept-tooltip");
     public static final MessageKey REQUEST_VIEW_DENY = MessageKey.ui("friends.request-view.deny");
+    public static final MessageKey REQUEST_VIEW_DENY_TOOLTIP = MessageKey.ui("friends.request-view.deny-tooltip");
     public static final MessageKey REQUEST_VIEW_DENY_IGNORE = MessageKey.ui("friends.request-view.deny-ignore");
+    public static final MessageKey REQUEST_VIEW_DENY_IGNORE_TOOLTIP = MessageKey.ui("friends.request-view.deny-ignore-tooltip");
 
     // ------------------------------------------------------------------ add dialog
 
     public static final MessageKey ADD_TITLE = MessageKey.ui("friends.add.title");
-    public static final MessageKey ADD_BODY = MessageKey.ui("friends.add.body");
-    public static final MessageKey ADD_BODY_EMPTY = MessageKey.ui("friends.add.body-empty");
     public static final MessageKey ADD_ENTER = MessageKey.ui("friends.add.enter");
+    public static final MessageKey ADD_ENTER_TOOLTIP = MessageKey.ui("friends.add.enter-tooltip");
     public static final MessageKey ADD_SUGGESTION = MessageKey.ui("friends.add.suggestion", "name", "count");
     public static final MessageKey ADD_SUGGESTION_ONE = MessageKey.ui("friends.add.suggestion-one", "name");
     public static final MessageKey ADD_SUGGESTION_TEAM = MessageKey.ui("friends.add.suggestion-team", "name");
     public static final MessageKey ADD_SUGGESTION_TOOLTIP = MessageKey.ui("friends.add.suggestion-tooltip", "name");
     public static final MessageKey ADD_FORM_TITLE = MessageKey.ui("friends.add.form-title");
-    public static final MessageKey ADD_FORM_BODY = MessageKey.ui("friends.add.form-body");
     public static final MessageKey ADD_FORM_INPUT = MessageKey.ui("friends.add.form-input");
     public static final MessageKey ADD_FORM_SUBMIT = MessageKey.ui("friends.add.form-submit");
+    public static final MessageKey ADD_FORM_SUBMIT_TOOLTIP = MessageKey.ui("friends.add.form-submit-tooltip");
 
     // ------------------------------------------------------------------ profiles
 
@@ -161,25 +169,35 @@ public final class FriendsMessages {
     public static final MessageKey PROFILE_MUTUAL_NAMES = MessageKey.ui("friends.profile.mutual-names", "count", "names");
     public static final MessageKey PROFILE_NOTE = MessageKey.ui("friends.profile.note", "note");
     public static final MessageKey PROFILE_MESSAGE = MessageKey.ui("friends.profile.message");
+    public static final MessageKey PROFILE_MESSAGE_TOOLTIP = MessageKey.ui("friends.profile.message-tooltip");
     public static final MessageKey PROFILE_TELEPORT = MessageKey.ui("friends.profile.teleport");
+    public static final MessageKey PROFILE_TELEPORT_TOOLTIP = MessageKey.ui("friends.profile.teleport-tooltip");
     public static final MessageKey PROFILE_INVITE = MessageKey.ui("friends.profile.invite");
+    public static final MessageKey PROFILE_INVITE_TOOLTIP = MessageKey.ui("friends.profile.invite-tooltip");
     public static final MessageKey PROFILE_PAY = MessageKey.ui("friends.profile.pay");
+    public static final MessageKey PROFILE_PAY_TOOLTIP = MessageKey.ui("friends.profile.pay-tooltip");
     public static final MessageKey PROFILE_STATS = MessageKey.ui("friends.profile.stats");
+    public static final MessageKey PROFILE_STATS_TOOLTIP = MessageKey.ui("friends.profile.stats-tooltip");
     public static final MessageKey PROFILE_FAVOURITE = MessageKey.ui("friends.profile.favourite");
-    public static final MessageKey PROFILE_UNFAVOURITE = MessageKey.ui("friends.profile.unfavourite");
+    public static final MessageKey PROFILE_FAVOURITE_TOOLTIP = MessageKey.ui("friends.profile.favourite-tooltip");
     public static final MessageKey PROFILE_EDIT_NOTE = MessageKey.ui("friends.profile.edit-note");
+    public static final MessageKey PROFILE_EDIT_NOTE_TOOLTIP = MessageKey.ui("friends.profile.edit-note-tooltip");
     public static final MessageKey PROFILE_REMOVE = MessageKey.ui("friends.profile.remove");
+    public static final MessageKey PROFILE_REMOVE_TOOLTIP = MessageKey.ui("friends.profile.remove-tooltip");
     public static final MessageKey PROFILE_ADD_FRIEND = MessageKey.ui("friends.profile.add-friend");
+    public static final MessageKey PROFILE_ADD_FRIEND_TOOLTIP = MessageKey.ui("friends.profile.add-friend-tooltip");
     public static final MessageKey PROFILE_ACCEPT_REQUEST = MessageKey.ui("friends.profile.accept-request");
+    public static final MessageKey PROFILE_ACCEPT_REQUEST_TOOLTIP = MessageKey.ui("friends.profile.accept-request-tooltip");
     public static final MessageKey PROFILE_CANCEL_REQUEST = MessageKey.ui("friends.profile.cancel-request");
+    public static final MessageKey PROFILE_CANCEL_REQUEST_TOOLTIP = MessageKey.ui("friends.profile.cancel-request-tooltip");
     public static final MessageKey PROFILE_MESSAGE_TITLE = MessageKey.ui("friends.profile.message-title", "name");
     public static final MessageKey PROFILE_MESSAGE_INPUT = MessageKey.ui("friends.profile.message-input");
     public static final MessageKey PROFILE_MESSAGE_SUBMIT = MessageKey.ui("friends.profile.message-submit");
     public static final MessageKey PROFILE_MUTED = MessageKey.error("friends.profile.muted");
     public static final MessageKey PROFILE_NOTE_TITLE = MessageKey.ui("friends.profile.note-title", "name");
-    public static final MessageKey PROFILE_NOTE_BODY = MessageKey.ui("friends.profile.note-body");
     public static final MessageKey PROFILE_NOTE_INPUT = MessageKey.ui("friends.profile.note-input");
     public static final MessageKey PROFILE_NOTE_SUBMIT = MessageKey.ui("friends.profile.note-submit");
+    public static final MessageKey PROFILE_NOTE_SUBMIT_TOOLTIP = MessageKey.ui("friends.profile.note-submit-tooltip");
     public static final MessageKey PROFILE_NOTE_SAVED = MessageKey.success("friends.profile.note-saved", "name");
     public static final MessageKey PROFILE_NOTE_CLEARED = MessageKey.success("friends.profile.note-cleared", "name");
     public static final MessageKey PROFILE_REMOVE_TITLE = MessageKey.ui("friends.profile.remove-title");

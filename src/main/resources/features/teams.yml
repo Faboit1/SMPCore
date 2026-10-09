@@ -2,9 +2,9 @@
 # Changes apply with /sift reload.
 
 create:
-  # What creating a team costs. Amounts accept 1500, 1.5k, 2m and so on. 0 makes it free.
-  # Nothing is refunded when a team is disbanded.
-  cost: 50k
+  # What creating a team costs. Amounts accept 1500, 1.5k, 2m and so on. 0 makes it free, and then no cost is
+  # mentioned anywhere. Nothing is refunded when a team is disbanded.
+  cost: 0
 
 names:
   # Team names use letters, digits and _ only and are unique ignoring case. 16 is the most the database holds.
@@ -68,5 +68,8 @@ leaderboard:
   # How many teams /team top shows.
   size: 10
 
-# Teams per page in /team list.
+# How many teams the All teams dialog (/team list) shows, biggest first. The dialog scrolls, so there are no pages.
+list-size: 100
+
+# Teams per page of /team list in the console.
 page-size: 10

@@ -335,7 +335,7 @@ final class TeamCommands {
 
     private int list(CommandSender sender, int page) {
         if (sender instanceof Player player) {
-            this.menus.show(player, this.menus.listView(player, page, null));
+            this.menus.show(player, this.menus.listView(player, null));
             return CommandSupport.OK;
         }
         int pageSize = this.settings.get().pageSize();

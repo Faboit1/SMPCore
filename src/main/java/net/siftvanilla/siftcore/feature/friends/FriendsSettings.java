@@ -24,7 +24,8 @@ import net.siftvanilla.siftcore.core.config.ConfigReader;
  * @param leaveDelay         wait before a leave alert, dropped if the player rejoins
  * @param startupQuiet       no join alerts this long after the plugin starts
  * @param requestBatch       further request alerts within this window are summed into one line
- * @param pageSize           friends per page of the list dialog
+ * @param pageSize           friends per page of {@code /friend list} in chat (the dialog shows every friend, it scrolls)
+ * @param findFrom           the friends dialog offers Find from this many friends
  * @param suggestions        "people you may know" buttons (0 turns them off)
  * @param sneakClick         sneak and right-click a player to open their card
  * @param sneakClickCooldown time between two cards opened by sneak-clicking
@@ -51,6 +52,7 @@ public record FriendsSettings(
     Duration startupQuiet,
     Duration requestBatch,
     int pageSize,
+    int findFrom,
     int suggestions,
     boolean sneakClick,
     Duration sneakClickCooldown,
@@ -98,6 +100,7 @@ public record FriendsSettings(
             presence.duration("startup-quiet", Duration.ZERO, Duration.ofMinutes(10), Duration.ofSeconds(60)),
             presence.duration("request-batch", Duration.ZERO, Duration.ofMinutes(5), Duration.ofSeconds(10)),
             list.integer("page-size", 4, 30, 16),
+            list.integer("find-from", 1, 100_000, 20),
             list.integer("suggestions", 0, 12, 6),
             profile.bool("sneak-click", true),
             profile.duration("sneak-click-cooldown", Duration.ZERO, Duration.ofMinutes(1), Duration.ofSeconds(1)),

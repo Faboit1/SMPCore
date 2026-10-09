@@ -89,92 +89,108 @@ public final class TeamsMessages {
     public static final MessageKey TEAM_FRIENDLY_FIRE_OFF = MessageKey.chat("teams.broadcast.friendly-fire-off", "actor");
     public static final MessageKey TEAM_RENAMED = MessageKey.chat("teams.broadcast.renamed", "name");
 
-    // ------------------------------------------------------------------ main menu
+    // ------------------------------------------------------------------ the /team dialogs
 
     public static final MessageKey MENU_TITLE = MessageKey.ui("teams.menu.title");
     public static final MessageKey MENU_TEAM_TITLE = MessageKey.ui("teams.menu.team-title", "name");
-    public static final MessageKey MENU_NONE = MessageKey.ui("teams.menu.none", "cost");
-    public static final MessageKey MENU_NONE_FREE = MessageKey.ui("teams.menu.none-free");
-    public static final MessageKey MENU_INVITES = MessageKey.ui("teams.menu.invites");
-    public static final MessageKey MENU_INVITE_LINE = MessageKey.ui("teams.menu.invite-line", "team", "inviter", "time");
+    public static final MessageKey MENU_NONE = MessageKey.ui("teams.menu.none");
     public static final MessageKey MENU_SUMMARY = MessageKey.ui("teams.menu.summary", "owner", "members", "limit", "online");
-    public static final MessageKey MENU_HOME = MessageKey.ui("teams.menu.home", "x", "y", "z", "world");
-    public static final MessageKey MENU_NO_HOME = MessageKey.ui("teams.menu.no-home");
-    public static final MessageKey MENU_FRIENDLY_FIRE_ON = MessageKey.ui("teams.menu.friendly-fire-on");
-    public static final MessageKey MENU_FRIENDLY_FIRE_OFF = MessageKey.ui("teams.menu.friendly-fire-off");
-    public static final MessageKey MENU_CHAT_ON = MessageKey.ui("teams.menu.chat-on");
-    public static final MessageKey MENU_MEMBERS = MessageKey.ui("teams.menu.members");
-    public static final MessageKey MENU_MEMBER_ONLINE = MessageKey.ui("teams.menu.member-online", "name", "role");
-    public static final MessageKey MENU_MEMBER_OFFLINE = MessageKey.ui("teams.menu.member-offline", "name", "role", "time");
-    /** An offline member whose last-seen time the viewer may not see (seen-privacy). */
-    public static final MessageKey MENU_MEMBER_OFFLINE_HIDDEN = MessageKey.ui("teams.menu.member-offline-hidden", "name", "role");
     public static final MessageKey ROLE_OWNER = MessageKey.ui("teams.roles.owner");
     public static final MessageKey ROLE_ADMIN = MessageKey.ui("teams.roles.admin");
     public static final MessageKey ROLE_MEMBER = MessageKey.ui("teams.roles.member");
     public static final MessageKey UNLIMITED = MessageKey.ui("teams.unlimited");
 
     public static final MessageKey BUTTON_CREATE = MessageKey.ui("teams.button.create");
-    public static final MessageKey BUTTON_CREATE_TOOLTIP = MessageKey.ui("teams.button.create-tooltip", "cost");
+    public static final MessageKey BUTTON_CREATE_TOOLTIP = MessageKey.ui("teams.button.create-tooltip");
+    /** The cost line of the Start a team tooltip, only while starting a team costs money. */
+    public static final MessageKey BUTTON_CREATE_COST_TOOLTIP = MessageKey.ui("teams.button.create-cost-tooltip", "cost");
     public static final MessageKey BUTTON_ANSWER_INVITE = MessageKey.ui("teams.button.answer-invite", "team");
+    public static final MessageKey BUTTON_ANSWER_INVITE_TOOLTIP = MessageKey.ui("teams.button.answer-invite-tooltip", "inviter", "time");
     public static final MessageKey BUTTON_HOME = MessageKey.ui("teams.button.home");
-    public static final MessageKey BUTTON_HOME_TOOLTIP = MessageKey.ui("teams.button.home-tooltip", "time");
-    public static final MessageKey BUTTON_CHAT_ON = MessageKey.ui("teams.button.chat-on");
-    public static final MessageKey BUTTON_CHAT_OFF = MessageKey.ui("teams.button.chat-off");
+    public static final MessageKey BUTTON_HOME_TOOLTIP = MessageKey.ui("teams.button.home-tooltip", "x", "y", "z", "world", "time");
+    public static final MessageKey BUTTON_CHAT = MessageKey.ui("teams.button.chat");
     public static final MessageKey BUTTON_CHAT_TOOLTIP = MessageKey.ui("teams.button.chat-tooltip");
+    public static final MessageKey BUTTON_FRIENDLY_FIRE = MessageKey.ui("teams.button.friendly-fire");
+    public static final MessageKey BUTTON_FRIENDLY_FIRE_TOOLTIP = MessageKey.ui("teams.button.friendly-fire-tooltip");
+    public static final MessageKey BUTTON_FRIENDLY_FIRE_LOCKED = MessageKey.ui("teams.button.friendly-fire-locked", "value");
+    public static final MessageKey BUTTON_FRIENDLY_FIRE_LOCKED_TOOLTIP = MessageKey.ui("teams.button.friendly-fire-locked-tooltip");
+    public static final MessageKey BUTTON_MEMBERS = MessageKey.ui("teams.button.members");
+    public static final MessageKey BUTTON_MEMBERS_TOOLTIP = MessageKey.ui("teams.button.members-tooltip");
+    public static final MessageKey BUTTON_MEMBERS_MANAGE_TOOLTIP = MessageKey.ui("teams.button.members-manage-tooltip");
     public static final MessageKey BUTTON_INVITE = MessageKey.ui("teams.button.invite");
-    public static final MessageKey BUTTON_KICK = MessageKey.ui("teams.button.kick");
-    public static final MessageKey BUTTON_PROMOTE = MessageKey.ui("teams.button.promote");
-    public static final MessageKey BUTTON_DEMOTE = MessageKey.ui("teams.button.demote");
+    public static final MessageKey BUTTON_INVITE_TOOLTIP = MessageKey.ui("teams.button.invite-tooltip", "time");
     public static final MessageKey BUTTON_SET_HOME = MessageKey.ui("teams.button.set-home");
     public static final MessageKey BUTTON_SET_HOME_TOOLTIP = MessageKey.ui("teams.button.set-home-tooltip");
-    public static final MessageKey BUTTON_FRIENDLY_FIRE_ON = MessageKey.ui("teams.button.friendly-fire-on");
-    public static final MessageKey BUTTON_FRIENDLY_FIRE_OFF = MessageKey.ui("teams.button.friendly-fire-off");
-    public static final MessageKey BUTTON_FRIENDLY_FIRE_TOOLTIP = MessageKey.ui("teams.button.friendly-fire-tooltip");
-    public static final MessageKey BUTTON_TRANSFER = MessageKey.ui("teams.button.transfer");
-    public static final MessageKey BUTTON_TRANSFER_TOOLTIP = MessageKey.ui("teams.button.transfer-tooltip");
-    public static final MessageKey BUTTON_DISBAND = MessageKey.ui("teams.button.disband");
-    public static final MessageKey BUTTON_LEAVE = MessageKey.ui("teams.button.leave");
     public static final MessageKey BUTTON_STATS = MessageKey.ui("teams.button.stats");
+    public static final MessageKey BUTTON_STATS_TOOLTIP = MessageKey.ui("teams.button.stats-tooltip");
     public static final MessageKey BUTTON_TOP = MessageKey.ui("teams.button.top");
+    public static final MessageKey BUTTON_TOP_TOOLTIP = MessageKey.ui("teams.button.top-tooltip");
     public static final MessageKey BUTTON_LIST = MessageKey.ui("teams.button.list");
+    public static final MessageKey BUTTON_LIST_TOOLTIP = MessageKey.ui("teams.button.list-tooltip");
+    public static final MessageKey BUTTON_SETTINGS = MessageKey.ui("teams.button.settings");
+    public static final MessageKey BUTTON_SETTINGS_TOOLTIP = MessageKey.ui("teams.button.settings-tooltip");
+    public static final MessageKey BUTTON_DISBAND = MessageKey.ui("teams.button.disband");
+    public static final MessageKey BUTTON_DISBAND_TOOLTIP = MessageKey.ui("teams.button.disband-tooltip");
+    public static final MessageKey BUTTON_LEAVE = MessageKey.ui("teams.button.leave");
+    public static final MessageKey BUTTON_LEAVE_TOOLTIP = MessageKey.ui("teams.button.leave-tooltip");
+
+    public static final MessageKey MEMBERS_TITLE = MessageKey.ui("teams.members.title", "team");
+    public static final MessageKey MEMBERS_ONLINE = MessageKey.ui("teams.members.online", "name", "role");
+    public static final MessageKey MEMBERS_OFFLINE = MessageKey.ui("teams.members.offline", "name", "role", "time");
+    /** An offline member whose last-seen time the viewer may not see (seen-privacy). */
+    public static final MessageKey MEMBERS_OFFLINE_HIDDEN = MessageKey.ui("teams.members.offline-hidden", "name", "role");
+    public static final MessageKey MEMBERS_TOOLTIP = MessageKey.ui("teams.members.tooltip", "time");
+    public static final MessageKey MEMBERS_TOOLTIP_MANAGE = MessageKey.ui("teams.members.tooltip-manage");
+    public static final MessageKey MEMBERS_TOOLTIP_YOU = MessageKey.ui("teams.members.tooltip-you");
+
+    public static final MessageKey MEMBER_ROLE = MessageKey.ui("teams.member-view.role", "role");
+    public static final MessageKey MEMBER_VIEW_ONLINE = MessageKey.ui("teams.member-view.online");
+    public static final MessageKey MEMBER_SEEN = MessageKey.ui("teams.member-view.seen", "time");
+    public static final MessageKey MEMBER_VIEW_OFFLINE = MessageKey.ui("teams.member-view.offline");
+    public static final MessageKey MEMBER_JOINED = MessageKey.ui("teams.member-view.joined", "time");
+    public static final MessageKey MEMBER_PROMOTE = MessageKey.ui("teams.member-view.promote");
+    public static final MessageKey MEMBER_PROMOTE_TOOLTIP = MessageKey.ui("teams.member-view.promote-tooltip");
+    public static final MessageKey MEMBER_DEMOTE = MessageKey.ui("teams.member-view.demote");
+    public static final MessageKey MEMBER_DEMOTE_TOOLTIP = MessageKey.ui("teams.member-view.demote-tooltip");
+    public static final MessageKey MEMBER_KICK = MessageKey.ui("teams.member-view.kick");
+    public static final MessageKey MEMBER_KICK_TOOLTIP = MessageKey.ui("teams.member-view.kick-tooltip");
+    public static final MessageKey MEMBER_TRANSFER = MessageKey.ui("teams.member-view.transfer");
+    public static final MessageKey MEMBER_TRANSFER_TOOLTIP = MessageKey.ui("teams.member-view.transfer-tooltip");
+    public static final MessageKey MEMBER_KICK_TITLE = MessageKey.ui("teams.member-view.kick-title");
+    public static final MessageKey MEMBER_KICK_BODY = MessageKey.ui("teams.member-view.kick-body", "name", "team");
+    public static final MessageKey MEMBER_KICK_BUTTON = MessageKey.ui("teams.member-view.kick-button");
+    public static final MessageKey MEMBER_GONE = MessageKey.ui("teams.member-view.gone", "name");
 
     // ------------------------------------------------------------------ forms and confirmations
 
     public static final MessageKey CREATE_FORM_TITLE = MessageKey.ui("teams.create.form-title");
-    public static final MessageKey CREATE_FORM_BODY = MessageKey.ui("teams.create.form-body", "min", "max", "cost");
-    public static final MessageKey CREATE_FORM_BODY_FREE = MessageKey.ui("teams.create.form-body-free", "min", "max");
     public static final MessageKey CREATE_FORM_NAME = MessageKey.ui("teams.create.form-name");
     public static final MessageKey CREATE_FORM_BUTTON = MessageKey.ui("teams.create.form-button");
+    public static final MessageKey CREATE_FORM_BUTTON_TOOLTIP = MessageKey.ui("teams.create.form-button-tooltip", "min", "max");
+    /** The cost line of the Continue tooltip, only while starting a team costs money. */
+    public static final MessageKey CREATE_FORM_COST_TOOLTIP = MessageKey.ui("teams.create.form-cost-tooltip", "cost");
     public static final MessageKey CREATE_CONFIRM_TITLE = MessageKey.ui("teams.create.confirm-title");
     public static final MessageKey CREATE_CONFIRM_BODY = MessageKey.ui("teams.create.confirm-body", "name", "cost");
     public static final MessageKey CREATE_CONFIRM_BUTTON = MessageKey.ui("teams.create.confirm-button");
 
     public static final MessageKey INVITE_FORM_TITLE = MessageKey.ui("teams.invite.form-title");
-    public static final MessageKey INVITE_FORM_BODY = MessageKey.ui("teams.invite.form-body", "time");
     public static final MessageKey INVITE_FORM_PLAYER = MessageKey.ui("teams.invite.form-player");
     public static final MessageKey INVITE_FORM_BUTTON = MessageKey.ui("teams.invite.form-button");
+    public static final MessageKey INVITE_FORM_BUTTON_TOOLTIP = MessageKey.ui("teams.invite.form-button-tooltip", "time");
     public static final MessageKey INVITE_TITLE = MessageKey.ui("teams.invite.title");
     public static final MessageKey INVITE_BODY = MessageKey.ui("teams.invite.body", "inviter", "team", "members", "limit", "time");
     public static final MessageKey INVITE_JOIN = MessageKey.ui("teams.invite.join");
+    public static final MessageKey INVITE_JOIN_TOOLTIP = MessageKey.ui("teams.invite.join-tooltip", "team");
     public static final MessageKey INVITE_DECLINE = MessageKey.ui("teams.invite.decline");
-
-    public static final MessageKey PICK_KICK_TITLE = MessageKey.ui("teams.pick.kick-title");
-    public static final MessageKey PICK_PROMOTE_TITLE = MessageKey.ui("teams.pick.promote-title");
-    public static final MessageKey PICK_DEMOTE_TITLE = MessageKey.ui("teams.pick.demote-title");
-    public static final MessageKey PICK_TRANSFER_TITLE = MessageKey.ui("teams.pick.transfer-title");
-    public static final MessageKey PICK_LABEL = MessageKey.ui("teams.pick.label");
-    public static final MessageKey PICK_OPTION = MessageKey.ui("teams.pick.option", "name", "role");
-    public static final MessageKey PICK_KICK_BUTTON = MessageKey.ui("teams.pick.kick-button");
-    public static final MessageKey PICK_PROMOTE_BUTTON = MessageKey.ui("teams.pick.promote-button");
-    public static final MessageKey PICK_DEMOTE_BUTTON = MessageKey.ui("teams.pick.demote-button");
-    public static final MessageKey PICK_TRANSFER_BUTTON = MessageKey.ui("teams.pick.transfer-button");
-    public static final MessageKey PICK_NOBODY = MessageKey.ui("teams.pick.nobody");
+    public static final MessageKey INVITE_DECLINE_TOOLTIP = MessageKey.ui("teams.invite.decline-tooltip", "inviter");
 
     public static final MessageKey TRANSFER_TITLE = MessageKey.ui("teams.transfer.title");
     public static final MessageKey TRANSFER_BODY = MessageKey.ui("teams.transfer.body", "name", "team");
     public static final MessageKey TRANSFER_BUTTON = MessageKey.ui("teams.transfer.button");
     public static final MessageKey DISBAND_TITLE = MessageKey.ui("teams.disband.title");
     public static final MessageKey DISBAND_BODY = MessageKey.ui("teams.disband.body", "team");
+    /** The disband question while starting a team is free (nothing to refund). */
+    public static final MessageKey DISBAND_BODY_FREE = MessageKey.ui("teams.disband.body-free", "team");
     public static final MessageKey DISBAND_BUTTON = MessageKey.ui("teams.disband.button");
     public static final MessageKey LEAVE_TITLE = MessageKey.ui("teams.leave.title");
     public static final MessageKey LEAVE_BODY = MessageKey.ui("teams.leave.body", "team");
@@ -185,21 +201,27 @@ public final class TeamsMessages {
     public static final MessageKey INFO_BODY = MessageKey.ui("teams.info.body", "owner", "members", "limit", "online",
         "kills", "deaths", "money", "age");
     public static final MessageKey INFO_PLACES = MessageKey.ui("teams.info.places", "kills", "money");
+    public static final MessageKey INFO_FRIENDLY_FIRE = MessageKey.ui("teams.info.friendly-fire", "value");
+    public static final MessageKey INFO_HOME = MessageKey.ui("teams.info.home", "x", "y", "z", "world");
+    public static final MessageKey INFO_NO_HOME = MessageKey.ui("teams.info.no-home");
     public static final MessageKey INFO_TEXT = MessageKey.chat("teams.info.text", "owner", "members", "limit", "online",
         "kills", "deaths", "money", "age");
     public static final MessageKey INFO_HOME_TEXT = MessageKey.chat("teams.info.home-text", "x", "y", "z", "world");
     public static final MessageKey INFO_NO_HOME_TEXT = MessageKey.chat("teams.info.no-home-text");
     public static final MessageKey INFO_HEADER = MessageKey.chat("teams.info.header", "name");
     public static final MessageKey INFO_MEMBER_NAMES = MessageKey.chat("teams.info.member-names", "names");
+    public static final MessageKey INFO_MEMBERS = MessageKey.ui("teams.info.members");
+    public static final MessageKey INFO_MEMBERS_TOOLTIP = MessageKey.ui("teams.info.members-tooltip");
 
     public static final MessageKey LIST_TITLE = MessageKey.ui("teams.list.title");
-    public static final MessageKey LIST_PAGE = MessageKey.ui("teams.list.page", "page", "pages", "count");
+    /** The one line above a list that shows only the biggest teams ({@code list-size}). */
+    public static final MessageKey LIST_CAPPED = MessageKey.ui("teams.list.capped", "count");
     public static final MessageKey LIST_HEADER = MessageKey.chat("teams.list.header", "page", "pages", "count");
     public static final MessageKey LIST_LINE = MessageKey.chat("teams.list.line", "name", "members", "online");
     public static final MessageKey LIST_EMPTY = MessageKey.chat("teams.list.empty");
-    public static final MessageKey LIST_BUTTON_TOOLTIP = MessageKey.ui("teams.list.button-tooltip", "members", "online");
-    public static final MessageKey PAGE_NEXT = MessageKey.ui("teams.page.next");
-    public static final MessageKey PAGE_PREVIOUS = MessageKey.ui("teams.page.previous");
+    public static final MessageKey LIST_BUTTON = MessageKey.ui("teams.list.button", "name", "members");
+    public static final MessageKey LIST_BUTTON_ONE = MessageKey.ui("teams.list.button-one", "name");
+    public static final MessageKey LIST_BUTTON_TOOLTIP = MessageKey.ui("teams.list.button-tooltip", "online");
 
     public static final MessageKey TOP_KILLS_TITLE = MessageKey.ui("teams.top.kills-title");
     public static final MessageKey TOP_MONEY_TITLE = MessageKey.ui("teams.top.money-title");
@@ -210,6 +232,8 @@ public final class TeamsMessages {
     public static final MessageKey TOP_KILLS_YOU = MessageKey.chat("teams.top.kills-you", "rank", "value");
     public static final MessageKey TOP_MONEY_YOU = MessageKey.chat("teams.top.money-you", "rank", "value");
     public static final MessageKey TOP_EMPTY = MessageKey.chat("teams.top.empty");
+    public static final MessageKey TOP_RANKED_BY = MessageKey.ui("teams.top.ranked-by");
+    public static final MessageKey TOP_RANKED_BY_TOOLTIP = MessageKey.ui("teams.top.ranked-by-tooltip");
     public static final MessageKey TOP_BY_KILLS = MessageKey.ui("teams.top.by-kills");
     public static final MessageKey TOP_BY_MONEY = MessageKey.ui("teams.top.by-money");
 

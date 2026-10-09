@@ -1,6 +1,7 @@
 package net.siftvanilla.siftcore.feature.bounties;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -26,6 +27,7 @@ import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
+import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -168,13 +170,16 @@ final class BountyActions {
 
     private void confirm(Player sponsor, UUID target, long amount, Consumer<Player> done) {
         BountiesSettings s = this.settings.get();
+        List<Component> body = new ArrayList<>(lang().lines(BountiesMessages.CONFIRM_BODY,
+            Arg.money("amount", amount),
+            Arg.text("name", name(target)),
+            BountyViews.time(s.expireAfter())));
+        if (s.taxPercent() > 0) {
+            body.add(lang().get(BountiesMessages.CONFIRM_TAX, Arg.text("tax", Lang.number(s.taxPercent()))));
+        }
         View asked = this.services.templates().confirm(
             lang().get(BountiesMessages.CONFIRM_TITLE),
-            lang().lines(BountiesMessages.CONFIRM_BODY,
-                Arg.money("amount", amount),
-                Arg.text("name", name(target)),
-                Arg.number("tax", s.taxPercent()),
-                Arg.time("time", s.expireAfter())),
+            body,
             lang().get(BountiesMessages.CONFIRM_BUTTON),
             lang().get(CoreMessages.UI_CANCEL),
             // The details (done) replace this dialog after a placement; after a refusal the router closes it.
@@ -185,8 +190,9 @@ final class BountyActions {
             });
         // Cancel finishes it. So does Confirm from /bounty, where nothing follows a placement; from the form the
         // details follow, so Confirm keeps the dialog on screen until they replace it.
-        View view = done == null ? asked.closing() : new View(asked.kind(), asked.title(), asked.body(), asked.inputs(),
-            List.of(asked.buttons().get(0), asked.buttons().get(1).closes()), asked.exit(), asked.columns(), asked.escapable());
+        Button yes = asked.buttons().get(0).tooltip(lang().get(BountiesMessages.CONFIRM_TOOLTIP));
+        View view = new View(asked.kind(), asked.title(), asked.body(), asked.inputs(),
+            List.of(done == null ? yes.closes() : yes, asked.buttons().get(1).closes()), asked.exit(), asked.columns(), asked.escapable());
         this.services.dialogs().show(sponsor, view);
     }
 

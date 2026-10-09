@@ -6,8 +6,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
@@ -30,6 +32,7 @@ import net.siftvanilla.siftcore.core.player.SettingCategories;
 import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
@@ -136,16 +139,42 @@ public final class ExtrasFeature implements Feature, Listener {
             lang.lines(ExtrasMessages.RULES_BODY), lang.get(ExtrasMessages.RULES_BUTTON), after));
     }
 
+    /**
+     * The places a new player starts with, in {@code /help}: the main menu entry of that id (its label) and what it is
+     * (the tooltip). Entries the server doesn't have, or the player may not open, are left out.
+     */
+    static final List<Map.Entry<String, MessageKey>> HELP = List.of(
+        Map.entry("rtp", ExtrasMessages.HELP_RTP),
+        Map.entry("sell", ExtrasMessages.HELP_SELL),
+        Map.entry("shop", ExtrasMessages.HELP_SHOP),
+        Map.entry("auction", ExtrasMessages.HELP_AUCTION),
+        Map.entry("homes", ExtrasMessages.HELP_HOMES),
+        Map.entry("teams", ExtrasMessages.HELP_TEAMS),
+        Map.entry("friends", ExtrasMessages.HELP_FRIENDS),
+        Map.entry("spawn", ExtrasMessages.HELP_SPAWN),
+        Map.entry("rules", ExtrasMessages.HELP_RULES));
+
+    /**
+     * {@code /help}: buttons, not paragraphs. Open the menu first, then one button per place to start (opening it),
+     * what each is in its tooltip.
+     */
     private void openHelp(Player player) {
         var lang = this.services.lang();
-        List<Button> buttons = List.of(Button.of(lang.get(ExtrasMessages.HELP_MENU), submission -> {
+        List<Button> buttons = new ArrayList<>();
+        buttons.add(Button.of(lang.get(ExtrasMessages.HELP_MENU), lang.get(ExtrasMessages.HELP_MENU_TOOLTIP), submission -> {
             HubEntry menu = this.services.hub().get("menu");
             if (menu != null) {
                 menu.open().accept(submission.player());
             }
-        }).width(250));
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(ExtrasMessages.HELP_TITLE),
-            lang.lines(ExtrasMessages.HELP_BODY), buttons, 1, null));
+        }));
+        for (Map.Entry<String, MessageKey> place : HELP) {
+            HubEntry entry = this.services.hub().get(place.getKey());
+            if (entry == null || entry.permission() != null && !player.hasPermission(entry.permission())) {
+                continue;
+            }
+            buttons.add(Button.of(lang.get(entry.label()), lang.get(place.getValue()), submission -> entry.open().accept(submission.player())));
+        }
+        this.services.dialogs().show(player, this.services.templates().grid(lang.get(ExtrasMessages.HELP_TITLE), buttons, null));
     }
 
     @Override

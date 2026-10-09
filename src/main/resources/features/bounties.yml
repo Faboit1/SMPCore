@@ -25,7 +25,8 @@ place:
 
 claim:
   # Part of a claimed bounty that is destroyed as tax, in percent (0 to 90). The killer gets the rest.
-  tax-percent: 10
+  # 0 (no tax) keeps every mention of a tax out of the dialogs and messages.
+  tax-percent: 0
   # Announce in chat when a bounty is claimed, to the players whose Bounty announcements filter shows its amount.
   announce: true
   # Tell the sponsors who are online that their bounty was claimed.
@@ -37,5 +38,5 @@ expiry:
   # How often to look for contributions that ran out.
   check-every: 5m
 
-# How many bounties /bounties shows (1 to 20).
-list-size: 10
+# How many of the biggest bounties /bounties shows (1 to 100). The dialog scrolls, so it shows them all at once.
+list-size: 50
