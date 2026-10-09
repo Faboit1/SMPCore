@@ -59,9 +59,12 @@ final class AfkStaffSettingSteps {
 
     /** Waits for a dialog titled exactly {@code title}. */
     static Bot.SeenDialog page(E2E e2e, Bot bot, String title) {
-        e2e.eventually(() -> bot.dialog() != null && bot.dialog().title().equals(title), bot.name + " sees '" + title + "': "
-            + (bot.dialog() == null ? "none" : bot.dialog().title()));
-        return bot.dialog();
+        return SettingsSteps.page(e2e, bot, title);
+    }
+
+    /** The settings page open now as the form it used to be ({@link SettingsSteps#form}). */
+    static Bot.SeenDialog form(E2E e2e, Bot bot) {
+        return SettingsSteps.form(e2e, bot.dialog());
     }
 
     /** {@code /settings <group>} and waits for the freshly sent first page. */
@@ -73,51 +76,16 @@ final class AfkStaffSettingSteps {
     }
 
     /**
-     * Opens a settings group and changes inputs wherever they are: walks the pages with Next page (changes carried
-     * along), sets each key on the page that shows it (checking a choice offers the wanted option), and saves on the
-     * page where the last one was found.
+     * Opens a settings group and sets settings on it the way a player does, on their buttons ({@link SettingsSteps#edit});
+     * a choice must offer the wanted option.
      */
     static void editSettings(E2E e2e, Bot bot, String group, String title, Map<String, Object> wanted) {
         bot.clearMessages();
-        openGroup(e2e, bot, group, title);
-        Set<String> left = new HashSet<>(wanted.keySet());
-        for (int guard = 0; guard < 10; guard++) {
-            Bot.SeenDialog current = page(e2e, bot, title);
-            Map<String, Object> values = current.values();
-            for (String key : List.copyOf(left)) {
-                if (current.inputs().containsKey(key)) {
-                    Object value = wanted.get(key);
-                    if (value instanceof String option) {
-                        e2e.expect(current.options().getOrDefault(key, List.of()).contains(option), key + " offers " + option + ": "
-                            + current.options().get(key));
-                    }
-                    values.put(key, value);
-                    left.remove(key);
-                }
-            }
-            if (left.isEmpty()) {
-                e2e.click(bot, "Save", values);
-                return;
-            }
-            e2e.expect(current.button("Next page") != null, "inputs " + left + " on a later page of " + title + " (last page: "
-                + current.inputs().keySet() + ")");
-            e2e.click(bot, "Next page", values);
-        }
-        throw new E2E.Failure("too many pages in " + title);
+        SettingsSteps.edit(e2e, bot, group, title, wanted);
     }
 
-    /** Every input of a settings group across its pages: a choice's option ids, or the input kind. */
+    /** Every setting a group shows the player: a choice's option ids, or the kind ({@link SettingsSteps#inputs}). */
     static Map<String, List<String>> groupInputs(E2E e2e, Bot bot, String group, String title) {
-        openGroup(e2e, bot, group, title);
-        Map<String, List<String>> inputs = new LinkedHashMap<>();
-        for (int guard = 0; guard < 10; guard++) {
-            Bot.SeenDialog current = page(e2e, bot, title);
-            current.inputs().forEach((key, kind) -> inputs.put(key, current.options().getOrDefault(key, List.of(kind))));
-            if (current.button("Next page") == null) {
-                return inputs;
-            }
-            e2e.click(bot, "Next page", current.values());
-        }
-        throw new E2E.Failure("too many pages in " + title);
+        return SettingsSteps.inputs(e2e, bot, group, title);
     }
 }

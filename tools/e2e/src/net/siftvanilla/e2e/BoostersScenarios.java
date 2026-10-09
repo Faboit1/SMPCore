@@ -825,7 +825,6 @@ final class BoostersScenarios {
         try {
             e2e.step("one player turns booster announcements off in the dialog, another keeps only new boosters");
             MoneyScenarios.editSettings(e2e, off, "announcements", "Server announcements settings", Map.of("booster_announcements", "off"));
-            e2e.eventually(() -> off.anyFeedbackContains("Sell booster announcements set to Off"), "saved: " + off.chat() + off.actionBar());
             var prefs = e2e.services().settings();
             starts.command("settings booster-announcements starts");
             e2e.eventually(() -> "starts".equals(prefs.encoded(e2e.uuid(startsName), "booster-announcements")),

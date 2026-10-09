@@ -1176,7 +1176,6 @@ final class SpawnerScenarios {
         e2e.step("a plain right-click adds the whole stack in hand and teammates' use is told (saved in the settings dialog)");
         ItemSettingsSteps.edit(e2e, owner, "spawners", "Spawners settings",
             Map.of("spawner_stack_click", "whole-hand", "spawner_team_notices", "all"));
-        e2e.eventually(() -> owner.anyFeedbackContains("Saved 2 settings"), "saved: " + owner.chat() + " " + owner.actionBar());
         ItemSettingsSteps.expectStored(e2e, ownerId, "spawner-stack-click", "whole-hand");
         ItemSettingsSteps.expectStored(e2e, ownerId, "spawner-team-notices", "all");
         e2e.console("spawners give " + ownerName + " zombie 6");

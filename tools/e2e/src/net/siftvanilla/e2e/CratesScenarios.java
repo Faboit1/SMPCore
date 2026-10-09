@@ -1196,7 +1196,6 @@ final class CratesScenarios {
 
             e2e.step("the receipt above the hotbar and 3 keys per bulk open, saved in the settings dialog");
             ItemSettingsSteps.edit(e2e, bot, "crates", "Crates & kits settings", Map.of("crate_receipt", "actionbar", "crate_bulk_amount", 3f));
-            e2e.eventually(() -> bot.anyFeedbackContains("Saved 2 settings"), "saved: " + bot.chat() + " " + bot.actionBar());
             ItemSettingsSteps.expectStored(e2e, uuid, "crate-receipt", "actionbar");
             ItemSettingsSteps.expectStored(e2e, uuid, "crate-bulk-amount", "3");
 

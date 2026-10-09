@@ -56,17 +56,19 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 /**
- * End-to-end scenarios of the settings framework and dialog: the group list with its counts, pages mixing all three
- * kinds of input (a switch, a choice and a slider) saving and persisting across a rejoin, paging with changes carried
- * between pages, resets, search, the changed-settings summary, the {@code /settings} words, the staff tools
- * {@code /sift settings}, placeholders, the public {@link SettingsView}, server defaults, locks, hidden settings,
- * compact pages and group overrides from {@code features/settings.yml}, old stored values, {@code SettingChangeEvent},
- * and core's delivery settings (the feedback channel, sounds, quiet in combat, sale receipts and status bars).
+ * End-to-end scenarios of the settings framework and dialog, which is buttons only (the dialog style): the group list
+ * (a coloured button per group, tooltips with the counts), switches flipping at once ("ON" green, "OFF" red) and the
+ * behaviour they change, choices moving to their next option, numbers picked on a slider, every group on one page with
+ * tooltips and no plugin name, resets, search, the changed settings, the {@code /settings} words, the staff tools
+ * {@code /sift settings}, placeholders, the public {@link SettingsView}, server defaults, locks (greyed, "Set by the
+ * server"), hidden settings and group overrides (order, icon, colour) from {@code features/settings.yml}, old stored
+ * values, {@code SettingChangeEvent}, and core's delivery settings (the feedback channel, sounds, quiet in combat, sale
+ * receipts and status bars).
  * <p>
  * The scenarios use the settings core shares with every feature (the Sounds, Display and Combat groups), so they don't
  * depend on where a feature put its own settings. The Sounds page is the one with all three kinds: its ping sound
  * choices are offered once a feature plays them, so the scenarios declare the mention sound as read (chat does that
- * itself).
+ * itself). Settings are read and changed on their buttons with {@link SettingsSteps}.
  */
 final class SettingsScenarios {
 
@@ -93,7 +95,7 @@ final class SettingsScenarios {
         List<Scenario> list = new ArrayList<>();
         list.add(of("settings-dialog", SettingsScenarios::dialog));
         list.add(of("settings-kinds", SettingsScenarios::kinds));
-        list.add(of("settings-paging", SettingsScenarios::paging));
+        list.add(of("settings-one-page", SettingsScenarios::onePage));
         list.add(of("settings-reset", SettingsScenarios::reset));
         list.add(of("settings-search", SettingsScenarios::search));
         list.add(of("settings-commands", SettingsScenarios::commands));
@@ -197,31 +199,48 @@ final class SettingsScenarios {
         return e2e.services().placeholders().resolve(e2e.player(name), placeholder);
     }
 
-    /**
-     * Changes inputs of a paged page wherever they are: walks the pages from the one open now with Next page (changes
-     * carried along as pending), sets each key on the page that shows it, and saves on the page where the last one was
-     * found.
-     */
-    private static void editAcrossPages(E2E e2e, Bot bot, String title, Map<String, Object> wanted) {
-        Set<String> left = new HashSet<>(wanted.keySet());
-        for (int guard = 0; guard < 30; guard++) {
-            Bot.SeenDialog current = page(e2e, bot, title);
-            Map<String, Object> values = current.values();
-            for (String key : List.copyOf(left)) {
-                if (current.inputs().containsKey(key)) {
-                    values.put(key, wanted.get(key));
-                    left.remove(key);
-                }
+    /** The settings a page shows, by input key ({@link SettingsSteps#read}). */
+    private static Map<String, SettingsSteps.Shown> shown(E2E e2e, Bot.SeenDialog page) {
+        return SettingsSteps.read(e2e, page);
+    }
+
+    /** The setting with this key on a page; fails when the page doesn't show it. */
+    private static SettingsSteps.Shown shown(E2E e2e, Bot.SeenDialog page, String key) {
+        SettingsSteps.Shown shown = SettingsSteps.read(e2e, page).get(key);
+        e2e.expect(shown != null, page.title() + " shows " + key + ": " + labels(page));
+        return shown;
+    }
+
+    private static List<String> labels(Bot.SeenDialog page) {
+        return page.buttons().stream().map(Bot.Button::label).toList();
+    }
+
+    /** A button whose label starts with {@code start}, or null. */
+    private static Bot.Button buttonStarting(Bot.SeenDialog page, String start) {
+        for (Bot.Button button : page.buttons()) {
+            if (button.label().startsWith(start)) {
+                return button;
             }
-            if (left.isEmpty()) {
-                e2e.click(bot, "Save", values);
-                return;
-            }
-            e2e.expect(current.button("Next page") != null, "inputs " + left + " on a later page of " + title + " (last page: "
-                + current.inputs().keySet() + ")");
-            e2e.click(bot, "Next page", values);
         }
-        throw new E2E.Failure("too many pages in " + title);
+        return null;
+    }
+
+    /** Clicks a page's button by the start of its label and waits for the next dialog. */
+    private static void clickStarting(E2E e2e, Bot bot, String start) {
+        Bot.Button button = buttonStarting(bot.dialog(), start);
+        e2e.expect(button != null, "a button starting '" + start + "': " + labels(bot.dialog()));
+        e2e.click(bot, button.label());
+    }
+
+    /** The colour of the palette's on, off, accent and secondary colours as the bot reads them. */
+    private static final String GREEN = "#55FF55";
+    private static final String RED = "#FF5555";
+    private static final String ACCENT = "#FFD866";
+    private static final String GRAY = "#AAAAAA";
+
+    /** A group's colour as #RRGGBB. */
+    private static String hex(SettingCategory category) {
+        return category.color() == null ? "#FFFFFF" : String.format("#%06X", category.color().value());
     }
 
     /** Runs {@code body} with a SiftCore file changed by exact replacements, then restores it (both reloaded). */
@@ -364,26 +383,13 @@ final class SettingsScenarios {
         return lines;
     }
 
-    /** Every input key of a paged page, walking its pages with Next page from page 1. */
-    private static Set<String> keysAcrossPages(E2E e2e, Bot bot, String title) {
-        Set<String> keys = new HashSet<>();
-        for (int guard = 0; guard < 30; guard++) {
-            Bot.SeenDialog current = page(e2e, bot, title);
-            keys.addAll(current.inputs().keySet());
-            if (current.button("Next page") == null) {
-                return keys;
-            }
-            e2e.click(bot, "Next page", current.values());
-        }
-        throw new E2E.Failure("too many pages in " + title);
-    }
-
-    // ------------------------------------------------------------------ 1. the group list and saving
+    // ------------------------------------------------------------------ 1. the group list and switches
 
     /**
-     * The group list (every group the player sees, in order, with descriptions, counts and icons; Search settings;
-     * Changed settings once something changed), the menu and pause routes, staff-only settings, saving only what
-     * changed, Back without saving, stale pages, and opening groups by command.
+     * The group list (a coloured button per group the player sees, in order, with its icon and a tooltip with what it
+     * covers and the counts; Search settings; Changed settings), the menu and pause routes, staff-only settings, a switch
+     * flipping at once (ON green, OFF red, no message, the sound it controls really stops), a stale button, and opening
+     * groups by command.
      */
     static void dialog(E2E e2e) throws Exception {
         String name = e2e.name("Setter");
@@ -407,27 +413,32 @@ final class SettingsScenarios {
             bot.rawClick("siftcore:hub/settings", null);
             settingsList(e2e, bot);
 
-            e2e.step("the group list: every group the player sees, in order, with its description and how many settings it holds");
+            e2e.step("the group list: a coloured button per group the player sees, in order, with its icon and a tooltip");
             bot.clearLogs();
             Bot.SeenDialog list = open(e2e, bot, "settings", "Settings");
             List<Group> groups = visibleGroups(e2e, name);
             e2e.expect(groups.size() > 1, "players see several groups: " + groups.size());
-            String body = list.bodyText();
+            e2e.expect(list.body().isEmpty(), "nothing written above the buttons: " + list.body());
             int last = -1;
             int total = 0;
             for (Group group : groups) {
-                e2e.expect(list.button(group.label()) != null, "a " + group.label() + " button: " + list.buttons());
-                String line = group.label() + ": " + group.description() + " (" + group.entries().size() + ")";
-                int at = body.indexOf(line);
-                e2e.expect(at > last, "'" + line + "' after the group before it: " + list.body());
+                Bot.Button button = list.button(group.label());
+                e2e.expect(button != null, "a " + group.label() + " button: " + list.buttons());
+                int at = list.buttons().indexOf(button);
+                e2e.expect(at > last, group.label() + " after the group before it: " + labels(list));
                 last = at;
+                e2e.expect(button.label().startsWith("["), "the button starts with the group's icon: " + button.label());
+                e2e.expect(hex(group.category()).equals(button.valueColor()), group.label() + " in its colour " + hex(group.category())
+                    + ": " + button.valueColor());
+                e2e.expect(button.tooltip() != null && button.tooltip().contains(group.description())
+                    && button.tooltip().contains(group.entries().size() + " settings, 0 changed"), "its tooltip: " + button.tooltip());
                 total += group.entries().size();
             }
-            e2e.expect(body.contains("You changed 0 of " + total + " settings."), "the changed count: " + list.body());
-            e2e.expect(body.lines().filter(l -> l.endsWith(")") && l.contains(": ")).allMatch(l -> l.startsWith("[")),
-                "group lines start with their icon sprite: " + list.body());
-            e2e.expect(list.button("Search settings") != null, "a search button: " + list.buttons());
-            e2e.expect(list.button("Changed settings") == null, "no summary before anything changed: " + list.buttons());
+            e2e.expect(list.button("Search settings") != null && list.button("Search settings").tooltip() != null,
+                "a search button with a tooltip: " + list.buttons());
+            Bot.Button changedButton = list.button("Changed settings (0)");
+            e2e.expect(changedButton != null && changedButton.tooltip().contains("You changed 0 of " + total + " settings."),
+                "the changed settings and their count: " + list.buttons());
             e2e.expect(list.button("Close") != null, "a command opens it with Close: " + list.buttons());
             e2e.expect("none".equals(list.after()), "group buttons show the next page in place: " + list.after());
 
@@ -448,125 +459,148 @@ final class SettingsScenarios {
             for (Group group : visibleGroups(e2e, staffName)) {
                 e2e.expect(staffList.button(group.label()) != null, "staff see the " + group.label() + " group: " + staffList.buttons());
             }
-            staff.command("settings " + gated.category().id());
-            e2e.expect(keysAcrossPages(e2e, staff, gatedGroup + " settings").contains(gated.inputKey()), "staff get " + gated.id());
+            e2e.expect(shown(e2e, SettingsSteps.openGroup(e2e, staff, gated.category().id(), gatedGroup + " settings")).containsKey(gated.inputKey()),
+                "staff get " + gated.id());
             String gatedId = gated.category().id();
             if (groups.stream().anyMatch(group -> group.category().id().equals(gatedId))) {
-                bot.command("settings " + gatedId);
-                e2e.expect(!keysAcrossPages(e2e, bot, gatedGroup + " settings").contains(gated.inputKey()), "players don't: " + gated.id());
+                e2e.expect(!shown(e2e, SettingsSteps.openGroup(e2e, bot, gatedId, gatedGroup + " settings")).containsKey(gated.inputKey()),
+                    "players don't: " + gated.id());
             } else {
                 bot.clearLogs();
                 bot.command("settings " + gatedId);
                 expectSaw(e2e, bot, "There is no settings group called " + gatedId);
             }
 
+            e2e.step("a group's page is one button per setting with nothing above them");
+            Bot.SeenDialog sound = SettingsSteps.openGroup(e2e, bot, "sound", "Sounds settings");
+            e2e.expect(sound.body().isEmpty() && sound.inputs().isEmpty(), "buttons only: " + sound.body() + " " + sound.inputs());
+            Group soundGroup = groups.stream().filter(group -> group.category().id().equals("sound")).findFirst().orElseThrow();
+            e2e.expect(shown(e2e, sound).size() == soundGroup.entries().size(), "every setting of the group: " + labels(sound));
+            e2e.expect(sound.button("Next page") == null && sound.button("Save") == null, "no pages, no Save: " + labels(sound));
+            Bot.Button clicks = sound.button("Menu click sounds: ON");
+            e2e.expect(clicks != null && GREEN.equals(clicks.valueColor()), "a switch reads ON in green: " + labels(sound));
+            e2e.expect(clicks.tooltip().startsWith("Play a click when you use buttons in menus.") && clicks.tooltip().contains("Default: ON")
+                && clicks.tooltip().endsWith("Click to switch it."), "its tooltip says what it does: " + clicks.tooltip());
+
+            e2e.step("a click flips the switch at once: the same page shows OFF in red, nothing is said, and click sounds stop");
+            bot.clearMessages();
+            e2e.click(bot, clicks.label());
+            Bot.SeenDialog flipped = page(e2e, bot, "Sounds settings");
+            Bot.Button off = flipped.button("Menu click sounds: OFF");
+            e2e.expect(off != null && RED.equals(off.valueColor()), "OFF in red: " + labels(flipped));
+            e2e.expect(!settings.get(id, SharedSettings.SOUND_CLICKS), "click sounds off");
+            expectStored(e2e, id, "sound-clicks", "false");
+            e2e.sleep(300);
+            e2e.expect(!bot.anyFeedbackContains("Menu click sounds"), "no message for a click: " + bot.chat() + " " + bot.actionBar());
+            bot.clearSounds();
+            e2e.services().messenger().feedback(player, Feedback.CLICK);
+            e2e.services().messenger().feedback(player, Feedback.ERROR);
+            e2e.eventually(() -> bot.sounds().stream().anyMatch(s -> s.sound().endsWith("note_block.bass")), "the error note still plays");
+            e2e.expect(bot.sounds().stream().noneMatch(s -> s.sound().endsWith("ui.button.click")), "no click sound: " + bot.sounds());
+
+            e2e.step("a button does what it showed: OFF asks for ON, even when something else turned it on meanwhile");
+            settings.set(id, SharedSettings.SOUND_CLICKS, true, Change.feature());
+            e2e.click(bot, "Menu click sounds: OFF");
+            e2e.expect(page(e2e, bot, "Sounds settings").button("Menu click sounds: ON") != null, "ON: " + labels(bot.dialog()));
+            e2e.expect(settings.get(id, SharedSettings.SOUND_CLICKS), "still on");
+
             e2e.step("a changed setting is counted and listed under Changed settings");
             settings.set(id, SharedSettings.SOUND_VOLUME, 30L, Change.feature());
             bot.clearLogs();
             Bot.SeenDialog counted = open(e2e, bot, "settings", "Settings");
-            e2e.expect(counted.bodyText().contains("You changed 1 of " + total + " settings."), "one changed: " + counted.body());
-            e2e.expect(counted.button("Changed settings (1)") != null, "the summary button: " + counted.buttons());
+            e2e.expect(counted.button("Changed settings (1)") != null
+                && counted.button("Changed settings (1)").tooltip().contains("You changed 1 of " + total + " settings."),
+                "one changed: " + counted.buttons());
+            e2e.expect(counted.button("Sounds").tooltip().contains("1 changed"), "and in its group: " + counted.button("Sounds").tooltip());
             e2e.click(bot, "Changed settings");
             Bot.SeenDialog summary = page(e2e, bot, "Changed settings");
-            e2e.expect(summary.bodyText().contains("Sounds > SiftCore volume: 30% (default 100%)"), "the change: " + summary.body());
-            e2e.click(bot, "Sounds (1)");
-            page(e2e, bot, "Sounds settings");
-            e2e.click(bot, "Back", bot.dialog().values());
-            page(e2e, bot, "Changed settings");
+            Bot.Button volume = summary.button("Sound volume: 30%");
+            e2e.expect(volume != null && volume.tooltip().startsWith("Sounds") && volume.tooltip().contains("Default: 100%"),
+                "the change, its group and default: " + labels(summary) + " " + (volume == null ? "" : volume.tooltip()));
             e2e.click(bot, "Back");
             settingsList(e2e, bot);
             settings.set(id, SharedSettings.SOUND_VOLUME, 100L, Change.feature());
-
-            e2e.step("saving stores what changed, says so and goes back to the list");
-            open(e2e, bot, "settings", "Settings");
-            e2e.click(bot, "Sounds");
-            Bot.SeenDialog sound = page(e2e, bot, "Sounds settings");
-            e2e.expect(sound.bodyText().contains("Menu click sounds: Play a click when you use buttons in menus."), "descriptions: " + sound.body());
-            Map<String, Object> values = sound.values();
-            values.put("sound_clicks", false);
-            bot.clearMessages();
-            e2e.click(bot, "Save", values);
-            expectSaw(e2e, bot, "Menu click sounds turned off");
-            settingsList(e2e, bot);
-            e2e.expect(!settings.get(id, SharedSettings.SOUND_CLICKS), "click sounds off");
-
-            e2e.step("saving without changes says nothing changed; Back leaves without saving");
-            bot.clearLogs();
-            Bot.SeenDialog unchanged = open(e2e, bot, "settings sound", "Sounds settings");
-            e2e.expect(Boolean.FALSE.equals(unchanged.toggleValue("sound_clicks")), "the page shows the stored value");
-            e2e.click(bot, "Save", unchanged.values());
-            expectSaw(e2e, bot, "Nothing changed");
-            Map<String, Object> discarded = open(e2e, bot, "settings sound", "Sounds settings").values();
-            discarded.put("sound_errors", false);
-            e2e.click(bot, "Back", discarded);
-            settingsList(e2e, bot);
-            e2e.expect(settings.get(id, SharedSettings.SOUND_ERRORS), "Back saved nothing");
-
-            e2e.step("a value changed elsewhere while the page was open is not overwritten");
-            bot.clearLogs();
-            Bot.SeenDialog open = open(e2e, bot, "settings sound", "Sounds settings");
-            Map<String, Object> stale = open.values();
-            e2e.expect(Boolean.FALSE.equals(stale.get("sound_clicks")), "the page shows click sounds off");
-            settings.set(id, SharedSettings.SOUND_CLICKS, true, Change.feature());
-            stale.put("sound_errors", false);
-            e2e.click(bot, "Save", stale);
-            expectSaw(e2e, bot, "Error sounds turned off");
-            e2e.expect(settings.get(id, SharedSettings.SOUND_CLICKS), "the change made meanwhile survived the stale page");
-            e2e.expect(!settings.get(id, SharedSettings.SOUND_ERRORS), "the changed switch was saved");
 
             e2e.step("/settings <group> opens a group, and an unknown group is refused");
             bot.clearLogs();
             bot.command("settings nosuchgroup");
             expectSaw(e2e, bot, "There is no settings group called nosuchgroup");
+            e2e.sleep(1_100);
             open(e2e, bot, "settings SOUND", "Sounds settings");
         } finally {
             e2e.console("deop " + staffName);
         }
     }
 
-    // ------------------------------------------------------------------ 2-4. all three kinds, saving, forged values
+    // ------------------------------------------------------------------ 2-4. choices, numbers, persisting
 
     /**
-     * A page with all three kinds (the Sounds page): what it shows, saving a choice, a number and a switch together
-     * (their stored forms, the message, placeholders), a choice of the Display group, forged values refused by the
-     * router, persisting across a rejoin, and storing the default deleting the row again.
+     * The three kinds on their buttons: a choice cycling through the options its tooltip lists (and the behaviour it
+     * changes), a number picked on a slider (refusing values off its range and step), placeholders, persisting across
+     * a rejoin, and storing the default deleting the row again.
      */
     static void kinds(E2E e2e) throws Exception {
         offerAllKinds(e2e);
         String name = e2e.name("Kinds");
         Bot bot = e2e.bot(name);
         UUID id = e2e.uuid(name);
+        Player player = e2e.player(name);
 
-        e2e.step("the Sounds page: a slider with its unit and range, switches and a choice");
-        Bot.SeenDialog sound = open(e2e, bot, "settings sound", "Sounds settings");
-        e2e.expect("range".equals(sound.inputs().get("sound_volume")) && "toggle".equals(sound.inputs().get("sound_notify"))
-            && "choice".equals(sound.inputs().get("sound_mention")), "a slider, switches and a choice: " + sound.inputs());
-        Bot.RangeSeen volume = sound.range("sound_volume");
-        e2e.expect(volume.start() == 0f && volume.end() == 100f && Float.valueOf(10f).equals(volume.step()) && volume.initial() == 100f,
-            "0 to 100 in steps of 10, starting at 100: " + volume);
-        e2e.expect(volume.label().equals("SiftCore volume (%)"), "the unit in the label: " + volume.label());
-        e2e.expect(Boolean.TRUE.equals(sound.toggleValue("sound_notify")), "pings on by default");
-        e2e.expect(List.of("default", "bell", "pling", "chime", "off").equals(sound.options().get("sound_mention")),
-            "the ping options: " + sound.options());
-        e2e.expect(List.of("Default", "Bell", "Pling", "Chime", "Off").equals(sound.optionLabels().get("sound_mention")),
-            "their shared names: " + sound.optionLabels());
-        e2e.expect("default".equals(sound.choiceValue("sound_mention")), "the choice starts on the default");
-        e2e.expect(sound.bodyText().contains("SiftCore volume: How loud menu clicks"), "descriptions: " + sound.body());
+        e2e.step("the Sounds page: a number, switches and a choice, each showing its value");
+        Bot.SeenDialog sound = SettingsSteps.openGroup(e2e, bot, "sound", "Sounds settings");
+        Map<String, SettingsSteps.Shown> kinds = shown(e2e, sound);
+        e2e.expect("range".equals(kinds.get("sound_volume").kind()) && "toggle".equals(kinds.get("sound_notify").kind())
+            && "choice".equals(kinds.get("sound_mention").kind()), "a number, switches and a choice: " + labels(sound));
+        Bot.Button volume = sound.button("Sound volume: 100%");
+        e2e.expect(volume != null && ACCENT.equals(volume.valueColor()), "the number in the accent colour: " + labels(sound));
+        e2e.expect(volume.tooltip().contains("From 0% to 100%, in steps of 10%") && volume.tooltip().contains("Default: 100%")
+            && volume.tooltip().endsWith("Click to change it."), "its range and default: " + volume.tooltip());
+        SettingsSteps.Shown mention = kinds.get("sound_mention");
+        e2e.expect(List.of("default", "bell", "pling", "chime", "off").equals(mention.options()), "the ping options: " + mention.options());
+        e2e.expect("default".equals(mention.value()) && ACCENT.equals(mention.button().valueColor()), "on the default: " + mention.text());
 
-        e2e.step("saving a choice, a number and a switch stores their stored forms");
-        Map<String, Object> values = sound.values();
-        values.put("sound_volume", 30f);
-        values.put("sound_notify", false);
-        values.put("sound_mention", "bell");
-        bot.clearMessages();
-        e2e.click(bot, "Save", values);
-        expectSaw(e2e, bot, "Saved 3 settings");
-        e2e.eventually(() -> bot.actionBarContains("Saved 3 settings"), "above the hotbar: " + bot.actionBar());
-        settingsList(e2e, bot);
-        expectStored(e2e, id, "sound-volume", "30");
-        expectStored(e2e, id, "sound-notify", "false");
+        e2e.step("a click moves a choice to its next option at once; Off reads red");
+        e2e.click(bot, "Mention sound: Default");
+        e2e.expect(page(e2e, bot, "Sounds settings").button("Mention sound: Bell") != null, "Bell: " + labels(bot.dialog()));
         expectStored(e2e, id, "sound-mention", "bell");
         e2e.expect(settings(e2e).get(id, SharedSettings.SOUND_MENTION) == PingSound.BELL, "the bell now");
+        SettingsSteps.set(e2e, bot, "sound_mention", "off");
+        e2e.expect(RED.equals(page(e2e, bot, "Sounds settings").button("Mention sound: Off").valueColor()), "Off in red");
+        SettingsSteps.set(e2e, bot, "sound_mention", "bell");
+
+        e2e.step("a number opens a slider with its range and unit; Done stores it and returns to the page");
+        e2e.click(bot, "Sound volume: 100%");
+        Bot.SeenDialog slider = page(e2e, bot, "Sound volume");
+        Bot.RangeSeen range = slider.range("sound_volume");
+        e2e.expect(range != null && range.start() == 0f && range.end() == 100f && Float.valueOf(10f).equals(range.step())
+            && range.initial() == 100f, "0 to 100 in steps of 10, starting at 100: " + range);
+        e2e.expect("Sound volume (%)".equals(range.label()), "the unit in the label: " + range.label());
+        e2e.expect(slider.button("Done") != null && slider.button("Back") != null, "Done and Back: " + slider.buttons());
+
+        e2e.step("forged slider values are refused by the router and change nothing");
+        e2e.click(bot, "Done", Map.of("sound_volume", 45f));
+        Bot.SeenDialog refused = page(e2e, bot, "Sound volume");
+        e2e.expect(refused.bodyText().contains("Check Sound volume (%) and try again"), "an off-step value: " + refused.body());
+        e2e.click(bot, "Done", Map.of("sound_volume", 110f));
+        e2e.expect(page(e2e, bot, "Sound volume").bodyText().contains("Check Sound volume"), "out of range too");
+        e2e.expect(settings(e2e).get(id, SharedSettings.SOUND_VOLUME) == 100L, "nothing changed");
+        e2e.click(bot, "Done", Map.of("sound_volume", 30f));
+        e2e.expect(page(e2e, bot, "Sounds settings").button("Sound volume: 30%") != null, "back on the page: " + labels(bot.dialog()));
+        expectStored(e2e, id, "sound-volume", "30");
+
+        e2e.step("the volume really changes: sounds play at 30%");
+        bot.clearSounds();
+        e2e.services().messenger().feedback(player, Feedback.ERROR);
+        e2e.eventually(() -> bot.sounds().stream().anyMatch(s -> s.sound().endsWith("note_block.bass")), "the error note");
+        float played = bot.sounds().stream().filter(s -> s.sound().endsWith("note_block.bass")).findFirst().orElseThrow().volume();
+        settings(e2e).set(id, SharedSettings.SOUND_VOLUME, 100L, Change.feature());
+        bot.clearSounds();
+        e2e.services().messenger().feedback(player, Feedback.ERROR);
+        e2e.eventually(() -> bot.sounds().stream().anyMatch(s -> s.sound().endsWith("note_block.bass")), "the error note at 100%");
+        float full = bot.sounds().stream().filter(s -> s.sound().endsWith("note_block.bass")).findFirst().orElseThrow().volume();
+        e2e.expect(Math.abs(played - full * 0.3f) < 0.01f, "30% of the full volume: " + played + " of " + full);
+        settings(e2e).set(id, SharedSettings.SOUND_VOLUME, 30L, Change.feature());
+        SettingsSteps.set(e2e, bot, "sound_notify", false);
 
         e2e.step("placeholders show the values");
         e2e.expect("30".equals(placeholder(e2e, name, "setting_sound-volume")), "setting_: " + placeholder(e2e, name, "setting_sound-volume"));
@@ -580,46 +614,21 @@ final class SettingsScenarios {
         e2e.expect("".equals(placeholder(e2e, name, "setting_seen-privacy")), "privacy settings stay private");
         e2e.expect(placeholder(e2e, name, "setting_no-such-setting") == null, "unknown ids are left to PlaceholderAPI");
 
-        e2e.step("the Display page: a choice with the shared option names");
-        Bot.SeenDialog display = open(e2e, bot, "settings display", "Display settings");
-        e2e.expect("choice".equals(display.inputs().get("feedback_channel")), "the feedback channel: " + display.inputs());
-        e2e.expect(List.of("actionbar", "chat", "both").equals(display.options().get("feedback_channel")), "options: " + display.options());
-        e2e.expect(List.of("Above the hotbar", "Chat", "Both").equals(display.optionLabels().get("feedback_channel")),
-            "labels: " + display.optionLabels());
-        e2e.expect("actionbar".equals(display.choiceValue("feedback_channel")), "starts on the default");
-        Map<String, Object> displayValues = display.values();
-        displayValues.put("feedback_channel", "chat");
+        e2e.step("the Display page: a choice with the shared option names, and what it changes");
+        Bot.SeenDialog display = SettingsSteps.openGroup(e2e, bot, "display", "Display settings");
+        SettingsSteps.Shown channel = shown(e2e, display, "feedback_channel");
+        e2e.expect(List.of("actionbar", "chat", "both").equals(channel.options()), "options: " + channel.options());
+        e2e.expect(channel.button().tooltip().contains("• Above the hotbar") && channel.button().tooltip().contains("• Chat"),
+            "listed by name in the tooltip: " + channel.button().tooltip());
+        e2e.expect("actionbar".equals(channel.value()), "starts on the default");
         bot.clearMessages();
-        e2e.click(bot, "Save", displayValues);
-        e2e.eventually(() -> bot.chatContains("Quick results and errors set to Chat."),
-            "the confirmation, already in chat as just chosen: chat " + bot.chat() + ", action bar " + bot.actionBar());
+        e2e.click(bot, "Quick results and errors: Above the hotbar");
+        e2e.expect(page(e2e, bot, "Display settings").button("Quick results and errors: Chat") != null, "Chat: " + labels(bot.dialog()));
         expectStored(e2e, id, "feedback-channel", "chat");
-
-        e2e.step("forged values are refused by the router and change nothing");
-        Bot.SeenDialog again = open(e2e, bot, "settings sound", "Sounds settings");
-        Map<String, Object> forged = again.values();
-        forged.put("sound_volume", 45f);
-        e2e.click(bot, "Save", forged);
-        Bot.SeenDialog refused = page(e2e, bot, "Sounds settings");
-        e2e.expect(refused.bodyText().contains("Check SiftCore volume (%) and try again"), "an off-step slider value: " + refused.body());
-        forged = refused.values();
-        forged.put("sound_volume", 110f);
-        e2e.click(bot, "Save", forged);
-        Bot.SeenDialog outOfRange = page(e2e, bot, "Sounds settings");
-        e2e.expect(outOfRange.bodyText().contains("Check SiftCore volume"), "out of range too");
-        forged = outOfRange.values();
-        forged.put("sound_mention", "trumpet");
-        e2e.click(bot, "Save", forged);
-        e2e.expect(page(e2e, bot, "Sounds settings").bodyText().contains("Check Mention sound and try again"), "an option the page did not offer");
-        Bot.SeenDialog displayForged = open(e2e, bot, "settings display", "Display settings");
-        Map<String, Object> badChoice = displayForged.values();
-        badChoice.put("feedback_channel", "title");
-        e2e.click(bot, "Save", badChoice);
-        e2e.expect(page(e2e, bot, "Display settings").bodyText().contains("Check Quick results and errors and try again"),
-            "a valid option of another setting that this one does not offer");
-        expectStored(e2e, id, "sound-volume", "30");
-        expectStored(e2e, id, "sound-mention", "bell");
-        expectStored(e2e, id, "feedback-channel", "chat");
+        e2e.sleep(1_100);
+        bot.clearLogs();
+        bot.command("pay " + name + " 10");
+        e2e.eventually(() -> bot.chatContains("yourself"), "errors now go to chat: " + bot.chat() + " " + bot.actionBar());
 
         e2e.step("everything persists across a rejoin");
         bot.quit();
@@ -627,27 +636,18 @@ final class SettingsScenarios {
         e2e.expect(!settings(e2e).loaded(id), "forgotten on quit");
         Bot back = e2e.bot(name);
         e2e.expect(e2e.services().directory().previousSeen(id) > 0, "the last visit is remembered for join summaries");
-        Bot.SeenDialog soundAfter = open(e2e, back, "settings sound", "Sounds settings");
-        e2e.expect(soundAfter.range("sound_volume").initial() == 30f && Boolean.FALSE.equals(soundAfter.toggleValue("sound_notify"))
-            && "bell".equals(soundAfter.choiceValue("sound_mention")), "the slider, switch and choice as saved: "
-            + soundAfter.range("sound_volume") + " " + soundAfter.initials() + " " + soundAfter.choiceInitial());
-        Bot.SeenDialog displayAfter = open(e2e, back, "settings display", "Display settings");
-        e2e.expect("chat".equals(displayAfter.choiceValue("feedback_channel")), "the display choice as saved");
+        Map<String, SettingsSteps.Shown> after = shown(e2e, SettingsSteps.openGroup(e2e, back, "sound", "Sounds settings"));
+        e2e.expect("30".equals(after.get("sound_volume").value()) && "false".equals(after.get("sound_notify").value())
+            && "bell".equals(after.get("sound_mention").value()), "the number, switch and choice as stored: " + after.values().stream()
+            .map(SettingsSteps.Shown::text).toList());
+        e2e.expect("chat".equals(shown(e2e, SettingsSteps.openGroup(e2e, back, "display", "Display settings"), "feedback_channel").value()),
+            "the display choice as stored");
 
-        e2e.step("storing the default deletes the row, so the player follows the default again");
-        Map<String, Object> reset = displayAfter.values();
-        reset.put("feedback_channel", "actionbar");
-        back.clearMessages();
-        e2e.click(back, "Save", reset);
-        expectSaw(e2e, back, "Quick results and errors set to Above the hotbar");
+        e2e.step("going back to the default deletes the row, so the player follows the default again");
+        SettingsSteps.set(e2e, back, "feedback_channel", "actionbar");
         expectStored(e2e, id, "feedback-channel", null);
-        Map<String, Object> soundReset = open(e2e, back, "settings sound", "Sounds settings").values();
-        soundReset.put("sound_volume", 100f);
-        soundReset.put("sound_notify", true);
-        soundReset.put("sound_mention", "default");
-        back.clearMessages();
-        e2e.click(back, "Save", soundReset);
-        expectSaw(e2e, back, "Saved 3 settings");
+        SettingsSteps.openGroup(e2e, back, "sound", "Sounds settings");
+        SettingsSteps.apply(e2e, back, new LinkedHashMap<>(Map.of("sound_volume", 100f, "sound_notify", true, "sound_mention", "default")));
         expectStored(e2e, id, "sound-volume", null);
         expectStored(e2e, id, "sound-notify", null);
         expectStored(e2e, id, "sound-mention", null);
@@ -655,60 +655,49 @@ final class SettingsScenarios {
         e2e.expect("0".equals(placeholder(e2e, name, "settings_changed")), "the count is back to 0");
     }
 
-    // ------------------------------------------------------------------ 5. paging with mixed kinds
+    // ------------------------------------------------------------------ 5. every setting on one page, in the style
 
-    /** With two settings per page, a slider and a choice changed on different pages are carried along and saved together. */
-    static void paging(E2E e2e) throws Exception {
-        offerAllKinds(e2e);
-        String name = e2e.name("Pager");
+    /**
+     * Every group's page, as staff see them (every setting): all of a group's settings on one page as buttons ("Label:
+     * value"), each with a tooltip, nothing written above them, no page buttons, and no "SiftCore" anywhere; the old
+     * {@code page-size} key of a server's file changes nothing.
+     */
+    static void onePage(E2E e2e) throws Exception {
+        String name = e2e.name("OnePage");
         Bot bot = e2e.bot(name);
-        UUID id = e2e.uuid(name);
-        withSettingsKeys(e2e, Map.of("page-size", "page-size: 2"), x -> {
-            Player player = e2e.player(name);
-            int count = (int) settings(e2e).registry().in("sound").stream().filter(e -> settings(e2e).visible(e, player::hasPermission)).count();
-            int pages = (count + 1) / 2;
-            e2e.expect(pages >= 3, "Sounds fills at least three pages of two: " + count);
-
-            e2e.step("page 1 holds the slider; the change is carried to page 2");
-            bot.clearLogs();
-            Bot.SeenDialog page1 = open(e2e, bot, "settings sound", "Sounds settings");
-            e2e.expect(page1.inputs().size() == 2 && page1.bodyText().contains("Page 1 of " + pages), "page 1 of " + pages + ": "
-                + page1.inputs() + " " + page1.body());
-            e2e.expect(page1.button("Next page") != null && page1.button("Previous page") == null, "only Next: " + page1.buttons());
-            e2e.expect(page1.inputs().containsKey("sound_volume"), "the slider comes first: " + page1.inputs());
-            Map<String, Object> values1 = page1.values();
-            values1.put("sound_volume", 20f);
-            e2e.click(bot, "Next page", values1);
-
-            e2e.step("page 2 holds the choice and knows about the change on page 1");
-            Bot.SeenDialog page2 = page(e2e, bot, "Sounds settings");
-            e2e.expect(page2.bodyText().contains("Page 2 of " + pages) && page2.bodyText().contains("Changes on other pages: 1"),
-                "page 2 knows about the change on page 1: " + page2.body());
-            e2e.expect(page2.inputs().containsKey("sound_mention"), "the ping choice on page 2: " + page2.inputs());
-            Map<String, Object> values2 = page2.values();
-            values2.put("sound_mention", "chime");
-            e2e.click(bot, "Previous page", values2);
-
-            e2e.step("back on page 1 the unsaved slider value shows, and saving there stores both");
-            Bot.SeenDialog back1 = page(e2e, bot, "Sounds settings");
-            e2e.expect(back1.range("sound_volume").initial() == 20f && back1.bodyText().contains("Changes on other pages: 1"),
-                "page 1 shows the pending value: " + back1.range("sound_volume") + " " + back1.body());
-            e2e.click(bot, "Next page", back1.values());
-            Bot.SeenDialog again2 = page(e2e, bot, "Sounds settings");
-            e2e.expect("chime".equals(again2.choiceValue("sound_mention")), "page 2 shows the pending choice: " + again2.choiceInitial());
-            e2e.click(bot, "Previous page", again2.values());
-            Bot.SeenDialog save1 = page(e2e, bot, "Sounds settings");
-            bot.clearMessages();
-            e2e.click(bot, "Save", save1.values());
-            expectSaw(e2e, bot, "Saved 2 settings");
-            expectStored(e2e, id, "sound-volume", "20");
-            expectStored(e2e, id, "sound-mention", "chime");
-        });
+        e2e.console("op " + name);
+        try {
+            withSettingsKeys(e2e, Map.of("page-size", "page-size: 2"), x -> {
+                for (Group group : visibleGroups(e2e, name)) {
+                    e2e.step("the " + group.label() + " page");
+                    Bot.SeenDialog page = SettingsSteps.openGroup(e2e, bot, group.category().id(), group.label() + " settings");
+                    e2e.expect(page.body().isEmpty() && page.inputs().isEmpty(), "buttons only: " + page.body());
+                    Map<String, SettingsSteps.Shown> settings = shown(e2e, page);
+                    e2e.expect(settings.size() == group.entries().size(), "all " + group.entries().size() + " settings on one page: "
+                        + labels(page));
+                    for (Bot.Button button : page.buttons()) {
+                        String text = button.label() + " " + button.tooltip();
+                        e2e.expect(!text.contains("SiftCore"), "no plugin name: " + text);
+                        e2e.expect(!text.contains("Next page") && !text.contains("Page "), "no paging: " + text);
+                        if (!button.label().equals("Back") && !button.label().equals("Close")) {
+                            e2e.expect(button.tooltip() != null && !button.tooltip().isBlank(), "a tooltip on " + button.label());
+                        }
+                    }
+                    for (SettingsSteps.Shown shown : settings.values()) {
+                        e2e.expect(shown.value() != null, "the value of " + shown.key() + " reads back: " + shown.text());
+                        String colour = shown.button().valueColor();
+                        e2e.expect(colour != null && !colour.equals("#FFFFFF"), shown.key() + "'s value is coloured: " + shown.button().label());
+                    }
+                }
+            });
+        } finally {
+            e2e.console("deop " + name);
+        }
     }
 
     // ------------------------------------------------------------------ 6. resets
 
-    /** Reset this category (confirm, cancel keeps unsaved changes), and Reset everything from the summary. */
+    /** Reset this group (asks first, Cancel keeps everything), Reset everything from the changed settings, /settings reset. */
     static void reset(E2E e2e) throws Exception {
         String name = e2e.name("Resetter");
         Bot bot = e2e.bot(name);
@@ -716,82 +705,87 @@ final class SettingsScenarios {
         PlayerSettings settings = settings(e2e);
 
         e2e.step("no reset button while nothing in the group changed");
-        e2e.expect(open(e2e, bot, "settings sound", "Sounds settings").button("Reset this category") == null, "no reset: " + bot.dialog().buttons());
+        e2e.expect(SettingsSteps.openGroup(e2e, bot, "sound", "Sounds settings").button("Reset this group") == null,
+            "no reset: " + labels(bot.dialog()));
 
-        e2e.step("Reset this category asks first, listing what goes back; Cancel keeps unsaved changes");
+        e2e.step("Reset this group asks first, naming what goes back in its tooltip; Cancel keeps everything");
         settings.set(id, SharedSettings.SOUND_VOLUME, 30L, Change.feature());
         settings.set(id, SharedSettings.SOUND_SUCCESS, false, Change.feature());
         settings.set(id, SharedSettings.FEEDBACK_CHANNEL, AlertStyle.BOTH, Change.feature());
-        Bot.SeenDialog sound = open(e2e, bot, "settings sound", "Sounds settings");
-        e2e.expect(sound.button("Reset this category") != null, "a reset button: " + sound.buttons());
-        Map<String, Object> unsaved = sound.values();
-        unsaved.put("sound_errors", false);
-        e2e.click(bot, "Reset this category", unsaved);
+        Bot.SeenDialog sound = SettingsSteps.openGroup(e2e, bot, "sound", "Sounds settings");
+        Bot.Button reset = sound.button("Reset this group");
+        e2e.expect(reset != null && reset.tooltip().contains("2 settings"), "a reset button: " + labels(sound));
+        e2e.click(bot, "Reset this group");
         Bot.SeenDialog confirm = page(e2e, bot, "Reset Sounds settings?");
-        e2e.expect(confirm.bodyText().contains("SiftCore volume: 30% to 100%") && confirm.bodyText().contains("Success chimes: off to on"),
-            "what goes back: " + confirm.body());
+        e2e.expect(confirm.bodyText().equals("2 settings go back to their defaults."), "one short line: " + confirm.body());
+        String names = confirm.button("Reset").tooltip();
+        e2e.expect(names.contains("Sound volume: 30% to 100%") && names.contains("Success chimes: off to on"), "what goes back: " + names);
         e2e.click(bot, "Cancel");
-        Bot.SeenDialog kept = page(e2e, bot, "Sounds settings");
-        e2e.expect(Boolean.FALSE.equals(kept.toggleValue("sound_errors")), "the unsaved change is still there: " + kept.initials());
-        e2e.expect(settings.get(id, SharedSettings.SOUND_VOLUME) == 30L, "nothing was reset");
+        e2e.expect(page(e2e, bot, "Sounds settings").button("Sound volume: 30%") != null, "nothing was reset: " + labels(bot.dialog()));
 
-        e2e.step("Reset puts the group back to the defaults, deletes the rows and drops the unsaved changes");
+        e2e.step("Reset puts the group back to the defaults and deletes the rows");
         bot.clearMessages();
-        e2e.click(bot, "Reset this category", kept.values());
+        e2e.click(bot, "Reset this group");
         page(e2e, bot, "Reset Sounds settings?");
         e2e.click(bot, "Reset");
         Bot.SeenDialog after = page(e2e, bot, "Sounds settings");
         expectSaw(e2e, bot, "Reset 2 settings to their defaults");
-        e2e.expect(after.range("sound_volume").initial() == 100f && Boolean.TRUE.equals(after.toggleValue("sound_success")),
-            "the page shows the defaults: " + after.range("sound_volume") + " " + after.initials());
-        e2e.expect(Boolean.TRUE.equals(after.toggleValue("sound_errors")), "the unsaved 'off' is gone after the reset: " + after.initials());
-        e2e.expect(!after.bodyText().contains("Changes on other pages"), "nothing pending: " + after.body());
-        bot.clearMessages();
-        e2e.click(bot, "Save", after.values());
-        expectSaw(e2e, bot, "Nothing changed");
-        expectStored(e2e, id, "sound-errors", null);
-        e2e.expect(after.button("Reset this category") == null, "nothing left to reset: " + after.buttons());
+        e2e.expect(after.button("Sound volume: 100%") != null && after.button("Success chimes: ON") != null, "the defaults: " + labels(after));
+        e2e.expect(after.button("Reset this group") == null, "nothing left to reset: " + labels(after));
         expectStored(e2e, id, "sound-volume", null);
         expectStored(e2e, id, "sound-success", null);
         expectStored(e2e, id, "feedback-channel", "both");
 
         e2e.step("the counts follow");
         Bot.SeenDialog list = open(e2e, bot, "settings", "Settings");
-        e2e.expect(list.bodyText().contains("You changed 1 of") && list.button("Changed settings (1)") != null, "one left: " + list.body());
+        e2e.expect(list.button("Changed settings (1)") != null, "one left: " + list.buttons());
 
-        e2e.step("Reset everything from the summary");
+        e2e.step("the changed settings: the same buttons, with their group and default in the tooltip; Reset everything");
         settings.set(id, SharedSettings.SOUND_CLICKS, false, Change.feature());
         Bot.SeenDialog summary = open(e2e, bot, "settings changed", "Changed settings");
-        e2e.expect(summary.bodyText().contains("Display > Quick results and errors: Both (default Above the hotbar)")
-            && summary.bodyText().contains("Sounds > Menu click sounds: off (default on)"), "both changes: " + summary.body());
-        e2e.expect(summary.button("Display (1)") != null && summary.button("Sounds (1)") != null, "a button per group: " + summary.buttons());
+        Bot.Button channel = summary.button("Quick results and errors: Both");
+        Bot.Button clicks = summary.button("Menu click sounds: OFF");
+        e2e.expect(channel != null && clicks != null, "both changes: " + labels(summary));
+        e2e.expect(labels(summary).indexOf(clicks.label()) < labels(summary).indexOf(channel.label()), "in dialog order (Sounds first)");
+        e2e.expect(channel.tooltip().startsWith("Display") && channel.tooltip().contains("Default: Above the hotbar"), channel.tooltip());
+        e2e.click(bot, clicks.label());
+        e2e.expect(page(e2e, bot, "Changed settings").button("Menu click sounds: ON") != null,
+            "flipped back to the default, it stays listed: " + labels(bot.dialog()));
+        settings.set(id, SharedSettings.SOUND_CLICKS, false, Change.feature());
         bot.clearMessages();
         e2e.click(bot, "Reset everything");
         Bot.SeenDialog everything = page(e2e, bot, "Reset every setting?");
-        e2e.expect(everything.bodyText().contains("Quick results and errors: Both to Above the hotbar"), "listed: " + everything.body());
+        e2e.expect(everything.button("Reset").tooltip().contains("Quick results and errors: Both to Above the hotbar"),
+            "listed: " + everything.button("Reset").tooltip());
         e2e.click(bot, "Reset");
-        settingsList(e2e, bot);
+        Bot.SeenDialog afterAll = settingsList(e2e, bot);
         expectSaw(e2e, bot, "Reset 2 settings to their defaults");
         expectStored(e2e, id, "feedback-channel", null);
         expectStored(e2e, id, "sound-clicks", null);
-        e2e.expect(settingsList(e2e, bot).button("Changed settings") == null, "nothing changed now: " + bot.dialog().buttons());
+        e2e.expect(afterAll.button("Changed settings (0)") != null, "nothing changed now: " + afterAll.buttons());
+        Bot.SeenDialog none = open(e2e, bot, "settings changed", "Changed settings");
+        e2e.expect(none.bodyText().contains("You use the defaults for every setting.") && none.button("Reset everything") == null,
+            "says so in one line: " + none.body());
 
         e2e.step("/settings reset <group> opens the confirmation, or says there is nothing to reset");
+        e2e.sleep(1_100);
         bot.clearLogs();
         bot.command("settings reset sound");
         expectSaw(e2e, bot, "You use the defaults for every Sounds setting");
         settings.set(id, SharedSettings.SOUND_VOLUME, 40L, Change.feature());
+        e2e.sleep(1_100);
         open(e2e, bot, "settings reset sound", "Reset Sounds settings?");
         e2e.click(bot, "Reset");
         page(e2e, bot, "Sounds settings");
         expectStored(e2e, id, "sound-volume", null);
+        e2e.sleep(1_100);
         bot.command("settings reset all");
         expectSaw(e2e, bot, "You use the defaults for every setting");
     }
 
     // ------------------------------------------------------------------ 7. search
 
-    /** Search by label word and option label, results pages save, no results, an empty query, /settings search. */
+    /** Search by label word and option label, results are the same buttons, no results, an empty query, /settings search. */
     static void search(E2E e2e) throws Exception {
         String name = e2e.name("Seeker");
         Bot bot = e2e.bot(name);
@@ -802,6 +796,8 @@ final class SettingsScenarios {
         e2e.click(bot, "Search settings");
         Bot.SeenDialog form = e2e.dialog(bot, "Search settings");
         e2e.expect("text".equals(form.inputs().get("query")), "a text field: " + form.inputs());
+        e2e.expect(form.body().isEmpty(), "no intro: " + form.body());
+        e2e.expect(form.button("Search").tooltip() != null, "what to type is in the button's tooltip");
         e2e.expect("wait_for_response".equals(form.after()), "Search shows the waiting screen: " + form.after());
 
         e2e.step("an empty query is refused in red on the form");
@@ -811,33 +807,30 @@ final class SettingsScenarios {
         Bot.SeenDialog refused = e2e.dialog(bot, "Search settings");
         e2e.expect(refused.bodyText().contains("Type a word to search for"), "the error: " + refused.body());
 
-        e2e.step("a label word finds the setting; its result page saves");
+        e2e.step("a label word finds the setting; its button works in place");
         Map<String, Object> query = refused.values();
         query.put("query", "volume");
         e2e.click(bot, "Search", query);
         Bot.SeenDialog results = page(e2e, bot, "Search: volume");
-        e2e.expect(results.inputs().containsKey("sound_volume"), "the volume slider: " + results.inputs());
-        e2e.expect(results.bodyText().contains("Sounds > SiftCore volume: How loud"), "lines name the group: " + results.body());
-        Map<String, Object> values = results.values();
-        values.put("sound_volume", 60f);
-        bot.clearMessages();
-        e2e.click(bot, "Save", values);
-        expectSaw(e2e, bot, "SiftCore volume set to 60%");
+        Bot.Button volume = results.button("Sound volume: 100%");
+        e2e.expect(volume != null && volume.tooltip().startsWith("Sounds"), "the volume, naming its group: " + labels(results));
+        SettingsSteps.set(e2e, bot, "sound_volume", 60f);
+        e2e.expect(page(e2e, bot, "Search: volume").button("Sound volume: 60%") != null, "back on the results");
+        expectStored(e2e, id, "sound-volume", "60");
+        e2e.click(bot, "Back");
         Bot.SeenDialog backToForm = e2e.dialog(bot, "Search settings");
         e2e.expect("volume".equals(backToForm.initial("query")), "back on the form with the query: " + backToForm.initial());
-        expectStored(e2e, id, "sound-volume", "60");
 
-        e2e.step("an option label finds the settings that offer it");
+        e2e.step("an option label finds the settings that offer it, all on one page");
         Map<String, Object> option = backToForm.values();
         option.put("query", "above the hotbar");
         e2e.click(bot, "Search", option);
-        // Many settings offer "above the hotbar", so the results can span pages.
-        Set<String> byOptionKeys = keysAcrossPages(e2e, bot, "Search: above the hotbar");
-        e2e.expect(byOptionKeys.contains("feedback_channel"), "the feedback channel: " + byOptionKeys);
         Bot.SeenDialog byOption = page(e2e, bot, "Search: above the hotbar");
+        e2e.expect(shown(e2e, byOption).containsKey("feedback_channel"), "the feedback channel: " + labels(byOption));
+        e2e.expect(byOption.button("Next page") == null, "no pages");
 
         e2e.step("no match: a notice, and Back returns to the form");
-        e2e.click(bot, "Back", byOption.values());
+        e2e.click(bot, "Back");
         Bot.SeenDialog form2 = e2e.dialog(bot, "Search settings");
         Map<String, Object> nothing = form2.values();
         nothing.put("query", "zzzqqq");
@@ -852,9 +845,8 @@ final class SettingsScenarios {
 
         e2e.step("/settings search opens the results directly");
         Bot.SeenDialog direct = open(e2e, bot, "settings search error sounds", "Search: error sounds");
-        e2e.expect(direct.inputs().containsKey("sound_errors"), "error sounds: " + direct.inputs());
-        e2e.expect(direct.bodyText().indexOf("Error sounds") < direct.bodyText().indexOf("Menu click sounds")
-            || !direct.bodyText().contains("Menu click sounds"), "the label match first: " + direct.body());
+        List<String> keys = List.copyOf(shown(e2e, direct).keySet());
+        e2e.expect(!keys.isEmpty() && keys.getFirst().equals("sound_errors"), "the label match first: " + keys);
     }
 
     // ------------------------------------------------------------------ 8. /settings words
@@ -872,7 +864,7 @@ final class SettingsScenarios {
     /**
      * {@code /settings}: changing a number, a choice (by id and by label) and a switch, the info line that opens the
      * page, shorthand without the group, values it doesn't take, unknown names, settings players can't see, and the
-     * summary and reset words.
+     * changed settings and reset words.
      */
     static void commands(E2E e2e) throws Exception {
         String name = e2e.name("Commander");
@@ -881,18 +873,18 @@ final class SettingsScenarios {
 
         e2e.step("/settings <group> <setting> <value> changes a number, confirmed above the hotbar");
         say(e2e, bot, "settings sound volume 30");
-        e2e.eventually(() -> bot.actionBarContains("SiftCore volume set to 30%"), "the confirmation: " + bot.actionBar());
+        e2e.eventually(() -> bot.actionBarContains("Sound volume set to 30%"), "the confirmation: " + bot.actionBar());
         expectStored(e2e, id, "sound-volume", "30");
         say(e2e, bot, "settings sound volume 30");
-        e2e.eventually(() -> bot.actionBarContains("SiftCore volume is already 30%"), "already so: " + bot.actionBar());
+        e2e.eventually(() -> bot.actionBarContains("Sound volume is already 30%"), "already so: " + bot.actionBar());
 
         e2e.step("/settings <group> <setting> shows the value, the default and the values; the line opens its page");
         say(e2e, bot, "settings sound volume");
-        e2e.eventually(() -> bot.chatContains("SiftCore volume: 30% (default 100%). Values: a whole number from 0 to 100 in steps of 10"),
+        e2e.eventually(() -> bot.chatContains("Sound volume: 30% (default 100%). Values: a whole number from 0 to 100 in steps of 10"),
             "the info line: " + bot.chat());
-        e2e.expect(bot.openChatDialog("SiftCore volume: 30%"), "the line opens a dialog: " + bot.chatDialogs());
+        e2e.expect(bot.openChatDialog("Sound volume: 30%"), "the line opens a dialog: " + bot.chatDialogs());
         Bot.SeenDialog fromChat = page(e2e, bot, "Sounds settings");
-        e2e.expect(fromChat.range("sound_volume").initial() == 30f, "the page that holds it: " + fromChat.range("sound_volume"));
+        e2e.expect(fromChat.button("Sound volume: 30%") != null, "the page that holds it: " + labels(fromChat));
 
         e2e.step("a choice by id, a choice by its label (shorthand without the group) and a switch flipped with toggle");
         say(e2e, bot, "settings display feedback-channel both");
@@ -907,15 +899,15 @@ final class SettingsScenarios {
         say(e2e, bot, "settings sound notify toggle");
         e2e.eventually(() -> settings(e2e).get(id, SharedSettings.SOUND_NOTIFY), "flipped back");
         say(e2e, bot, "settings volume 50");
-        e2e.eventually(() -> bot.actionBarContains("SiftCore volume set to 50%"), "a short name only one setting has: " + bot.actionBar());
+        e2e.eventually(() -> bot.actionBarContains("Sound volume set to 50%"), "a short name only one setting has: " + bot.actionBar());
 
         e2e.step("values a setting doesn't take are refused, naming what it takes, in red");
         say(e2e, bot, "settings display feedback-channel title");
         expectSaw(e2e, bot, "For Quick results and errors, use actionbar, chat, both.");
         say(e2e, bot, "settings sound volume 150");
-        expectSaw(e2e, bot, "For SiftCore volume, use a whole number from 0 to 100 in steps of 10.");
+        expectSaw(e2e, bot, "For Sound volume, use a whole number from 0 to 100 in steps of 10.");
         say(e2e, bot, "settings sound volume 55");
-        expectSaw(e2e, bot, "For SiftCore volume, use a whole number");
+        expectSaw(e2e, bot, "For Sound volume, use a whole number");
         say(e2e, bot, "settings sound notify maybe");
         expectSaw(e2e, bot, "For Notification pings, use on, off or toggle.");
         e2e.expect(settings(e2e).get(id, SharedSettings.SOUND_VOLUME) == 50L, "nothing changed meanwhile");
@@ -941,11 +933,13 @@ final class SettingsScenarios {
         e2e.step("the command's own words typed in capitals still do what they do");
         e2e.sleep(1_100);
         Bot.SeenDialog found = open(e2e, bot, "settings Search volume", "Search: volume");
-        e2e.expect(found.inputs().containsKey("sound_volume"), "the search results: " + found.inputs());
+        e2e.expect(shown(e2e, found).containsKey("sound_volume"), "the search results: " + labels(found));
 
         e2e.step("/settings changed and /settings reset open their screens");
+        e2e.sleep(1_100);
         Bot.SeenDialog summary = open(e2e, bot, "settings changed", "Changed settings");
-        e2e.expect(summary.bodyText().contains("Sounds > SiftCore volume: 50%"), "the change: " + summary.body());
+        e2e.expect(summary.button("Sound volume: 50%") != null, "the change: " + labels(summary));
+        e2e.sleep(1_100);
         open(e2e, bot, "settings reset sound", "Reset Sounds settings?");
         say(e2e, bot, "settings reset display");
         expectSaw(e2e, bot, "You use the defaults for every Display setting");
@@ -1077,7 +1071,7 @@ final class SettingsScenarios {
         expectStored(e2e, id, "sound-volume", "80");
         Bot back = e2e.bot(name);
         e2e.expect(settings.get(id, SharedSettings.SOUND_VOLUME) == 80L, "read on rejoin: " + settings.get(id, SharedSettings.SOUND_VOLUME));
-        e2e.expect(open(e2e, back, "settings sound", "Sounds settings").range("sound_volume").initial() == 80f, "the dialog shows it");
+        e2e.expect(open(e2e, back, "settings sound", "Sounds settings").button("Sound volume: 80%") != null, "the dialog shows it");
 
         e2e.step("locked settings are refused, also by a reset, and a group reset names the locked ones it leaves");
         e2e.expect(settings.set(id, SharedSettings.QUIET_IN_COMBAT, true, Change.feature()) == SetResult.CHANGED, "quiet in combat on");
@@ -1098,8 +1092,9 @@ final class SettingsScenarios {
     // ------------------------------------------------------------------ 10. server defaults, locks, hidden settings, looks
 
     /**
-     * features/settings.yml: a server default (and a player who stored it following it), a lock (text instead of an
-     * input, refused by commands), a hidden setting (left out of pages and commands), compact pages and group overrides.
+     * features/settings.yml: a server default (and a player who stored it following it), a lock (the value greyed with
+     * "Set by the server", refused by commands), a hidden setting (left out of pages and commands), and group overrides
+     * (order, icon, colour).
      */
     static void config(E2E e2e) throws Exception {
         String keeper = e2e.name("Keeper");
@@ -1121,42 +1116,47 @@ final class SettingsScenarios {
             e2e.step("a server default reaches players who never changed it; a stored choice is kept");
             e2e.expect(settings(e2e).get(followId, SharedSettings.SOUND_VOLUME) == 60L, "the follower reads the server default");
             e2e.expect(settings(e2e).get(keepId, SharedSettings.SOUND_VOLUME) == 30L, "the keeper keeps 30%");
-            Bot.SeenDialog page = open(e2e, follow, "settings sound", "Sounds settings");
-            e2e.expect(page.range("sound_volume").initial() == 60f, "the slider starts at the server default: " + page.range("sound_volume"));
+            Bot.SeenDialog page = SettingsSteps.openGroup(e2e, follow, "sound", "Sounds settings");
+            Bot.Button volume = page.button("Sound volume: 60%");
+            e2e.expect(volume != null && volume.tooltip().contains("Default: 60%"), "the server default, also as the default: " + labels(page));
             follow.clearLogs();
+            e2e.sleep(1_100);
             follow.command("settings sound volume");
-            e2e.eventually(() -> follow.chatContains("SiftCore volume: 60% (default 60%)"), "the server default is the default: " + follow.chat());
+            e2e.eventually(() -> follow.chatContains("Sound volume: 60% (default 60%)"), "the server default is the default: " + follow.chat());
 
             e2e.step("a hidden setting is left out of the dialog and commands, reads the server's value and can't be changed");
-            e2e.expect(!page.inputs().containsKey("sound_clicks"), "no click sound switch: " + page.inputs());
+            e2e.expect(!shown(e2e, page).containsKey("sound_clicks"), "no click sound switch: " + labels(page));
             e2e.expect(settings(e2e).get(keepId, SharedSettings.SOUND_CLICKS), "the keeper's stored 'off' does not apply while hidden");
             e2e.expect(settings(e2e).set(keepId, SharedSettings.SOUND_CLICKS, false, Change.api("SiftE2E")) == SetResult.NOT_ALLOWED,
                 "refused by the registry");
             expectStored(e2e, keepId, "sound-clicks", "false");
             follow.clearLogs();
+            e2e.sleep(1_100);
             follow.command("settings sound clicks off");
             expectSaw(e2e, follow, "There is no setting called clicks in Sounds.");
             e2e.expect("".equals(placeholder(e2e, follower, "setting_sound-clicks")), "no placeholder value");
 
-            e2e.step("storing the server default deletes the row");
-            Map<String, Object> values = open(e2e, keep, "settings sound", "Sounds settings").values();
-            values.put("sound_volume", 60f);
-            keep.clearMessages();
-            e2e.click(keep, "Save", values);
-            expectSaw(e2e, keep, "SiftCore volume set to 60%");
+            e2e.step("picking the server default deletes the row");
+            SettingsSteps.openGroup(e2e, keep, "sound", "Sounds settings");
+            SettingsSteps.set(e2e, keep, "sound_volume", 60f);
             expectStored(e2e, keepId, "sound-volume", null);
 
-            e2e.step("a locked setting shows its value as text, and commands are refused");
-            Bot.SeenDialog combat = open(e2e, follow, "settings combat", "Combat & stats settings");
-            e2e.expect(!combat.inputs().containsKey("quiet_in_combat"), "no input for a locked setting: " + combat.inputs());
-            e2e.expect(combat.bodyText().contains("Quiet during combat: on (set by the server)"), "the value as text: " + combat.body());
+            e2e.step("a locked setting shows its value greyed and set by the server; clicks and commands change nothing");
+            Bot.SeenDialog combat = SettingsSteps.openGroup(e2e, follow, "combat", "Combat & stats settings");
+            Bot.Button quiet = combat.button("Quiet during combat: ON");
+            e2e.expect(quiet != null && GRAY.equals(quiet.valueColor()), "greyed: " + labels(combat));
+            e2e.expect(quiet.tooltip().contains("Set by the server."), "its tooltip says why: " + quiet.tooltip());
+            e2e.click(follow, quiet.label());
+            e2e.expect(page(e2e, follow, "Combat & stats settings").button("Quiet during combat: ON") != null, "unchanged");
             e2e.expect(settings(e2e).get(followId, SharedSettings.QUIET_IN_COMBAT), "the lock is the value");
             e2e.expect(settings(e2e).set(followId, SharedSettings.QUIET_IN_COMBAT, false, Change.api("SiftE2E")) == SetResult.LOCKED,
                 "refused by the registry");
             follow.clearLogs();
+            e2e.sleep(1_100);
             follow.command("settings combat quiet-in-combat off");
             expectSaw(e2e, follow, "Quiet during combat is set by the server.");
             follow.clearLogs();
+            e2e.sleep(1_100);
             follow.command("settings quiet-in-combat");
             e2e.eventually(() -> follow.chatContains("Quiet during combat: on (set by the server)"), "the info line: " + follow.chat());
         });
@@ -1167,18 +1167,12 @@ final class SettingsScenarios {
         e2e.expect(!settings(e2e).get(keepId, SharedSettings.SOUND_CLICKS), "shown again: the keeper's stored choice is back");
 
         withSettingsKeys(e2e, Map.of(
-            "show-descriptions", "show-descriptions: false",
-            "categories", "categories:\n  sound:\n    order: 1\n  display:\n    icon: star"), x -> {
-            e2e.step("compact pages leave the descriptions out; the inputs keep their labels");
-            Bot.SeenDialog compact = open(e2e, follow, "settings sound", "Sounds settings");
-            e2e.expect(!compact.bodyText().contains("How loud menu clicks"), "no descriptions: " + compact.body());
-            e2e.expect(compact.range("sound_volume").label().equals("SiftCore volume (%)"), "the label stays: " + compact.range("sound_volume"));
-
-            e2e.step("the server moves a group to the top and changes an icon");
+            "categories", "categories:\n  sound:\n    order: 1\n    color: \"#123456\"\n  display:\n    icon: star"), x -> {
+            e2e.step("the server moves a group to the top and changes its colour and another's icon");
+            e2e.sleep(1_100);
             Bot.SeenDialog list = open(e2e, follow, "settings", "Settings");
-            e2e.expect(list.buttons().getFirst().label().equals("Sounds"), "Sounds first: " + list.buttons());
-            String body = list.bodyText();
-            e2e.expect(body.indexOf("Sounds:") < body.indexOf("Chat:"), "and its line too: " + list.body());
+            e2e.expect(list.buttons().getFirst().label().endsWith("Sounds"), "Sounds first: " + list.buttons());
+            e2e.expect("#123456".equals(list.buttons().getFirst().valueColor()), "in the server's colour: " + list.buttons().getFirst().valueColor());
 
             e2e.step("the API reports the groups the way the dialog shows them");
             List<SettingsView.CategoryInfo> groups = SiftCoreApi.get().settings().categories();
@@ -1219,13 +1213,13 @@ final class SettingsScenarios {
         Recorder recorder = new Recorder();
         Bukkit.getPluginManager().registerEvents(recorder, harness());
         try {
-            e2e.step("a cancelled change is reported in the dialog and nothing is stored");
-            Map<String, Object> values = open(e2e, bot, "settings sound", "Sounds settings").values();
-            values.put("sound_success", false);
-            values.put("sound_clicks", false);
-            bot.clearMessages();
-            e2e.click(bot, "Save", values);
-            expectSaw(e2e, bot, "Success chimes couldn't be changed");
+            e2e.step("a cancelled change shows in red on the page and nothing is stored");
+            open(e2e, bot, "settings sound", "Sounds settings");
+            e2e.click(bot, "Success chimes: ON");
+            Bot.SeenDialog refused = page(e2e, bot, "Sounds settings");
+            e2e.expect(refused.bodyText().contains("Success chimes couldn't be changed."), "in red on the page: " + refused.body());
+            e2e.expect(refused.button("Success chimes: ON") != null, "the button still shows ON: " + labels(refused));
+            SettingsSteps.set(e2e, bot, "sound_clicks", false);
             e2e.expect(settings(e2e).get(id, SharedSettings.SOUND_SUCCESS), "still on");
             expectStored(e2e, id, "sound-success", null);
             expectStored(e2e, id, "sound-clicks", "false");
@@ -1234,6 +1228,7 @@ final class SettingsScenarios {
                 "MONITOR sees only what was stored: " + recorder.committed);
 
             e2e.step("commands and the API are cancellable too");
+            e2e.sleep(1_100);
             bot.clearLogs();
             bot.command("settings sound success off");
             expectSaw(e2e, bot, "Success chimes couldn't be changed");
@@ -1249,6 +1244,7 @@ final class SettingsScenarios {
             e2e.expect(recorder.seen.contains("sound-success:true->false:FEATURE:sound"), "but reported: " + recorder.seen);
 
             e2e.step("a reset is reported with the reset cause");
+            e2e.sleep(1_100);
             open(e2e, bot, "settings reset sound", "Reset Sounds settings?");
             e2e.click(bot, "Reset");
             page(e2e, bot, "Sounds settings");
@@ -1282,15 +1278,16 @@ final class SettingsScenarios {
         e2e.expect(settings(e2e).get(id, SharedSettings.SOUND_VOLUME) == 40L, "an off-step number snaps to the nearest step");
 
         e2e.step("the dialog shows them");
-        e2e.expect("chat".equals(open(e2e, bot, "settings display", "Display settings").choiceValue("feedback_channel")), "the choice");
-        Bot.SeenDialog economy = open(e2e, bot, "settings economy", "Money & selling settings");
-        e2e.expect("actionbar".equals(economy.choiceValue("sell_receipts")), "the receipts choice: " + economy.choiceInitial());
-        e2e.expect(open(e2e, bot, "settings sound", "Sounds settings").range("sound_volume").initial() == 40f, "the slider");
+        e2e.expect("chat".equals(shown(e2e, SettingsSteps.openGroup(e2e, bot, "display", "Display settings"), "feedback_channel").value()),
+            "the choice");
+        SettingsSteps.Shown receipts = shown(e2e, SettingsSteps.openGroup(e2e, bot, "economy", "Money & selling settings"), "sell_receipts");
+        e2e.expect("actionbar".equals(receipts.value()), "the receipts choice: " + receipts.text());
+        e2e.expect("40".equals(shown(e2e, SettingsSteps.openGroup(e2e, bot, "sound", "Sounds settings"), "sound_volume").value()),
+            "the number");
 
         e2e.step("the next change writes the value in its stored form");
-        Map<String, Object> values = open(e2e, bot, "settings economy", "Money & selling settings").values();
-        values.put("sell_receipts", "off");
-        e2e.click(bot, "Save", values);
+        SettingsSteps.openGroup(e2e, bot, "economy", "Money & selling settings");
+        SettingsSteps.set(e2e, bot, "sell_receipts", "off");
         expectStored(e2e, id, "sell_receipts", "off");
         expectStored(e2e, id, "feedback-channel", " CHAT ");
 
@@ -1333,23 +1330,10 @@ final class SettingsScenarios {
         return (Choice<AlertStyle>) settings.setting("e2e-gated");
     }
 
-    /** Walks a paged group from the page open now with Next page until one shows {@code key}. */
-    private static Bot.SeenDialog pageWith(E2E e2e, Bot bot, String title, String key) {
-        for (int guard = 0; guard < 30; guard++) {
-            Bot.SeenDialog current = page(e2e, bot, title);
-            if (current.inputs().containsKey(key)) {
-                return current;
-            }
-            e2e.expect(current.button("Next page") != null, key + " on a later page of " + title + ": " + current.inputs().keySet());
-            e2e.click(bot, "Next page", current.values());
-        }
-        throw new E2E.Failure("too many pages in " + title);
-    }
-
     /**
-     * An option a choice stops offering (optionAvailableWhen): left out of the page, a forged click picking it is
-     * refused by the router and stores nothing, the command refuses it, and a player who picked it while it was
-     * offered reads (and sees) its stand-in until it comes back.
+     * An option a choice stops offering (optionAvailableWhen): left out of the button's tooltip, skipped when the choice
+     * moves to its next option, refused by the command, and a player who picked it while it was offered reads (and sees)
+     * its stand-in until it comes back.
      */
     static void unoffered(E2E e2e) throws Exception {
         Choice<AlertStyle> gated = gatedChoice(e2e);
@@ -1360,21 +1344,19 @@ final class SettingsScenarios {
         GATE_OFFERED.set(true);
         GATE_BOTH.set(false);
         try {
-            e2e.step("the page leaves the option out");
-            open(e2e, bot, "settings display", "Display settings");
-            Bot.SeenDialog page = pageWith(e2e, bot, "Display settings", "e2e_gated");
-            e2e.expect(List.of("actionbar", "chat").equals(page.options().get("e2e_gated")), "no Both: " + page.options());
+            e2e.step("the button's tooltip leaves the option out");
+            SettingsSteps.Shown shown = shown(e2e, SettingsSteps.openGroup(e2e, bot, "display", "Display settings"), "e2e_gated");
+            e2e.expect(List.of("actionbar", "chat").equals(shown.options()), "no Both: " + shown.options());
 
-            e2e.step("a forged click picking it is refused by the router and stores nothing");
-            Map<String, Object> forged = page.values();
-            forged.put("e2e_gated", "both");
-            e2e.click(bot, "Save", forged);
-            e2e.expect(page(e2e, bot, "Display settings").bodyText().contains("Check Display and try again"),
-                "refused: " + bot.dialog().body());
+            e2e.step("moving through the options skips it");
+            e2e.click(bot, "Display: Above the hotbar");
+            e2e.expect(page(e2e, bot, "Display settings").button("Display: Chat") != null, "Chat: " + labels(bot.dialog()));
+            e2e.click(bot, "Display: Chat");
+            e2e.expect(page(e2e, bot, "Display settings").button("Display: Above the hotbar") != null,
+                "after Chat comes the first again, not Both: " + labels(bot.dialog()));
             expectStored(e2e, id, "e2e-gated", null);
-            e2e.expect(settings.get(id, gated) == AlertStyle.ACTIONBAR, "still the default");
 
-            e2e.step("the command refuses it too, naming it");
+            e2e.step("the command refuses it, naming it");
             say(e2e, bot, "settings display e2e-gated both");
             expectSaw(e2e, bot, "You can't pick both for Display.");
             expectStored(e2e, id, "e2e-gated", null);
@@ -1386,16 +1368,14 @@ final class SettingsScenarios {
             GATE_BOTH.set(false);
             e2e.expect(settings.get(e2e.player(name), gated) == AlertStyle.CHAT, "read as Chat while Both is not offered");
             e2e.sleep(1_100);
-            open(e2e, bot, "settings display", "Display settings");
-            Bot.SeenDialog standIn = pageWith(e2e, bot, "Display settings", "e2e_gated");
-            e2e.expect("chat".equals(standIn.choiceValue("e2e_gated")), "the page shows Chat: " + standIn.choiceInitial());
+            SettingsSteps.Shown standIn = shown(e2e, SettingsSteps.openGroup(e2e, bot, "display", "Display settings"), "e2e_gated");
+            e2e.expect("chat".equals(standIn.value()), "the page shows Chat: " + standIn.text());
             expectStored(e2e, id, "e2e-gated", "both");
             GATE_BOTH.set(true);
             e2e.sleep(1_100);
-            open(e2e, bot, "settings display", "Display settings");
-            Bot.SeenDialog back = pageWith(e2e, bot, "Display settings", "e2e_gated");
-            e2e.expect("both".equals(back.choiceValue("e2e_gated")) && back.options().get("e2e_gated").contains("both"),
-                "offered again, the stored Both shows: " + back.choiceInitial() + " " + back.options());
+            SettingsSteps.Shown back = shown(e2e, SettingsSteps.openGroup(e2e, bot, "display", "Display settings"), "e2e_gated");
+            e2e.expect("both".equals(back.value()) && back.options().contains("both"),
+                "offered again, the stored Both shows: " + back.text() + " " + back.options());
         } finally {
             GATE_OFFERED.set(false);
             GATE_BOTH.set(false);
@@ -1700,8 +1680,8 @@ final class SettingsScenarios {
 
     /**
      * Settings of all three kinds survive a restart. Uses the same name on every run: when an earlier run (possibly
-     * before a restart) stored the values, the player must join with them; otherwise they are saved now through the
-     * dialog. Run it, restart the server, run it again.
+     * before a restart) stored the values, the player must join with them; otherwise they are set now through the
+     * dialog's buttons. Run it, restart the server, run it again.
      */
     static void persist(E2E e2e) throws Exception {
         String name = "SetKeeper";
@@ -1710,20 +1690,16 @@ final class SettingsScenarios {
         Bot bot = e2e.bot(name);
         if ("30".equals(stored)) {
             e2e.step("stored in an earlier run: the values are back");
-            Bot.SeenDialog sound = open(e2e, bot, "settings sound", "Sounds settings");
-            e2e.expect(sound.range("sound_volume").initial() == 30f && Boolean.FALSE.equals(sound.toggleValue("sound_clicks")),
-                "the slider and the switch as stored: " + sound.range("sound_volume") + " " + sound.initials());
-            e2e.expect("both".equals(open(e2e, bot, "settings display", "Display settings").choiceValue("feedback_channel")), "the choice as stored");
+            Map<String, SettingsSteps.Shown> sound = shown(e2e, SettingsSteps.openGroup(e2e, bot, "sound", "Sounds settings"));
+            e2e.expect("30".equals(sound.get("sound_volume").value()) && "false".equals(sound.get("sound_clicks").value()),
+                "the number and the switch as stored: " + sound.get("sound_volume").text() + " " + sound.get("sound_clicks").text());
+            e2e.expect("both".equals(shown(e2e, SettingsSteps.openGroup(e2e, bot, "display", "Display settings"), "feedback_channel").value()),
+                "the choice as stored");
             e2e.log("the settings stored earlier came back");
         } else {
-            e2e.step("first run: store a slider, a switch and a choice for the next run");
-            Map<String, Object> values = open(e2e, bot, "settings sound", "Sounds settings").values();
-            values.put("sound_volume", 30f);
-            values.put("sound_clicks", false);
-            e2e.click(bot, "Save", values);
-            Map<String, Object> display = open(e2e, bot, "settings display", "Display settings").values();
-            display.put("feedback_channel", "both");
-            e2e.click(bot, "Save", display);
+            e2e.step("first run: store a number, a switch and a choice for the next run");
+            SettingsSteps.edit(e2e, bot, "sound", "Sounds settings", new LinkedHashMap<>(Map.of("sound_volume", 30f, "sound_clicks", false)));
+            SettingsSteps.edit(e2e, bot, "display", "Display settings", Map.of("feedback_channel", "both"));
             UUID id = e2e.uuid(name);
             expectStored(e2e, id, "sound-volume", "30");
             expectStored(e2e, id, "sound-clicks", "false");

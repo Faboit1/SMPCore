@@ -239,33 +239,10 @@ final class TeleportScenarios {
             "/settings " + id + " " + value + " changes it for " + bot.name + " (chat " + bot.chat() + ", action bar " + bot.actionBar() + ")");
     }
 
-    /**
-     * Opens the teleport settings with /settings teleport and changes inputs wherever they are: walks the pages with Next
-     * page (changes carried along), sets each key on the page that shows it, and saves on the page with the last one.
-     */
+    /** Opens the teleport settings with /settings teleport and sets settings on their buttons (all on one page). */
     private static void editTeleportSettings(E2E e2e, Bot bot, Map<String, Object> wanted) {
         bot.clearLogs();
-        bot.command("settings teleport");
-        Set<String> left = new HashSet<>(wanted.keySet());
-        for (int guard = 0; guard < 10; guard++) {
-            Bot.SeenDialog current = e2e.dialog(bot, TELEPORT_PAGE);
-            Map<String, Object> values = current.values();
-            for (String key : List.copyOf(left)) {
-                if (current.inputs().containsKey(key)) {
-                    e2e.expect(!(wanted.get(key) instanceof String option) || current.options().getOrDefault(key, List.of()).contains(option),
-                        key + " offers " + wanted.get(key) + ": " + current.options().get(key));
-                    values.put(key, wanted.get(key));
-                    left.remove(key);
-                }
-            }
-            if (left.isEmpty()) {
-                e2e.click(bot, "Save", values);
-                return;
-            }
-            e2e.expect(current.button("Next page") != null, "inputs " + left + " on a later page (last page: " + current.inputs().keySet() + ")");
-            e2e.click(bot, "Next page", values);
-        }
-        throw new E2E.Failure("too many pages of teleport settings");
+        SettingsSteps.edit(e2e, bot, "teleport", TELEPORT_PAGE, wanted);
     }
 
     /** Makes two players friends through the staff tool and waits until the friends feature knows it. */
@@ -1248,7 +1225,6 @@ final class TeleportScenarios {
 
         e2e.step("the settings dialog: Teleport requests from friends");
         editTeleportSettings(e2e, host, Map.of("tpa_requests", "friends"));
-        e2e.eventually(() -> host.anyFeedbackContains("Teleport requests from set to Friends"), "saved: " + host.actionBar() + host.chat());
         e2e.eventually(() -> settings(e2e).get(hostId, TpaFeature.REQUESTS) == Audience.FRIENDS, "stored as friends");
 
         e2e.step("a stranger is refused, a friend's request arrives");

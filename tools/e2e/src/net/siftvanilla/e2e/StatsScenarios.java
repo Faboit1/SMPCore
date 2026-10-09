@@ -130,7 +130,6 @@ final class StatsScenarios {
             e2e.step("with the permission they hide through the Privacy page, and leave every board");
             e2e.onPlayer(hiderName, () -> e2e.player(hiderName).addAttachment(harness(), SharedSettings.HIDE_FROM_LEADERBOARDS_NODE, true));
             CombatScenarios.editSettings(e2e, hider, "privacy", PRIVACY_PAGE, Map.of("hide_from_leaderboards", true));
-            e2e.eventually(() -> hider.anyFeedbackContains("Hide me from leaderboards turned on"), "saved: " + hider.chat() + " " + hider.actionBar());
             refreshBoards(e2e);
             e2e.expect(!hiderName.equals(top(e2e, "mobs", 1)), "off the mobs board: " + top(e2e, "mobs", 1));
             e2e.expect("0".equals(placeholder(e2e, hiderName, "top_mobs_rank")), "no place");
@@ -149,7 +148,6 @@ final class StatsScenarios {
 
             e2e.step("climb alerts at any place, through the dialog");
             CombatScenarios.editSettings(e2e, climber, "combat", CombatScenarios.COMBAT_PAGE, Map.of("leaderboard_rank_alerts", "all"));
-            e2e.eventually(() -> climber.anyFeedbackContains("Leaderboard climb alerts set to Any place"), "saved: " + climber.chat());
             climber.clearLogs();
             e2e.console("sift stats set " + climberName + " blocks 950000000");
             e2e.eventually(() -> stat(e2e, climberId, Stat.BLOCKS_MINED) == 950_000_000L, "set");

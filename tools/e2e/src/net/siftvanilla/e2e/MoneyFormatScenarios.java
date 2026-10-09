@@ -114,21 +114,11 @@ final class MoneyFormatScenarios {
         }
     }
 
-    /** The Display page that holds the money format (walking the pages), as the bot sees it. */
+    /** The Display page that holds the money format (all on one page), as the form it used to be. */
     private static Bot.SeenDialog displayPage(E2E e2e, Bot bot) {
-        Bot.SeenDialog before = bot.dialog();
-        bot.command("settings display");
-        e2e.eventually(() -> bot.dialog() != before && bot.dialog() != null && bot.dialog().title().equals(DISPLAY_PAGE),
-            bot.name + " sees " + DISPLAY_PAGE + ": " + (bot.dialog() == null ? "none" : bot.dialog().title()));
-        for (int guard = 0; guard < 10; guard++) {
-            Bot.SeenDialog page = bot.dialog();
-            if (page.inputs().containsKey(INPUT)) {
-                return page;
-            }
-            e2e.expect(page.button("Next page") != null, INPUT + " on a later page (last page: " + page.inputs().keySet() + ")");
-            e2e.click(bot, "Next page", page.values());
-        }
-        throw new E2E.Failure("too many pages in " + DISPLAY_PAGE);
+        Bot.SeenDialog page = SettingsSteps.form(e2e, SettingsSteps.openGroup(e2e, bot, "display", DISPLAY_PAGE));
+        e2e.expect(page.inputs().containsKey(INPUT), INPUT + " on " + DISPLAY_PAGE + ": " + page.inputs().keySet());
+        return page;
     }
 
     // ------------------------------------------------------------------ scenarios

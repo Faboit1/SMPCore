@@ -356,13 +356,13 @@ final class ScoreboardScenarios {
         e2e.step("the Display group of /settings switches it too");
         again.clearLogs();
         again.command("settings display");
-        Bot.SeenDialog display = e2e.dialog(again, "Display settings");
+        Bot.SeenDialog display = SettingsSteps.form(e2e, e2e.dialog(again, "Display settings"));
         e2e.expect("toggle".equals(display.inputs().get("scoreboard")), "the sidebar switch: " + display.inputs());
-        e2e.expect(display.bodyText().contains("Sidebar"), "its label: " + display.body());
+        e2e.expect(display.button("Sidebar: ON") != null, "its button: " + display.buttons());
         Map<String, Object> values = display.values();
         values.put("scoreboard", false);
-        e2e.click(again, "Save", values);
-        e2e.eventually(() -> again.actionBarContains("Sidebar turned off"), "the settings dialog confirms: " + again.actionBar());
+        SettingsSteps.applyChanged(e2e, again, display, values);
+        e2e.expect(again.dialog().button("Sidebar: OFF") != null, "the button shows OFF: " + again.dialog().buttons());
         e2e.eventually(() -> again.displayed("sidebar") == null, "the sidebar goes at the next refresh");
         again.command("sidebar on");
         awaitSidebar(e2e, again);
@@ -687,14 +687,14 @@ final class ScoreboardScenarios {
 
         e2e.step("the Display group offers the three layouts and starts on everything");
         AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
-        Bot.SeenDialog display = bot.dialog();
+        Bot.SeenDialog display = AfkStaffSettingSteps.form(e2e, bot);
         e2e.expect("choice".equals(display.inputs().get("sidebar_layout")), "the layout is a choice: " + display.inputs());
         e2e.expect(List.of("full", "compact", "combat").equals(display.options().get("sidebar_layout")),
             "three layouts: " + display.options().get("sidebar_layout"));
         e2e.expect("full".equals(display.choiceValue("sidebar_layout")), "everything by default: " + display.choiceValue("sidebar_layout"));
         e2e.expect(String.join(" ", display.optionLabels().get("sidebar_layout")).contains("Fight stats"),
             "the options are named: " + display.optionLabels().get("sidebar_layout"));
-        e2e.expect(display.bodyText().contains("Sidebar lines"), "its label: " + display.body());
+        e2e.expect(display.button("Sidebar lines: ") != null, "its button: " + display.buttons());
         List<String> keys = List.copyOf(display.inputs().keySet());
         e2e.expect(keys.indexOf("scoreboard") >= 0 && keys.indexOf("scoreboard") < keys.indexOf("sidebar_layout"),
             "the switch comes before the layout: " + keys);
@@ -703,8 +703,7 @@ final class ScoreboardScenarios {
         Map<String, Object> values = display.values();
         values.put("sidebar_layout", "compact");
         bot.clearMessages();
-        e2e.click(bot, "Save", values);
-        e2e.eventually(() -> bot.anyFeedbackContains("Sidebar lines"), "the dialog confirms: " + bot.actionBar() + " " + bot.chat());
+        SettingsSteps.applyChanged(e2e, bot, display, values);
         e2e.eventually(() -> line(bot, "Kills") == null && line(bot, "Money") != null && bot.sidebarLines().size() == 5,
             "only money, shards and the address: " + bot.sidebarLines());
         e2e.expect(bot.sidebarLines().get(1).endsWith("Money $0") && bot.sidebarLines().get(2).endsWith("Shards 0")
@@ -730,7 +729,7 @@ final class ScoreboardScenarios {
             e2e.eventually(() -> line(bot, "Money") != null && line(bot, "Kills") != null && bot.sidebarLines().size() == 8,
                 "the full sidebar while fight stats are gone: " + bot.sidebarLines());
             AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
-            Bot.SeenDialog without = bot.dialog();
+            Bot.SeenDialog without = AfkStaffSettingSteps.form(e2e, bot);
             e2e.expect(List.of("full", "compact").equals(without.options().get("sidebar_layout")),
                 "fight stats are not offered: " + without.options().get("sidebar_layout"));
             e2e.expect("full".equals(without.choiceValue("sidebar_layout")), "the dialog shows what they see: " + without.choiceValue("sidebar_layout"));
@@ -770,10 +769,10 @@ final class ScoreboardScenarios {
             e2e.expect(bot.displayed("sidebar") != null, "the sidebar stays");
             e2e.expect(stored(e2e, id, "scoreboard") == null, "nothing was stored");
             AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
-            Bot.SeenDialog page = bot.dialog();
+            Bot.SeenDialog page = AfkStaffSettingSteps.form(e2e, bot);
             e2e.expect(!page.inputs().containsKey("scoreboard"), "no switch for a locked setting: " + page.inputs());
-            e2e.expect(page.bodyText().contains("Sidebar") && page.bodyText().contains("set by the server"),
-                "it is shown as set by the server: " + page.body());
+            e2e.expect(page.button("Sidebar: ON") != null && page.button("Sidebar: ON").tooltip().contains("Set by the server."),
+                "it is shown as set by the server: " + page.buttons());
         });
 
         e2e.step("a switch the server hides is the server's too");

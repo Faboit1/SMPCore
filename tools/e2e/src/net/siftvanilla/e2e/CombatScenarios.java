@@ -350,37 +350,14 @@ final class CombatScenarios {
     }
 
     /**
-     * Opens a settings group with {@code /settings <group>} and changes inputs wherever they are: walks the pages with
-     * Next page (changes carried along), sets each key on the page that shows it, checks the choice offers
-     * {@code wanted}'s option, and saves on the page where the last one was found. Returns the page that was saved.
+     * Opens a settings group with {@code /settings <group>} and sets settings on it the way a player does, on their
+     * buttons ({@link SettingsSteps#edit}); a choice must offer the wanted option. Returns the page after the changes, as
+     * the form it used to be.
      */
     static Bot.SeenDialog editSettings(E2E e2e, Bot bot, String group, String title, Map<String, Object> wanted) {
         bot.clearMessages();
-        openGroup(e2e, bot, group, title);
-        Set<String> left = new HashSet<>(wanted.keySet());
-        for (int guard = 0; guard < 10; guard++) {
-            Bot.SeenDialog current = page(e2e, bot, title);
-            Map<String, Object> values = current.values();
-            for (String key : List.copyOf(left)) {
-                if (current.inputs().containsKey(key)) {
-                    Object value = wanted.get(key);
-                    if (value instanceof String option) {
-                        e2e.expect(current.options().getOrDefault(key, List.of()).contains(option), key + " offers " + option + ": "
-                            + current.options().get(key));
-                    }
-                    values.put(key, value);
-                    left.remove(key);
-                }
-            }
-            if (left.isEmpty()) {
-                e2e.click(bot, "Save", values);
-                return current;
-            }
-            e2e.expect(current.button("Next page") != null, "inputs " + left + " on a later page of " + title + " (last page: "
-                + current.inputs().keySet() + ")");
-            e2e.click(bot, "Next page", values);
-        }
-        throw new E2E.Failure("too many pages in " + title);
+        SettingsSteps.edit(e2e, bot, group, title, wanted);
+        return SettingsSteps.form(e2e, bot.dialog());
     }
 
     /**
@@ -394,19 +371,9 @@ final class CombatScenarios {
             bot.name + " sees a fresh '" + title + "': " + (bot.dialog() == null ? "none" : bot.dialog().title()));
     }
 
-    /** Every input key of a settings group across its pages, and each choice's options. */
+    /** Every setting of a group the player sees, and each choice's options ({@link SettingsSteps#inputs}). */
     static Map<String, List<String>> groupInputs(E2E e2e, Bot bot, String group, String title) {
-        openGroup(e2e, bot, group, title);
-        Map<String, List<String>> inputs = new java.util.LinkedHashMap<>();
-        for (int guard = 0; guard < 10; guard++) {
-            Bot.SeenDialog current = page(e2e, bot, title);
-            current.inputs().forEach((key, kind) -> inputs.put(key, current.options().getOrDefault(key, List.of(kind))));
-            if (current.button("Next page") == null) {
-                return inputs;
-            }
-            e2e.click(bot, "Next page", current.values());
-        }
-        throw new E2E.Failure("too many pages in " + title);
+        return SettingsSteps.inputs(e2e, bot, group, title);
     }
 
     private static long count(List<String> lines, String text) {
@@ -895,7 +862,6 @@ final class CombatScenarios {
 
         e2e.step("the victim puts the timer on the boss bar and the tag alert in a title through the dialog");
         editSettings(e2e, b, "combat", COMBAT_PAGE, Map.of("combat_timer_display", "bossbar", "combat_tag_alert", "title"));
-        e2e.eventually(() -> b.anyFeedbackContains("Saved 2 settings"), "saved: " + b.chat() + " " + b.actionBar());
         e2e.eventually(() -> "bossbar".equals(stored(e2e, bId, "combat-timer-display")) && "title".equals(stored(e2e, bId, "combat-tag-alert")),
             "both stored");
 
@@ -1011,7 +977,6 @@ final class CombatScenarios {
                 e2e.step("the victim turns the recap off with a switch in the dialog and hides coordinates; others choose through the API");
                 Bot.SeenDialog saved = editSettings(e2e, v, "combat", COMBAT_PAGE, Map.of("death_recap", false));
                 e2e.expect("toggle".equals(saved.inputs().get("death_recap")), "the recap is a switch: " + saved.inputs());
-                e2e.eventually(() -> v.anyFeedbackContains("Death recap turned off"), "saved: " + v.chat() + " " + v.actionBar());
                 e2e.eventually(() -> "false".equals(stored(e2e, known(e2e, victimName), "death-recap")), "stored");
                 set(e2e, victimName, SharedSettings.HIDE_COORDINATES, true);
                 set(e2e, killerName, CombatFeature.KILL_FEEDBACK, AlertStyle.CHAT);
@@ -1124,7 +1089,6 @@ final class CombatScenarios {
         e2e.expect(List.of("server", "always", "10k", "100k", "1m").equals(inputs.get("bounty_confirm_above")), "confirm: " + inputs);
         e2e.expect(inputs.containsKey("bounty_join_reminder") && inputs.containsKey("leaderboard_rank_alerts"), "the group: " + inputs.keySet());
         editSettings(e2e, t, "combat", COMBAT_PAGE, Map.of("bounty_target_alert", "title"));
-        e2e.eventually(() -> t.anyFeedbackContains("Bounty on you alert set to Title"), "saved: " + t.chat() + " " + t.actionBar());
         Map<String, List<String>> announcements = groupInputs(e2e, big, "announcements", "Server announcements settings");
         e2e.expect(List.of("all", "100k", "1m", "10m", "off").equals(announcements.get("bounty_announcements")), "filter: " + announcements);
         set(e2e, bigName, BountiesFeature.ANNOUNCEMENTS, BountiesFeature.ANNOUNCEMENTS.decode("1m").orElseThrow());
