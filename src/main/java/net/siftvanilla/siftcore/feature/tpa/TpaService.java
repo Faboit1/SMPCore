@@ -34,8 +34,9 @@ import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import net.siftvanilla.siftcore.feature.tpa.TpaRequests.Kind;
 import net.siftvanilla.siftcore.feature.tpa.TpaRequests.Request;
+import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
-import net.siftvanilla.siftcore.ui.dialog.Input;
+import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
@@ -581,38 +582,42 @@ final class TpaService {
 
     // ------------------------------------------------------------------ hub form
 
-    /** The request form from the main menu: a player name and which way to teleport. */
+    /**
+     * The request form from the main menu: a player name, then a button for each way ("Go to them" sends a /tpa,
+     * "Bring them here" a /tpahere), what each does in its tooltip, and Back (Close without a menu to go back to).
+     */
     void openForm(Player player, Button.Handler back) {
         Lang lang = this.services.lang();
-        List<Input.Option> options = List.of(new Input.Option("to", lang.get(TpaMessages.FORM_TO_THEM)),
-            new Input.Option("here", lang.get(TpaMessages.FORM_HERE)));
-        // Only a short status above the inputs: requests waiting for this player.
-        List<Component> lines = new ArrayList<>(1);
+        // Only a short status above the name: requests waiting for this player.
+        List<Body> body = new ArrayList<>(1);
         int waiting = pending(player.getUniqueId());
         if (waiting > 0) {
-            lines.add(lang.get(TpaMessages.FORM_WAITING, Arg.text("count", Lang.number(waiting))));
+            body.add(Body.text(lang.get(TpaMessages.FORM_WAITING, Arg.text("count", Lang.number(waiting)))));
         }
-        View form = this.services.templates().form(lang.get(TpaMessages.FORM_TITLE), lines,
-            List.of(Templates.text("player", lang.get(TpaMessages.FORM_PLAYER), "", 16),
-                Templates.choice("direction", lang.get(TpaMessages.FORM_DIRECTION), options, "to")),
-            lang.get(TpaMessages.FORM_SUBMIT),
-            submission -> {
-                String typed = submission.values().text("player");
-                Player target = Bukkit.getPlayerExact(typed);
-                if (target == null || !visible(submission.player(), target)) {
-                    submission.error(lang.get(CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", typed)));
-                    return;
-                }
-                if (target.equals(submission.player())) {
-                    submission.error(lang.get(CoreMessages.NOT_YOURSELF));
-                    return;
-                }
-                submission.close();
-                request(submission.player(), target, "here".equals(submission.values().choice("direction")) ? Kind.TO_SENDER : Kind.TO_TARGET);
-            },
-            back);
-        List<Button> buttons = List.of(form.buttons().get(0).tooltip(lang.get(TpaMessages.FORM_SUBMIT_TOOLTIP)), form.buttons().get(1));
-        this.services.dialogs().show(player, new View(form.kind(), form.title(), form.body(), form.inputs(), buttons, form.exit(),
-            form.columns(), form.escapable()));
+        List<Button> buttons = List.of(
+            Button.of(lang.get(TpaMessages.FORM_TO_THEM), lang.get(TpaMessages.FORM_TO_THEM_TOOLTIP), s -> send(s, Kind.TO_TARGET))
+                .width(Templates.HALF),
+            Button.of(lang.get(TpaMessages.FORM_HERE), lang.get(TpaMessages.FORM_HERE_TOOLTIP), s -> send(s, Kind.TO_SENDER))
+                .width(Templates.HALF));
+        Button exit = Button.of(lang.get(back == null ? CoreMessages.UI_CLOSE : CoreMessages.UI_BACK), back).width(Templates.LONG);
+        this.services.dialogs().show(player, new View(View.Kind.FORM, lang.get(TpaMessages.FORM_TITLE), body,
+            List.of(Templates.text("player", lang.get(TpaMessages.FORM_PLAYER), "", 16)), buttons, exit, 2, true));
+    }
+
+    /** A send button of the form: the typed player must be online and someone else; the request then goes out. */
+    private void send(Submission submission, Kind kind) {
+        Lang lang = this.services.lang();
+        String typed = submission.values().text("player");
+        Player target = Bukkit.getPlayerExact(typed);
+        if (target == null || !visible(submission.player(), target)) {
+            submission.error(lang.get(CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", typed)));
+            return;
+        }
+        if (target.equals(submission.player())) {
+            submission.error(lang.get(CoreMessages.NOT_YOURSELF));
+            return;
+        }
+        submission.close();
+        request(submission.player(), target, kind);
     }
 }

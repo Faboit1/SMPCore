@@ -71,11 +71,11 @@ public final class TpaMessages {
     public static final MessageKey FORM_TITLE = MessageKey.ui("tpa.form.title");
     public static final MessageKey FORM_WAITING = MessageKey.ui("tpa.form.waiting", "count");
     public static final MessageKey FORM_PLAYER = MessageKey.ui("tpa.form.player");
-    public static final MessageKey FORM_DIRECTION = MessageKey.ui("tpa.form.direction");
+    /** The form's two send buttons (/tpa and /tpahere) and their tooltips. */
     public static final MessageKey FORM_TO_THEM = MessageKey.ui("tpa.form.to-them");
+    public static final MessageKey FORM_TO_THEM_TOOLTIP = MessageKey.ui("tpa.form.to-them-tooltip");
     public static final MessageKey FORM_HERE = MessageKey.ui("tpa.form.here");
-    public static final MessageKey FORM_SUBMIT = MessageKey.ui("tpa.form.submit");
-    public static final MessageKey FORM_SUBMIT_TOOLTIP = MessageKey.ui("tpa.form.submit-tooltip");
+    public static final MessageKey FORM_HERE_TOOLTIP = MessageKey.ui("tpa.form.here-tooltip");
 
     public static final MessageKey SETTING_LABEL = MessageKey.ui("tpa.settings.requests");
     public static final MessageKey SETTING_DESCRIPTION = MessageKey.ui("tpa.settings.requests-description");

@@ -66,16 +66,16 @@ tpa:
     choice-tooltip-here: "<secondary>Wants you to teleport to them"
     deny-all: "<off>Deny all"
     deny-all-tooltip: "<primary>Deny every request waiting for you."
+  # The form of the main menu's "Teleport to a player": a name, then a button for each way.
   form:
     title: "Teleport request"
     # The one line above the form, only while requests wait for you.
     waiting: "<primary>Requests waiting for you: <accent><count></accent> <secondary>(/tpaccept)"
     player: "Player name"
-    direction: "Who moves"
-    to-them: "I go to them"
-    here: "They come to me"
-    submit: "Send request"
-    submit-tooltip: "<primary>They get a message to accept or deny."
+    to-them: "Go to them"
+    to-them-tooltip: "<primary>Ask to teleport to them. <secondary>Same as /tpa."
+    here: "Bring them here"
+    here-tooltip: "<primary>Ask them to teleport to you. <secondary>Same as /tpahere."
   # The settings in Settings, Teleports & homes: a label, and what it does (shown when hovering its button). "Everyone",
   # "Friends" and the other option names are the shared names in settings.yml.
   settings:

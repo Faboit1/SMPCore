@@ -697,7 +697,7 @@ final class TeleportScenarios {
         e2e.dialog(fighter, "SiftVanilla");
         e2e.click(fighter, "Teleport to a player");
         e2e.dialog(fighter, "Teleport request");
-        e2e.click(fighter, "Send request", Map.of("player", allyName, "direction", "here"));
+        e2e.click(fighter, "Bring them here", Map.of("player", allyName));
         e2e.eventually(() -> fighter.anyFeedbackContains("You can't use teleport requests in combat."), "refused: " + fighter.actionBar());
         e2e.sleep(800);
         e2e.expect(!ally.chatContains("wants you to teleport"), "the ally got no request: " + ally.chat());
@@ -990,12 +990,29 @@ final class TeleportScenarios {
         e2e.dialog(sender, "SiftVanilla");
         e2e.click(sender, "Teleport to a player");
         Bot.SeenDialog form = e2e.dialog(sender, "Teleport request");
-        e2e.expect(form.inputs().containsKey("player") && form.inputs().containsKey("direction"), "player and direction: " + form.inputs());
-        e2e.click(sender, "Send request", Map.of("player", "Nobody_" + e2e.name("x"), "direction", "to"));
+        e2e.expect(form.inputs().keySet().equals(Set.of("player")), "only the name to type: " + form.inputs());
+        e2e.expect(form.body().isEmpty(), "nothing above it while no request waits: " + form.body());
+        Bot.Button go = form.button("Go to them");
+        Bot.Button bring = form.button("Bring them here");
+        e2e.expect(go != null && bring != null && form.button("Back") != null, "a button for each way, and Back: " + form.buttons());
+        e2e.expect(go.tooltip().contains("Ask to teleport to them") && go.tooltip().contains("/tpa")
+            && bring.tooltip().contains("Ask them to teleport to you") && bring.tooltip().contains("/tpahere"),
+            "what each does, on hover: " + go.tooltip() + " / " + bring.tooltip());
+        e2e.click(sender, "Go to them", Map.of("player", "Nobody_" + e2e.name("x")));
         Bot.SeenDialog retry = e2e.dialog(sender, "Teleport request");
         e2e.expect(retry.bodyText().contains("is not online"), "an unknown player: " + retry.body());
-        e2e.click(sender, "Send request", Map.of("player", targetName, "direction", "here"));
+        e2e.click(sender, "Bring them here", Map.of("player", targetName));
         e2e.eventually(() -> target.chatContains(senderName + " wants you to teleport to them."), "the request: " + target.chat());
+        target.command("tpdeny");
+        e2e.sleep(5_200);
+        sender.clearLogs();
+        target.clearLogs();
+        sender.command("menu");
+        e2e.dialog(sender, "SiftVanilla");
+        e2e.click(sender, "Teleport to a player");
+        e2e.dialog(sender, "Teleport request");
+        e2e.click(sender, "Go to them", Map.of("player", targetName));
+        e2e.eventually(() -> target.chatContains(senderName + " wants to teleport to you."), "the /tpa way: " + target.chat());
         target.command("tpdeny");
 
         e2e.step("requests expire on their own");

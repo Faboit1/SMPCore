@@ -76,9 +76,9 @@ Audit log actions: `kits.claim` (every claim, with the kit and the claim referen
   "Collect waiting items" when kit items wait in the claim box, and "Perks" when the player has any, each explained in
   its tooltip. Kits the player can't claim are hidden, or listed as locked with `locked-kits: show`. From the main menu
   the footer goes back to it.
-- **A kit's dialog**: its description and one status line, every item (with its icon, enchantment glint and full
-  tooltip on hover), the crate keys it gives, and a green Claim while it is ready (how often it can be claimed is in
-  its tooltip). A refusal (in combat, the cooldown started meanwhile, another plugin cancelled it) shows the dialog
+- **A kit's dialog**: one status line ("Ready to claim", "Ready again in 3h 20m"), every item (with its icon,
+  enchantment glint and full tooltip on hover), the crate keys it gives, and a green Claim while it is ready (its
+  tooltip says what the kit is and how often it can be claimed). A refusal (in combat, the cooldown started meanwhile, another plugin cancelled it) shows the dialog
   again with the reason.
 - **Perks dialog**: a button per perk the player has (its command in the tooltip); it opens the perk (or wears the
   hat). Kits and perks cost nothing.

@@ -286,8 +286,10 @@ final class KitsScenarios {
         e2e.step("a kit's dialog shows what it gives and claims it");
         e2e.click(bot, "Starter");
         Bot.SeenDialog kit = e2e.dialog(bot, "Starter kit");
-        e2e.expect(kit.bodyText().contains("Stone tools, leather armor and bread") && kit.button("Claim").tooltip().contains("One claim per player")
-            && kit.bodyText().contains("Ready to claim"), "description, status and the cooldown on Claim: " + kit.body());
+        e2e.expect(kit.bodyText().startsWith("Ready to claim") && !kit.bodyText().contains("Stone tools, leather armor and bread"),
+            "one status line on top, no description: " + kit.body());
+        e2e.expect(kit.button("Claim").tooltip().contains("Stone tools, leather armor and bread")
+            && kit.button("Claim").tooltip().contains("One claim per player"), "what it is and how often, on Claim: " + kit.button("Claim").tooltip());
         e2e.expect(kit.bodyText().contains("Stone Pickaxe") && kit.bodyText().contains("Leather Tunic") && kit.bodyText().contains("Bread"),
             "the items are listed: " + kit.body());
         e2e.click(bot, "Claim");

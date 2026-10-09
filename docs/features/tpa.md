@@ -93,8 +93,10 @@ menu's form and answered from the chat dialog, so the feature checks combat itse
   ("<name> is in combat now. The teleport was cancelled."), the other player hears they didn't come, and the request
   is used up (send a new one after the fight). Staff `/tpa` (bypass, no request) is not checked.
 
-The main menu entry `tpa` (order 62) opens a form: a player name and who moves (I go to them / They come to me). It
-also says how many requests wait for you.
+The main menu entry `tpa` (order 62) opens a form: the player's name, then a button for each way, "Go to them" (a
+/tpa) and "Bring them here" (a /tpahere), what each does in its tooltip, and Back. Only while requests wait for you,
+one short line above says how many. An unknown or hidden name, or your own, shows in red on the form again with the
+name kept.
 
 ## Per-player settings (Settings > Teleports & homes)
 

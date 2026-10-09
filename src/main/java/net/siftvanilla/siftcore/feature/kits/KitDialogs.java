@@ -108,8 +108,8 @@ final class KitDialogs {
     }
 
     /**
-     * A kit's dialog: its description and one status line, what it gives (the items and any keys), and Claim while it
-     * is ready, whose tooltip says how often it can be claimed. A claim that is refused shows why in red.
+     * A kit's dialog: one status line, what it gives (the items and any keys), and Claim while it is ready, whose
+     * tooltip says what the kit is and how often it can be claimed. A claim that is refused shows why in red.
      */
     void kit(Player player, String id, Button.Handler listBack) {
         Kit kit = this.kits.settings().kit(id);
@@ -131,12 +131,8 @@ final class KitDialogs {
             };
         }
         List<Body> body = new ArrayList<>();
-        List<Component> header = new ArrayList<>(2);
-        if (kit.description() != null) {
-            header.add(lang.get(KitsMessages.KIT_DESCRIPTION, Arg.text("description", kit.description())));
-        }
-        header.add(state);
-        body.add(Body.text(Templates.lines(header)));
+        // One status line on top; what the kit is goes on Claim's tooltip (and the list's button).
+        body.add(Body.text(state));
         for (KitItem item : kit.items()) {
             ItemStack stack = this.kits.items().build(item);
             int shown = Math.min(stack.getAmount(), Math.min(99, stack.getMaxStackSize()));
@@ -151,7 +147,12 @@ final class KitDialogs {
         }
         List<Button> buttons = new ArrayList<>(1);
         if (permitted && status.ready()) {
-            buttons.add(Button.of(lang.get(KitsMessages.KIT_CLAIM), every(kit), s -> {
+            List<Component> tooltip = new ArrayList<>(2);
+            if (kit.description() != null) {
+                tooltip.add(lang.get(KitsMessages.KIT_DESCRIPTION, Arg.text("description", kit.description())));
+            }
+            tooltip.add(every(kit));
+            buttons.add(Button.of(lang.get(KitsMessages.KIT_CLAIM), Templates.lines(tooltip), s -> {
                 KitService.Refusal refusal = this.kits.claim(s.player(), kit);
                 if (refusal != null) {
                     s.error(lang.get(refusal.key(), refusal.argArray()));
