@@ -24,6 +24,26 @@ public interface CrateKeys {
         }
     };
 
+    /** Keys that look up {@code keys} on every call, for features built before the crates feature. */
+    static CrateKeys late(java.util.function.Supplier<CrateKeys> keys) {
+        return new CrateKeys() {
+            @Override
+            public Set<String> crates() {
+                return keys.get().crates();
+            }
+
+            @Override
+            public TransactionResult give(UUID player, String crate, int amount, String actor, String ref) {
+                return keys.get().give(player, crate, amount, actor, ref);
+            }
+
+            @Override
+            public int keys(UUID player, String crate) {
+                return keys.get().keys(player, crate);
+            }
+        };
+    }
+
     /** Ids of the configured crates. */
     Set<String> crates();
 

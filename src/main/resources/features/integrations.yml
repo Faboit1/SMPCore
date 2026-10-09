@@ -1,0 +1,67 @@
+# Hooks into optional plugins (PlaceholderAPI, LuckPerms, Floodgate), the public API, and the admin tools under
+# /sift: backups, exports, the audit log, the permission and placeholder lists, and store delivery.
+# Every hook is only used when its plugin is installed; SiftCore runs the same without them.
+# The Vault economy (VaultUnlocked) is part of the economy feature and needs no setting.
+
+placeholderapi:
+  # Offer SiftCore's placeholders to PlaceholderAPI as %siftcore_<name>% (see docs/placeholders.md).
+  enabled: true
+
+luckperms:
+  # Take rank labels (chat, scoreboard, %siftcore_rank%) from LuckPerms. Store rank delivery also needs LuckPerms.
+  enabled: true
+  # A meta value that sets the label, usually on a group: /lp group baron meta set siftcore-rank Baron
+  # Without it the label is the primary group's display name, or the group name with a capital letter.
+  # Colours and formatting written into labels and display names are removed; the colour comes from the next two.
+  label-meta: siftcore-rank
+  # A meta value with the rank's colour, #RRGGBB or a colour name: /lp group baron meta set siftcore-rank-color #FFAA00
+  # Ranks without one show in the secondary colour (gray).
+  color-meta: siftcore-rank-color
+  # A meta value with a gradient for the rank's name, two or more colours: /lp group tycoon meta set
+  # siftcore-rank-gradient #FF6AD5:#B26BFF (used instead of the colour where SiftCore shows the coloured rank).
+  gradient-meta: siftcore-rank-gradient
+  # Primary groups that show no label at all.
+  hidden-groups:
+    - default
+
+floodgate:
+  # Show dialogs to Bedrock players (Geyser with Floodgate) as Bedrock forms, so every menu flow works for them.
+  enabled: true
+
+backups:
+  # How often SiftCore copies its SQLite database to plugins/SiftCore/backups while running (0 turns it off).
+  # /sift backup makes one at any time. A MySQL or MariaDB database is backed up on the database server instead.
+  interval: 24h
+  # How many backups to keep; older ones are deleted after each new backup (0 keeps all of them).
+  keep: 7
+
+audit:
+  # Entries per page of /sift audit.
+  page-size: 10
+
+registries:
+  # Lines per page of /sift permissions and /sift placeholders in game (the console always gets the full list).
+  page-size: 20
+
+store:
+  # Store delivery: /sift store money|shards|keys|rank ... <ref>, run by the store (Tebex, CraftingStore and the
+  # like) from the console. Each reference (the store's order or transaction id) is delivered at most once, so a
+  # store that retries a command never pays twice. The limits below stop a mistyped command from giving too much.
+  # Most money one command may give.
+  max-money: 100m
+  # Most shards one command may give.
+  max-shards: 1000000
+  # Most crate keys one command may give.
+  max-keys: 1000
+  # LuckPerms groups the store may grant. An empty list allows every group, including staff groups (not advised).
+  rank-groups:
+    - prospector
+    - baron
+    - tycoon
+  # Shortest and longest timed rank a command may grant. Timed ranks add up: buying 30 days twice gives 60 days.
+  min-rank-duration: 1h
+  max-rank-duration: 3650d
+  # Tell the buyer in chat when their purchase arrives (when they are online).
+  notify-player: true
+  # Tell everyone online when someone buys something.
+  announce: false

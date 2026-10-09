@@ -44,13 +44,26 @@ final class PlayerCards {
         return label == null ? "" : ChatText.clean(label);
     }
 
+    /**
+     * The player's rank as shown in chat: in its LuckPerms colour or gradient when it has one, otherwise plain. Null
+     * when they have no rank label. Safe on the async chat thread (labels are cached).
+     */
+    Component rankComponent(UUID player, org.bukkit.entity.Player online) {
+        String label = rank(player);
+        if (label.isEmpty()) {
+            return null;
+        }
+        Component styled = online == null ? null : this.ranks.component(online);
+        return styled == null || ChatText.plain(styled).isBlank() ? Component.text(label) : styled;
+    }
+
     /** The hover card of a player. */
     Component card(UUID player, String name) {
         List<Component> lines = new ArrayList<>();
         lines.add(this.lang.get(ChatMessages.CARD_NAME, Arg.text("name", name)));
-        String rank = rank(player);
-        if (!rank.isEmpty()) {
-            lines.add(this.lang.get(ChatMessages.CARD_RANK, Arg.text("rank", rank)));
+        Component rank = rankComponent(player, org.bukkit.Bukkit.getPlayer(player));
+        if (rank != null) {
+            lines.add(this.lang.get(ChatMessages.CARD_RANK, Arg.component("rank", rank)));
         }
         Optional<String> team = this.teams.teamName(player);
         lines.add(team.isPresent()

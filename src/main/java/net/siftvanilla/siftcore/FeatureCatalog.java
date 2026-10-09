@@ -7,7 +7,7 @@ import net.siftvanilla.siftcore.core.Feature;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
-import net.siftvanilla.siftcore.core.integration.Ranks;
+import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.link.OrderMarket;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
@@ -22,6 +22,7 @@ import net.siftvanilla.siftcore.feature.extras.ExtrasFeature;
 import net.siftvanilla.siftcore.feature.friends.FriendsFeature;
 import net.siftvanilla.siftcore.feature.homes.HomesFeature;
 import net.siftvanilla.siftcore.feature.hub.HubFeature;
+import net.siftvanilla.siftcore.feature.integrations.IntegrationsFeature;
 import net.siftvanilla.siftcore.feature.kits.KitsFeature;
 import net.siftvanilla.siftcore.feature.orders.OrdersFeature;
 import net.siftvanilla.siftcore.feature.rtp.RtpFeature;
@@ -65,10 +66,15 @@ final class FeatureCatalog {
         AfkFeature afk = new AfkFeature(this.services, this.problems, this.combatTags, spawn.area(), staff.vanish());
         StatsFeature stats = new StatsFeature(this.services, this.problems, afk.status(), economy.economy(), admin);
         TeamsFeature teams = new TeamsFeature(this.services, this.problems, stats.recorder(), staff.mutes(), staff.vanish());
-        ChatFeature chat = new ChatFeature(this.services, this.problems, Ranks.NONE, teams.lookup(), stats.recorder(),
+        // Ranks are needed by chat and friends, store deliveries need crate keys, and crates are built later:
+        // late-bound keys break the cycle.
+        AtomicReference<CrateKeys> crateKeys = new AtomicReference<>(CrateKeys.NONE);
+        IntegrationsFeature integrations = new IntegrationsFeature(this.services, this.problems, admin, this.combatTags,
+            CrateKeys.late(crateKeys::get), economy.economy());
+        ChatFeature chat = new ChatFeature(this.services, this.problems, integrations.ranks(), teams.lookup(), stats.recorder(),
             staff.mutes(), staff.vanish(), afk.status());
         FriendsFeature friends = new FriendsFeature(this.services, this.problems, admin, this.combatTags, chat.ignores(),
-            staff.vanish(), afk.status(), teams.lookup(), Ranks.NONE, staff.mutes());
+            staff.vanish(), afk.status(), teams.lookup(), integrations.ranks(), staff.mutes());
         // Selling routes items into buy orders, but orders are built after sell (they price with sell.worth()):
         // a late-bound market breaks the cycle.
         AtomicReference<OrderMarket> orderMarket = new AtomicReference<>(OrderMarket.NONE);
@@ -77,6 +83,7 @@ final class FeatureCatalog {
             this.combatTags);
         CratesFeature crates = new CratesFeature(this.services, this.problems, sell.worth(), spawners.items(), staff.vanish(),
             this.combatTags, afk.status());
+        crateKeys.set(crates.keys());
         OrdersFeature orders = new OrdersFeature(this.services, this.problems, this.combatTags, sell.worth(),
             () -> sell.worth().current().highestMultiplier(), spawners.items(), chat.ignores(), staff.vanish());
         orderMarket.set(orders.market());
@@ -109,6 +116,7 @@ final class FeatureCatalog {
         features.add(new BountiesFeature(this.services, this.problems));
         features.add(afk);
         features.add(new ShardsFeature(this.services, this.problems, afk.zone(), crates.keys()));
+        features.add(integrations);
         features.add(admin);
         return features;
     }

@@ -179,8 +179,8 @@ public final class ChatFeature implements Feature {
             return plain.equals("look [Sword] and [i]") ? null : "got '" + plain + "'";
         });
         test.check(id(), "chat format renders", () -> {
-            String ranked = ChatText.plain(this.listener.line("Elite", Component.text("Alex"), Component.text("<red>hi")));
-            String unranked = ChatText.plain(this.listener.line("", Component.text("Alex"), Component.text("hi")));
+            String ranked = ChatText.plain(this.listener.line(Component.text("Elite"), Component.text("Alex"), Component.text("<red>hi")));
+            String unranked = ChatText.plain(this.listener.line(null, Component.text("Alex"), Component.text("hi")));
             return ranked.equals("Elite Alex: <red>hi") && unranked.equals("Alex: hi") ? null : "got '" + ranked + "' and '" + unranked + "'";
         });
         test.checkAsync(id(), "ignore lists match the table", () -> {

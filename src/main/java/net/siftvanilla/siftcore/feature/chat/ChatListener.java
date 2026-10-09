@@ -133,16 +133,16 @@ final class ChatListener implements Listener {
                 event.message(message);
             }
         }
-        String rank = this.cards.rank(id);
+        Component rank = this.cards.rankComponent(id, player);
         Component name = this.cards.chatName(id, player.getName(), settings.hoverCard());
         event.renderer(ChatRenderer.viewerUnaware((source, displayName, text) -> line(rank, name, text)));
     }
 
     /** One formatted chat line. */
-    Component line(String rank, Component name, Component message) {
-        return rank.isEmpty()
+    Component line(Component rank, Component name, Component message) {
+        return rank == null
             ? this.lang.get(ChatMessages.FORMAT_UNRANKED, Arg.component("name", name), Arg.component("message", message))
-            : this.lang.get(ChatMessages.FORMAT, Arg.text("rank", rank), Arg.component("name", name), Arg.component("message", message));
+            : this.lang.get(ChatMessages.FORMAT, Arg.component("rank", rank), Arg.component("name", name), Arg.component("message", message));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
