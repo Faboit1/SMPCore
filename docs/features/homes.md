@@ -30,8 +30,8 @@ taking damage cancels, refused while combat-tagged, `teleportAsync` only. The fe
 | `siftcore.teleport.bypass-warmup` | op | No warmup (core node) |
 | `siftcore.bypass.cooldown` | op | No cooldown between home teleports (core node) |
 
-Suggested rank nodes (the default of 2 comes from the config): `supporter` `siftcore.homes.3`, `patron`
-`siftcore.homes.4`, `elite` `siftcore.homes.5`, `legend` `siftcore.homes.7`.
+Rank nodes on SiftVanilla (the default of 2 comes from the config): `prospector` `siftcore.homes.6`, `baron`
+`siftcore.homes.15`, `tycoon` `siftcore.homes.40` ([monetization](../monetization.md)).
 
 ## The homes dialog
 

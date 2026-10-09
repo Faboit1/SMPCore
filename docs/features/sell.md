@@ -32,8 +32,8 @@ the action is refused.
 
 ## Rank multipliers and mastery
 
-`siftcore.sell.multiplier.<tier>` for every tier in `multipliers` (`supporter` 1.1, `patron` 1.2, `elite` 1.35,
-`legend` 1.5). Default false: only permissions given explicitly count (`isPermissionSet && hasPermission`), so
+`siftcore.sell.multiplier.<tier>` for every tier in `multipliers`. The shipped list is empty: paid ranks sell for the
+same prices as everyone ([monetization](../monetization.md)); the mechanism stays for events and staff. Default false: only permissions given explicitly count (`isPermissionSet && hasPermission`), so
 operators do not get a bonus. With several tiers the highest wins. The rank is read from permissions on the
 player's own thread whenever a sale is worked out, and every minute for placeholders.
 
@@ -45,8 +45,8 @@ farming, planks are wood). Everything else is `other`.
 
 **Mastery.** Selling a category's items to the server counts toward its levels (`mastery.levels`, default $50k,
 $250k, $1m, $5m, $25m of base value, the worth before any multiplier). Each level adds `mastery.step` (0.05) to the
-player's multiplier for that category: a sale line pays `worth x (rank + bonus)` (legend at level 5: 1.5 + 0.25 =
-1.75x). Each category of a sale is rounded down once, with exact decimal math.
+player's multiplier for that category: a sale line pays `worth x (rank + bonus)` (level 5 with no rank multiplier: 1 + 0.25 =
+1.25x). Each category of a sale is rounded down once, with exact decimal math.
 
 - Credit is the base worth of the units the server bought, plus for units sent to buy orders the smaller of their
   base worth and what the orders paid after tax (so an overpriced order between alts can't pump mastery). Items the

@@ -116,7 +116,7 @@ categories:
     items: []
 
 # Sell mastery: selling a category's items to the server counts toward its levels, and each level adds step to the
-# player's multiplier for that category (on top of the rank multiplier: legend 1.5 + 5 levels x 0.05 = 1.75).
+# player's multiplier for that category (on top of any multiplier above: 1 + 5 levels x 0.05 = 1.25).
 # Levels count the worth sold before any multiplier. Only /sell counts (not spawner or crate sales).
 # The shop checks its prices against the best rank multiplier plus the top bonus.
 mastery:

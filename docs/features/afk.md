@@ -89,8 +89,8 @@ are offsets, 16 to 28 blocks east of the spawn, inside the protected spawn area,
 `anchor: absolute` the corners are world coordinates. Zones set in game are always absolute.
 
 - **Rewards.** Every `rewards.interval` (60s) spent in the zone without a break pays `rewards.shards` (1) shards, or
-  the best rank tier the player has (`rewards.ranks`, granted by `siftcore.afk.reward.<tier>`: supporter 2, patron 2,
-  elite 3, legend 4 by default; operators get none by default). Payment is one ledger transaction, a source of kind
+  the best tier listed in `rewards.ranks` that the player has (`siftcore.afk.reward.<tier>`). The shipped list is
+  empty: paid ranks earn the same shards as everyone ([monetization](../monetization.md)); operators get no tier. Payment is one ledger transaction, a source of kind
   `afk_reward` in `Currency.SHARDS`, after the cancellable `AfkZoneRewardEvent`.
 - **Continuous presence.** Leaving the zone (walking out, a teleport, death, spectator mode) throws away the progress
   towards the next reward. A combat tag does the same for as long as it lasts.
@@ -158,7 +158,7 @@ are offsets, 16 to 28 blocks east of the spawn, inside the protected spawn area,
 | `zone.safe` | `true` | Nobody inside can hurt or be hurt |
 | `zone.teleport-warmup`, `zone.teleport-cooldown` | `3s`, `10s` | `/afkzone` timing |
 | `rewards.interval`, `rewards.shards` | `60s`, `1` | Shards per interval of continuous presence (5s to 1h) |
-| `rewards.ranks.<tier>` | supporter 2, patron 2, elite 3, legend 4 | Rank tiers (`siftcore.afk.reward.<tier>`) |
+| `rewards.ranks.<tier>` | none (`{}`) | Optional shard tiers (`siftcore.afk.reward.<tier>`); kept empty so ranks give no AFK advantage |
 | `rewards.daily-cap` | `0` | Most zone shards per account per day (0 = none) |
 | `rewards.status-every` | `2s` | The action-bar countdown (0s = never) |
 

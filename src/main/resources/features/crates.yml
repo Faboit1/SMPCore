@@ -111,7 +111,7 @@ keyall:
 #                          UUID). Needs display and icon. Commands run after the win is stored; a failing command is
 #                          logged so staff can give the reward by hand. Example:
 #                            vip_week:
-#                              commands: ["lp user %player% parent addtemp patron 7d"]
+#                              commands: ["lp user %player% parent addtemp prospector 7d"]
 #                              display: "a week of Patron"
 #                              icon: name_tag
 #                              weight: 1

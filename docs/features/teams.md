@@ -63,8 +63,8 @@ Staff tools (every action is written to the audit log as `teams.<action>`):
 | `siftcore.teleport.bypass-warmup` | op | `/team home` without the warmup (core node) |
 | `siftcore.bypass.cooldown` | op | No invite cooldown (core node) |
 
-Suggested rank nodes (the default limit of 5 comes from the config): `supporter` `siftcore.teams.size.6`, `patron`
-`siftcore.teams.size.8`, `elite` `siftcore.teams.size.10`, `legend` `siftcore.teams.size.12`.
+Team size is the same for everyone (5 from the config): a bigger PvP team is a competitive advantage, so no rank gets
+`siftcore.teams.size.<n>` ([monetization](../monetization.md)). The node exists for staff or events.
 
 ### Roles
 

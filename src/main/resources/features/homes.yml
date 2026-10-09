@@ -5,7 +5,7 @@
 
 # How many homes a player may set. Ranks raise it with permission nodes siftcore.homes.<number> (the highest
 # number a player has wins), or siftcore.homes.unlimited. Suggested LuckPerms nodes per rank:
-#   supporter siftcore.homes.3, patron siftcore.homes.4, elite siftcore.homes.5, legend siftcore.homes.7
+#   prospector siftcore.homes.6, baron siftcore.homes.15, tycoon siftcore.homes.40
 default-limit: 2
 
 # How long players stand still before /home teleports them (moving or taking damage cancels it). 0s = at once.

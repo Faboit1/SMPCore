@@ -20,11 +20,10 @@ Other permissions:
 | Node | Default | Meaning |
 |---|---|---|
 | `siftcore.spawners.bypass` | op | Use, open and pick up anyone's spawners, without silk touch, and open any storage from `/spawners` anywhere. |
-| `siftcore.spawners.stack.<n>` | not set | Rank bonus: stack `<n>` more spawners than the mob's cap (the highest number wins). Give it to LuckPerms groups, e.g. `siftcore.spawners.stack.250` for `elite`. |
+| `siftcore.spawners.stack.<n>` | not set | Rank bonus: stack `<n>` more spawners than the mob's cap (the highest number wins). Give it to LuckPerms groups, e.g. `siftcore.spawners.stack.250` for `baron`. |
 | `siftcore.spawners.stack.unlimited` | false | Stack up to the hard limit of 10,000. |
 
-Suggested rank bonuses for the LuckPerms groups: `supporter` `siftcore.spawners.stack.100`, `patron` `.250`, `elite`
-`.500`, `legend` `.1000` (`default` gets none, so its cap is the mob's 1,000). The bonus of the player who stacks counts,
+Rank bonuses on SiftVanilla: `prospector` `siftcore.spawners.stack.250`, `baron` `.500`, `tycoon` `.1000` (`default` gets none, so its cap is the mob's 1,000). The bonus of the player who stacks counts,
 so a teammate of a higher rank can stack an owner's spawner further.
 
 Hub entry `spawners` (order 40, also in the pause menu) opens the `/spawners` list.
@@ -205,8 +204,8 @@ spawner leaves the 50 to 80 hour band.
 | blaze | $600,000 | $30.00 | 2.5 | $9,000 | 66.7 h | 150 | 576 | 3.8 h | 3,000 |
 | iron golem | $2,500,000 | $100.00 | 3.2 | $38,400 | 65.1 h | 1,920 | 3,456 | 1.8 h | 0 |
 
-Everything scales linearly with the stack: 10 stacked zombies earn $9,180 an hour and hold 5,760 items. Rank sell
-bonuses shorten the payback (a 1.5x legend pays back in about 44 hours). Storage holds at least 1.8 hours of loot, so
+Everything scales linearly with the stack: 10 stacked zombies earn $9,180 an hour and hold 5,760 items. Ranks get no
+sell bonus, so the payback is the same for everyone (a server-wide booster shortens it for everyone online). Storage holds at least 1.8 hours of loot, so
 players come back to sell; the XP cap of 6,000 per spawner fills in two hours for blazes and later for the rest.
 
 ## Storage (database)

@@ -16,7 +16,7 @@ shop:
   #   max:         most units per purchase (1 to 64)
   #   name:        what it is called (plain text; for items empty means the item's own name, for keys "<crate> key")
   #   description: one line shown under the name (plain text, optional)
-  #   permission:  only players with this permission see and buy it (optional), e.g. siftcore.shards.legend
+  #   permission:  only players with this permission see and buy it (optional), e.g. siftcore.shards.event
   # Key offers only show while the crates feature knows that crate. Items that don't fit in the inventory go to the
   # claim box. An offer with a mistake is left out and reported when the config loads.
   offers:

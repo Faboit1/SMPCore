@@ -64,8 +64,8 @@ that." Request rate limits are below.
 | `siftcore.admin.friends` | op | `/sift friends` |
 | `siftcore.bypass.cooldown` | op | core node; also skips the request rate buckets |
 
-Suggested rank nodes (the default of 50 comes from the config): `supporter` `siftcore.friends.limit.75`, `patron`
-`siftcore.friends.limit.100`, `elite` `siftcore.friends.limit.150`, `legend` `siftcore.friends.limit.200`.
+Rank nodes on SiftVanilla (the default of 50 comes from the config): `prospector` `siftcore.friends.limit.100`,
+`baron` `siftcore.friends.limit.200`, `tycoon` `siftcore.friends.limit.500` (the hard cap).
 
 Staff tools (console friendly; reads run off the thread; every change is audited after it committed):
 

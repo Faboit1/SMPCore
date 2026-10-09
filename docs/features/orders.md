@@ -31,7 +31,7 @@ aliases.
 Active-order limit: `siftcore.orders.limit.<n>` (numeric nodes on LuckPerms groups, the highest wins, read with
 `Limits.highest`), otherwise `limits.active-orders` (3). `siftcore.orders.limit.unlimited` removes the limit; it is
 declared with default `false`, so nobody (not even ops) has it unless granted. Only active orders count; finished
-ones never do. Suggested rank values: default 3, supporter 5, patron 7, elite 10, legend 15.
+ones never do. Rank values on SiftVanilla: default 3, prospector 8, baron 20, tycoon 40 ([monetization](../monetization.md)).
 
 ## What an order takes: the plain rule and variants
 

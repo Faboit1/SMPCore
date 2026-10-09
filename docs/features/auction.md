@@ -304,7 +304,7 @@ shift right click a listing in the menu to remove it (with a confirmation).
 Listing slots: `siftcore.auction.listings.<n>` (numeric nodes on LuckPerms groups, the highest wins, read with
 `Limits.highest`), otherwise `listings.default-slots` (3). `siftcore.auction.listings.unlimited` removes the limit; it
 is declared with default `false`, so nobody (not even ops) has it unless it is granted. Suggested rank values:
-default 3, supporter 5, patron 7, elite 10, legend 15.
+default 3, prospector 8, baron 20, tycoon 40 ([monetization](../monetization.md)).
 
 `/ah` uses the `ah` entry of `commands.yml` for its cooldown and aliases. On SiftVanilla that entry has
 `yield-to: AxAuctions`, so this `/ah` is only registered when AxAuctions is not running (see above).

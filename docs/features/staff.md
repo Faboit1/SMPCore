@@ -56,7 +56,8 @@ Every staff node defaults to `op` and none is granted to everyone. Player names 
 | `siftcore.staff.clearchat.bypass` | op | Keep your chat when it is cleared |
 | `siftcore.bypass.cooldown` | op | No report cooldown (core node) |
 
-The ranks (`default`, `supporter`, `patron`, `elite`, `legend`) get none of these; give staff a separate group.
+The ranks (`default`, `prospector`, `baron`, `tycoon`) get none of these; give staff a separate group (weight 100 or
+more).
 
 Times are written like `30s`, `5m`, `12h`, `7d` or `1h30m`. A bare number is never a time, so `/mute Bob 5 alts`
 is a permanent mute with the reason "5 alts". `perm`, `permanent` and `forever` mean permanent. The shortest time
