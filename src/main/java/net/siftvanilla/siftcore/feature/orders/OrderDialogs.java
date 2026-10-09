@@ -37,6 +37,11 @@ import org.bukkit.potion.PotionType;
  */
 final class OrderDialogs {
 
+    /** How many deliveries the owner's details list (the latest). */
+    private static final int DETAIL_FILLS = 8;
+    /** How many deliveries the staff dialog lists (the latest). */
+    private static final int STAFF_FILLS = 5;
+
     private final Services services;
     private final OrderService service;
     private final OrderMenus menus;
@@ -485,7 +490,7 @@ final class OrderDialogs {
     private void details(Submission submission, Order order, Runnable back) {
         Player player = submission.player();
         this.services.dialogs().markShown(player);
-        this.service.store().fills(order.id(), 8).thenCombine(this.service.store().paidOut(order.id()), (fills, paid) -> {
+        this.service.store().fills(order.id(), DETAIL_FILLS).thenCombine(this.service.store().paidOut(order.id()), (fills, paid) -> {
             // Built after the reads, for the player who asked: amounts in their money format.
             this.services.scheduler().entity(player, () -> this.services.dialogs().show(player, () -> detailsView(order, fills, paid, back)), null);
             return null;
@@ -507,7 +512,7 @@ final class OrderDialogs {
             accent("ago", Duration.ofMillis(Math.max(0, now - shown.created()))), Arg.money("paid", paid),
             accent("collected", shown.collected())));
         lines.add(Component.empty());
-        lines.addAll(fillLines(fills, now));
+        lines.addAll(fillLines(fills, now, DETAIL_FILLS));
         return this.services.templates().list(lang.get(OrdersMessages.DETAILS_TITLE), lines, List.of(), 1, submission -> {
             Order fresh = this.service.book().get(order.id());
             if (fresh != null && fresh.owner().equals(submission.player().getUniqueId())) {
@@ -518,14 +523,15 @@ final class OrderDialogs {
         });
     }
 
-    private List<Component> fillLines(List<OrderStore.Fill> fills, long now) {
+    /** The latest deliveries, newest first; the header names the cap ({@code most}). */
+    private List<Component> fillLines(List<OrderStore.Fill> fills, long now, int most) {
         Lang lang = lang();
         List<Component> lines = new ArrayList<>();
         if (fills.isEmpty()) {
             lines.addAll(lang.lines(OrdersMessages.DETAILS_NONE));
             return lines;
         }
-        lines.addAll(lang.lines(OrdersMessages.DETAILS_HEADER, Arg.number("count", fills.size())));
+        lines.addAll(lang.lines(OrdersMessages.DETAILS_HEADER, Arg.number("count", most)));
         for (OrderStore.Fill fill : fills) {
             lines.addAll(lang.lines(OrdersMessages.DETAILS_LINE, Arg.text("name", this.service.name(fill.seller())),
                 Arg.number("amount", fill.quantity()), Arg.money("paid", fill.paid()),
@@ -662,7 +668,7 @@ final class OrderDialogs {
             this.services.messenger().send(staff, CoreMessages.NO_PERMISSION);
             return;
         }
-        this.service.store().fills(order.id(), 5).whenComplete((fills, error) -> {
+        this.service.store().fills(order.id(), STAFF_FILLS).whenComplete((fills, error) -> {
             if (error != null) {
                 this.services.plugin().getLogger().log(Level.WARNING, "Loading the deliveries of order " + order.id() + " failed", error);
                 this.services.messenger().send(staff, CoreMessages.ACTION_FAILED);
@@ -686,7 +692,7 @@ final class OrderDialogs {
             Arg.time("time", Duration.ofMillis(order.millisLeft(now))),
             Arg.component("state", lang.get(this.service.stateLabel(order.state())))));
         lines.add(Component.empty());
-        lines.addAll(fillLines(fills, now));
+        lines.addAll(fillLines(fills, now, STAFF_FILLS));
         OrderItem item = this.service.items().of(order);
         List<Body> body = new ArrayList<>();
         if (item != null) {

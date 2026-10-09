@@ -319,6 +319,11 @@ final class OrderService {
         return this.items.key(player.getInventory().getItemInMainHand());
     }
 
+    /** The delivery receipt: "after <tax> tax" only for a delivery that paid one (none as shipped). */
+    static MessageKey deliveredMessage(long tax) {
+        return tax > 0 ? OrdersMessages.DELIVER_DONE_TAXED : OrdersMessages.DELIVER_DONE;
+    }
+
     /** The suggested price each for a key: a little above what the server pays after tax (0 when no worth). */
     long suggestedPrice(String key) {
         OrderItem item = this.items.resolve(key);
@@ -632,13 +637,8 @@ final class OrderService {
                 return;
             }
             this.handovers.take(token);
-            if (tax > 0) {
-                this.services.messenger().send(seller, OrdersMessages.DELIVER_DONE_TAXED, Arg.number("amount", units),
-                    item("item", order.key()), Arg.money("payout", paid - tax), Arg.money("tax", tax));
-            } else {
-                this.services.messenger().send(seller, OrdersMessages.DELIVER_DONE, Arg.number("amount", units),
-                    item("item", order.key()), Arg.money("payout", paid));
-            }
+            this.services.messenger().send(seller, deliveredMessage(tax), Arg.number("amount", units),
+                item("item", order.key()), Arg.money("payout", paid - tax), Arg.money("tax", tax));
             arrived(new OwnerNotices.Arrival(order.owner(), sellerName, source == FillSource.SELL,
                 List.of(new OwnerNotices.Part(order, units, paid, complete))));
             refreshAll();

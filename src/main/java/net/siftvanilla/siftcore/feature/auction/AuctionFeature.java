@@ -35,6 +35,7 @@ import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -288,18 +289,12 @@ public final class AuctionFeature implements Feature, Listener {
         List<Component> lines = new ArrayList<>();
         if (sales.count() == 1 && sales.latest().size() == 1) {
             AuctionEngine.HistoryEntry<ItemStack> sale = sales.latest().getFirst();
-            Arg name = Arg.text("name", buyerName(sale));
-            Arg amount = Arg.number("amount", sale.amount());
-            Arg item = Arg.text("item", AuctionItems.plainName(sale.item()));
-            // Tax is only mentioned for a sale that was taxed.
-            lines.add(sale.tax() > 0
-                ? lang.get(AuctionMessages.AWAY_SOLD_ONE_TAXED, name, amount, item, this.service.price("price", sale.price()),
-                    this.service.price("earned", sale.price() - sale.tax()))
-                : lang.get(AuctionMessages.AWAY_SOLD_ONE, name, amount, item, this.service.price("price", sale.price())));
+            lines.add(lang.get(awayOne(sale.tax()), Arg.text("name", buyerName(sale)), Arg.number("amount", sale.amount()),
+                Arg.text("item", AuctionItems.plainName(sale.item())), this.service.price("price", sale.price()),
+                this.service.price("earned", sale.price() - sale.tax())));
             return lines;
         }
-        lines.add(lang.get(sales.taxed() > 0 ? AuctionMessages.AWAY_SOLD_MANY_TAXED : AuctionMessages.AWAY_SOLD_MANY,
-            Arg.number("count", sales.count()), this.service.price("earned", sales.earned())));
+        lines.add(lang.get(awayMany(sales.taxed()), Arg.number("count", sales.count()), this.service.price("earned", sales.earned())));
         for (AuctionEngine.HistoryEntry<ItemStack> sale : sales.latest()) {
             lines.add(lang.get(AuctionMessages.AWAY_SOLD_LINE, Arg.number("amount", sale.amount()),
                 Arg.text("item", AuctionItems.plainName(sale.item())), Arg.text("name", buyerName(sale)),
@@ -310,6 +305,16 @@ public final class AuctionFeature implements Feature, Listener {
             lines.add(lang.get(AuctionMessages.AWAY_SOLD_MORE, Arg.number("count", more)));
         }
         return lines;
+    }
+
+    /** The join summary's line of one sale: "after tax" only when it paid one. */
+    static MessageKey awayOne(long tax) {
+        return tax > 0 ? AuctionMessages.AWAY_SOLD_ONE_TAXED : AuctionMessages.AWAY_SOLD_ONE;
+    }
+
+    /** The join summary's header of several sales: "after tax" only when some of them paid one. */
+    static MessageKey awayMany(long taxed) {
+        return taxed > 0 ? AuctionMessages.AWAY_SOLD_MANY_TAXED : AuctionMessages.AWAY_SOLD_MANY;
     }
 
     private String buyerName(AuctionEngine.HistoryEntry<ItemStack> sale) {

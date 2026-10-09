@@ -390,16 +390,14 @@ final class AuctionService {
             return;
         }
         AlertStyle style = this.services.settings().get(listing.seller(), AuctionFeature.SALE_ALERTS);
-        Arg buyerName = Arg.text("buyer", buyer.getName());
-        Arg amount = Arg.number("amount", listing.amount());
-        Arg item = Arg.text("item", AuctionItems.plainName(listing.item()));
-        // Without a tax the seller got the price, so the line says nothing about tax.
-        if (tax > 0) {
-            this.services.messenger().alert(seller, style, AuctionMessages.SOLD_TAXED, buyerName, amount, item,
-                price("price", listing.price()), price("earned", listing.price() - tax));
-        } else {
-            this.services.messenger().alert(seller, style, AuctionMessages.SOLD, buyerName, amount, item, price("price", listing.price()));
-        }
+        this.services.messenger().alert(seller, style, soldMessage(tax), Arg.text("buyer", buyer.getName()),
+            Arg.number("amount", listing.amount()), Arg.text("item", AuctionItems.plainName(listing.item())),
+            price("price", listing.price()), price("earned", listing.price() - tax));
+    }
+
+    /** The seller's sale line: what they got after tax only for a sale that paid one (none as shipped). */
+    static MessageKey soldMessage(long tax) {
+        return tax > 0 ? AuctionMessages.SOLD_TAXED : AuctionMessages.SOLD;
     }
 
     private Problem refusal(Refusal refusal) {

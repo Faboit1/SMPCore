@@ -83,7 +83,7 @@ shop:
     confirm-above: "Confirm purchases from"
     confirm-above-description: "Ask before buying when the total is at least this much."
     default-amount: "Buy window starts at"
-    default-amount-description: "How many the buy window starts with: one stack, one item, your last amount, or a full inventory."
+    default-amount-description: "How many the buy window starts with."
     default-amount-stack: "One stack"
     default-amount-one: "One item"
     default-amount-last: "My last amount"

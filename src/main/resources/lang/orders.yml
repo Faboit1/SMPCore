@@ -329,8 +329,8 @@ orders:
     body:
       - "<secondary>Order <accent>#<id></accent>, placed <accent><ago></accent> ago"
       - "<secondary>Paid out <paid>, collected <accent><collected>"
-    # <count> is how many are listed (the latest few).
-    header: "<secondary>Latest <count> deliveries"
+    # <count> is how many are listed at most (the latest).
+    header: "<secondary>Latest deliveries, up to <count>"
     line: "<primary><name> <secondary><amount> for <paid>, <ago> ago"
     none: "<secondary>Nothing delivered yet."
 
@@ -405,11 +405,11 @@ orders:
   # Labels and descriptions of the order settings (/settings): Shop, auction & orders, Server announcements and Privacy.
   settings:
     notifications: "Order delivery alerts"
-    notifications-description: "Every delivery in chat, every delivery above the hotbar, only when an order is complete, or never. Expiries and staff cancellations always show."
+    notifications-description: "How you are told about deliveries to your orders. Ended and cancelled orders are always told."
     # The option of Order delivery alerts that only tells completed orders.
     notifications-complete: "Only when complete"
     announce: "Big order announcements"
-    announce-description: "New big buy orders in chat: everything the server announces, only above an amount, or none."
+    announce-description: "Big new buy orders announced in chat."
     ending-alerts: "Order ending warnings"
     ending-alerts-description: "Warn you before one of your orders runs out of time."
     join-summary: "Order summary on join"

@@ -164,6 +164,34 @@ class AuctionResourcesTest {
         }
     }
 
+    /** Loads the bundled lang file into {@link #lang()} for rendering. */
+    private static Lang loaded() throws Exception {
+        Lang lang = lang();
+        YamlConfiguration file = yaml("lang/auction.yml");
+        assertEquals(List.of(), lang.load(file, file, "lang/auction.yml"));
+        return lang;
+    }
+
+    @Test
+    void untaxedSalesSayNothingAboutTax() throws Exception {
+        Lang lang = loaded();
+        Arg[] sale = {Arg.text("buyer", "Alex"), Arg.text("name", "Alex"), Arg.number("amount", 10), Arg.text("item", "Diamond"),
+            Arg.money("price", 1_000), Arg.money("earned", 950), Arg.number("count", 3)};
+        // As shipped (no tax): the seller's line, the join summary of one sale and of several.
+        assertEquals("Alex bought your 10 Diamond for $1,000.", lang.plain(AuctionService.soldMessage(0), sale));
+        assertEquals("While you were away, Alex bought your 10 Diamond for $1,000.", lang.plain(AuctionFeature.awayOne(0), sale));
+        assertEquals("While you were away, 3 of your listings sold for $950:", lang.plain(AuctionFeature.awayMany(0), sale));
+        // A taxed sale names what the seller got after it.
+        assertEquals("Alex bought your 10 Diamond for $1,000. You got $950 after tax.", lang.plain(AuctionService.soldMessage(50), sale));
+        assertTrue(lang.plain(AuctionFeature.awayOne(50), sale).endsWith("You got $950 after tax."));
+        assertTrue(lang.plain(AuctionFeature.awayMany(1), sale).contains("You got $950 after tax"));
+        // The listing confirmation's body and its List it tooltip: no tax there, the tax line is separate.
+        String body = lang.plain(AuctionMessages.SELL_CONFIRM_BODY, sale);
+        assertEquals("List 10 Diamond for $1,000?", body);
+        assertEquals("Put it up for 2d.\nIf nobody buys it, it waits in your claim box.",
+            lang.plain(AuctionMessages.SELL_CONFIRM_TOOLTIP, Arg.text("time", "2d")));
+    }
+
     @Test
     void langFileHasNoUnusedEntries() throws Exception {
         Lang lang = lang();

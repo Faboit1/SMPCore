@@ -1,7 +1,8 @@
 # Buy orders (`orders`)
 
 A player asks for a number of items at a price each. The money for the whole order is held right away; other
-players deliver matching items and are paid from that money (less a tax); the buyer collects the items. Package
+players deliver matching items and are paid from that money (in full: SiftVanilla takes no tax, `tax: 0`; a tax can
+be set); the buyer collects the items. Package
 `feature/orders`, config `features/orders.yml`, text `lang/orders.yml`, tables `orders` and `order_fills` (V003)
 plus migrations V020-V023 (below). The held money lives in the system account `ORDERS_ESCROW`.
 
@@ -70,9 +71,12 @@ Shulker boxes: a single shulker box is opened for matching items (in the deliver
 ## Placing an order
 
 The form (`/orders create` or New order in the browser): item (an item key or English name, `mending book` or
-`sharpness 4 book` for books), quantity and price each. The held item fills it in; the price field gets a suggestion
-that leaves sellers `pricing.suggest-margin` more than the server pays after the tax:
-`ceil(worth x (1 + margin) / (1 - tax))`, empty for items the server does not buy.
+`sharpness 4 book` for books), quantity and price each, with nothing written above the inputs (the dialog style): Next's
+tooltip says the money is held until the order fills, ends or is cancelled and how many orders the player has up
+("Active orders 0 of 3"), Choose item's that it picks from a list. The held item fills it in; the price field gets a
+suggestion that leaves sellers `pricing.suggest-margin` more than the server pays (after the tax, when there is one):
+`ceil(worth x (1 + margin) / (1 - tax))` ($440 for diamonds worth $400 at 10% without tax), empty for items the server
+does not buy.
 
 - Quantity accepts `1500`, `1,500`, `1.5k`, `2m`, `3 stacks`/`3 stack`/`3st` (times the item's stack size) and
   `1 shulker`/`2 shulkers`/`2sb` (27 stacks each), capped by `limits.max-quantity`. Exponents, hex and anything else are
@@ -80,11 +84,12 @@ that leaves sellers `pricing.suggest-margin` more than the server pays after the
 - Choose item opens the item picker: every orderable item plus the variant families, filter by category, sort by name
   or most ordered (orders placed per item in the last 30 days, read at startup and hourly), search; each icon shows what
   the server pays and the open orders with the best price. A family opens a list (enchantment, then level unless the
-  maximum is I; potion type; mob). Everything typed is kept per player for 10 minutes (forgotten on quit), so leaving
-  the form for the picker never loses input.
-- The confirmation shows the item, quantity, price each, the total held, the duration, what the server pays for the
-  item and, when `price x (1 - tax)` is not more than the worth at the best rank multiplier, the warning that players
-  get more from /sell. Confirming re-checks everything, fires `OrderCreateEvent`, and runs one transaction
+  maximum is I; potion type; mob); what an order for each takes ("Only books with just this enchantment count.") is
+  the buttons' tooltip. Everything typed is kept per player for 10 minutes (forgotten on quit), so leaving the form for
+  the picker never loses input.
+- The confirmation shows the item, quantity, price each and the total held ("$17,280 is held now."), and in red, when
+  `price x (1 - tax)` is not more than the worth at the best rank multiplier, the warning that players get more from
+  /sell. The Place order tooltip says how delivering works, the duration and what the server pays for the item. Confirming re-checks everything, fires `OrderCreateEvent`, and runs one transaction
   (owner to `ORDERS_ESCROW`, kind `order_escrow`, ref `order:<id>`) whose check counts the owner's active orders under
   the economy lock.
 - Limits: `limits.min-price` per item, `limits.max-quantity`, `limits.max-total` per order, and the optional
@@ -98,7 +103,7 @@ clickable to `/orders <item>`, to players who did not turn announcements off and
 ## The browser and delivering
 
 `/orders` (`PagedMenu`): every open order. Entry: the item (as many as are still wanted, at most one stack) with
-`Price each`, `You get <net> each after <tax>% tax`, `Delivered <filled> of <quantity>`, `Ordered by`, `Ends in`,
+`Price each`, `You get <net> each after <tax>% tax` (only while deliveries are taxed), `Delivered <filled> of <quantity>`, `Ordered by`, `Ends in`,
 `Server pays <worth> each` (when the server buys it), `You carry <n>` (plain items including box contents, counted once
 per redraw) and the click hints. Bottom row: 47 sort (highest price each, highest total, most wanted, newest, ending
 soon), 48 filter (all, and each category with orderable items), 49 search, 50 New order (`You have <count> of <limit>
@@ -108,7 +113,7 @@ rows `orders_sort`, `orders_filter`).
 - **Click** someone else's order: the delivery menu. Rows 1-5 are a grid for items (shift click, drag or 51 "Fill from
   inventory", which moves matching stacks and boxes holding matching items, whole, up to what is still wanted); 46
   back, 48 the order and the item rule, 50 Deliver (`Accepted <amount> of <remaining> still wanted (<inner> from shulker
-  boxes)` and the payout after tax; what is not accepted is counted). Deliver takes the plain stacks first, then the
+  boxes)` and the payout, "after <tax> tax" only while there is one; what is not accepted is counted). Deliver takes the plain stacks first, then the
   boxes' contents (each box is swapped for a rebuilt copy), saves the player, then runs the fill; everything else goes
   back, as does the whole grid when the menu closes (also on quit and shutdown). While items sit in the grid a copy of
   them is kept in the player's own data (`siftcore:delivery_grid`), saved together with the inventory, so a crash with
@@ -121,13 +126,14 @@ rows `orders_sort`, `orders_filter`).
   would lose it). So the menu can't keep items safe from a death. A price change after the menu opened refuses the
   delivery ("That order changed.").
 - **Right click**: quick deliver, a dialog with what you carry (and how much of it in boxes), what is still wanted,
-  the payout after tax and, when the server pays you more, that /sell pays more. Confirming re-reads the inventory and
+  the tax (only while there is one) and, in red when the server pays you more, that /sell pays more; the button says
+  what you get ("Deliver 60 for $30,000") and its tooltip what it does. Confirming re-reads the inventory and
   the order: if the count, price or remaining amount changed, the dialog comes back with "That order or your inventory
   changed. Check, then deliver." Otherwise the items are taken with snapshot checks per slot, the player is saved, and
   the fill runs; a refusal restores the exact slots.
 - **Click your own order**: the owner dialog (below). **Shift right click** (staff): the staff dialog.
 
-A fill is one transaction: escrow to seller (`order_fill`), the seller pays the tax to the sink (`order_tax`), and a
+A fill is one transaction: escrow to seller (`order_fill`), the seller pays the tax, if any, to the sink (`order_tax`), and a
 check under the economy lock refuses it when the order is gone, not active, the seller's own, at another price,
 expired, can't be built, or wants fewer items (and, with `refuse-same-ip`, when the owner shares the seller's address
 hash). The order's row is updated with a guarded `UPDATE` and an `order_fills` row (with its source `menu`, `quick` or
@@ -139,12 +145,15 @@ wins and the rest are refused for the count.
 `/orders mine`: active orders and ended ones still holding items, newest first; 50 New order, 51 Collect all (one
 transaction with a guarded update per order, collecting what fits from each order, newest first), 52 Past orders.
 
-The owner dialog: Collect items (what fits), Collect one stack, Send the rest to my claim box (what fits goes to the
-inventory and the rest into the claim box in the same transaction), Raise price and Add more (one form: a new price
-each, which must not be lower, and items to add; the confirmation says `Hold <extra> more for this order?` where
+The owner dialog shows the order in three lines (item and price each; delivered, waiting; money held and time left)
+and a button per action, each with a tooltip saying what it does: Collect items (what fits), Collect one stack, Send
+the rest to my claim box (what fits goes to the inventory and the rest into the claim box in the same transaction),
+Raise price and Add more (one form: a new price each, which must not be lower, and items to add; "Prices can only go
+up." is Next's tooltip; the confirmation says `Hold <extra> more for this order?` where
 `extra = (newQuantity - filled) x newPrice - held`), Extend (free; to `min(created + extend.max-lifetime, now +
-duration)`), Cancel order (confirmation; everything held comes back, delivered items stay collectable), Order again
-(for ended orders), Details (order id, age, paid out, latest deliveries).
+duration)`), Cancel order (confirmation with the refund; that delivered items stay collectable is the Cancel order
+tooltip), Order again (for ended orders), Details (order id, age, paid out, collected, and the latest deliveries,
+"Latest deliveries, up to 8").
 
 Collecting changes only the count, in a transaction; the items are handed over on the owner's thread after the commit,
 and anything that no longer fits goes back into the order (or, if that can't be stored, the claim box). An owner who
@@ -159,8 +168,8 @@ delivered item was collected.
 - Past orders (`/orders history`): the owner's ended orders, newest first, at most `history.max-entries`, read from
   storage when opened. Lore: state, delivered, price each, paid out, refunded, ended ago. Clicking one orders the same
   again (item, quantity, price) through every normal check.
-- Your deliveries (`/orders deliveries`): `order_fills` joined with `orders` by seller: item, amount, earned after
-  tax, buyer, time ago; the header shows `You earned <total> from <count> deliveries`.
+- Your deliveries (`/orders deliveries`): `order_fills` joined with `orders` by seller: item, amount, earned (after
+  the tax, if there was one), buyer, time ago; the header shows `You earned <total> from <count> deliveries`.
 - `history.keep` (0: forever) purges closed orders, their fills and notices older than that once a day.
 
 ## Telling owners
@@ -305,7 +314,7 @@ bookkeeping. `order_fill` and `order_tax` count towards the stats' money earned 
 | `limits.min-price` | `1` | Lowest price each |
 | `limits.max-quantity` | `100000` | Most items one order asks for |
 | `limits.max-total` | `100b` | Most money one order holds |
-| `tax` | `2` | Percent the deliverer pays (0-50, decimals allowed), rounded down per delivery |
+| `tax` | `0` | Percent the deliverer pays (0-50, decimals allowed), rounded down per delivery. 0: no tax and no tax text anywhere (the browser, the delivery menu, quick deliver, the receipt, the sale receipt's hover) |
 | `block-in-combat` | `true` | Tagged players can't browse, deliver, quick deliver, place, collect or sell to orders |
 | `join-reminder` | `true` | Remind owners of waiting items on join |
 | `refuse-same-ip` | `false` | Refuse deliveries and routed sales to orders of a player with the seller's address hash |
@@ -371,7 +380,9 @@ escrow account and lists orders whose item can't be built.
   many wait when not all fit; "never" says nothing while the items still arrive) and `market-order-ending` (one-minute
   orders: the ending warning for the default owner, none for one who turned it off with `/settings`).
 - End to end (`tools/e2e`, `OrdersScenarios`): placing with the command, the form and the picker (typed input kept),
-  quick deliver (including the changed-inventory re-check), shulker deliveries, Fill from inventory, raising the price
+  quick deliver (including the changed-inventory re-check; `orders-quick-deliver` as shipped pays in full with no word
+  about tax, `orders-quick-deliver-taxed` sets `tax: 2` for the scenario: the browser's net line, the dialog's tax line,
+  the receipt and the sunk `order_tax`), shulker deliveries, Fill from inventory, raising the price
   and adding items (and the stale delivery menu), order again, collect all and the claim box, the history views, the
   join summary for offline owners, staff cancel with a reason, enchanted book orders with the exact rule, spawner
   orders through the spawner feature's items (`orders-spawner`), the browser's
@@ -379,7 +390,7 @@ escrow account and lists orders whose item can't be built.
   `orders-persist-check`), and selling into orders (`orders-sell-routing`: an order above the server price takes the
   units first and its owner is told once, an order at or below it takes nothing, and orders filled by someone else
   between planning and the sale make it end with the server only, saying so; the price list's "Order it" opens the
-  form with the item set), dying with a delivery menu open
+  form with the item set; it runs with `tax: 2` set for it, so the tax of routed sales stays tested), dying with a delivery menu open
   (`orders-delivery-death`), an owner who leaves while a collect waits for storage getting the items back into the
   order (`orders-collect-left-before-commit`), the copy of a delivery grid in the player's data
   (`orders-delivery-grid-copy`), and the player file on disk after a save with items in the grid, after closing and

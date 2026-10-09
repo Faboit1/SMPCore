@@ -615,8 +615,9 @@ final class MarketScenarios {
         // Bought right after the join, before the summary runs (three seconds after it): told live above the hotbar,
         // and the summary must not tell it again as a sale "while you were away".
         confirmPurchase(e2e, buyer, afterJoin);
-        e2e.eventually(() -> back.chatContains("While you were away, " + buyerName + " bought your 5 Echo Shard for $5,000. You got $4,750 after tax."),
+        e2e.eventually(() -> back.chatContains("While you were away, " + buyerName + " bought your 5 Echo Shard for $5,000."),
             "the summary names the one sale while away: " + back.chat());
+        e2e.expect(back.chat().stream().noneMatch(line -> line.contains("tax")), "no tax, no word about it: " + back.chat());
         e2e.eventually(() -> back.actionBarContains(buyerName + " bought your 3 Diamond for $6,000."), "the later sale live: " + back.actionBar());
         e2e.sleep(1_000);
         e2e.expect(back.chat().stream().noneMatch(line -> line.contains("3 Diamond")), "the later sale is not in the summary: " + back.chat());

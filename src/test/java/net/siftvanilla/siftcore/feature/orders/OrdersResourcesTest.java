@@ -163,6 +163,20 @@ class OrdersResourcesTest {
     }
 
     @Test
+    void untaxedDeliveriesSayNothingAboutTax() throws Exception {
+        Lang lang = lang();
+        YamlConfiguration file = yaml("lang/orders.yml");
+        assertEquals(List.of(), lang.load(file, file, "lang/orders.yml"));
+        Arg[] delivery = {Arg.number("amount", 61), Arg.text("item", "Diamond"), Arg.money("payout", 30_500), Arg.money("tax", 0),
+            Arg.number("remaining", 100), Arg.number("inner", 20)};
+        assertEquals("You delivered 61 Diamond and got $30,500.", lang.plain(OrderService.deliveredMessage(0), delivery));
+        assertFalse(String.join(" ", lang.lines(OrdersMessages.DELIVER_BUTTON_LORE, delivery).stream().map(TextStyle::plain).toList())
+            .contains("tax"), "the deliver button without a tax");
+        Arg[] taxed = {Arg.number("amount", 61), Arg.text("item", "Diamond"), Arg.money("payout", 29_890), Arg.money("tax", 610)};
+        assertEquals("You delivered 61 Diamond and got $29,890 after $610 tax.", lang.plain(OrderService.deliveredMessage(610), taxed));
+    }
+
+    @Test
     void langFileHasNoUnusedEntries() throws Exception {
         Lang lang = lang();
         YamlConfiguration file = yaml("lang/orders.yml");

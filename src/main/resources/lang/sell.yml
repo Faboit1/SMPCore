@@ -205,9 +205,9 @@ sell:
   # Settings (/settings, the Money & selling group). Option names like "Server default" are shared (lang/settings.yml).
   settings:
     confirm: "Confirm /sell all from"
-    confirm-description: "Ask before selling everything when the total is at least this much. The server's own always/never rule still wins."
+    confirm-description: "Ask before selling everything when the total is at least this much."
     hotbar: "Hotbar on /sell all"
-    hotbar-description: "Keep your hotbar items when selling everything, or sell them too. Server follows the server's setting."
+    hotbar-description: "Keep your hotbar items when selling everything, or sell them too."
     hotbar-keep: "Keep it"
     hotbar-sell: "Sell it too"
     orders: "Sell to buy orders first"

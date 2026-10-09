@@ -70,7 +70,7 @@ boosters:
   # The announcement filter in /settings (Server announcements). "All" and "Off" are shared (lang/settings.yml).
   settings:
     announcements: "Sell booster announcements"
-    announcements-description: "Sell booster news in chat: every start, wait and end, only new boosters, or none. Your own boosters always show."
+    announcements-description: "Sell booster news in chat. News about your own boosters always shows."
     announcements-starts: "Only new boosters"
 
   # /sift booster (staff and console)

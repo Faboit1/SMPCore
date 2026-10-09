@@ -9,11 +9,11 @@ money engine itself (the ledger, `economy/Ledger`) is core; this feature is how 
 
 | Command | Permission | What it does |
 |---|---|---|
-| `/balance` (`/bal`, `/money`) | `siftcore.command.balance` (everyone) | Your money and shards. |
+| `/balance` (`/bal`, `/money`) | `siftcore.command.balance` (everyone) | Your money (green) and shards (purple, the amount and the word). |
 | `/balance <name>` | `siftcore.command.balance.others` (everyone) | Another player's money and shards, when their "Who can see my balance" (`balance-privacy`) lets you; otherwise "Alex keeps their balance private." The console, staff with `siftcore.admin.eco` and the player themselves always see it. An offline player's choice is read from storage (`PlayerSettings.lookup`). |
 | `/pay` | `siftcore.command.pay` (everyone) | The pay form (player and amount); refusals come back in the form with what was typed. |
 | `/pay <name> <amount>` | `siftcore.command.pay` | Pays at once, or asks first (see Confirmation). |
-| `/baltop [page]` (`/balancetop`, `/moneytop`) | `siftcore.command.baltop` (everyone) | The richest players (a dialog; chat lines for the console). |
+| `/baltop [page]` (`/balancetop`, `/moneytop`) | `siftcore.command.baltop` (everyone) | The richest players: one dialog without pages (it scrolls) with the player's own place first, then every place kept (`baltop.size`, 100; "Only the top 100 are listed." under a full list). The console gets chat lines, `page-size` at a time (the page argument is for the console). |
 | `/eco give\|take\|set <name> <amount> [money\|shards]` (`/economy`) | `siftcore.admin.eco` (operators) | Adds, removes or sets a balance (money unless `shards` is named; `set` re-checks the balance inside the transaction, ledger kinds `admin_give`, `admin_take`, `admin_set`). Console too. Audited as `eco.give`, `eco.take`, `eco.set`. |
 | `/eco history <name> [page]` | `siftcore.admin.eco` | The player's ledger rows, newest first (`page-size` per page): transaction id, amount, kind, how long ago and the balance after. |
 | `/eco resume` | `siftcore.admin.eco` | Takes the economy out of read-only mode after storage failures (the ledger turns read-only after five failed writes). Audited as `eco.resume`. |
@@ -21,8 +21,10 @@ money engine itself (the ledger, `economy/Ledger`) is core; this feature is how 
 Other nodes: `siftcore.pay.unlimited` (operators) removes the daily pay limit, and `siftcore.bypass.cooldown`
 (operators) skips the `pay.cooldown`.
 
-The main menu's Money page (`money`, order 10) shows the balance, shards, leaderboard place and what is left of the
-daily pay limit, with Pay a player and Richest players.
+The main menu's Money page (`money`, order 10) shows the balance and the shards (purple), with two buttons whose
+tooltips carry the rest (the dialog style, `docs/development.md`): Pay a player ("Send money to another player.", and
+"You can still send $x today." for players with a daily limit) and Richest players ("The 100 richest players.", and
+"You are number 4." for a player on the leaderboard). When the day's total can't be loaded, a red line says so.
 
 ## Paying
 
@@ -35,8 +37,9 @@ Every payment runs on the payer's thread:
    together. A receiver who doesn't accept this payer: "Alex doesn't accept payments from you." (in the form when it
    came from the form). Over the daily limit: "You can send $x more today ...".
 3. **Confirmation** when the amount reaches the server's `pay.confirm-above` (100k), or the payer's own lower amount
-   ("Confirm payments from": always, $1k, $10k or $100k; never looser than the server). The dialog shows the exact
-   amount and what is left today.
+   ("Confirm payments from": always, $1k, $10k or $100k; never looser than the server). The dialog asks "Send
+   $150,000 to Alex?" with the exact amount and what is left today; "Payments can't be undone." is the Pay button's
+   tooltip. The pay form's Submit says in its tooltip that big payments ask first.
 4. **Transfer**: who may pay is checked again (the receiver may have changed it, or the two their relation, while the
    confirmation was open), `PlayerPayEvent` (cancellable), then one `LedgerTx` transfer (kind `pay`) with the daily
    limit checked inside the transaction.
@@ -63,7 +66,7 @@ first join. One indexed read of the ledger (`PaymentsAway`).
 ledger in memory: the top `baltop.size` (100) entries and every positive balance sorted for a player's place. Players
 who chose "Hide me from leaderboards" (`hide-from-leaderboards`, needs `siftcore.stats.hide`) are left out of the
 list and of the places: they take no place from anyone, have none themselves (`baltop_rank` is 0, no "You are
-number ..." line, "-" on the Money page), and `EconomyApi.top` leaves them out too. Who is hidden is read at each
+number ..." line, none in the Richest players tooltip), and `EconomyApi.top` leaves them out too. Who is hidden is read at each
 rebuild (`HiddenAccounts`): online players' values with their permissions, everyone else's stored choice from the
 `settings` table (one read); when that read fails the last list is kept. A change shows at the next rebuild.
 
@@ -95,7 +98,7 @@ stats feature reads them for `/stats` and the stat leaderboards.
 | `pay.allow-offline-targets` | true | Money can be sent to offline players (and the offline payments summary is offered) |
 | `pay.daily-limit.enabled` / `base` / `per-hour-played` / `maximum` | true / 250k / 50k / 100m | The daily limit, growing with time played; `siftcore.pay.unlimited` has none |
 | `baltop.refresh` / `size` | 60s / 100 | The leaderboard |
-| `page-size` | 10 | Lines per page in `/baltop` and `/eco history` |
+| `page-size` | 10 | Lines per page of `/baltop` in the console and of `/eco history` (players get the whole list in one dialog) |
 
 ## Placeholders
 
@@ -160,6 +163,9 @@ default; nobody refused in chat and in the form, also offline; the summary after
 ignored payer refused),
 `money-balance-privacy` (refused for others online and offline, shown to the player, the console and staff),
 `money-leaderboard-hidden` (off the list and without a place, back without the permission or when turned off),
+`money-dialogs` (`/balance` with purple shards; the Money page's body is the balance and shards, the limit left and the
+place are in the Pay and Richest players tooltips; `/baltop` with the own place first, every place and no page
+buttons; the pay confirmation's question with "can't be undone" in the Pay tooltip),
 and `MoneyFormatScenarios`: `money-format-views` (the Display page's three formats with their samples, changed in the
 dialog and with `/settings money-format short`; one balance of $1,234,567 read three ways in `/balance`, the sidebar,
 the money page, the shop menu and the `balance`, `balance_number` and `baltop_value_1` placeholders, `balance_exact` exact for

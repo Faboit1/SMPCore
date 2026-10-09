@@ -30,12 +30,13 @@ buttons check again when pressed, so a dialog opened before a fight can't buy go
 3. **Search** (`ShopSearchMenu`): every visible entry across categories, searchable by name and id, filtered by
    category (All categories, then each category), sorted like a category page; entries show their category. Clicks
    work like on a category page.
-4. **Purchase dialog**: the item, its price, the player's balance and the most per purchase; "Sells back for $X
-   each" and "You have N" for items the server buys; a slider for the amount plus a text field to type an exact
-   amount (both only when more than one can be bought; a typed amount wins and must be valid on its own); the buy
-   button names amount and total (`Buy 64 for $384`). **Max you can afford** and **Fill your inventory** work the
-   amount out when pressed (balance, free space and the limit) and show the dialog again with the new amount and
-   total before anything is bought. Dialog buttons can't change their label while the slider moves, so a press with
+4. **Purchase dialog** (the dialog style: what the player decides on in the body, the rest in tooltips): the item,
+   its price and the player's balance; a slider for the amount plus a text field to type an exact amount (both only
+   when more than one can be bought; a typed amount wins and must be valid on its own); the buy button names amount and
+   total (`Buy 64 for $384`), and its tooltip the most per purchase and, for items the server buys, "Sells back for $X
+   each" and "You carry N". **Max you can afford** and **Fill your inventory** (each says in its tooltip that nothing
+   is bought until Buy) work the amount out when pressed (balance, free space and the limit) and show the dialog again
+   with the new amount and total before anything is bought. Dialog buttons can't change their label while the slider moves, so a press with
    a different amount first shows the dialog again with the new total; nothing is bought until the player presses a
    button that names the amount and total they get.
 5. **Confirmation** for purchases of at least `confirm-above` ($50,000), or the amount the player picked in

@@ -66,6 +66,7 @@ final class OrdersScenarios {
         list.add(of("orders-create-command", OrdersScenarios::createCommand));
         list.add(of("orders-create-picker", OrdersScenarios::createPicker));
         list.add(of("orders-quick-deliver", OrdersScenarios::quickDeliver));
+        list.add(of("orders-quick-deliver-taxed", OrdersScenarios::quickDeliverTaxed));
         list.add(of("orders-shulker-deliver", OrdersScenarios::shulkerDeliver));
         list.add(of("orders-fill-from-inventory", OrdersScenarios::fillFromInventory));
         list.add(of("orders-edit-raise-and-add", OrdersScenarios::editRaiseAndAdd));
@@ -91,6 +92,25 @@ final class OrdersScenarios {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * Runs {@code body} with features/orders.yml's tax set to {@code percent} (shipped: 0) and reloaded, then puts the
+     * file back: the taxed code paths stay tested although SiftVanilla takes no tax.
+     */
+    private static void withTax(E2E e2e, int percent, Body body) throws Exception {
+        java.nio.file.Path path = e2e.services().plugin().getDataFolder().toPath().resolve("features/orders.yml");
+        String original = java.nio.file.Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
+        e2e.expect(original.contains("\ntax: 0\n"), "features/orders.yml ships tax: 0");
+        try {
+            java.nio.file.Files.writeString(path, original.replace("\ntax: 0\n", "\ntax: " + percent + "\n"),
+                java.nio.charset.StandardCharsets.UTF_8);
+            e2e.expect(String.join(" ", e2e.consoleOutput("sift reload")).contains("Reloaded"), "orders.yml with tax " + percent + " reloads");
+            body.run(e2e);
+        } finally {
+            java.nio.file.Files.writeString(path, original, java.nio.charset.StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
+    }
 
     /** Sends a command like a player types one, paced (the server kicks clients that send commands too fast). */
     private static void command(E2E e2e, Bot bot, String command) {
@@ -452,11 +472,13 @@ final class OrdersScenarios {
         Bot.SeenDialog confirm = e2e.dialog(bot, "Place order");
         String body = confirm.bodyText();
         e2e.expect(body.contains("128 Diamond at $450 each"), "the resolved quantity, item and price: " + body);
-        e2e.expect(body.contains("$57,600 is held now and paid out as items arrive."), "the money held: " + body);
-        e2e.expect(body.contains("The order ends in 7d."), "the duration: " + body);
-        e2e.expect(body.contains("The server pays $400 each for Diamond."), "what the server pays: " + body);
+        e2e.expect(body.contains("$57,600 is held now."), "the money held: " + body);
         e2e.expect(body.contains("Players get more from /sell, so few will deliver"),
-            "the warning, since $450 less 2% tax is under $400 at the best rank bonus (1.5x): " + body);
+            "the warning, since $450 is under $400 at the best rank bonus (1.5x): " + body);
+        e2e.expect(!body.contains("ends in") && !body.contains("The server pays"), "the rest is in the tooltip: " + body);
+        String tooltip = confirm.button("Place order").tooltip();
+        e2e.expect(tooltip != null && tooltip.contains("The order ends in 7d.") && tooltip.contains("The server pays $400 each for Diamond."),
+            "the duration and what the server pays, in the Place order tooltip: " + tooltip);
         e2e.expect(e2e.money(name) == 100_000, "nothing held before confirming");
 
         e2e.step("Back from the confirmation places nothing");
@@ -520,8 +542,12 @@ final class OrdersScenarios {
         e2e.expect(loreHas(bot, 50, "You have 0 of 3 active orders"), "the new order button: " + lore(bot, 50));
         Bot.SeenDialog form = clickForDialog(e2e, bot, 50, 0, ContainerInput.PICKUP, "New order");
         e2e.expect("diamond".equals(form.initial("item")), "the held item fills the item field: " + form.initial());
-        e2e.expect("449".equals(form.initial("price")), "the suggested price is $400 x 1.1 / 0.98 rounded up: " + form.initial());
-        e2e.expect(form.bodyText().contains("You have 0 of 3 active orders."), "the limit line: " + form.body());
+        e2e.expect("440".equals(form.initial("price")), "the suggested price is $400 x 1.1 (no tax): " + form.initial());
+        e2e.expect(!form.bodyText().contains("Ask for items") && !form.bodyText().contains("active orders"),
+            "no text above the inputs: " + form.body());
+        String next = form.button("Next").tooltip();
+        e2e.expect(next != null && next.contains("The money is held until the order fills") && next.contains("Active orders 0 of 3"),
+            "how it works and the limit, in Next's tooltip: " + next);
 
         e2e.step("Choose item keeps what was typed, and the picker's back button returns to it");
         Bot.Screen before = bot.screen();
@@ -553,7 +579,7 @@ final class OrdersScenarios {
         Bot.SeenDialog confirm = clickToDialog(e2e, bot, "Next", typed(chosen, Map.of()), "Place order");
         e2e.expect(confirm.bodyText().contains("192 Gold Ingot at $90 each"), "3 stacks of gold: " + confirm.body());
         e2e.expect(confirm.bodyText().contains("$17,280 is held now"), "the total: " + confirm.body());
-        e2e.expect(!confirm.bodyText().contains("Players get more from /sell"), "$90 less tax beats $35 at the best sell multiplier: " + confirm.body());
+        e2e.expect(!confirm.bodyText().contains("Players get more from /sell"), "$90 beats $35 at the best sell multiplier: " + confirm.body());
 
         e2e.step("Back on the confirmation puts the form in its place, without closing anything first");
         int cleared = bot.dialogsCleared();
@@ -587,9 +613,19 @@ final class OrdersScenarios {
 
     // ------------------------------------------------------------------ delivering
 
+    /** Quick deliver as shipped: no tax, so the seller gets the whole price and nothing mentions a tax. */
     static void quickDeliver(E2E e2e) throws Exception {
-        String buyerName = e2e.name("OrdQBuy");
-        String sellerName = e2e.name("OrdQSell");
+        quickDeliver(e2e, false);
+    }
+
+    /** Quick deliver with a 2% tax set for the scenario: the browser, the dialog and the receipt name it, and it is sunk. */
+    static void quickDeliverTaxed(E2E e2e) throws Exception {
+        withTax(e2e, 2, x -> quickDeliver(x, true));
+    }
+
+    private static void quickDeliver(E2E e2e, boolean taxed) throws Exception {
+        String buyerName = e2e.name(taxed ? "OrdQTBuy" : "OrdQBuy");
+        String sellerName = e2e.name(taxed ? "OrdQTSell" : "OrdQSell");
         Bot buyer = e2e.bot(buyerName);
         Bot seller = e2e.bot(sellerName);
         fund(e2e, buyerName, 100_000);
@@ -600,11 +636,15 @@ final class OrdersScenarios {
         inventory(e2e, sellerName, Map.of(0, stack(Material.DIAMOND, 40),
             1, box(Map.of(0, stack(Material.DIAMOND, 20), 4, stack(Material.DIRT, 5))), 2, renamed));
 
-        e2e.step("the browser entry shows the price, the payout after tax, what the server pays and what the seller carries");
+        e2e.step("the browser entry shows the price" + (taxed ? ", the payout after tax" : "") + ", what the server pays and what the seller carries");
         int slot = browseTo(e2e, seller, "diamond", buyerName);
         List<String> entry = lore(seller, slot);
         e2e.expect(entry.contains("Price each $500"), "price: " + entry);
-        e2e.expect(entry.contains("You get $490 each after 2% tax"), "net: " + entry);
+        if (taxed) {
+            e2e.expect(entry.contains("You get $490 each after 2% tax"), "net: " + entry);
+        } else {
+            e2e.expect(entry.stream().noneMatch(line -> line.contains("tax") || line.startsWith("You get")), "no tax line: " + entry);
+        }
         e2e.expect(entry.contains("Delivered 0 of 100"), "progress: " + entry);
         e2e.expect(entry.contains("Server pays $400 each"), "worth: " + entry);
         e2e.expect(entry.contains("You carry 60"), "plain diamonds including the box, not the renamed ones: " + entry);
@@ -613,12 +653,19 @@ final class OrdersScenarios {
         e2e.step("right click shows what quick deliver does");
         Bot.SeenDialog dialog = clickForDialog(e2e, seller, slot, 1, ContainerInput.PICKUP, "Deliver Diamond");
         String body = dialog.bodyText();
+        String sixty = taxed ? "$29,400" : "$30,000";
         e2e.expect(body.contains("You carry 60 plain Diamond (20 in shulker boxes)"), "what is carried: " + body);
         e2e.expect(body.contains("Still wanted 100"), "what is wanted: " + body);
-        e2e.expect(body.contains("You get $29,400 after $600 tax"), "the payout: " + body);
+        if (taxed) {
+            e2e.expect(body.contains("After $600 tax"), "the tax: " + body);
+        } else {
+            e2e.expect(!body.contains("tax"), "no word about tax: " + body);
+        }
         e2e.expect(!body.contains("The server pays more"), "the order pays more than the server: " + body);
-        e2e.expect(dialog.button("Deliver 60 for $29,400") != null && dialog.button("Open delivery menu") != null,
+        e2e.expect(dialog.button("Deliver 60 for " + sixty) != null && dialog.button("Open delivery menu") != null,
             "the buttons: " + dialog.buttons());
+        e2e.expect(dialog.button("Deliver 60").tooltip() != null && dialog.button("Open delivery menu").tooltip() != null,
+            "both buttons say what they do: " + dialog.buttons());
 
         e2e.step("a changed inventory is shown again before anything moves");
         e2e.onPlayer(sellerName, () -> {
@@ -627,16 +674,19 @@ final class OrdersScenarios {
         });
         Bot.SeenDialog changed = clickToDialog(e2e, seller, "Deliver 60", Map.of(), "Deliver Diamond");
         e2e.expect(changed.bodyText().contains("That order or your inventory changed. Check, then deliver."), "the re-check: " + changed.body());
-        e2e.expect(changed.button("Deliver 61 for $29,890") != null, "the fresh count: " + changed.buttons());
+        String sixtyOne = taxed ? "$29,890" : "$30,500";
+        e2e.expect(changed.button("Deliver 61 for " + sixtyOne) != null, "the fresh count: " + changed.buttons());
         e2e.expect(e2e.money(sellerName) == 0 && count(e2e, sellerName, Material.DIAMOND) == 44, "nothing moved yet");
 
-        e2e.step("delivering takes the plain diamonds and the box's diamonds, and pays after tax");
+        e2e.step("delivering takes the plain diamonds and the box's diamonds, and pays" + (taxed ? " after tax" : " in full"));
         seller.clearMessages();
         buyer.clearMessages();
         Bot.Screen before = seller.screen();
         e2e.click(seller, "Deliver 61");
-        e2e.eventually(() -> e2e.money(sellerName) == 29_890, "paid 61 x $500 less $610 tax: " + e2e.money(sellerName));
-        e2e.eventually(() -> seller.chatContains("You delivered 61 Diamond and got $29,890 after $610 tax."), "the receipt: " + seller.chat());
+        long paid = taxed ? 29_890 : 30_500;
+        e2e.eventually(() -> e2e.money(sellerName) == paid, "paid 61 x $500" + (taxed ? " less $610 tax" : "") + ": " + e2e.money(sellerName));
+        String receipt = taxed ? "You delivered 61 Diamond and got $29,890 after $610 tax." : "You delivered 61 Diamond and got $30,500.";
+        e2e.eventually(() -> seller.chatContains(receipt), "the receipt: " + seller.chat());
         e2e.eventually(() -> buyer.chatContains(sellerName + " delivered 61 Diamond to your order."), "the owner is told: " + buyer.chat());
         awaitScreen(e2e, seller, before, BROWSER);
         e2e.expect(count(e2e, sellerName, Material.DIAMOND) == 3, "only the renamed diamonds stay: " + count(e2e, sellerName, Material.DIAMOND));
@@ -647,7 +697,8 @@ final class OrdersScenarios {
             "the box keeps its dirt in place: " + left);
         e2e.expect(row(e2e, id).equals("ACTIVE/100/61/0/500/19500"), "the order counts 61: " + row(e2e, id));
         e2e.expect("quick".equals(text(e2e, "SELECT source FROM order_fills WHERE order_id = ?", id)), "a quick fill row");
-        e2e.expect(number(e2e, "SELECT -SUM(delta) FROM ledger WHERE ref = ? AND kind = 'order_tax'", "order:" + id) == 610, "the tax was sunk");
+        e2e.expect(number(e2e, "SELECT COALESCE(-SUM(delta), 0) FROM ledger WHERE ref = ? AND kind = 'order_tax'", "order:" + id)
+            == (taxed ? 610 : 0), taxed ? "the tax was sunk" : "no tax row");
         cancelAll(e2e, buyerName);
         healthy(e2e);
     }
@@ -678,13 +729,13 @@ final class OrdersScenarios {
         e2e.eventually(() -> loreHas(seller, 50, "Accepted 45 of 50 still wanted (35 from shulker boxes)")
             && loreHas(seller, 50, "Not accepted 4, given back when you close"), "the deliver button counts the box and not the gold: "
             + lore(seller, 50));
-        e2e.expect(loreHas(seller, 50, "You get $1,323 after $27 tax"), "the payout: " + lore(seller, 50));
+        e2e.expect(loreHas(seller, 50, "You get $1,350") && !loreHas(seller, 50, "tax"), "the payout, no tax: " + lore(seller, 50));
 
         e2e.step("Deliver takes the loose ingots first, then the box's ingots; the box and the gold come back");
         seller.clearMessages();
         before = seller.screen();
         clickSlot(e2e, seller, 50);
-        e2e.eventually(() -> e2e.money(sellerName) == 1_323, "paid 45 x $30 less tax: " + e2e.money(sellerName));
+        e2e.eventually(() -> e2e.money(sellerName) == 1_350, "paid 45 x $30: " + e2e.money(sellerName));
         awaitScreen(e2e, seller, before, BROWSER);
         e2e.expect(row(e2e, id).equals("ACTIVE/50/45/0/30/150"), "the order counts 45: " + row(e2e, id));
         e2e.eventually(() -> count(e2e, sellerName, Material.GOLD_INGOT) == 4, "the gold came back");
@@ -740,7 +791,7 @@ final class OrdersScenarios {
         e2e.eventually(() -> gridCount(e2e, sellerName, Material.GOLD_INGOT) == 20, "20 gold in the grid");
         buyer.clearMessages();
         clickSlot(e2e, seller, 50);
-        e2e.eventually(() -> e2e.money(sellerName) == 980, "paid 20 x $50 less $20 tax: " + e2e.money(sellerName) + " " + seller.actionBar()
+        e2e.eventually(() -> e2e.money(sellerName) == 1_000, "paid 20 x $50: " + e2e.money(sellerName) + " " + seller.actionBar()
             + " " + seller.chat() + " screen " + (seller.screen() == null ? "none" : seller.screen().title()));
         e2e.eventually(() -> row(e2e, id).equals("FILLED/20/20/0/50/0"), "the order is complete: " + row(e2e, id));
         e2e.eventually(() -> buyer.chatContains("Your order for 20 Gold Ingot is complete. Collect it in /orders."), "the owner: " + buyer.chat());
@@ -793,6 +844,8 @@ final class OrdersScenarios {
         e2e.expect("5".equals(form.initial("price")) && "0".equals(form.initial("add")), "the form starts at the current terms: " + form.initial());
         Bot.SeenDialog lower = clickToDialog(e2e, buyer, "Next", typed(form, Map.of("price", "4")), "Change order");
         e2e.expect(lower.bodyText().contains("Prices can only go up. Cancel and place a new order instead."), "lower refused: " + lower.body());
+        e2e.expect(form.button("Next").tooltip() != null && form.button("Next").tooltip().contains("Prices can only go up."),
+            "the rule is in Next's tooltip: " + form.button("Next").tooltip());
 
         e2e.step("raise to $6 and add 50: hold (150 - 20) x $6 - $400 = $380 more");
         Bot.SeenDialog confirm = clickToDialog(e2e, buyer, "Next", typed(lower, Map.of("price", "6", "add", "50")), "Change order");
@@ -812,7 +865,7 @@ final class OrdersScenarios {
         e2e.expect(row(e2e, id).equals("ACTIVE/150/20/0/6/780"), "nothing delivered");
         seller.closeScreen();
         e2e.eventually(() -> count(e2e, sellerName, Material.COBBLESTONE) == 10, "the cobblestone came back");
-        e2e.expect(e2e.money(sellerName) == 98, "still only the first delivery paid: " + e2e.money(sellerName));
+        e2e.expect(e2e.money(sellerName) == 100, "still only the first delivery paid: " + e2e.money(sellerName));
         cancelAll(e2e, buyerName);
         healthy(e2e);
     }
@@ -826,7 +879,11 @@ final class OrdersScenarios {
         e2e.step("the owner cancels: everything held comes back");
         openMenu(e2e, bot, "orders mine", "Your orders");
         int own = slotWith(e2e, bot, "Money held $500");
-        clickForDialog(e2e, bot, own, 0, ContainerInput.PICKUP, "Your order");
+        Bot.SeenDialog order = clickForDialog(e2e, bot, own, 0, ContainerInput.PICKUP, "Your order");
+        e2e.expect(order.bodyText().contains("5 Emerald at $100 each") && order.bodyText().contains("Money held $500, ends in"),
+            "the order in short status lines: " + order.body());
+        e2e.expect(order.buttons().stream().filter(button -> !button.label().equals("Back") && !button.label().equals("Close"))
+            .allMatch(button -> button.tooltip() != null), "every action says what it does in its tooltip: " + order.buttons());
 
         e2e.step("Details replaces the order's dialog after its reads, without closing it or the list under it");
         int cleared = bot.dialogsCleared();
@@ -839,6 +896,8 @@ final class OrdersScenarios {
 
         Bot.SeenDialog cancel = clickToDialog(e2e, bot, "Cancel order", Map.of(), "Cancel order");
         e2e.expect(cancel.bodyText().contains("$500 comes back to you."), "the refund: " + cancel.body());
+        e2e.expect("Delivered items stay here to collect.".equals(cancel.button("Cancel order").tooltip()),
+            "what stays, in the tooltip: " + cancel.button("Cancel order").tooltip());
         bot.clearMessages();
         e2e.click(bot, "Cancel order");
         e2e.eventually(() -> row(e2e, id).startsWith("CANCELLED/"), "cancelled: " + row(e2e, id));
@@ -928,12 +987,12 @@ final class OrdersScenarios {
         e2e.expect(lore.contains("Cancelled") && lore.contains("Paid out $100") && lore.contains("Came back to you $100")
             && lore.contains("Waiting for you 5") && lore.stream().anyMatch(line -> line.startsWith("Ended ")), "the history entry: " + lore);
 
-        e2e.step("Your deliveries: the item, the earnings after tax, the buyer and the total");
+        e2e.step("Your deliveries: the item, the earnings, the buyer and the total");
         openMenu(e2e, seller, "orders deliveries", "Your deliveries");
         int delivery = slotWith(e2e, seller, "To " + buyerName);
         List<String> entry = lore(seller, delivery);
-        e2e.expect(entry.contains("Delivered 5") && entry.contains("Earned $98 after tax"), "the delivery: " + entry);
-        e2e.expect(loreHas(seller, 50, "You earned $98 from 1 deliveries"), "the header: " + lore(seller, 50));
+        e2e.expect(entry.contains("Delivered 5") && entry.contains("Earned $100"), "the delivery: " + entry);
+        e2e.expect(loreHas(seller, 50, "You earned $100 from 1 deliveries"), "the header: " + lore(seller, 50));
 
         e2e.step("staff read anyone's history from the console");
         List<String> output = e2e.consoleOutput("orders admin history " + buyerName);
@@ -1097,8 +1156,8 @@ final class OrdersScenarios {
         Bot.SeenDialog quick = clickForDialog(e2e, seller, slot, 1, ContainerInput.PICKUP, "Deliver Mending book");
         e2e.expect(quick.bodyText().contains("You carry 1 plain Mending book (0 in shulker boxes)"), "one exact book: " + quick.body());
         Bot.Screen browser = seller.screen();
-        e2e.click(seller, "Deliver 1 for $1,960");
-        e2e.eventually(() -> e2e.money(sellerName) == 1_960, "paid $2,000 less 2%: " + e2e.money(sellerName));
+        e2e.click(seller, "Deliver 1 for $2,000");
+        e2e.eventually(() -> e2e.money(sellerName) == 2_000, "paid $2,000: " + e2e.money(sellerName));
         awaitScreen(e2e, seller, browser, BROWSER);
         e2e.expect(slot(e2e, sellerName, 2) == null, "the exact book went");
         e2e.expect(anvil.equals(slot(e2e, sellerName, 0)) && extra.equals(slot(e2e, sellerName, 1)), "the other books stay untouched");
@@ -1354,8 +1413,8 @@ final class OrdersScenarios {
         Bot.SeenDialog quick = clickForDialog(e2e, seller, slot, 1, ContainerInput.PICKUP, "Deliver Skeleton spawner");
         e2e.expect(quick.bodyText().contains("You carry 3 plain Skeleton spawner (0 in shulker boxes)"), "three real ones: " + quick.body());
         Bot.Screen browser = seller.screen();
-        e2e.click(seller, "Deliver 2 for $196,000");
-        e2e.eventually(() -> e2e.money(sellerName) == 196_000, "paid 2 x $100,000 less 2%: " + e2e.money(sellerName));
+        e2e.click(seller, "Deliver 2 for $200,000");
+        e2e.eventually(() -> e2e.money(sellerName) == 200_000, "paid 2 x $100,000: " + e2e.money(sellerName));
         awaitScreen(e2e, seller, browser, BROWSER);
         e2e.eventually(() -> row(e2e, id).equals("FILLED/2/2/0/100000/0"), "complete: " + row(e2e, id));
         e2e.expect(vanilla.equals(slot(e2e, sellerName, 0)) && zombie.equals(slot(e2e, sellerName, 1))
@@ -1610,9 +1669,13 @@ final class OrdersScenarios {
      * orders feature's OrderMarket, one transaction per sale): an order above what the server pays takes the units
      * first, an order at or below it takes nothing, and when the orders a sale was about to fill are filled by someone
      * else first, the sale retries and ends with the server only, telling the seller. Skipped on builds whose selling
-     * does not route to orders.
+     * does not route to orders. Runs with a 2% tax set for it, so the tax of routed sales stays tested.
      */
     static void sellRouting(E2E e2e) throws Exception {
+        withTax(e2e, 2, OrdersScenarios::sellRoutingTaxed);
+    }
+
+    private static void sellRoutingTaxed(E2E e2e) throws Exception {
         try {
             Class.forName("net.siftvanilla.siftcore.feature.sell.OrderRouting", false,
                 net.siftvanilla.siftcore.feature.sell.SellFeature.class.getClassLoader());
