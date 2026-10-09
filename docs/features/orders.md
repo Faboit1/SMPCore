@@ -110,7 +110,12 @@ rows `orders_sort`, `orders_filter`).
   back, 48 the order and the item rule, 50 Deliver (`Accepted <amount> of <remaining> still wanted (<inner> from shulker
   boxes)` and the payout after tax; what is not accepted is counted). Deliver takes the plain stacks first, then the
   boxes' contents (each box is swapped for a rebuilt copy), saves the player, then runs the fill; everything else goes
-  back, as does the whole grid when the menu closes (also on quit and shutdown). A player who dies with the menu open
+  back, as does the whole grid when the menu closes (also on quit and shutdown). While items sit in the grid a copy of
+  them is kept in the player's own data (`siftcore:delivery_grid`), saved together with the inventory, so a crash with
+  the menu open can't lose them: the copy in the last saved player file is given back when the player next joins.
+  Delivering updates the copy before the player is saved, and items the grid gives back leave the copy before they go
+  into the inventory and the player is saved; what does not fit goes to the claim box only after that save
+  (`GridBackup#handBack`), so the saved file and the claim box never hold an item twice. A player who dies with the menu open
   and does not keep their inventory drops the grid with the rest of the death drops, where they died: the death event
   moves the grid into the drops, because the menu closes only after the death drops were made (giving it back then
   would lose it). So the menu can't keep items safe from a death. A price change after the menu opened refuses the
@@ -142,7 +147,8 @@ duration)`), Cancel order (confirmation; everything held comes back, delivered i
 (for ended orders), Details (order id, age, paid out, latest deliveries).
 
 Collecting changes only the count, in a transaction; the items are handed over on the owner's thread after the commit,
-and anything that no longer fits goes back into the order (or, if that can't be stored, the claim box). Nothing is
+and anything that no longer fits goes back into the order (or, if that can't be stored, the claim box). An owner who
+leaves (or a server that stops) before the hand-over gets the items put back into the order right away. Nothing is
 ever dropped on the ground.
 
 An order closes (leaves memory, stays in storage as history) when it is complete, cancelled or expired and every
@@ -332,8 +338,12 @@ escrow account and lists orders whose item can't be built.
   `orders-persist-check`), and selling into orders (`orders-sell-routing`: an order above the server price takes the
   units first and its owner is told once, an order at or below it takes nothing, and orders filled by someone else
   between planning and the sale make it end with the server only, saying so; the price list's "Order it" opens the
-  form with the item set), and dying with a delivery menu open
-  (`orders-delivery-death`). `orders-sell-routing` skips itself on builds whose selling does not route to orders; it
+  form with the item set), dying with a delivery menu open
+  (`orders-delivery-death`), an owner who leaves while a collect waits for storage getting the items back into the
+  order (`orders-collect-left-before-commit`), the copy of a delivery grid in the player's data
+  (`orders-delivery-grid-copy`), and the player file on disk after a save with items in the grid, after closing and
+  after delivering with items the order does not take: a simulated crash gives each item back exactly once
+  (`orders-delivery-grid-crash`). `orders-sell-routing` skips itself on builds whose selling does not route to orders; it
   was run on a test-only merge of this branch with the sell branch.
 
 ## Not included

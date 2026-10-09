@@ -93,6 +93,7 @@ final class OrdersMessages {
     static final MessageKey DELIVER_FILL = MessageKey.ui("orders.deliver.fill");
     static final MessageKey DELIVER_FILL_LORE = MessageKey.ui("orders.deliver.fill-lore", "item");
     static final MessageKey DELIVER_FILL_NOTHING = MessageKey.error("orders.deliver.fill-nothing", "item");
+    static final MessageKey DELIVER_RESTORED = MessageKey.chat("orders.deliver.restored");
     static final MessageKey DELIVER_DONE = MessageKey.chat("orders.deliver.done", "amount", "item", "payout", "tax");
     static final MessageKey DELIVER_NOTHING = MessageKey.error("orders.deliver.nothing", "item");
     static final MessageKey DELIVER_GONE = MessageKey.error("orders.deliver.gone");

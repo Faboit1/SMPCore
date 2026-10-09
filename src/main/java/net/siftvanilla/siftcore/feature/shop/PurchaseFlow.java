@@ -19,8 +19,9 @@ import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
+import net.siftvanilla.siftcore.economy.ClaimHandouts;
+import net.siftvanilla.siftcore.economy.Handoffs;
 import net.siftvanilla.siftcore.economy.LedgerTx;
-import net.siftvanilla.siftcore.feature.sell.ItemHandout;
 import net.siftvanilla.siftcore.feature.sell.SellLink;
 import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
@@ -39,8 +40,10 @@ import org.bukkit.inventory.ItemStack;
  * player buys (the entry still exists, its price is the one they saw, the balance covers it), and the price is
  * checked a last time inside the transaction.
  * <p>
- * The money is taken in one ledger transaction that also puts whatever won't fit in the inventory into the claim
- * box (and remembers the purchase for "Buy again"); the rest is handed out only after that transaction is stored.
+ * The money is taken in one ledger transaction that also puts every bought item into the claim box (and remembers
+ * the purchase for "Buy again"), so the purchase is stored whole whatever happens next. Once it is stored, the part
+ * that fitted the inventory is claimed into it on the buyer's thread; if the buyer left or the server stopped first,
+ * it simply waits in the claim box.
  * <p>
  * The dialog also shows what the item sells back for (the player's own rate) and how many they have, and offers
  * "Max you can afford" and "Fill your inventory", which work the amount out when pressed and show the new total
@@ -50,21 +53,23 @@ final class PurchaseFlow {
 
     private static final String AMOUNT = "amount";
     private static final String EXACT = "exact";
+    /** The claim box source of purchases. */
+    static final String SOURCE = "shop";
 
     private final Services services;
     private final Setting<ShopSettings> settings;
     private final ShopItems items;
-    private final ItemHandout handout;
+    private final ClaimHandouts handouts;
     private final SellLink sell;
     private final CombatStatus combat;
     private final RecentPurchases recent;
 
-    PurchaseFlow(Services services, Setting<ShopSettings> settings, ShopItems items, ItemHandout handout, SellLink sell,
+    PurchaseFlow(Services services, Setting<ShopSettings> settings, ShopItems items, ClaimHandouts handouts, SellLink sell,
                  CombatStatus combat, RecentPurchases recent) {
         this.services = services;
         this.settings = settings;
         this.items = items;
-        this.handout = handout;
+        this.handouts = handouts;
         this.sell = sell;
         this.combat = combat;
         this.recent = recent;
@@ -304,6 +309,9 @@ final class PurchaseFlow {
         int toInventory = split[0];
         int toClaimBox = split[1];
         String ref = entry.ref();
+        // Every bought item goes into the claim box with the purchase: what fits the inventory now under a reference of
+        // its own (claimed into the inventory once the purchase is stored), the rest under the entry's reference.
+        String handRef = handRef();
         long price = entry.price();
         LedgerTx.Builder tx = LedgerTx.builder()
             .actor(uuid)
@@ -313,8 +321,11 @@ final class PurchaseFlow {
                 ShopSettings.Entry now = this.settings.get().entry(ref);
                 return now != null && now.price() == price ? null : "price_changed";
             });
+        if (toInventory > 0) {
+            this.services.deliveries().add(tx, uuid, SOURCE, handRef, unit.asQuantity(toInventory));
+        }
         if (toClaimBox > 0) {
-            this.services.deliveries().add(tx, uuid, "shop", ref, unit.asQuantity(toClaimBox));
+            this.services.deliveries().add(tx, uuid, SOURCE, ref, unit.asQuantity(toClaimBox));
         }
         this.recent.contribute(tx, uuid, ref, amount);
         TransactionResult result = this.services.ledger().execute(tx.build());
@@ -325,17 +336,13 @@ final class PurchaseFlow {
                 String name = this.items.name(entry);
                 result.committed().whenComplete((ignored, error) -> {
                     if (error != null) {
-                        // Storage failed: the money and the claim box part were rolled back, nothing is handed out.
+                        // Storage failed: the money and the claim box items were rolled back, nothing is handed out.
                         this.services.messenger().send(player, ShopMessages.FAILED);
                         return;
                     }
-                    this.services.scheduler().entity(player,
-                        () -> deliver(player, name, unit, amount, toInventory, toClaimBox, total, ref),
-                        () -> {
-                            if (toInventory > 0) {
-                                this.handout.toClaimBox(uuid, List.of(unit.asQuantity(toInventory)), "shop", ref);
-                            }
-                        });
+                    // The buyer left or the server is stopping: the purchase waits in the claim box.
+                    Handoffs.onEntity(this.services.scheduler(), player,
+                        () -> deliver(player, name, amount, toInventory, toClaimBox, total, handRef), () -> { });
                 });
             }
             case INSUFFICIENT_FUNDS -> showError(s, entry, unit, amount, lang.get(ShopMessages.BUY_NOT_ENOUGH,
@@ -365,23 +372,34 @@ final class PurchaseFlow {
         }
     }
 
-    /** Hands out the stored purchase on the buyer's thread; what no longer fits goes to the claim box too. */
-    private void deliver(Player player, String name, ItemStack unit, int amount, int toInventory, int toClaimBox, long total,
-                         String ref) {
-        long claimed = toClaimBox;
-        if (toInventory > 0) {
-            claimed += this.handout.give(player, List.of(unit.asQuantity(toInventory)), "shop", ref);
+    /**
+     * After the purchase is stored, on the buyer's thread: claims the part that fitted the inventory out of the claim
+     * box into it (whatever no longer fits stays there) and tells the buyer.
+     */
+    private void deliver(Player player, String name, int amount, int toInventory, int toClaimBox, long total, String handRef) {
+        if (toInventory <= 0) {
+            bought(player, name, amount, toClaimBox, total);
+            return;
         }
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            player.saveData();
-        }
-        if (claimed > 0) {
+        this.handouts.claim(player, SOURCE, handRef).whenComplete((outcome, error) -> {
+            int waiting = error != null || outcome.failed() ? amount : toClaimBox + outcome.left();
+            bought(player, name, amount, waiting, total);
+        });
+    }
+
+    private void bought(Player player, String name, int amount, long inClaimBox, long total) {
+        if (inClaimBox > 0) {
             this.services.messenger().send(player, ShopMessages.BOUGHT_CLAIM_BOX, Arg.number("amount", amount),
-                Arg.text("item", name), Arg.money("total", total), Arg.number("count", claimed));
+                Arg.text("item", name), Arg.money("total", total), Arg.number("count", inClaimBox));
         } else {
             this.services.messenger().send(player, ShopMessages.BOUGHT, Arg.number("amount", amount), Arg.text("item", name),
                 Arg.money("total", total));
         }
+    }
+
+    /** A claim box reference of its own for the part of one purchase that goes into the inventory. */
+    static String handRef() {
+        return "shop:" + UUID.randomUUID().toString().replace("-", "");
     }
 
     private void showError(Submission s, ShopSettings.Entry entry, ItemStack unit, int amount, Component error, Runnable back) {

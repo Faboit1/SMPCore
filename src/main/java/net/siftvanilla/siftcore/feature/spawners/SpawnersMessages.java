@@ -83,6 +83,7 @@ public final class SpawnersMessages {
     public static final MessageKey SELL_BALANCE_FULL = MessageKey.error("spawners.sell.balance-full");
     public static final MessageKey SELL_TOO_MUCH = MessageKey.error("spawners.sell.too-much");
     public static final MessageKey XP_COLLECTED = MessageKey.success("spawners.xp.collected", "xp");
+    public static final MessageKey XP_WAITING = MessageKey.chat("spawners.xp.waiting", "xp");
     public static final MessageKey XP_NONE = MessageKey.error("spawners.xp.none");
 
     // /spawners dialogs

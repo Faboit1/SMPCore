@@ -29,6 +29,7 @@ final class SellMenu extends Menu {
 
     private final SellMenus menus;
     private boolean dropOnClose;
+    private boolean reopening;
     private long shownTotal;
 
     SellMenu(MenuContext ctx, Player viewer, SellMenus menus) {
@@ -79,9 +80,10 @@ final class SellMenu extends Menu {
         if (this.menus.masteryShown()) {
             set(SLOT_MASTERY, this.menus.masteryIcon(), click -> {
                 click(Feedback.CLICK);
-                this.menus.openMastery(this.viewer);
+                this.menus.openMastery(this);
             });
         }
+        backup();
     }
 
     private void sell() {
@@ -101,9 +103,44 @@ final class SellMenu extends Menu {
         redraw();
     }
 
+    /** An item is about to leave (or be swapped out of) a grid slot: the copy drops it right away. */
+    @Override
+    protected void itemSlotClicked(int slot) {
+        this.menus.backup(this, slot);
+    }
+
+    /** Copies the grid into the viewer's player data (see {@link net.siftvanilla.siftcore.ui.gui.GridBackup}). */
+    void backup() {
+        this.menus.backup(this, -1);
+    }
+
     @Override
     protected void closed() {
+        if (this.reopening) {
+            // Opening this menu again (from a dialog's Back) makes the server close it first: not a real close.
+            return;
+        }
         this.menus.closed(this);
+    }
+
+    /**
+     * Brings this menu back on screen from a dialog shown over it, grid and all. Returns false when it could not be
+     * opened again (another plugin refused); it was closed then. Viewer's thread.
+     */
+    boolean reopen() {
+        this.ctx.dialogs().markShown(this.viewer);
+        redraw();
+        this.reopening = true;
+        try {
+            this.viewer.openInventory(getInventory());
+        } finally {
+            this.reopening = false;
+        }
+        if (this.viewer.getOpenInventory().getTopInventory().getHolder(false) != this) {
+            this.menus.closed(this);
+            return false;
+        }
+        return true;
     }
 
     /** Takes every item out of the grid and returns them. */

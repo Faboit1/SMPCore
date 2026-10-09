@@ -48,7 +48,10 @@ never spawns, checks for players or fires events) and a required player range eq
 the activation radius (it spins while it is generating). `PreSpawnerSpawnEvent` and `SpawnerSpawnEvent` are also
 cancelled for managed spawners as a second guard. If storing the record fails, the block is removed again and the
 item goes back to the player's claim box. Once the server has used the item up, the player's data is saved
-(`save-player-after-trade`), so a crash can't hand the item back while the spawner stays recorded.
+(`save-player-after-trade`), so a crash can't hand the item back while the spawner stays recorded. The server takes
+the item out of the hand only after the place event, so the save can't come earlier than the next tick: a hard crash
+in that one tick, after the record was stored, could still leave both. That window (about 50 ms, which players can
+neither widen nor time) is accepted.
 
 ### Stacking
 Right click a placed spawner with a spawner item of the same mob to add one; sneak and right click to add the whole
@@ -81,9 +84,18 @@ spawner. The menu and `/spawners` say when a storage is full.
 
 Cycles also repair: a spawner whose block is no longer a spawner (removed by an admin tool, a world edit, or a pickup
 whose storage write failed) is refunded in one transaction: its spawner items and stored items go to the owner's claim
-box and the record is deleted. An online owner is told in chat ("Your spider spawner stack of 4 at 130, 71, -62 in
-world is gone. Its spawners and 11 stored items are waiting in your claim box.") and gets the stored XP; XP can't wait
-in a claim box, so it is lost while the owner is offline. The console logs every refund.
+box, its stored XP to the owner's XP box (see below), and the record is deleted. An online owner is told in chat
+("Your spider spawner stack of 4 at 130, 71, -62 in world is gone. Its spawners and 11 stored items are waiting in your
+claim box.") and gets the stored XP right away; an offline owner gets it when they next join. The console logs every
+refund.
+
+### The XP box
+Stored XP that leaves a spawner (collected, picked up, refunded) moves into the receiving player's XP box in the same
+transaction (table `spawner_xp`, migration V030, changed by deltas so a failed transaction rolls back exactly its own
+part). It is then paid out on the player's thread: taken out of the box in a transaction, given once that is stored.
+If the player left before (or the server stopped), it goes back into the box and is paid out when they next join
+("You got 120 XP that your spawners kept for you while you were away."). The startup line says how much XP waits for
+how many players, and `/sift selftest` checks the box against storage.
 
 ### Storage and crash safety
 Storage is memory plus write-behind: every changed storage gets its complete snapshot (XP and item rows) written every
@@ -104,15 +116,16 @@ most stored, most valuable or name, and searchable. Bottom row: Back (when opene
 Collect XP (slot 50), Sell all (51) and the spawner's details (52). It redraws while open when the storage changes.
 
 - **Take**: left click takes a stack, right (or shift) click takes as much as fits. Only what fits the inventory is
-  taken: the storage is reduced first, the items are handed out after the commit (anything that no longer fits goes
-  to the claim box; if the player left, everything goes there).
+  taken: the storage is reduced first, the items are handed out after the commit through a tracked hand-over (anything
+  that no longer fits goes to the claim box; if the player left or the server stopped first, everything goes there).
 - **Sell all**: everything that sells is priced with the worth table (`WorthLookup`) times the player's sell bonus,
   `api.event.SpawnerSellEvent` fires, and one `LedgerTx` pays it: `source(player, MONEY, total, "spawner_sell",
   "spawner:<id>")`, checks that every sold amount is still there and every unit price is unchanged (prices only move
   with `/sift reload`), the storage reduction as the apply, and the storage snapshot as the write. A chat receipt lists the items on hover. Items that can't be sold (sticks, poppies, glass
   bottles) stay. The stats feature counts `spawner_sell` as money earned.
-- **Collect XP**: the XP is removed in a transaction and given after the commit (`xp.apply-mending` repairs Mending
-  gear first, like orbs). If the player left in between, it goes back into the spawner.
+- **Collect XP**: the XP moves from the spawner into the player's XP box in one transaction and is paid out after the
+  commit (`xp.apply-mending` repairs Mending gear first, like orbs). If the player left in between, it waits for their
+  next join.
 
 The player who sells or takes gets the money or items, whether owner, team member or staff.
 
@@ -120,16 +133,25 @@ The player who sells or takes gets the money or items, whether owner, team membe
 Mining a spawner with a silk touch tool picks it up (`breaking.require-silk-touch`; staff with the bypass never need
 it). Without silk touch the break is cancelled with "Use a silk touch pickaxe to pick up spawners." One transaction
 deletes the spawner, sends its stored items to the owner's claim box (`breaking.storage: claim-box`, the default) or
-sells what sells for the owner at their bonus (`sell`; the rest goes to their claim box), and puts the spawner items
-that won't fit the player's inventory into the player's claim box. After the commit the player gets the rest of the
-spawner items (one per stacked spawner) and the stored XP; vanilla drops and XP are switched off. If someone else
+sells what sells for the owner at their bonus (`sell`; the rest goes to their claim box), puts all spawner items (one
+per stacked spawner) into the player's claim box (what fits the inventory under a reference of its own) and the stored
+XP into the player's XP box. After the commit the spawner items that fit are claimed into the inventory and the XP is
+paid out, on the player's thread; vanilla drops and XP are switched off. If someone else
 picks up a spawner, its owner is told who (a vanished staff member stays unnamed: "Staff picked up your zombie spawner
 stack of 3."). `api.event.SpawnerBreakEvent` fires first.
 
-Decision: stored items go to the owner (they made them) and the XP to the player who picks it up (XP can't be stored
-in a claim box). The spawner items and XP are handed over on the player's thread right after the commit; a player who
-disconnects in that instant finds the spawner items in their claim box, but the XP can't follow them there and is lost. A storage that would need more than `breaking.max-claim-stacks` (108) claim box stacks can't be
-picked up until it is sold or emptied, so one pickup can't flood a claim box.
+Decision: stored items go to the owner (they made them) and the XP to the player who picks it up. A player who
+disconnects right after breaking (or a server stop in that instant) finds the spawner items in their claim box and gets
+the XP when they next join. A storage that would need more than `breaking.max-claim-stacks` (108) claim box stacks
+can't be picked up until it is sold or emptied, so one pickup can't flood a claim box.
+
+Stacking takes the items out of the hand and saves the player file before the stack grows (and saves again when the
+stack is refused), so a crash can never leave the spawners both in the player file and in the stack. At shutdown,
+hand-overs and XP payouts still on their way finish, and whatever was not handed over goes into the claim box (items)
+or back into the XP box (XP) before storage closes. Storage completes commits on more than one thread, so a flush can
+return before the callback of a take or a failed stack has run: those transactions are counted until their callback has
+started its hand-over, and shutdown waits for them. From the start of that wait no XP is taken out of an XP box for a
+payout any more (a collect, pickup or refund whose callback runs late leaves it waiting for the next join).
 
 ### Who may use a spawner
 Its owner, members of the owner's team (`TeamLookup`), and staff with `siftcore.spawners.bypass`. Everyone else is
@@ -239,7 +261,9 @@ Unit tests (`src/test/java/.../feature/spawners`): `LootMathTest` (means and spr
 number of random draws for up to 10^12 kills, fair rounding), `StorageMathTest` (capacity, XP cap, stack caps,
 proportional fitting, storage counts), `SpawnersSettingsTest` (bundled file, optional values, precise problems),
 `SpawnerRegistryTest` (indexes, due cycles, access rules), `SpawnerStoreTest` (SQLite round trip, unique blocks,
-orphan rows, write-behind ordering, a sale's money and storage committing together), `BalanceTest` (the table above).
+orphan rows, write-behind ordering, a sale's money and storage committing together), `BalanceTest` (the table above),
+`XpBoxTest` (XP credited with a pickup survives a restart, is paid out once, goes back when it can't be paid, a failed
+transaction takes its XP back in memory and storage, memory and storage agree under concurrent pickups and payouts).
 
 End to end (`tools/e2e`, `SpawnerScenarios`): placing and stacking up to the cap with refusals, loot cycles, the
 storage menu (take, collect XP, sell all, ledger rows), silk touch pickup with claim box and XP, access for strangers
@@ -247,4 +271,5 @@ and team members, `/spawners` with its details, Open storage and the team list, 
 player 40 blocks away keep nothing going, the status says so), storages closed in combat from the block and the
 dialog while stacking still works, buying from the shop, TNT next to a spawner, a spawner removed by `/setblock ...
 destroy` refunded (stack and stored loot) to the owner's claim box by the next cycle, spawner rewards in the legendary
-crate preview, and loot kept across a restart.
+crate preview, loot kept across a restart, and `spawners-left-before-commit` (taking and picking up while storage is
+held up, then leaving: the items wait in the claim box and the stored XP is paid out once on the next join).

@@ -305,6 +305,7 @@ public final class OrdersFeature implements Feature, Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        this.service.restoreGrid(player);
         this.service.limit(player);
         this.service.notices().joined(player, this.book);
     }

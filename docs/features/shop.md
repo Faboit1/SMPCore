@@ -40,12 +40,17 @@ buttons check again when pressed, so a dialog opened before a fight can't buy go
    button that names the amount and total they get.
 5. **Confirmation** for purchases of at least `confirm-above` ($50,000): amount, item, total and the balance left.
 6. **One `LedgerTx`**: `sink(player, MONEY, total, kind "shop_buy", ref "<category>/<entry>")` with a note
-   (`64 stone`). What doesn't fit in the inventory goes to the claim box in the same transaction, and the purchase is
-   remembered for Buy again (`shop_recent`) in the same transaction, so money, items and the row can never be split
-   by a crash. The transaction re-checks that the entry still exists at the same price.
-7. Items are handed out only after the transaction is committed to storage, on the player's thread (to the claim
-   box if they left in between), then `player.saveData()` when `crash-safety.save-player-after-trade` is on, and a
-   chat receipt: `You bought 64 stone for $384.` (plus how many went to the claim box).
+   (`64 stone`). Every bought item goes into the claim box in the same transaction: the part that fits the inventory
+   right now under a reference of its own (`shop:<random id>`), the rest under `<category>/<entry>`. The purchase is
+   remembered for Buy again (`shop_recent`) in the same transaction too, so money, items and the row can never be
+   split by a crash, a disconnect or a server stop. The transaction re-checks that the entry still exists at the same
+   price.
+7. Once the transaction is committed to storage, the part that fitted is claimed into the inventory on the player's
+   thread (`economy.ClaimHandouts`: marked claimed in storage first, then handed over; whatever no longer fits stays in
+   the claim box), then `player.saveData()` when `crash-safety.save-player-after-trade` is on, and a chat receipt:
+   `You bought 64 stone for $384.` (plus how many wait in the claim box). A buyer who left before the commit (or a
+   server that stopped) finds everything in the claim box; at shutdown, claims still on their way finish and whatever
+   was not handed over goes back into the claim box before storage closes.
 
 Everything is re-validated when a button is pressed: combat, the entry is read again (a removed entry closes the
 dialog), the amount must be within 1..max, a changed price shows the dialog again with the new price instead of
@@ -114,7 +119,10 @@ entry's `price x max` must fit the money limit.
 
 Unit: `ShopValidatorTest` (liquidation values, recipe chains, ingredient costs, multipliers including the mastery
 bonus, margin), `ShopSettingsTest`, `PurchaseMathTest` (totals and overflow, typed and slider amounts, capacity and
-claim-box split, "Max you can afford" and "Fill your inventory"), `RecentPurchasesTest`. End to end (`tools/e2e`):
-`SellShopScenarios` (`shop-buy`, `shop-amount`, `shop-confirm`, `shop-refusals`, `shop-claim-box`,
-`shop-double-submit`) and `SellPlusScenarios` (`shop-combat-blocked`, `shop-search`, `shop-quick-and-buy-again`,
-`shop-right-click-sell`).
+claim-box split, "Max you can afford" and "Fill your inventory"), `RecentPurchasesTest`, `PurchaseRefTest` (every
+purchase claims under its own reference), and the shared hand-over pieces `economy.HandoffsTest` (a scheduler that
+returns no task, throws, retires the player or never runs: exactly one of delivery and fallback, once) and
+`economy.SlotPlanTest`. End to end (`tools/e2e`): `SellShopScenarios` (`shop-buy`, `shop-amount`, `shop-confirm`,
+`shop-refusals`, `shop-claim-box`, `shop-double-submit`, `shop-left-before-commit`: the buyer leaves while storage
+is held up, and the paid items wait in the claim box) and `SellPlusScenarios` (`shop-combat-blocked`, `shop-search`,
+`shop-quick-and-buy-again`, `shop-right-click-sell`).

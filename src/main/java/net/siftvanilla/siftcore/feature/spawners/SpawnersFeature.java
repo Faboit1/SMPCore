@@ -1,5 +1,6 @@
 package net.siftvanilla.siftcore.feature.spawners;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +123,7 @@ public final class SpawnersFeature implements Feature {
         }
         List<SpawnerStore.Row> rows = this.store.loadAll();
         this.service.ids(IdSequence.forTable(this.services.database(), "spawners"));
+        this.service.xpBox().load();
         long stacked = 0;
         Set<String> missingWorlds = new HashSet<>();
         int unknownMobs = 0;
@@ -150,7 +152,9 @@ public final class SpawnersFeature implements Feature {
         this.logger.info("Spawners: " + rows.size() + " placed spawners (" + stacked + " stacked) of " + this.registry.owners()
             + " players, " + this.settings.get().enabledMobs().size() + " spawner types."
             + (missingWorlds.isEmpty() ? "" : " Spawners in worlds that are not loaded wait for them: " + String.join(", ", missingWorlds) + ".")
-            + (unknownMobs == 0 ? "" : " " + unknownMobs + " spawners are of mobs no longer configured and make no loot."));
+            + (unknownMobs == 0 ? "" : " " + unknownMobs + " spawners are of mobs no longer configured and make no loot.")
+            + (this.service.xpBox().players() == 0 ? "" : " " + this.service.xpBox().total() + " stored XP is waiting for "
+            + this.service.xpBox().players() + " players."));
     }
 
     /** Finds which chunks with spawners are loaded right now, each on its own region thread. */
@@ -205,6 +209,15 @@ public final class SpawnersFeature implements Feature {
     public void disable() {
         this.cycleTimer.cancel();
         this.flushTimer.cancel();
+        try {
+            // Let queued pickups, takes and XP collections commit and register their hand-overs (players can no longer
+            // receive anything: the region threads have stopped), then put every item that was not handed over into the
+            // claim box and all XP that was not paid out back into the XP box, before storage closes.
+            this.services.database().flush();
+            this.service.drainHandovers(Duration.ofSeconds(10));
+        } catch (RuntimeException e) {
+            this.logger.log(Level.SEVERE, "Returning pending spawner items and XP at shutdown failed", e);
+        }
         try {
             int written = this.writeBehind.flush(this.registry.all());
             this.services.database().flush();
@@ -267,5 +280,15 @@ public final class SpawnersFeature implements Feature {
             .thenCompose(ignored -> this.store.count())
             .thenApply(count -> count == this.registry.size() ? null
                 : "the database has " + count + " spawners, memory has " + this.registry.size()));
+        test.checkAsync(id(), "XP waiting matches storage", () -> this.store.database().write(c -> null)
+            .thenCompose(ignored -> this.store.database().read(c -> {
+                try (var st = c.createStatement(); var rs = st.executeQuery("SELECT COALESCE(SUM(xp), 0) FROM spawner_xp WHERE xp > 0")) {
+                    return rs.next() ? rs.getLong(1) : 0L;
+                }
+            }))
+            .thenApply(stored -> {
+                long memory = this.services.ledger().locked(this.service.xpBox()::total);
+                return stored == memory ? null : "the database holds " + stored + " waiting XP, memory " + memory;
+            }));
     }
 }

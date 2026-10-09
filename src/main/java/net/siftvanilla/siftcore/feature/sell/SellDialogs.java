@@ -28,9 +28,9 @@ import org.bukkit.inventory.ItemStack;
  */
 final class SellDialogs {
 
-    /** Opens the worth browser (filtered to a category, or not). */
+    /** Opens the worth browser (filtered to a category, or not), with a Back button running {@code back} (null: none). */
     interface Browser {
-        void open(Player player, String category, String query);
+        void open(Player player, String category, String query, Runnable back);
     }
 
     private final Services services;
@@ -41,7 +41,7 @@ final class SellDialogs {
     private final MasteryBook mastery;
     private final TopSellers top;
     private final Supplier<ShopOffers> shop;
-    private Browser browser = (player, category, query) -> { };
+    private Browser browser = (player, category, query, back) -> { };
 
     SellDialogs(Services services, WorthService worth, Setting<SellSettings> settings, SellService sales, OrderBids bids,
                 MasteryBook mastery, TopSellers top, Supplier<ShopOffers> shop) {
@@ -141,6 +141,14 @@ final class SellDialogs {
 
     /** {@code /sell mastery}: every category with its level and progress; each opens its details. */
     void mastery(Player player) {
+        mastery(player, null);
+    }
+
+    /**
+     * The mastery list with {@code back} as its footer (Back), or Close when null. The sell menu passes a Back that
+     * returns to it: closing would close the menu under the dialog and give its grid back.
+     */
+    void mastery(Player player, Button.Handler back) {
         Mastery rules = this.settings.get().mastery();
         Lang lang = this.services.lang();
         if (!rules.enabled()) {
@@ -154,10 +162,10 @@ final class SellDialogs {
         for (SellCategories.Category category : categories.categories().values()) {
             lines.add(masteryLine(rates, rules, category));
             String id = category.id();
-            buttons.add(Button.of(Component.text(category.name()), s -> masteryDetail(s.player(), id)).width(150));
+            buttons.add(Button.of(Component.text(category.name()), s -> masteryDetail(s.player(), id, back)).width(150));
         }
         this.services.dialogs().show(player, this.services.templates().list(lang.get(SellMessages.MASTERY_TITLE), lines,
-            buttons, 2, null));
+            buttons, 2, back));
     }
 
     private Component masteryLine(WorthService.Rates rates, Mastery rules, SellCategories.Category category) {
@@ -174,12 +182,15 @@ final class SellDialogs {
             Arg.money("next", rules.threshold(level + 1)), Arg.number("next-level", level + 1));
     }
 
-    /** One category: the level ladder, the rate, selling everything of it and its prices. */
-    void masteryDetail(Player player, String id) {
+    /**
+     * One category: the level ladder, the rate, selling everything of it and its prices. Its Back returns to the list,
+     * which keeps {@code back} (see {@link #mastery(Player, Button.Handler)}).
+     */
+    void masteryDetail(Player player, String id, Button.Handler back) {
         Mastery rules = this.settings.get().mastery();
         SellCategories.Category category = this.worth.categories().category(id);
         if (!rules.enabled() || category == null) {
-            mastery(player);
+            mastery(player, back);
             return;
         }
         Lang lang = this.services.lang();
@@ -209,17 +220,22 @@ final class SellDialogs {
             buttons.add(Button.of(lang.get(SellMessages.MASTERY_SELL, Arg.text("name", category.name()),
                 Arg.text("count", Lang.number(draft.count())), Arg.text("total", this.services.money().get().format(draft.total()))),
                 s -> {
-                    s.close();
-                    this.sales.sellCategory(s.player(), id);
+                    // Sells exactly what the button showed (asks again when that changed), then shows the new progress.
+                    // Nothing is closed first: a sell menu under the dialog keeps its grid out of the sale.
+                    Player seller = s.player();
+                    Runnable again = () -> masteryDetail(seller, id, back);
+                    if (this.sales.sellCategory(seller, id, draft, again) != SellService.Outcome.ASKED) {
+                        again.run();
+                    }
                 }).width(Templates.WIDE));
         }
-        buttons.add(Button.of(lang.get(SellMessages.MASTERY_PRICES), s -> {
-            s.close();
-            this.browser.open(s.player(), id, null);
-        }).width(Templates.WIDE));
+        // The price list replaces the dialog (and a sell menu under it, whose grid goes back to the inventory); its Back
+        // returns here, and from here Back leads on to where the mastery dialogs came from.
+        buttons.add(Button.of(lang.get(SellMessages.MASTERY_PRICES),
+            s -> this.browser.open(s.player(), id, null, () -> masteryDetail(s.player(), id, back))).width(Templates.WIDE));
         this.services.dialogs().show(player, this.services.templates().list(
             lang.get(SellMessages.MASTERY_DETAIL_TITLE, Arg.text("name", category.name())), lines, buttons, 1,
-            s -> mastery(s.player())));
+            s -> mastery(s.player(), back)));
     }
 
     // ------------------------------------------------------------------ top sellers

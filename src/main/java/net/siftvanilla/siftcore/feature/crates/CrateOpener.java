@@ -9,8 +9,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.siftvanilla.siftcore.api.economy.Currency;
@@ -21,10 +19,10 @@ import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
 import net.siftvanilla.siftcore.core.player.Toggle;
-import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
+import net.siftvanilla.siftcore.economy.Handoffs;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -32,9 +30,10 @@ import org.bukkit.inventory.ItemStack;
 
 /**
  * Opening a crate. One key is spent and the drawn reward paid out in a single economy transaction: the key count,
- * money or shards (ledger source {@code crate_reward}), keys of another crate, the reward items (into the claim box)
- * and the crate log row are applied and stored together, or not at all. Only after that transaction is stored are
- * the items claimed into the inventory (when they fit), command rewards run and the win announced.
+ * money or shards (ledger source {@code crate_reward}), keys of another crate, the reward items (into the claim box),
+ * the reward's console commands ({@link RewardCommands}) and the crate log row are applied and stored together, or not
+ * at all. Only after that transaction is stored are the items claimed into the inventory (when they fit), the command
+ * rewards run (or, if the server stops first, at the next start) and the win announced.
  * <p>
  * Everything is checked again inside the transaction (the player still has a key, the crate still exists), so
  * double clicks, two menus at once or a reload in between can never spend a key twice or pay a reward without one.
@@ -98,12 +97,12 @@ final class CrateOpener {
     private final KeyService keys;
     private final RewardItems items;
     private final Handouts handouts;
+    private final RewardCommands commands;
     private final CrateLog log;
     private final CrateText text;
     private final VanishStatus vanish;
     private final CombatStatus combat;
     private final Toggle announcements;
-    private final Logger logger;
     private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
 
     /**
@@ -112,18 +111,18 @@ final class CrateOpener {
      * @param announcements the per-player setting that hides other players' announced wins
      */
     CrateOpener(Services services, Setting<CratesSettings> settings, KeyService keys, RewardItems items, Handouts handouts,
-                CrateLog log, CrateText text, VanishStatus vanish, CombatStatus combat, Toggle announcements) {
+                RewardCommands commands, CrateLog log, CrateText text, VanishStatus vanish, CombatStatus combat, Toggle announcements) {
         this.services = services;
         this.settings = settings;
         this.keys = keys;
         this.items = items;
         this.handouts = handouts;
+        this.commands = commands;
         this.log = log;
         this.text = text;
         this.vanish = vanish;
         this.combat = combat;
         this.announcements = announcements;
-        this.logger = services.plugin().getLogger();
     }
 
     /**
@@ -293,7 +292,11 @@ final class CrateOpener {
             this.keys.grant(tx, uuid, k.crate(), k.amount(), null, uuid.toString());
         }
         item.ifPresent(stack -> this.services.deliveries().add(tx, uuid, Handouts.SOURCE, ref, stack));
-        this.log.add(tx, System.currentTimeMillis(), uuid, crateId, reward.id(), reward.display() + " | " + ref);
+        List<String> commands = reward.kind() instanceof Reward.Command command
+            ? resolve(command.commands(), player.getName(), uuid) : List.of();
+        long now = System.currentTimeMillis();
+        this.commands.add(tx, ref, uuid, commands, now);
+        this.log.add(tx, now, uuid, crateId, reward.id(), reward.display() + " | " + ref);
 
         TransactionResult result = this.services.ledger().execute(tx.build());
         switch (result.status()) {
@@ -305,7 +308,7 @@ final class CrateOpener {
                         this.services.scheduler().entity(player, () -> done.accept(new Refused(CratesMessages.OPEN_FAILED)), null);
                         return;
                     }
-                    committed(player, crate, reward, rarity, ref, item.isPresent(), receipt, done);
+                    committed(player, crate, reward, rarity, ref, item.isPresent(), commands, receipt, done);
                 });
                 return true;
             }
@@ -334,7 +337,7 @@ final class CrateOpener {
 
     /** After the transaction is stored (on a storage thread): log, announce, run commands, hand the items over. */
     private void committed(Player player, Crate crate, Reward reward, Rarity rarity, String ref, boolean hasItems,
-                           boolean receipt, Consumer<Result> done) {
+                           List<String> commands, boolean receipt, Consumer<Result> done) {
         UUID uuid = player.getUniqueId();
         if (rarity.audit()) {
             this.services.audit().record(uuid.toString(), "crates.reward", uuid.toString(),
@@ -343,21 +346,15 @@ final class CrateOpener {
         if (rarity.announce() && !this.vanish.vanished(uuid)) {
             announce(player, crate, reward);
         }
-        if (reward.kind() instanceof Reward.Command command) {
-            runCommands(player.getName(), uuid, command.commands(), ref);
-        }
-        Runnable left = () -> this.opening.remove(uuid);
-        Task task = this.services.scheduler().entity(player, () -> {
+        this.commands.run(ref, commands);
+        // The player left (or the server is stopping) before this can run: the items stay in the claim box for them.
+        Handoffs.onEntity(this.services.scheduler(), player, () -> {
             if (!hasItems) {
                 finish(player, crate, reward, rarity, 0, receipt, done);
                 return;
             }
             this.handouts.claim(player, ref, waiting -> finish(player, crate, reward, rarity, waiting, receipt, done));
-        }, left);
-        if (task == Task.NONE) {
-            // The player already left: the items stay in the claim box for their next visit.
-            left.run();
-        }
+        }, () -> this.opening.remove(uuid));
     }
 
     private void finish(Player player, Crate crate, Reward reward, Rarity rarity, int inClaimBox, boolean receipt,
@@ -385,20 +382,13 @@ final class CrateOpener {
         this.services.messenger().send(Bukkit.getConsoleSender(), CratesMessages.ANNOUNCE, player, rewardArg, name);
     }
 
-    /** Runs command rewards from the console on the global thread; a failing command is logged with what to fix. */
-    private void runCommands(String playerName, UUID uuid, List<String> commands, String ref) {
-        this.services.scheduler().global(() -> {
-            for (String template : commands) {
-                String command = template.replace("%player%", playerName).replace("%uuid%", uuid.toString());
-                try {
-                    if (!Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command)) {
-                        this.logger.warning("Crate reward command '" + command + "' (" + ref + ") was not found; give the reward by hand");
-                    }
-                } catch (Throwable t) {
-                    this.logger.log(Level.WARNING, "Crate reward command '" + command + "' (" + ref + ") failed; give the reward by hand", t);
-                }
-            }
-        });
+    /** A command reward's console commands for one winner. */
+    static List<String> resolve(List<String> templates, String playerName, UUID uuid) {
+        List<String> resolved = new ArrayList<>(templates.size());
+        for (String template : templates) {
+            resolved.add(template.replace("%player%", playerName).replace("%uuid%", uuid.toString()));
+        }
+        return resolved;
     }
 
     /** Players whose opening has not finished yet. */

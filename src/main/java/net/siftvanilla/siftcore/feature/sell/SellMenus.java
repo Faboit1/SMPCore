@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.Services;
@@ -14,14 +14,19 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.item.ContainerItems;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
+import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.Submission;
+import net.siftvanilla.siftcore.ui.gui.GridBackup;
 import net.siftvanilla.siftcore.ui.gui.Items;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -30,7 +35,9 @@ import org.bukkit.inventory.PlayerInventory;
 /**
  * Opens sell menus and makes sure the items in them always find their way back: to the inventory (overflow to the
  * claim box) when a menu closes, onto the ground with the rest of the death drops when the player dies, and back
- * to the player when the server stops (no close events are fired then).
+ * to the player when the server stops (no close events are fired then). While items sit in a grid, a copy of them is
+ * kept in the player's own data ({@link GridBackup}), saved together with their inventory, so a crash can't lose them:
+ * a copy still there when the player joins is given back.
  */
 final class SellMenus implements Listener {
 
@@ -53,8 +60,15 @@ final class SellMenus implements Listener {
     private final Setting<SellSettings> settings;
     private final SellService sales;
     private final ItemHandout handout;
+    private final GridBackup backup;
+    /** The menu each player uses now (the last one opened for them). */
     private final Map<UUID, SellMenu> open = new ConcurrentHashMap<>();
-    private Consumer<Player> mastery = player -> { };
+    /**
+     * Every menu of a player that has not handed its grid back yet: the one in use, and for a moment the one it
+     * replaces (until the server closes that one) or one that never got on screen. The copy holds all of their items.
+     */
+    private final Map<UUID, List<SellMenu>> live = new ConcurrentHashMap<>();
+    private BiConsumer<Player, Button.Handler> mastery = (player, back) -> { };
 
     SellMenus(Services services, WorthService worth, Setting<SellSettings> settings, SellService sales, ItemHandout handout) {
         this.services = services;
@@ -62,17 +76,68 @@ final class SellMenus implements Listener {
         this.settings = settings;
         this.sales = sales;
         this.handout = handout;
+        this.backup = new GridBackup(new NamespacedKey(services.plugin(), "sell_grid"), services.plugin().getLogger());
     }
 
-    /** What the Mastery button opens. */
-    void onMastery(Consumer<Player> opener) {
+    /** What the Mastery button opens; the handler it gets is the dialog's Back, which returns to the menu. */
+    void onMastery(BiConsumer<Player, Button.Handler> opener) {
         this.mastery = opener;
+    }
+
+    /**
+     * Writes the copy in the viewer's player data after {@code menu}'s grid changed: the grids of all their menus that
+     * still hold items, without slot {@code skip} of {@code menu} (-1: every slot). A menu that already handed its grid
+     * back writes nothing. Viewer's thread.
+     */
+    void backup(SellMenu menu, int skip) {
+        if (menusOf(menu.viewer()).contains(menu)) {
+            writeCopy(menu.viewer(), menu, skip);
+        }
+    }
+
+    /** Makes the copy hold exactly what the player's live menus hold (nothing: cleared), without {@code skip} of {@code in}. */
+    private void writeCopy(Player player, SellMenu in, int skip) {
+        List<ItemStack> items = new ArrayList<>();
+        for (SellMenu menu : menusOf(player)) {
+            Inventory grid = menu.getInventory();
+            for (int slot = 0; slot < SellMenu.GRID; slot++) {
+                ItemStack item = grid.getItem(slot);
+                if ((menu != in || slot != skip) && item != null && !item.isEmpty()) {
+                    items.add(item);
+                }
+            }
+        }
+        this.backup.save(player, items);
+    }
+
+    private List<SellMenu> menusOf(Player player) {
+        return this.live.getOrDefault(player.getUniqueId(), List.of());
+    }
+
+    /** A new menu becomes the one the player uses; until it hands its grid back, the copy covers it. */
+    private void register(Player player, SellMenu menu) {
+        this.live.compute(player.getUniqueId(), (uuid, menus) -> {
+            List<SellMenu> now = menus == null ? new ArrayList<>() : new ArrayList<>(menus);
+            now.add(menu);
+            return List.copyOf(now);
+        });
+        this.open.put(player.getUniqueId(), menu);
+    }
+
+    /** A menu hands its grid back: the copy no longer covers it. */
+    private void unregister(Player player, SellMenu menu) {
+        this.open.remove(player.getUniqueId(), menu);
+        this.live.computeIfPresent(player.getUniqueId(), (uuid, menus) -> {
+            List<SellMenu> now = new ArrayList<>(menus);
+            now.remove(menu);
+            return now.isEmpty() ? null : List.copyOf(now);
+        });
     }
 
     /** Opens a fresh sell menu. Any menu the player had open is closed (and emptied) by the server first. */
     void open(Player player) {
         SellMenu menu = new SellMenu(this.services.menus(), player, this);
-        this.open.put(player.getUniqueId(), menu);
+        register(player, menu);
         menu.open();
     }
 
@@ -84,7 +149,7 @@ final class SellMenus implements Listener {
     void openFilled(Player player, SaleRequest request) {
         Runnable open = () -> {
             SellMenu menu = new SellMenu(this.services.menus(), player, this);
-            this.open.put(player.getUniqueId(), menu);
+            register(player, menu);
             addSellable(menu, request);
             menu.open();
         };
@@ -217,8 +282,17 @@ final class SellMenus implements Listener {
         return this.settings.get().mastery().enabled();
     }
 
-    void openMastery(Player player) {
-        this.mastery.accept(player);
+    /** The Mastery button: the mastery dialogs over the menu, whose Back returns to it with its grid as it was. */
+    void openMastery(SellMenu menu) {
+        this.mastery.accept(menu.viewer(), s -> back(s, menu));
+    }
+
+    /** Back from a dialog over a sell menu: that menu again (a fresh one when it was closed meanwhile). */
+    private void back(Submission s, SellMenu menu) {
+        Player player = s.player();
+        if (this.open.get(player.getUniqueId()) != menu || !menu.reopen()) {
+            open(player);
+        }
     }
 
     void sell(SellMenu menu, long shownTotal) {
@@ -263,6 +337,9 @@ final class SellMenus implements Listener {
             inventory.setItem(slot, null);
             moved++;
         }
+        if (moved > 0) {
+            menu.backup();
+        }
         if (moved == 0 && !full) {
             this.services.messenger().send(player, SellMessages.MENU_ADD_NONE);
         } else if (full) {
@@ -301,20 +378,22 @@ final class SellMenus implements Listener {
         if (items.isEmpty()) {
             return;
         }
-        long claimed = this.handout.give(player, items, "sell", null);
+        // The copy drops the items before they reach the inventory and the player is saved.
+        menu.backup();
+        long claimed = handBack(player, items);
         if (claimed > 0) {
             this.services.messenger().send(player, SellMessages.CLAIM_BOX, Arg.number("count", claimed));
-        }
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            player.saveData();
         }
     }
 
     /** A menu closed (on the viewer's thread): its items go back to the viewer, or drop if they just died. */
     void closed(SellMenu menu) {
         Player player = menu.viewer();
-        this.open.remove(player.getUniqueId(), menu);
+        unregister(player, menu);
         List<ItemStack> items = menu.drain();
+        // Before the items go anywhere the copy drops them: it keeps only what other menus of the player still hold (a
+        // newer menu that replaced this one), or is cleared.
+        writeCopy(player, null, -1);
         if (items.isEmpty()) {
             return;
         }
@@ -325,10 +404,23 @@ final class SellMenus implements Listener {
             }
             return;
         }
-        long claimed = this.handout.give(player, items, "sell", null);
+        long claimed = handBack(player, items);
         if (claimed > 0) {
             this.services.messenger().send(player, SellMessages.CLAIM_BOX, Arg.number("count", claimed));
         }
+    }
+
+    /**
+     * Gives items that left a grid (or its copy, which no longer holds them) back to the player: into the inventory,
+     * the player saved, and only then the rest into the claim box ({@link GridBackup#handBack}). Returns how many items
+     * went to the claim box. Player's thread.
+     */
+    private long handBack(Player player, List<ItemStack> items) {
+        return GridBackup.handBack(items, all -> this.handout.toInventory(player, all), () -> save(player),
+            left -> this.handout.toClaimBox(player.getUniqueId(), left, "sell", null));
+    }
+
+    private void save(Player player) {
         if (this.services.core().get().savePlayerAfterTrade()) {
             player.saveData();
         }
@@ -340,42 +432,72 @@ final class SellMenus implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeath(PlayerDeathEvent event) {
-        SellMenu menu = this.open.get(event.getEntity().getUniqueId());
-        if (menu != null && !event.getKeepInventory()) {
+        Player player = event.getEntity();
+        if (!event.getKeepInventory() && player.getOpenInventory().getTopInventory().getHolder(false) instanceof SellMenu menu
+            && menusOf(player).contains(menu)) {
             menu.dropOnClose(true);
         }
     }
 
-    /** A menu still registered at quit never received its close event: keep its items in the claim box. */
+    /**
+     * The server closes the open menu before this event, so a menu still live at quit never got its close event (it
+     * was not on screen yet). The copy is made to hold exactly what such menus still have, and is saved with the player
+     * as they leave: those items come back when the player joins again. Nothing else stays in the copy.
+     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        UUID uuid = event.getPlayer().getUniqueId();
-        SellMenu menu = this.open.remove(uuid);
-        if (menu != null) {
-            List<ItemStack> items = menu.drain();
-            if (!items.isEmpty()) {
-                this.handout.toClaimBox(uuid, items, "sell", null);
-            }
+        Player player = event.getPlayer();
+        this.open.remove(player.getUniqueId());
+        List<SellMenu> menus = this.live.remove(player.getUniqueId());
+        List<ItemStack> items = new ArrayList<>();
+        for (SellMenu menu : menus == null ? List.<SellMenu>of() : menus) {
+            items.addAll(menu.drain());
+        }
+        this.backup.save(player, items);
+    }
+
+    /** Gives back the items a sell menu held when the server stopped hard (their copy in the player's data). */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        List<ItemStack> items = this.backup.take(player);
+        if (items.isEmpty()) {
+            return;
+        }
+        long claimed = handBack(player, items);
+        this.services.messenger().send(player, SellMessages.MENU_RESTORED);
+        if (claimed > 0) {
+            this.services.messenger().send(player, SellMessages.CLAIM_BOX, Arg.number("count", claimed));
         }
     }
 
     /**
-     * Gives back the items of every open menu. Called from the feature's disable (the server fires no close or quit
-     * events at shutdown, and the shutdown thread may touch every player).
+     * Gives back the items of every menu that still holds some. Called from the feature's disable (the server fires no
+     * close or quit events at shutdown, and the shutdown thread may touch every player).
      */
     void returnAll() {
-        for (SellMenu menu : List.copyOf(this.open.values())) {
-            Player player = menu.viewer();
-            this.open.remove(player.getUniqueId(), menu);
-            List<ItemStack> items = menu.drain();
+        for (List<SellMenu> menus : List.copyOf(this.live.values())) {
+            Player player = menus.getFirst().viewer();
+            List<ItemStack> items = new ArrayList<>();
+            for (SellMenu menu : menus) {
+                unregister(player, menu);
+                items.addAll(menu.drain());
+            }
+            // The copy goes first, so nothing below can leave the items both handed out and in the saved copy.
+            this.backup.clear(player);
             if (items.isEmpty()) {
                 continue;
             }
+            // The order of handBack, keeping track of what has not certainly arrived for the report.
+            List<ItemStack> unsure = items;
             try {
-                this.handout.give(player, items, "sell", null);
+                List<ItemStack> left = this.handout.toInventory(player, items);
+                unsure = left;
+                save(player);
+                this.handout.toClaimBox(player.getUniqueId(), left, "sell", null);
             } catch (RuntimeException e) {
-                // Never hand anything out twice: report what may not have arrived instead of retrying.
-                this.handout.reportLost(player.getUniqueId(), items, "sell menu at shutdown", e);
+                // Never hand anything out twice: report what may not have arrived (in full, so staff can restore it).
+                this.handout.reportLost(player.getUniqueId(), unsure, "sell menu at shutdown", e);
             }
         }
     }

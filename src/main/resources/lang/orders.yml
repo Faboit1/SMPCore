@@ -130,6 +130,7 @@ orders:
       - "<secondary>Moves <item> from your inventory"
       - "<secondary>Shulker boxes with them move whole"
     fill-nothing: "<primary>You carry no <item> for this order."
+    restored: "<primary>The items you left in a delivery menu when the server stopped are back in your inventory."
     done: "<primary>You delivered <amount> <item> and got <payout> after <tax> tax."
     nothing: "<primary>Put <item> in the empty slots first."
     gone: "<primary>That order is no longer open."

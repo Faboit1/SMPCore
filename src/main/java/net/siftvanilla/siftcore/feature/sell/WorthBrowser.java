@@ -57,8 +57,8 @@ final class WorthBrowser extends PagedMenu<WorthBrowser.Row> {
 
     private WorthBrowser(Services services, Player viewer, WorthService worth, Setting<SellSettings> settings,
                          SellService sales, OrderBids bids, Supplier<ShopOffers> shop, SellDialogs dialogs,
-                         Cycle<Comparator<Row>> sort, Cycle<Predicate<Row>> filter, AtomicReference<String> search) {
-        super(services.menus(), viewer, Component.text(services.lang().plain(SellMessages.BROWSER_TITLE)), sort, filter, null);
+                         Cycle<Comparator<Row>> sort, Cycle<Predicate<Row>> filter, AtomicReference<String> search, Runnable back) {
+        super(services.menus(), viewer, Component.text(services.lang().plain(SellMessages.BROWSER_TITLE)), sort, filter, back);
         this.services = services;
         this.worth = worth;
         this.settings = settings;
@@ -83,9 +83,10 @@ final class WorthBrowser extends PagedMenu<WorthBrowser.Row> {
      *
      * @param category a category to filter by, or null for the remembered filter
      * @param query    a search to start with, or null
+     * @param back     what the Back button does, or null for none
      */
     static void open(Services services, Player viewer, WorthService worth, Setting<SellSettings> settings, SellService sales,
-                     OrderBids bids, Supplier<ShopOffers> shop, SellDialogs dialogs, String category, String query) {
+                     OrderBids bids, Supplier<ShopOffers> shop, SellDialogs dialogs, String category, String query, Runnable back) {
         Lang lang = services.lang();
         String sortId = services.settings().raw(viewer.getUniqueId(), SORT_SETTING, "name");
         // An item whose name is exactly the search comes first in every order, so /worth list diamond (the name in
@@ -109,7 +110,7 @@ final class WorthBrowser extends PagedMenu<WorthBrowser.Row> {
         }
         String filterId = category != null ? category : services.settings().raw(viewer.getUniqueId(), FILTER_SETTING, "all");
         Cycle<Predicate<Row>> filter = new Cycle<>(filters, filterId);
-        WorthBrowser menu = new WorthBrowser(services, viewer, worth, settings, sales, bids, shop, dialogs, sort, filter, search);
+        WorthBrowser menu = new WorthBrowser(services, viewer, worth, settings, sales, bids, shop, dialogs, sort, filter, search, back);
         menu.forcedFilter = category;
         if (query != null && !query.isBlank()) {
             menu.query(query);

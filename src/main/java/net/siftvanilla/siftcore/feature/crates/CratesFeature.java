@@ -55,6 +55,7 @@ public final class CratesFeature implements Feature, Listener {
     private final KeyService keys;
     private final RewardItems items;
     private final Handouts handouts;
+    private final RewardCommands rewardCommands;
     private final CrateOpener opener;
     private final CrateText text;
     private final Keyall keyall;
@@ -86,10 +87,12 @@ public final class CratesFeature implements Feature, Listener {
             System::currentTimeMillis);
         this.items = new RewardItems(spawners, () -> services.lang().style().palette());
         this.handouts = new Handouts(services);
+        this.rewardCommands = new RewardCommands(services.database(), task -> services.scheduler().global(task),
+            command -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command), services.plugin().getLogger());
         this.text = new CrateText(services.lang());
         CrateLog log = new CrateLog(services.database());
-        this.opener = new CrateOpener(services, this.settings, this.keys, this.items, this.handouts, log, this.text, vanish,
-            combat, WIN_ANNOUNCEMENTS);
+        this.opener = new CrateOpener(services, this.settings, this.keys, this.items, this.handouts, this.rewardCommands, log,
+            this.text, vanish, combat, WIN_ANNOUNCEMENTS);
         this.keyall = new Keyall(services, this.settings, this.keys, this.text, vanish, afk);
         this.dialogs = new CrateDialogs(services, this.settings, this.keys, this.items, this.opener, this.text, worth, this.keyall);
         this.blocks = new CrateBlocks(services, this.settings, new CrateBlocks.Actions() {
@@ -136,6 +139,8 @@ public final class CratesFeature implements Feature, Listener {
         CratesSettings settings = this.settings.get();
         this.keys.load(settings.rememberGrants());
         this.blocks.load();
+        // Command rewards whose openings were stored but that had not run when the server stopped run once it is up.
+        this.rewardCommands.resume(this.rewardCommands.leftovers());
         Bukkit.getPluginManager().registerEvents(this.blocks, this.services.plugin());
         Bukkit.getPluginManager().registerEvents(this, this.services.plugin());
         this.keyall.start();

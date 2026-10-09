@@ -45,6 +45,11 @@ public final class ItemHandout {
      * to the claim box.
      */
     public long give(Player player, List<ItemStack> items, String source, String ref) {
+        return toClaimBox(player.getUniqueId(), toInventory(player, items), source, ref);
+    }
+
+    /** Puts items into the player's inventory and returns what did not fit (nothing goes to the claim box yet). */
+    public List<ItemStack> toInventory(Player player, List<ItemStack> items) {
         List<ItemStack> parts = new ArrayList<>();
         for (ItemStack item : items) {
             if (item != null && !item.isEmpty()) {
@@ -52,10 +57,10 @@ public final class ItemHandout {
             }
         }
         if (parts.isEmpty()) {
-            return 0;
+            return List.of();
         }
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(parts.toArray(new ItemStack[0]));
-        return toClaimBox(player.getUniqueId(), leftovers.values(), source, ref);
+        return new ArrayList<>(leftovers.values());
     }
 
     /**

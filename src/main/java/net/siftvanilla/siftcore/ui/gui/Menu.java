@@ -158,6 +158,13 @@ public abstract class Menu implements InventoryHolder {
     protected void itemsChanged() {
     }
 
+    /**
+     * Called right before a click changes an item slot (takes, places, swaps or drops what is there), on the viewer's
+     * thread. The change happens after this returns; {@link #itemsChanged()} follows a tick later.
+     */
+    protected void itemSlotClicked(int slot) {
+    }
+
     /** Called when the viewer closes the menu (also when another screen replaces it). */
     protected void closed() {
     }
@@ -194,6 +201,7 @@ public abstract class Menu implements InventoryHolder {
                 event.setCancelled(true);
                 return;
             }
+            itemSlotClicked(event.getSlot());
             scheduleItemsChanged();
             return;
         }

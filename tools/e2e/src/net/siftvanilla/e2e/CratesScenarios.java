@@ -78,6 +78,7 @@ final class CratesScenarios {
         list.add(of("crates-block", CratesScenarios::block));
         list.add(of("crates-combat", CratesScenarios::combat));
         list.add(of("crates-bulk", CratesScenarios::bulk));
+        list.add(of("crates-command-stored", CratesScenarios::commandStored));
         list.add(of("crates-spawn-block", CratesScenarios::spawnBlock));
         list.add(of("crates-persist-setup", CratesScenarios::persistSetup));
         list.add(of("crates-persist-check", CratesScenarios::persistCheck));
@@ -441,6 +442,39 @@ final class CratesScenarios {
             e2e.sleep(1_000);
             e2e.expect(!watcher.chatContains("won $1,234"), "no announcement with the setting off: " + watcher.chat());
             e2e.services().settings().set(e2e.uuid(watcherName), CratesFeature.WIN_ANNOUNCEMENTS, true);
+            ledgerHealthy(e2e);
+        } finally {
+            restore(e2e, original);
+        }
+    }
+
+    /**
+     * A command reward is stored with its opening (key, log row) and runs from the console only once that is stored,
+     * then its stored row is deleted. A server stop in between leaves the row, which runs at the next start (tested at
+     * boot), instead of losing the reward.
+     */
+    static void commandStored(E2E e2e) throws Exception {
+        String original = install(e2e);
+        try {
+            String name = e2e.name("CrCmdSlow");
+            Bot bot = e2e.bot(name);
+            e2e.console("keys give " + name + " e2ecmd 1");
+            e2e.eventually(() -> keys(e2e, name, "e2ecmd") == 1, "a Command key");
+            e2e.step("open while storage is slow: the key is spent at once, the command waits for the commit");
+            java.util.concurrent.CompletableFuture<Object> stall = e2e.stallStorage(4_000);
+            bot.clearLogs();
+            command(e2e, bot, "crates open e2ecmd");
+            e2e.eventually(() -> keys(e2e, name, "e2ecmd") == 0, "the key is spent");
+            e2e.sleep(300);
+            e2e.expect(!stall.isDone(), "storage is still slow");
+            e2e.expect(!bot.chatContains(name + " won the command crate"), "the command did not run before the opening was stored");
+            stall.get(10, TimeUnit.SECONDS);
+            e2e.eventually(() -> bot.chatContains(name + " won the command crate"), "the command ran once it was stored: " + bot.chat());
+            e2e.eventually(() -> number(e2e, "SELECT COUNT(*) FROM crate_commands WHERE uuid = ?", e2e.uuid(name).toString()) == 0,
+                "its stored row is gone after it ran");
+            e2e.sleep(1_000);
+            long ran = bot.chat().stream().filter(line -> line.contains(name + " won the command crate")).count();
+            e2e.expect(ran == 1, "it ran exactly once: " + ran);
             ledgerHealthy(e2e);
         } finally {
             restore(e2e, original);

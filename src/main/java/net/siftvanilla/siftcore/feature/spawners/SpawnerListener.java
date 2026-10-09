@@ -13,6 +13,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
@@ -168,6 +169,12 @@ final class SpawnerListener implements Listener {
     }
 
     // ------------------------------------------------------------------ protection
+
+    /** Pays out XP that waited for the player (they left before a pickup or collection reached them). */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void join(PlayerJoinEvent event) {
+        this.service.payOutXp(event.getPlayer(), SpawnersMessages.XP_WAITING);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void entityExplode(EntityExplodeEvent event) {

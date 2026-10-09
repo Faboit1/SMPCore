@@ -78,6 +78,7 @@ sell:
     add: "<primary>Add sellable items"
     add-lore: "<secondary>Moves what can be sold from your inventory"
     add-none: "<primary>Nothing in your inventory can be sold."
+    restored: "<primary>The items you left in the sell menu when the server stopped are back in your inventory."
     add-full: "<secondary>The menu is full."
     give-back: "<primary>Give back"
     give-back-lore: "<secondary>Puts everything above back in your inventory"

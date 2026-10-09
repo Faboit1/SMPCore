@@ -80,6 +80,9 @@ final class OrdersScenarios {
         list.add(of("orders-combat-blocked", OrdersScenarios::combatBlocked));
         list.add(of("orders-sell-routing", OrdersScenarios::sellRouting));
         list.add(of("orders-delivery-death", OrdersScenarios::deliveryDeath));
+        list.add(of("orders-collect-left-before-commit", OrdersScenarios::collectLeftBeforeCommit));
+        list.add(of("orders-delivery-grid-copy", OrdersScenarios::deliveryGridCopy));
+        list.add(of("orders-delivery-grid-crash", OrdersScenarios::deliveryGridCrash));
         list.add(of("orders-persist-setup", OrdersScenarios::persistSetup));
         list.add(of("orders-persist-check", OrdersScenarios::persistCheck));
         return list;
@@ -1388,6 +1391,173 @@ final class OrdersScenarios {
             + (total - lyingBefore));
         e2e.expect(e2e.services().deliveries().count(e2e.uuid(sellerName)) == claimBefore, "death did not move the grid to the claim box");
         e2e.expect(row(e2e, id).equals("ACTIVE/50/0/0/20/1000") && e2e.money(sellerName) == 0, "nothing was delivered: " + row(e2e, id));
+        cancelAll(e2e, buyerName);
+        healthy(e2e);
+    }
+
+    /**
+     * An owner who collects and leaves before the collect is stored gets the items back into the order once it is: they
+     * used to stay counted as collected (and invisible) until the next server stop.
+     */
+    static void collectLeftBeforeCommit(E2E e2e) throws Exception {
+        String buyerName = e2e.name("OrdLeftBuy");
+        String sellerName = e2e.name("OrdLeftSel");
+        Bot buyer = e2e.bot(buyerName);
+        Bot seller = e2e.bot(sellerName);
+        fund(e2e, buyerName, 10_000);
+        fund(e2e, sellerName, 0);
+        long id = place(e2e, buyer, "iron_ingot", "10", "30");
+        inventory(e2e, sellerName, Map.of(0, stack(Material.IRON_INGOT, 10)));
+        quick(e2e, seller, "iron", buyerName, id, 10, "Deliver 10");
+        e2e.expect(row(e2e, id).equals("FILLED/10/10/0/30/0"), "delivered, nothing collected: " + row(e2e, id));
+
+        e2e.step("collect while storage is slow, and leave before the collect is stored");
+        inventory(e2e, buyerName, Map.of());
+        openMenu(e2e, buyer, "orders mine", "Your orders");
+        int own = slotWith(e2e, buyer, "Waiting for you 10");
+        clickForDialog(e2e, buyer, own, 0, ContainerInput.PICKUP, "Your order");
+        java.util.concurrent.CompletableFuture<Object> stall = e2e.stallStorage(3_000);
+        e2e.click(buyer, "Collect items");
+        e2e.kick(buyer, "e2e: leaving before the collect is stored");
+        e2e.expect(!stall.isDone(), "the collect was still waiting for storage when the owner left");
+        stall.get(10, TimeUnit.SECONDS);
+
+        e2e.step("the items go back into the order right away");
+        e2e.eventually(() -> row(e2e, id).equals("FILLED/10/10/0/30/0"), "the order counts them as waiting again: " + row(e2e, id));
+        Bot back = e2e.bot(buyerName);
+        e2e.expect(count(e2e, buyerName, Material.IRON_INGOT) == 0, "nothing was handed out");
+        e2e.step("and can be collected normally");
+        inventory(e2e, buyerName, Map.of());
+        openMenu(e2e, back, "orders mine", "Your orders");
+        int again = slotWith(e2e, back, "Waiting for you 10");
+        clickForDialog(e2e, back, again, 0, ContainerInput.PICKUP, "Your order");
+        e2e.click(back, "Collect items");
+        e2e.eventually(() -> count(e2e, buyerName, Material.IRON_INGOT) == 10, "the owner has the iron");
+        e2e.eventually(() -> row(e2e, id).equals("FILLED/10/10/10/30/0"), "collected in storage: " + row(e2e, id));
+        healthy(e2e);
+    }
+
+    /**
+     * While items sit in a delivery grid, the player's own data holds a copy of them, saved together with the inventory:
+     * a copy left by a crash comes back on the next join, and closing or delivering clears it.
+     */
+    static void deliveryGridCopy(E2E e2e) throws Exception {
+        String buyerName = e2e.name("OrdCopyBuy");
+        String sellerName = e2e.name("OrdCopySel");
+        Bot buyer = e2e.bot(buyerName);
+        Bot seller = e2e.bot(sellerName);
+        fund(e2e, buyerName, 10_000);
+        fund(e2e, sellerName, 0);
+        long id = place(e2e, buyer, "prismarine_crystals", "40", "20");
+        inventory(e2e, sellerName, Map.of(0, stack(Material.PRISMARINE_CRYSTALS, 25)));
+        int slot = browseTo(e2e, seller, "prismarine crystals", buyerName);
+        Bot.Screen before = seller.screen();
+        clickSlot(e2e, seller, slot);
+        awaitScreen(e2e, seller, before, "Deliver Prismarine Crystals");
+        clickSlot(e2e, seller, 51);
+        e2e.eventually(() -> gridCount(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25, "25 crystals in the grid");
+
+        e2e.step("the player's data holds a copy of the grid while the menu is open");
+        e2e.eventually(() -> e2e.gridCopyCount(sellerName, "delivery_grid", Material.PRISMARINE_CRYSTALS) == 25, "the copy holds the 25 crystals");
+        e2e.step("closing gives the crystals back and clears the copy");
+        seller.closeScreen();
+        e2e.eventually(() -> count(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25, "the crystals are back");
+        e2e.eventually(() -> e2e.gridCopy(sellerName, "delivery_grid").isEmpty(), "no copy after closing");
+
+        e2e.step("delivering clears the copy too");
+        slot = browseTo(e2e, seller, "prismarine crystals", buyerName);
+        before = seller.screen();
+        clickSlot(e2e, seller, slot);
+        awaitScreen(e2e, seller, before, "Deliver Prismarine Crystals");
+        clickSlot(e2e, seller, 51);
+        e2e.eventually(() -> gridCount(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25, "25 crystals in the grid again");
+        clickSlot(e2e, seller, 50);
+        e2e.eventually(() -> row(e2e, id).startsWith("ACTIVE/40/25/"), "25 delivered: " + row(e2e, id));
+        e2e.eventually(() -> e2e.gridCopy(sellerName, "delivery_grid").isEmpty(), "no copy after delivering");
+
+        e2e.step("a copy left in the saved data by a crash comes back on the next join");
+        UUID sellerId = e2e.uuid(sellerName);
+        e2e.setGridCopy(sellerName, "delivery_grid", List.of(stack(Material.PRISMARINE_CRYSTALS, 7)));
+        int crystals = count(e2e, sellerName, Material.PRISMARINE_CRYSTALS);
+        e2e.savePlayer(sellerName);
+        e2e.crashTo(seller, sellerId, e2e.savedPlayerFile(sellerId));
+        Bot back = e2e.bot(sellerName);
+        e2e.eventually(() -> count(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == crystals + 7, "the 7 crystals are back in the inventory");
+        e2e.eventually(() -> back.chatContains("The items you left in a delivery menu when the server stopped are back in your inventory."),
+            "told: " + back.chat());
+        e2e.expect(e2e.gridCopy(sellerName, "delivery_grid").isEmpty(), "the copy is gone, so nothing comes back twice");
+        cancelAll(e2e, buyerName);
+        healthy(e2e);
+    }
+
+    /** Opens the delivery menu of the owner's order for the item searched for. */
+    private static void openDelivery(E2E e2e, Bot seller, String search, String owner, String title) {
+        int slot = browseTo(e2e, seller, search, owner);
+        Bot.Screen before = seller.screen();
+        clickSlot(e2e, seller, slot);
+        awaitScreen(e2e, seller, before, title);
+    }
+
+    /**
+     * What a crash leaves on disk: the player file saved while items sit in a delivery grid gives them back once, and
+     * the file saved when the grid gives them back (closing, or delivering with items the order does not take) holds
+     * them once too. Before, closing saved the player with the items back in the inventory and still in the grid's copy,
+     * so a crash before the next save handed them out twice.
+     */
+    static void deliveryGridCrash(E2E e2e) throws Exception {
+        String buyerName = e2e.name("OrdCrashBuy");
+        String sellerName = e2e.name("OrdCrashSel");
+        Bot buyer = e2e.bot(buyerName);
+        Bot seller = e2e.bot(sellerName);
+        UUID sellerId = e2e.uuid(sellerName);
+        fund(e2e, buyerName, 10_000);
+        fund(e2e, sellerName, 0);
+        long id = place(e2e, buyer, "prismarine_crystals", "40", "20");
+        String title = "Deliver Prismarine Crystals";
+
+        e2e.step("a crash while crystals sit in the grid (after a save) gives them back once");
+        inventory(e2e, sellerName, Map.of(0, stack(Material.PRISMARINE_CRYSTALS, 25)));
+        openDelivery(e2e, seller, "prismarine crystals", buyerName, title);
+        clickSlot(e2e, seller, 51);
+        e2e.eventually(() -> gridCount(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25, "25 crystals in the grid");
+        e2e.eventually(() -> e2e.gridCopyCount(sellerName, "delivery_grid", Material.PRISMARINE_CRYSTALS) == 25, "the copy holds them");
+        e2e.savePlayer(sellerName);
+        e2e.crashTo(seller, sellerId, e2e.savedPlayerFile(sellerId));
+        seller = e2e.bot(sellerName);
+        e2e.sleep(500);
+        e2e.expect(count(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25,
+            "the 25 crystals came back once: " + count(e2e, sellerName, Material.PRISMARINE_CRYSTALS));
+
+        e2e.step("a crash right after closing the menu keeps the crystals once");
+        openDelivery(e2e, seller, "prismarine crystals", buyerName, title);
+        clickSlot(e2e, seller, 51);
+        e2e.eventually(() -> gridCount(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25, "25 crystals in the grid again");
+        e2e.eventually(() -> e2e.gridCopyCount(sellerName, "delivery_grid", Material.PRISMARINE_CRYSTALS) == 25, "the copy holds them");
+        seller.closeScreen();
+        e2e.eventually(() -> count(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25, "the crystals are back");
+        e2e.crashTo(seller, sellerId, e2e.savedPlayerFile(sellerId));
+        Bot back = e2e.bot(sellerName);
+        e2e.sleep(500);
+        e2e.expect(count(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 25,
+            "still 25 crystals, not the grid's copy on top: " + count(e2e, sellerName, Material.PRISMARINE_CRYSTALS));
+        e2e.expect(!back.chatContains("The items you left in a delivery menu"), "nothing was given back a second time: " + back.chat());
+
+        e2e.step("a crash right after delivering keeps what the order did not take once");
+        inventory(e2e, sellerName, Map.of(0, stack(Material.COBBLESTONE, 7), 1, stack(Material.PRISMARINE_CRYSTALS, 10)));
+        openDelivery(e2e, back, "prismarine crystals", buyerName, title);
+        clickSlot(e2e, back, BELOW_HOTBAR, 0, ContainerInput.QUICK_MOVE);
+        clickSlot(e2e, back, 51);
+        e2e.eventually(() -> gridCount(e2e, sellerName, Material.COBBLESTONE) == 7
+            && gridCount(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 10, "7 cobblestone and 10 crystals in the grid");
+        clickSlot(e2e, back, 50);
+        e2e.eventually(() -> row(e2e, id).startsWith("ACTIVE/40/10/"), "10 delivered: " + row(e2e, id));
+        e2e.eventually(() -> count(e2e, sellerName, Material.COBBLESTONE) == 7, "the cobblestone came back");
+        e2e.crashTo(back, sellerId, e2e.savedPlayerFile(sellerId));
+        e2e.bot(sellerName);
+        e2e.sleep(500);
+        e2e.expect(count(e2e, sellerName, Material.COBBLESTONE) == 7,
+            "still 7 cobblestone: " + count(e2e, sellerName, Material.COBBLESTONE));
+        e2e.expect(count(e2e, sellerName, Material.PRISMARINE_CRYSTALS) == 0, "the delivered crystals stay delivered");
         cancelAll(e2e, buyerName);
         healthy(e2e);
     }

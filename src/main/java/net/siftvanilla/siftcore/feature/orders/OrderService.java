@@ -33,8 +33,11 @@ import net.siftvanilla.siftcore.core.player.Limits;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.MessageKey;
+import net.siftvanilla.siftcore.economy.Handoffs;
+import net.siftvanilla.siftcore.ui.gui.GridBackup;
 import net.siftvanilla.siftcore.ui.gui.Menu;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -119,6 +122,7 @@ final class OrderService {
     private final DoubleSupplier highestMultiplier;
     private final OwnerNotices notices;
     private final Handovers handovers = new Handovers();
+    private final GridBackup gridBackup;
     private final AtomicBoolean sweeping = new AtomicBoolean();
     private final AtomicBoolean refreshQueued = new AtomicBoolean();
     private final Map<UUID, Integer> limits = new ConcurrentHashMap<>();
@@ -138,10 +142,29 @@ final class OrderService {
         this.highestMultiplier = highestMultiplier;
         this.notices = notices;
         this.logger = services.plugin().getLogger();
+        this.gridBackup = new GridBackup(new NamespacedKey(services.plugin(), "delivery_grid"), this.logger);
     }
 
     Services services() {
         return this.services;
+    }
+
+    /** The copy of an open delivery grid kept in the player's data (see {@link GridBackup}). */
+    GridBackup gridBackup() {
+        return this.gridBackup;
+    }
+
+    /**
+     * Gives back what a delivery grid held when the server stopped hard (its copy in the player's data): into the
+     * inventory, the rest into the claim box. Call on the player's thread when they join.
+     */
+    void restoreGrid(Player player) {
+        List<ItemStack> items = this.gridBackup.take(player);
+        if (items.isEmpty()) {
+            return;
+        }
+        this.services.messenger().send(player, OrdersMessages.DELIVER_RESTORED);
+        give(player, items, "delivery-grid");
     }
 
     OrderEngine engine() {
@@ -539,8 +562,11 @@ final class OrderService {
         ItemTaker.Plan plan = ItemTaker.plan(inventory, from, to, item, units);
         if (plan.units() != units || !ItemTaker.apply(inventory, plan)) {
             this.logger.warning("The items of " + seller.getName() + " changed while delivering to order " + order.id() + "; nothing was taken");
+            gridChanged(inventory);
             return new Problem(OrdersMessages.DELIVER_CHANGED);
         }
+        // A delivery grid's copy in the player's data drops the taken items before the player is saved.
+        gridChanged(inventory);
         boolean save = this.services.core().get().savePlayerAfterTrade();
         if (save) {
             seller.saveData();
@@ -566,11 +592,19 @@ final class OrderService {
     /** Undoes a taken plan: exact slots back where nothing changed, the rest handed to the seller. */
     private void putBack(Player seller, Inventory inventory, ItemTaker.Plan plan, long orderId, boolean save) {
         List<ItemStack> rest = ItemTaker.restore(inventory, plan);
+        gridChanged(inventory);
         if (!rest.isEmpty()) {
             give(seller, rest, Order.ref(orderId));
         }
         if (save) {
             seller.saveData();
+        }
+    }
+
+    /** After items were taken from (or put back into) a delivery grid: its copy in the player's data follows. */
+    private static void gridChanged(Inventory inventory) {
+        if (inventory.getHolder(false) instanceof DeliveryMenu menu) {
+            menu.backup();
         }
     }
 
@@ -590,7 +624,8 @@ final class OrderService {
             if (error != null) {
                 this.logger.log(Level.WARNING, "Delivery to order " + order.id() + " could not be stored; returning the items", error);
                 this.services.messenger().send(seller, OrdersMessages.DELIVER_FAILED);
-                this.services.scheduler().entity(seller, () -> giveBack(seller, token), () -> claimBack(token));
+                // The seller left (or the server is stopping) before that can run: the items go to their claim box.
+                Handoffs.onEntity(this.services.scheduler(), seller, () -> giveBack(seller, token), () -> claimBack(token));
                 return;
             }
             this.handovers.take(token);
@@ -756,22 +791,26 @@ final class OrderService {
     }
 
     /**
-     * Puts items into the player's inventory; whatever does not fit goes to their claim box, never on the ground.
-     * Call on the player's thread (or during shutdown).
+     * Puts items into the player's inventory; whatever does not fit goes to their claim box, never on the ground. The
+     * player is saved before anything reaches the claim box ({@link GridBackup#handBack}): items coming from a delivery
+     * grid must already be out of its copy. Call on the player's thread (or during shutdown).
      */
     void give(Player player, List<ItemStack> stacks, String ref) {
         if (stacks.isEmpty()) {
             return;
         }
-        Map<Integer, ItemStack> left = player.getInventory().addItem(stacks.stream().map(ItemStack::clone).toArray(ItemStack[]::new));
-        if (!left.isEmpty()) {
-            List<ItemStack> overflow = new ArrayList<>(left.values());
-            toClaimBox(player.getUniqueId(), overflow, ref);
-            this.services.messenger().send(player, OrdersMessages.ITEMS_IN_CLAIM_BOX, Arg.number("amount", OrderItem.count(overflow)));
-        }
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            player.saveData();
-        }
+        GridBackup.handBack(stacks,
+            all -> new ArrayList<>(player.getInventory().addItem(all.stream().map(ItemStack::clone).toArray(ItemStack[]::new)).values()),
+            () -> {
+                if (this.services.core().get().savePlayerAfterTrade()) {
+                    player.saveData();
+                }
+            },
+            overflow -> {
+                toClaimBox(player.getUniqueId(), overflow, ref);
+                this.services.messenger().send(player, OrdersMessages.ITEMS_IN_CLAIM_BOX, Arg.number("amount", OrderItem.count(overflow)));
+                return OrderItem.count(overflow);
+            });
     }
 
     /** Stores items in the claim box; logs them precisely if even that fails, so staff can give them back. */
@@ -860,7 +899,8 @@ final class OrderService {
                 this.services.messenger().send(owner, OrdersMessages.COLLECT_TO_CLAIM_BOX, Arg.number("amount", toClaimBox), item("item", key));
             }
             if (token >= 0) {
-                this.services.scheduler().entity(owner, () -> handOver(owner, token, true), () -> putBack(token));
+                // The owner left (or the server is stopping) before the hand-over: the items go back into the order.
+                Handoffs.onEntity(this.services.scheduler(), owner, () -> handOver(owner, token, true), () -> putBack(token));
             } else {
                 refresh(owner);
             }
@@ -932,7 +972,8 @@ final class OrderService {
                 Order order = byId.get(collect.orderId());
                 new OrderCollectEvent(order.id(), owner.getUniqueId(), order.itemType(), order.variant(), collect.amount()).callEvent();
             }
-            this.services.scheduler().entity(owner, () -> {
+            // The owner left (or the server is stopping) before the hand-over: the items go back into their orders.
+            Handoffs.onEntity(this.services.scheduler(), owner, () -> {
                 for (long token : tokens) {
                     handOver(owner, token, false);
                 }

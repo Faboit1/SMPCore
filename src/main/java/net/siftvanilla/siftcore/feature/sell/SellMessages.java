@@ -80,6 +80,7 @@ public final class SellMessages {
     public static final MessageKey MENU_ADD = MessageKey.ui("sell.menu.add");
     public static final MessageKey MENU_ADD_LORE = MessageKey.ui("sell.menu.add-lore");
     public static final MessageKey MENU_ADD_NONE = MessageKey.error("sell.menu.add-none");
+    public static final MessageKey MENU_RESTORED = MessageKey.chat("sell.menu.restored");
     public static final MessageKey MENU_ADD_FULL = MessageKey.info("sell.menu.add-full");
     public static final MessageKey MENU_GIVE_BACK = MessageKey.ui("sell.menu.give-back");
     public static final MessageKey MENU_GIVE_BACK_LORE = MessageKey.ui("sell.menu.give-back-lore");

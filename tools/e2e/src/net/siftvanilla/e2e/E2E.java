@@ -259,6 +259,114 @@ public final class E2E {
         return services().ledger().balance(uuid(name), Currency.MONEY);
     }
 
+    /**
+     * Holds SiftCore's database writer for {@code millis}, like a slow disk or a reconnect: transactions queued meanwhile
+     * apply in memory at once but commit only afterwards, so a scenario can make a player leave (or anything else
+     * happen) between a trade and its commit. Completes when the writer is free again.
+     */
+    public CompletableFuture<Object> stallStorage(long millis) {
+        return services().database().write(c -> {
+            try {
+                Thread.sleep(millis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        });
+    }
+
+    /**
+     * The copy of a menu grid SiftCore keeps in a player's own data ({@code siftcore:<key>}, e.g. {@code sell_grid}),
+     * read on the player's thread; empty when there is none.
+     */
+    public List<org.bukkit.inventory.ItemStack> gridCopy(String name, String key) {
+        return onPlayer(name, () -> {
+            List<byte[]> encoded = player(name).getPersistentDataContainer().get(new org.bukkit.NamespacedKey("siftcore", key),
+                org.bukkit.persistence.PersistentDataType.LIST.byteArrays());
+            List<org.bukkit.inventory.ItemStack> items = new ArrayList<>();
+            if (encoded != null) {
+                for (byte[] bytes : encoded) {
+                    items.add(org.bukkit.inventory.ItemStack.deserializeBytes(bytes));
+                }
+            }
+            return items;
+        });
+    }
+
+    /** Writes such a copy directly, as a crash with the menu open would have left it in the saved player data. */
+    public void setGridCopy(String name, String key, List<org.bukkit.inventory.ItemStack> items) {
+        onPlayer(name, () -> {
+            List<byte[]> encoded = new ArrayList<>();
+            for (org.bukkit.inventory.ItemStack item : items) {
+                encoded.add(item.serializeAsBytes());
+            }
+            player(name).getPersistentDataContainer().set(new org.bukkit.NamespacedKey("siftcore", key),
+                org.bukkit.persistence.PersistentDataType.LIST.byteArrays(), encoded);
+            return null;
+        });
+    }
+
+    /** Items of a material in the copy of a menu grid. */
+    public int gridCopyCount(String name, String key, org.bukkit.Material material) {
+        int total = 0;
+        for (org.bukkit.inventory.ItemStack item : gridCopy(name, key)) {
+            if (item.getType() == material) {
+                total += item.getAmount();
+            }
+        }
+        return total;
+    }
+
+    /** Where the server keeps a player's file ({@code players/data/<uuid>.dat}). */
+    private static java.nio.file.Path playerFile(UUID uuid) {
+        return net.minecraft.server.MinecraftServer.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.PLAYER_DATA_DIR)
+            .resolve(uuid + ".dat");
+    }
+
+    /** Saves a player's file now, on their thread (like an autosave or a trade's save). */
+    public void savePlayer(String name) {
+        onPlayer(name, () -> {
+            player(name).saveData();
+            return null;
+        });
+    }
+
+    /**
+     * A player's file as it is on disk right now. The server writes it only when it saves the player, so this is exactly
+     * what a crash at this moment would leave behind; {@link #crashTo} makes the player's next join start from it.
+     */
+    public byte[] savedPlayerFile(UUID uuid) {
+        try {
+            return java.nio.file.Files.readAllBytes(playerFile(uuid));
+        } catch (java.io.IOException e) {
+            throw new Failure("can't read the player file of " + uuid + ": " + e);
+        }
+    }
+
+    /**
+     * Simulates a crash for one player: kicks them (the server saves them as they leave) and then puts back a file read
+     * earlier with {@link #savedPlayerFile}, so their next join loads what a server restarting after a crash at that
+     * moment would load. Storage (claim box, balances) keeps everything committed meanwhile, as it would after a crash.
+     */
+    public void crashTo(Bot bot, UUID uuid, byte[] saved) {
+        kick(bot, "e2e: the server crashed");
+        sleep(300);
+        try {
+            java.nio.file.Files.write(playerFile(uuid), saved);
+        } catch (java.io.IOException e) {
+            throw new Failure("can't write the player file of " + uuid + ": " + e);
+        }
+    }
+
+    /** Kicks a player (on their thread) and waits until they are gone and the bot noticed. */
+    public void kick(Bot bot, String why) {
+        onPlayer(bot.name, () -> {
+            player(bot.name).kick(net.kyori.adventure.text.Component.text(why));
+            return null;
+        });
+        eventually(() -> Bukkit.getPlayerExact(bot.name) == null && bot.disconnected(), bot.name + " left");
+    }
+
     public long shards(String name) {
         return services().ledger().balance(uuid(name), Currency.SHARDS);
     }

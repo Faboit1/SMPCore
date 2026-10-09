@@ -4,16 +4,19 @@ import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.text.Component;
 import net.minecraft.world.inventory.ContainerInput;
+import net.siftvanilla.siftcore.api.economy.Currency;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
@@ -60,6 +63,11 @@ final class SellShopScenarios {
         list.add(of("shop-refusals", SellShopScenarios::shopRefusals));
         list.add(of("shop-claim-box", SellShopScenarios::shopClaimBox));
         list.add(of("shop-double-submit", SellShopScenarios::shopDoubleSubmit));
+        list.add(of("shop-left-before-commit", SellShopScenarios::shopLeftBeforeCommit));
+        list.add(of("sell-mastery-back", SellShopScenarios::sellMasteryBack));
+        list.add(of("sell-grid-copy", SellShopScenarios::sellGridCopy));
+        list.add(of("sell-grid-crash", SellShopScenarios::sellGridCrash));
+        list.add(of("sell-mastery-stays", SellShopScenarios::sellMasteryStays));
         return list;
     }
 
@@ -499,5 +507,326 @@ final class SellShopScenarios {
         e2e.sleep(1500);
         e2e.expect(e2e.money(name) == 2000 - 384, "replayed clicks bought nothing more: " + e2e.money(name));
         e2e.expect(count(e2e, name, Material.STONE) == 64, "exactly 64 stone");
+    }
+
+    // ------------------------------------------------------------------ durability
+
+    /** Stone of a player waiting in the claim box (works while they are offline). */
+    private static int stoneWaiting(E2E e2e, UUID uuid) {
+        return e2e.services().deliveries().of(uuid).stream()
+            .mapToInt(delivery -> delivery.item().getType() == Material.STONE ? delivery.item().getAmount() : 0).sum();
+    }
+
+    /**
+     * A buyer who leaves between paying and the purchase being stored (a slow disk, a reconnect of the database) finds
+     * what they paid for in the claim box. Before, the part meant for the inventory existed only in memory and was lost
+     * when the player's scheduler refused the hand-over.
+     */
+    static void shopLeftBeforeCommit(E2E e2e) throws Exception {
+        String name = e2e.name("ShopLeft");
+        Bot bot = e2e.bot(name);
+        UUID uuid = e2e.uuid(name);
+        clear(e2e, name);
+        e2e.console("eco set " + name + " 1000");
+        int before = stoneWaiting(e2e, uuid);
+        openEntry(e2e, bot, 10, "Blocks", 0, "Buy stone");
+        e2e.step("buy while storage is slow, and leave before the purchase is stored");
+        CompletableFuture<Object> stall = e2e.stallStorage(3_000);
+        e2e.expect(bot.clickButton("Buy 64", Map.of("amount", 64, "exact", "")), "can click Buy 64");
+        e2e.eventually(() -> e2e.services().ledger().balance(uuid, Currency.MONEY) == 1000 - 384, "charged at once in memory");
+        e2e.kick(bot, "e2e: leaving before the purchase is stored");
+        e2e.expect(!stall.isDone(), "the purchase was still waiting for storage when the buyer left");
+        stall.get(10, TimeUnit.SECONDS);
+        e2e.services().database().flush();
+        e2e.step("the stone they paid for waits in the claim box");
+        e2e.eventually(() -> stoneWaiting(e2e, uuid) == before + 64, "64 stone in the claim box (has " + (stoneWaiting(e2e, uuid) - before) + ")");
+        e2e.sleep(500);
+        e2e.bot(name);
+        e2e.expect(e2e.money(name) == 1000 - 384, "charged once: " + e2e.money(name));
+        e2e.expect(stoneWaiting(e2e, uuid) == before + 64, "still 64 in the claim box after rejoining");
+        e2e.expect(count(e2e, name, Material.STONE) == 0, "nothing was handed out twice");
+    }
+
+    /** Items of a material in the grid of the sell menu the player has open, as the server sees it. */
+    private static int gridCount(E2E e2e, String name, Material material) {
+        return e2e.onPlayer(name, () -> {
+            Inventory top = e2e.player(name).getOpenInventory().getTopInventory();
+            int total = 0;
+            for (int slot = 0; slot < Math.min(45, top.getSize()); slot++) {
+                ItemStack stack = top.getItem(slot);
+                if (stack != null && stack.getType() == material) {
+                    total += stack.getAmount();
+                }
+            }
+            return total;
+        });
+    }
+
+    /**
+     * Mastery opened from the sell menu has Back (not Close), which returns to the same menu with its grid; selling a
+     * category from there sells exactly what its button showed (the inventory), never the grid under the dialog.
+     */
+    static void sellMasteryBack(E2E e2e) {
+        String name = e2e.name("SellMast");
+        Bot bot = e2e.bot(name);
+        clear(e2e, name);
+        e2e.console("eco set " + name + " 0");
+        e2e.eventually(() -> "0".equals(e2e.onPlayer(name, () -> e2e.services().placeholders().resolve(e2e.player(name),
+            "sell_mastery_mining"))), "mastery loaded");
+        setSlot(e2e, name, 9, ItemStack.of(Material.EMERALD, 30));
+        setSlot(e2e, name, 10, ItemStack.of(Material.DIAMOND, 10));
+        openScreen(e2e, bot, "sell", "Sell items");
+        bot.clickSlot(BELOW_SIX_ROWS_MAIN, 0, ContainerInput.QUICK_MOVE);
+        e2e.eventually(() -> slotName(bot, 48).contains("Total $7,500"), "30 emeralds in the grid: " + slotName(bot, 48));
+
+        e2e.step("Mastery from the menu offers Back, and Back returns to the same menu, grid and all");
+        e2e.sleep(300);
+        bot.clickSlot(52);
+        Bot.SeenDialog list = e2e.dialog(bot, "Sell mastery");
+        e2e.expect(list.button("Back") != null && list.button("Close") == null, "Back instead of Close: " + list.buttons());
+        e2e.expect(gridCount(e2e, name, Material.EMERALD) == 30, "the menu stays open under the dialog");
+        Bot.Screen menu = bot.screen();
+        e2e.expect(bot.clickButton("Back", Map.of()), "can click Back");
+        e2e.eventually(() -> bot.screen() != null && bot.screen() != menu && bot.screen().title().equals("Sell items"),
+            "the sell menu is shown again");
+        e2e.eventually(() -> slotName(bot, 48).contains("Total $7,500"), "it still holds the 30 emeralds: " + slotName(bot, 48));
+        e2e.expect(count(e2e, name, Material.EMERALD) == 0 && gridCount(e2e, name, Material.EMERALD) == 30,
+            "the emeralds were never given back");
+
+        e2e.step("a category's Sell button sells what it showed (the 10 diamonds), not the grid");
+        e2e.sleep(300);
+        int listsBefore = bot.dialogs().size();
+        bot.clickSlot(52);
+        e2e.eventually(() -> bot.dialogs().size() > listsBefore && bot.dialog() != null && bot.dialog().title().contains("Sell mastery"),
+            "the mastery list again");
+        e2e.click(bot, "Mining");
+        Bot.SeenDialog detail = e2e.dialog(bot, "Mining mastery");
+        e2e.expect(detail.button("Sell your Mining items (10 for $4,000)") != null, "the button shows the inventory only: " + detail.buttons());
+        int shown = bot.dialogs().size();
+        bot.clearMessages();
+        e2e.expect(bot.clickButton("Sell your Mining items", Map.of()), "can sell");
+        e2e.eventually(() -> e2e.money(name) == 4_000, "paid $4,000 for the diamonds (has " + e2e.money(name) + ")");
+        e2e.eventually(() -> bot.dialogs().size() > shown && bot.dialogs().getLast().title().contains("Mining mastery"),
+            "the details again, with the new progress");
+        e2e.sleep(500);
+        e2e.expect(e2e.money(name) == 4_000, "nothing more was sold: " + e2e.money(name));
+        e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "the diamonds were sold");
+        e2e.expect(gridCount(e2e, name, Material.EMERALD) == 30, "the emeralds are still in the grid");
+
+        e2e.step("Back to the list, Back to the menu");
+        int detailsBefore = bot.dialogs().size();
+        bot.clickButton("Back", Map.of());
+        e2e.eventually(() -> bot.dialogs().size() > detailsBefore && bot.dialog().title().contains("Sell mastery"), "the list again");
+        Bot.Screen again = bot.screen();
+        e2e.expect(bot.clickButton("Back", Map.of()), "can click Back");
+        e2e.eventually(() -> bot.screen() != null && bot.screen() != again && bot.screen().title().equals("Sell items"),
+            "the sell menu once more");
+        e2e.eventually(() -> slotName(bot, 48).contains("Total $7,500"), "with the emeralds: " + slotName(bot, 48));
+        bot.closeScreen();
+        e2e.eventually(() -> count(e2e, name, Material.EMERALD) == 30, "closing gives the emeralds back");
+    }
+
+    /**
+     * While items sit in the sell grid, the player's own data holds a copy of them, saved together with the inventory, so
+     * a crash with the menu open can't lose them: a copy left in the saved data is given back on the next join.
+     */
+    static void sellGridCopy(E2E e2e) {
+        String name = e2e.name("SellCopy");
+        Bot bot = e2e.bot(name);
+        clear(e2e, name);
+        e2e.console("eco set " + name + " 0");
+        setSlot(e2e, name, 9, ItemStack.of(Material.EMERALD, 30));
+        e2e.expect(e2e.gridCopy(name, "sell_grid").isEmpty(), "no copy before");
+        openScreen(e2e, bot, "sell", "Sell items");
+        bot.clickSlot(BELOW_SIX_ROWS_MAIN, 0, ContainerInput.QUICK_MOVE);
+        e2e.eventually(() -> slotName(bot, 48).contains("Total $7,500"), "30 emeralds in the grid: " + slotName(bot, 48));
+
+        e2e.step("the player's data holds a copy of the grid while the menu is open");
+        e2e.eventually(() -> e2e.gridCopyCount(name, "sell_grid", Material.EMERALD) == 30, "the copy holds the 30 emeralds");
+
+        e2e.step("Give back empties the grid and the copy");
+        e2e.sleep(300);
+        bot.clickSlot(46);
+        e2e.eventually(() -> count(e2e, name, Material.EMERALD) == 30, "the emeralds are back");
+        e2e.eventually(() -> e2e.gridCopy(name, "sell_grid").isEmpty(), "the copy is gone");
+
+        e2e.step("selling from the grid drops the sold items from the copy");
+        setSlot(e2e, name, 0, null);
+        setSlot(e2e, name, 9, ItemStack.of(Material.EMERALD, 30));
+        e2e.onPlayer(name, () -> {
+            PlayerInventory inventory = e2e.player(name).getInventory();
+            for (int slot = 0; slot < 36; slot++) {
+                if (slot != 9) {
+                    inventory.setItem(slot, null);
+                }
+            }
+            inventory.setItem(10, ItemStack.of(Material.STICK, 5));
+            return null;
+        });
+        e2e.sleep(300);
+        bot.clickSlot(BELOW_SIX_ROWS_MAIN, 0, ContainerInput.QUICK_MOVE);
+        e2e.sleep(300);
+        bot.clickSlot(BELOW_SIX_ROWS_MAIN + 1, 0, ContainerInput.QUICK_MOVE);
+        e2e.eventually(() -> e2e.gridCopyCount(name, "sell_grid", Material.STICK) == 5
+            && e2e.gridCopyCount(name, "sell_grid", Material.EMERALD) == 30, "the copy holds both");
+        e2e.sleep(300);
+        bot.clickSlot(50);
+        e2e.eventually(() -> e2e.money(name) == 7_500, "sold the emeralds (has " + e2e.money(name) + ")");
+        e2e.eventually(() -> e2e.gridCopyCount(name, "sell_grid", Material.EMERALD) == 0
+            && e2e.gridCopyCount(name, "sell_grid", Material.STICK) == 5, "the copy keeps only the unsold sticks");
+
+        e2e.step("closing clears the copy");
+        bot.closeScreen();
+        e2e.eventually(() -> count(e2e, name, Material.STICK) == 5, "the sticks are back");
+        e2e.eventually(() -> e2e.gridCopy(name, "sell_grid").isEmpty(), "no copy after closing");
+
+        e2e.step("a copy left in the saved data by a crash comes back on the next join");
+        // Saved with the copy, then a crash: leaving normally would drop a copy no open menu stands behind.
+        UUID uuid = e2e.uuid(name);
+        e2e.setGridCopy(name, "sell_grid", List.of(ItemStack.of(Material.GOLD_INGOT, 12), ItemStack.of(Material.IRON_INGOT, 3)));
+        e2e.savePlayer(name);
+        e2e.crashTo(bot, uuid, e2e.savedPlayerFile(uuid));
+        Bot back = e2e.bot(name);
+        e2e.eventually(() -> count(e2e, name, Material.GOLD_INGOT) == 12 && count(e2e, name, Material.IRON_INGOT) == 3,
+            "the 12 gold and 3 iron are back in the inventory");
+        e2e.eventually(() -> back.chatContains("The items you left in the sell menu when the server stopped are back in your inventory."),
+            "told: " + back.chat());
+        e2e.expect(e2e.gridCopy(name, "sell_grid").isEmpty(), "the copy is gone, so nothing comes back twice");
+        e2e.kick(back, "e2e: once more");
+        e2e.sleep(500);
+        e2e.bot(name);
+        e2e.sleep(500);
+        e2e.expect(count(e2e, name, Material.GOLD_INGOT) == 12, "still 12 gold after joining again");
+    }
+
+    /** Leaves exactly {@code amount} emeralds in main inventory slot 9 (the first slot below the menu) and nothing else. */
+    private static void onlyEmeralds(E2E e2e, String name, int amount) {
+        clear(e2e, name);
+        setSlot(e2e, name, 9, ItemStack.of(Material.EMERALD, amount));
+    }
+
+    /** Opens /sell and moves the emeralds of slot 9 into the grid; waits until the copy holds them. */
+    private static void emeraldsInGrid(E2E e2e, Bot bot, String name, int amount) {
+        openScreen(e2e, bot, "sell", "Sell items");
+        bot.clickSlot(BELOW_SIX_ROWS_MAIN, 0, ContainerInput.QUICK_MOVE);
+        e2e.eventually(() -> gridCount(e2e, name, Material.EMERALD) == amount, amount + " emeralds in the grid");
+        e2e.eventually(() -> e2e.gridCopyCount(name, "sell_grid", Material.EMERALD) == amount, "the copy holds them");
+    }
+
+    /**
+     * What a crash leaves on disk: the player file saved while emeralds sit in the sell grid gives them back once, and
+     * the file saved when the grid gives them back holds them once too, also when /sell replaced the menu in the same
+     * moment it closed. Before, that last case left a stale copy next to the returned emeralds, so a crash (or simply
+     * leaving before the new menu opened) handed them out twice.
+     */
+    static void sellGridCrash(E2E e2e) {
+        String name = e2e.name("SellCrash");
+        Bot bot = e2e.bot(name);
+        UUID uuid = e2e.uuid(name);
+        e2e.console("eco set " + name + " 0");
+
+        e2e.step("a crash while emeralds sit in the grid (after a save) gives them back once");
+        onlyEmeralds(e2e, name, 30);
+        emeraldsInGrid(e2e, bot, name, 30);
+        e2e.savePlayer(name);
+        e2e.crashTo(bot, uuid, e2e.savedPlayerFile(uuid));
+        bot = e2e.bot(name);
+        e2e.sleep(500);
+        e2e.expect(count(e2e, name, Material.EMERALD) == 30, "the 30 emeralds came back once: " + count(e2e, name, Material.EMERALD));
+
+        e2e.step("a crash right after closing the menu keeps the emeralds once");
+        onlyEmeralds(e2e, name, 30);
+        emeraldsInGrid(e2e, bot, name, 30);
+        bot.closeScreen();
+        e2e.eventually(() -> count(e2e, name, Material.EMERALD) == 30, "the emeralds are back");
+        e2e.crashTo(bot, uuid, e2e.savedPlayerFile(uuid));
+        bot = e2e.bot(name);
+        e2e.sleep(500);
+        e2e.expect(count(e2e, name, Material.EMERALD) == 30, "still 30 emeralds: " + count(e2e, name, Material.EMERALD));
+
+        e2e.step("/sell, and the menu holding the emeralds closes before the new one is on screen; then a crash");
+        onlyEmeralds(e2e, name, 30);
+        emeraldsInGrid(e2e, bot, name, 30);
+        e2e.sleep(300);
+        // The command runs on the player's thread and puts the new menu on screen a tick later; the close arrives first.
+        e2e.onPlayer(name, () -> e2e.player(name).performCommand("sell"));
+        bot.closeScreen();
+        e2e.eventually(() -> count(e2e, name, Material.EMERALD) == 30, "the emeralds are back");
+        e2e.sleep(300);
+        e2e.expect(e2e.gridCopy(name, "sell_grid").isEmpty(), "no copy is left next to them: " + e2e.gridCopy(name, "sell_grid"));
+        e2e.crashTo(bot, uuid, e2e.savedPlayerFile(uuid));
+        Bot back = e2e.bot(name);
+        e2e.sleep(500);
+        e2e.expect(count(e2e, name, Material.EMERALD) == 30, "still 30 emeralds: " + count(e2e, name, Material.EMERALD));
+        e2e.expect(!back.chatContains("The items you left in the sell menu"), "nothing was given back a second time: " + back.chat());
+    }
+
+    /**
+     * The mastery dialogs over a sell menu never close it: a category sale that asks first returns to the details with
+     * the menu (and its grid) still there, Cancel does the same, and the price list has a Back that leads to the details.
+     */
+    static void sellMasteryStays(E2E e2e) {
+        String name = e2e.name("SellStay");
+        Bot bot = e2e.bot(name);
+        clear(e2e, name);
+        e2e.console("eco set " + name + " 0");
+        e2e.eventually(() -> "0".equals(e2e.onPlayer(name, () -> e2e.services().placeholders().resolve(e2e.player(name),
+            "sell_mastery_mining"))), "mastery loaded");
+        setSlot(e2e, name, 9, ItemStack.of(Material.EMERALD, 30));
+        setSlot(e2e, name, 10, ItemStack.of(Material.DIAMOND, 30));
+        openScreen(e2e, bot, "sell", "Sell items");
+        bot.clickSlot(BELOW_SIX_ROWS_MAIN, 0, ContainerInput.QUICK_MOVE);
+        e2e.eventually(() -> gridCount(e2e, name, Material.EMERALD) == 30, "30 emeralds in the grid");
+        e2e.sleep(300);
+        bot.clickSlot(52);
+        e2e.dialog(bot, "Sell mastery");
+        e2e.click(bot, "Mining");
+        e2e.dialog(bot, "Mining mastery");
+
+        e2e.step("selling $12,000 of diamonds asks first; Cancel returns to the details, the menu stays");
+        int before = bot.dialogs().size();
+        e2e.expect(bot.clickButton("Sell your Mining items (30 for $12,000)", Map.of()), "can sell the diamonds");
+        e2e.eventually(() -> bot.dialogs().size() > before && bot.dialog().title().contains("Sell Mining items"), "the confirmation");
+        int asked = bot.dialogs().size();
+        e2e.expect(bot.clickButton("Cancel", Map.of()), "can cancel");
+        e2e.eventually(() -> bot.dialogs().size() > asked && bot.dialog().title().contains("Mining mastery"), "the details again");
+        e2e.sleep(300);
+        e2e.expect(gridCount(e2e, name, Material.EMERALD) == 30 && count(e2e, name, Material.EMERALD) == 0,
+            "the menu is still open with the emeralds in its grid");
+
+        e2e.step("confirming sells the diamonds and returns to the details, the menu still there");
+        int again = bot.dialogs().size();
+        e2e.expect(bot.clickButton("Sell your Mining items (30 for $12,000)", Map.of()), "can sell the diamonds");
+        e2e.eventually(() -> bot.dialogs().size() > again && bot.dialog().title().contains("Sell Mining items"), "the confirmation");
+        int confirming = bot.dialogs().size();
+        e2e.expect(bot.clickButton("Sell for $12,000", Map.of()), "can confirm");
+        e2e.eventually(() -> e2e.money(name) == 12_000, "paid $12,000 (has " + e2e.money(name) + ")");
+        e2e.eventually(() -> bot.dialogs().size() > confirming && bot.dialog().title().contains("Mining mastery"),
+            "the details again, with the new progress");
+        e2e.sleep(300);
+        e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "the diamonds were sold");
+        e2e.expect(gridCount(e2e, name, Material.EMERALD) == 30 && count(e2e, name, Material.EMERALD) == 0,
+            "the menu is still open with the emeralds in its grid");
+
+        e2e.step("Prices opens the price list with a Back to the details");
+        Bot.Screen menu = bot.screen();
+        e2e.expect(bot.clickButton("Prices", Map.of()), "can open the prices");
+        e2e.eventually(() -> bot.screen() != null && bot.screen() != menu && bot.screen().title().equals("Prices"), "the price list");
+        e2e.eventually(() -> slotName(bot, 46).equals("Back"), "it has Back: " + slotName(bot, 46));
+        e2e.eventually(() -> count(e2e, name, Material.EMERALD) == 30, "the sell menu it replaced gave the emeralds back");
+        int listed = bot.dialogs().size();
+        bot.clickSlot(46);
+        e2e.eventually(() -> bot.dialogs().size() > listed && bot.dialog().title().contains("Mining mastery"), "Back shows the details");
+
+        e2e.step("and from there Back leads to a sell menu");
+        int details = bot.dialogs().size();
+        e2e.expect(bot.clickButton("Back", Map.of()), "can click Back");
+        e2e.eventually(() -> bot.dialogs().size() > details && bot.dialog().title().contains("Sell mastery"), "the list");
+        Bot.Screen prices = bot.screen();
+        e2e.expect(bot.clickButton("Back", Map.of()), "can click Back");
+        e2e.eventually(() -> bot.screen() != null && bot.screen() != prices && bot.screen().title().equals("Sell items"), "a sell menu");
+        bot.closeScreen();
+        e2e.sleep(300);
+        e2e.expect(count(e2e, name, Material.EMERALD) == 30, "30 emeralds in the end: " + count(e2e, name, Material.EMERALD));
     }
 }

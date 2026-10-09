@@ -85,7 +85,9 @@ Every sale goes through `SellService` and `SaleBuilder`, on the player's thread:
    orders are left out and the sale is worked out again (twice at most, then server only).
 5. **Remove before grant**: every slot is checked to still hold exactly the stack that was priced (`equals`) and
    emptied or reduced; every shulker box slot is checked to still hold the original box and replaced by the rebuilt
-   box (same positions, the sold stacks gone; an emptied plain box is a plain box again).
+   box (same positions, the sold stacks gone; an emptied plain box is a plain box again). The player is then saved
+   (`crash-safety.save-player-after-trade`) before the transaction runs, so a crash can never leave the items in the
+   player file next to stored money.
 6. **One `LedgerTx`**: `source(player, MONEY, serverTotal, kind "sell", ref "menu"/"hand"/"hand_all"/"all"/
    "category")`, then the order side (`OrderMarket#contribute`: escrow transfer, tax sink, guarded check, in-memory
    change, guarded SQL), then the mastery rows. Note: `64 minecraft:diamond, 32 minecraft:iron_ingot (312 from
@@ -93,10 +95,10 @@ Every sale goes through `SellService` and `SaleBuilder`, on the player's thread:
 7. **On failure** everything goes back: a slot that still holds what the sale left gets its original back, otherwise
    the taken items are handed to the player (inventory, then the claim box); nothing is ever dropped. An order
    refusal (`order_gone`, `order_price_changed`, ...) re-plans from fresh bids and retries once; if that fails too
-   it sells to the server only and says "Buy orders changed, so everything went to the server." If storing the
-   committed sale fails later, the items are given back the same way (to the claim box if the player left).
-8. `player.saveData()` when `crash-safety.save-player-after-trade` is on; after the sale is stored: buy-order owners
-   are told (`OrderMarket#committed`), then the receipt and any level-up.
+   it sells to the server only and says "Buy orders changed, so everything went to the server." The player is saved
+   again after a put-back. If storing the committed sale fails later, the items are given back the same way (to the
+   claim box if the player left or the server is stopping).
+8. After the sale is stored: buy-order owners are told (`OrderMarket#committed`), then the receipt and any level-up.
 
 **Receipt.** `You sold 64 diamond for $25,600.` (or `... with your 1.5x bonus.`, `... with your bonuses.`,
 `You sold 150 items for $9,000, $2,400 of it from buy orders.`) in chat with the success sound and a hover card:
@@ -119,6 +121,22 @@ server stop hands the grid back (inventory first, the rest to the claim box). Dy
 grid with the rest of the inventory (or keeps it with `keepInventory`), exactly as if the items had been in the
 inventory. Close-to-sell is deliberately not supported (it turns death loot into money).
 
+While items sit in the grid, a copy of them is kept in the player's own data (persistent data key `siftcore:sell_grid`,
+`ui.gui.GridBackup`). Every player save (autosave, a trade's save, quit) writes the inventory and the copy together, so
+the player file always holds each item exactly once: in the inventory or in the copy. The copy follows every change of
+the grid before anything can save the player (a click that takes an item out of a slot drops it from the copy right
+away), and is cleared when the items leave the grid (given back, sold, dropped at death). If the server crashes with
+the menu open, the copy in the last saved player file is given back when the player next joins ("The items you left in
+the sell menu when the server stopped are back in your inventory."), the rest into the claim box. A sale from the grid
+updates the copy before the player is saved.
+
+The copy covers every sell menu of the player that has not handed its grid back yet: usually one, for a moment two
+(`/sell` registers a new menu right away but puts it on screen a tick later, and the old one closes in between). Items
+handed back leave the copy first, then go into the inventory, the player is saved, and only then does what did not fit
+go to the claim box (`GridBackup#handBack`): the claim box is stored apart from the player file, so a crash can never
+leave the overflow both there and in the saved copy. At quit the copy is made to hold exactly what menus that never
+got on screen still have (nothing else), so a stale copy can't be saved next to items already given back.
+
 - Slot 45 **Add sellable items** (hopper): moves every plain sellable stack, and every shulker box with something
   sellable inside, from the hotbar (unless `skip-hotbar`) and storage into empty grid slots. Never the tool in the
   main hand, armor or the off hand; items that don't stack only when they sell. Each slot is read again right
@@ -130,7 +148,13 @@ inventory. Close-to-sell is deliberately not supported (it turns death loot into
 - Slot 50 **Sell**: remembers the total it showed; if the total is now lower (orders changed, a rank was lost)
   nothing is sold, the menu redraws and the action bar says "The total is now $X. Press Sell again." Equal or
   higher sells.
-- Slot 52 **Mastery** (book): the mastery dialog.
+- Slot 52 **Mastery** (book): the mastery dialog over the menu. Its footer is Back (not Close), which brings the same
+  menu back with its grid; a category's "Sell your <category> items" sells exactly what the button showed (the
+  inventory, never the grid under the dialog; when that changed it asks first with the new numbers) and shows the
+  category again with the new progress. When the sale asks first (above `confirm-above`), its Sell and Cancel return
+  to the category too; nothing in the mastery dialogs closes the menu under them. The category's Prices opens the
+  price list with a Back to the category (the price list replaces the menu, whose grid goes back to the inventory;
+  Back from the mastery list then opens a fresh menu).
 
 ## Buy orders
 
@@ -306,7 +330,12 @@ duplicates, derived categories), `MasteryTest` (levels, credit caps, additive mu
 no bids, overflow), `SalePlanTest` (per-category rounding), `MultipliersTest`, `SaleMathTest`, `ItemKeysTest`,
 `WorthFileTest`, `SellHistoryTest`, `core.item.ContainerItemsTest`. End to end (`tools/e2e`):
 `SellShopScenarios` (`sell-hand`, `sell-refusals`, `sell-all`, `sell-bonus`, `sell-menu`, `sell-menu-quit`,
-`sell-menu-death`, `worth`) and `SellPlusScenarios` (`sell-all-confirm`, `sell-hand-all`, `sell-shulker-hand`,
+`sell-menu-death`, `worth`, `sell-mastery-back`: Back from the mastery dialogs keeps the grid and a category sale sells
+only what it showed, `sell-grid-copy`: the copy in the player's data follows the grid and a copy left by a crash comes
+back once on the next join, `sell-grid-crash`: the player file on disk after a save with items in the grid, after a
+close, and after `/sell` replaced a menu that still held items gives each item back exactly once when the player joins
+after a simulated crash, `sell-mastery-stays`: a category sale that asks first returns to the details with the menu
+still open, and Prices has a Back) and `SellPlusScenarios` (`sell-all-confirm`, `sell-hand-all`, `sell-shulker-hand`,
 `sell-shulker-menu`, `sell-shulker-all`, `sell-shulker-failure`, `sell-combat-blocked`, `worth-browser-open`,
 `worth-details-sell`, `mastery-credit-and-level`, `sell-menu-add-and-giveback`, `sell-top-and-history`,
 `sell-traded-refused`, `sell-traded-block`, `sell-traded-bucket`, `sell-choose-items`).

@@ -16,7 +16,7 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
-import net.siftvanilla.siftcore.feature.sell.ItemHandout;
+import net.siftvanilla.siftcore.economy.ClaimHandouts;
 import net.siftvanilla.siftcore.feature.sell.Pricing;
 import net.siftvanilla.siftcore.feature.sell.SellLink;
 import net.siftvanilla.siftcore.feature.sell.ShopOffers;
@@ -46,6 +46,7 @@ public final class ShopFeature implements Feature, Listener {
     private final Setting<ShopSettings> settings;
     private final ShopItems items;
     private final RecentPurchases recent;
+    private final ClaimHandouts handouts;
     private final ShopMenus menus;
 
     /**
@@ -66,8 +67,9 @@ public final class ShopFeature implements Feature, Listener {
         services.permissions().declare(PERMISSION, "Open the shop with /shop", true);
         this.items = new ShopItems(spawners, services.lang());
         this.recent = new RecentPurchases(services.database(), this.logger);
-        PurchaseFlow purchases = new PurchaseFlow(services, this.settings, this.items,
-            new ItemHandout(services.deliveries(), this.logger), sell, combat, this.recent);
+        this.handouts = new ClaimHandouts(services.deliveries(), services.scheduler(), this.logger,
+            () -> services.core().get().savePlayerAfterTrade());
+        PurchaseFlow purchases = new PurchaseFlow(services, this.settings, this.items, this.handouts, sell, combat, this.recent);
         this.menus = new ShopMenus(services, this.settings, this.items, purchases, sell, this.recent);
     }
 
@@ -169,6 +171,16 @@ public final class ShopFeature implements Feature, Listener {
                         }
                         return CommandSupport.OK;
                     }))));
+    }
+
+    /**
+     * Purchases are stored with their items in the claim box; only the claim of the part that fits the inventory waits
+     * for storage and the buyer's thread. Let those claims finish and put whatever was not handed over back into the
+     * claim box before storage closes (players can no longer receive items, the region threads have stopped).
+     */
+    @Override
+    public void disable() {
+        this.handouts.shutdown(this.services.database()::flush, "shop purchases");
     }
 
     @Override

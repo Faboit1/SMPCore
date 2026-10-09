@@ -119,6 +119,7 @@ spawners:
 
   xp:
     collected: "<primary>Collected <xp> XP."
+    waiting: "<primary>You got <xp> XP that your spawners kept for you while you were away."
     none: "<primary>There's no XP to collect."
 
   list:

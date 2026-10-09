@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.spawners;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -40,6 +41,8 @@ import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
+import net.siftvanilla.siftcore.economy.ClaimHandouts;
+import net.siftvanilla.siftcore.economy.Handoffs;
 import net.siftvanilla.siftcore.economy.IdSequence;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import org.bukkit.Bukkit;
@@ -65,8 +68,11 @@ import org.bukkit.inventory.PlayerInventory;
  * <p>
  * Rules followed throughout: items leave their source before anything is granted (the hand before stacking, the
  * storage before items or money are handed out); granted items go into the claim box inside the transaction or
- * are handed out only after the transaction is committed; every check is repeated inside the transaction; and
- * whenever a transaction changes a storage it writes that storage's complete snapshot in the same database unit.
+ * are handed out only after the transaction is committed, through tracked hand-overs that end in the claim box when
+ * the player can't receive them (left, server stopping); stored XP moves into the player's {@link XpBox} in the
+ * transaction that takes it out of a spawner and is paid out from there; every check is repeated inside the
+ * transaction; and whenever a transaction changes a storage it writes that storage's complete snapshot in the same
+ * database unit.
  */
 final class SpawnerService {
 
@@ -92,6 +98,9 @@ final class SpawnerService {
     private final CombatStatus combat;
     private final VanishStatus vanish;
     private final Logger logger;
+    private final ClaimHandouts handouts;
+    private final XpBox xpBox;
+    private final Handoffs<Long> xpPayouts = new Handoffs<>();
     private final Map<String, Material> materials = new ConcurrentHashMap<>();
     private volatile IdSequence ids;
 
@@ -107,10 +116,36 @@ final class SpawnerService {
         this.combat = combat;
         this.vanish = vanish;
         this.logger = services.plugin().getLogger();
+        this.handouts = new ClaimHandouts(services.deliveries(), services.scheduler(), this.logger,
+            () -> services.core().get().savePlayerAfterTrade());
+        this.xpBox = new XpBox(services.ledger(), services.database(), this.logger);
     }
 
     void ids(IdSequence ids) {
         this.ids = ids;
+    }
+
+    /** XP waiting for players (loaded at startup). */
+    XpBox xpBox() {
+        return this.xpBox;
+    }
+
+    /**
+     * Shutdown, after the database flushed: stops taking XP out of XP boxes (what is waiting stays there for the next
+     * join), waits for claims, hand-overs and XP payouts whose storage answer is still on its way (storage completes
+     * commits on more than one thread, so a flush can return before their callbacks ran), then puts every item that was
+     * not handed over into the claim box and every bit of XP that was not paid out back into the XP box. Storage must
+     * still be open; flush it afterwards.
+     */
+    void drainHandovers(Duration timeout) {
+        this.xpPayouts.close();
+        boolean idle = this.handouts.awaitIdle(timeout);
+        idle &= this.xpPayouts.awaitIdle(timeout);
+        if (!idle) {
+            this.logger.warning("Some spawner items or XP were still waiting for storage at shutdown");
+        }
+        this.handouts.drain();
+        this.xpPayouts.drain();
     }
 
     SpawnerRegistry registry() {
@@ -356,7 +391,10 @@ final class SpawnerService {
         this.registry.loaded(pos.chunk(), now + this.settings.get().interval().toMillis());
         messenger().send(player, SpawnersMessages.PLACED, Arg.text("mob", lowerName(mob)));
         // The server uses the item up after this event. Saving the player once it is gone means a crash can't hand
-        // the item back while the spawner stays recorded (or is refunded when the chunk rolled back).
+        // the item back while the spawner stays recorded (or is refunded when the chunk rolled back). The player file
+        // can't be saved without the item any earlier than the next tick (a MONITOR handler can't take it out of the
+        // hand before the server does), so a hard crash within that one tick, after the insert was stored, could still
+        // leave both: an accepted window of about 50 ms that players can neither widen nor time.
         this.services.scheduler().entity(player, () -> saveIfConfigured(player), null);
         Location location = block.getLocation();
         result.committed().whenComplete((ignored, error) -> {
@@ -414,10 +452,12 @@ final class SpawnerService {
             messenger().send(player, SpawnersMessages.STACK_CANCELLED);
             return;
         }
-        // Remove before grant: the items leave the hand before the stack grows.
+        // Remove before grant: the items leave the hand, and the saved player file, before the stack grows, so a crash
+        // can never leave them both in the player file and in the stack.
         ItemStack taken = hand.asQuantity(adding);
         int left = hand.getAmount() - adding;
         inventory.setItem(slot, left <= 0 ? null : hand.asQuantity(left));
+        saveIfConfigured(player);
         int[] after = new int[1];
         LedgerTx tx = LedgerTx.builder().actor(player.getUniqueId()).silent().note("stack " + adding + " " + spawner.mob + " spawners")
             .check(() -> spawner.removed() ? "gone" : spawner.stack() + adding > cap ? "full" : null)
@@ -430,6 +470,7 @@ final class SpawnerService {
         TransactionResult result = this.services.ledger().executeDomain(tx);
         if (!result.success()) {
             putBack(player, slot, taken);
+            saveIfConfigured(player);
             switch (result.reason() == null ? "" : result.reason()) {
                 case "gone" -> messenger().send(player, SpawnersMessages.GONE);
                 case "full" -> messenger().send(player, SpawnersMessages.STACK_FULL, Arg.number("cap", cap));
@@ -437,7 +478,6 @@ final class SpawnerService {
             }
             return;
         }
-        saveIfConfigured(player);
         if (spawner.owner.equals(player.getUniqueId())) {
             messenger().send(player, SpawnersMessages.STACKED, Arg.number("amount", adding), Arg.text("mob", lowerName(spawner.mob)),
                 Arg.number("stack", after[0]), Arg.number("cap", cap));
@@ -446,10 +486,21 @@ final class SpawnerService {
             messenger().send(player, SpawnersMessages.STACKED_OTHER, Arg.number("amount", adding), Arg.text("owner", ownerName(spawner.owner)),
                 Arg.text("mob", lowerName(spawner.mob)), Arg.number("stack", after[0]), Arg.number("cap", cap));
         }
+        // Shutdown waits for this commit's callback, so a hand-over it starts is never left until storage closed.
+        this.handouts.begin();
         result.committed().whenComplete((ignored, error) -> {
-            if (error != null) {
-                // The stack went back down in memory; the spawners go back to the player.
-                deliver(player, List.of(taken), "stack-failed", () -> messenger().send(player, CoreMessages.ACTION_FAILED));
+            try {
+                if (error != null) {
+                    // The stack went back down in memory; the spawners go back to the player (or their claim box).
+                    messenger().send(player, CoreMessages.ACTION_FAILED);
+                    this.handouts.give(player, List.of(taken), Handout.SOURCE, "stack-failed").thenAccept(outcome -> {
+                        if (outcome.left() > 0) {
+                            messenger().send(player, SpawnersMessages.CLAIM_BOX, Arg.number("count", outcome.left()));
+                        }
+                    });
+                }
+            } finally {
+                this.handouts.end();
             }
         });
     }
@@ -520,49 +571,32 @@ final class SpawnerService {
         }
         CompletableFuture<Outcome> done = new CompletableFuture<>();
         String ref = "spawner:" + spawner.id;
+        // Shutdown waits for this commit's callback, so the hand-over it starts is never left until storage closed.
+        this.handouts.begin();
         result.committed().whenComplete((ignored, error) -> {
-            if (error != null) {
-                messenger().send(player, CoreMessages.ACTION_FAILED);
-                done.complete(Outcome.FAILED);
-                return;
-            }
-            List<ItemStack> stacks = Handout.stacks(unit, taken[0]);
-            deliver(player, stacks, ref, () -> messenger().send(player, SpawnersMessages.TOOK, Arg.number("amount", taken[0]),
-                Arg.component("item", itemName(material))))
-                .whenComplete((delivered, failure) -> done.complete(Outcome.DONE));
-        });
-        return done;
-    }
-
-    /**
-     * Gives items after a committed change, on the player's thread: into the inventory, the rest to the claim box;
-     * if the player left in between, everything goes to their claim box. {@code then} runs on the player's thread
-     * when they got the items.
-     */
-    CompletableFuture<Boolean> deliver(Player player, List<ItemStack> stacks, String ref, Runnable then) {
-        UUID uuid = player.getUniqueId();
-        CompletableFuture<Boolean> done = new CompletableFuture<>();
-        var task = this.services.scheduler().entity(player, () -> {
             try {
-                long claimed = this.handout.give(player, stacks, ref);
-                saveIfConfigured(player);
-                if (then != null) {
-                    then.run();
+                if (error != null) {
+                    messenger().send(player, CoreMessages.ACTION_FAILED);
+                    done.complete(Outcome.FAILED);
+                    return;
                 }
-                if (claimed > 0) {
-                    messenger().send(player, SpawnersMessages.CLAIM_BOX, Arg.number("count", claimed));
-                }
+                // The items left the storage with the commit: they are handed over on the player's thread, or go into
+                // their claim box when that can't happen (they left, the server is stopping).
+                List<ItemStack> stacks = Handout.stacks(unit, taken[0]);
+                this.handouts.give(player, stacks, Handout.SOURCE, ref).whenComplete((outcome, failure) -> {
+                    if (failure == null && outcome.handed() > 0) {
+                        messenger().send(player, SpawnersMessages.TOOK, Arg.number("amount", taken[0]),
+                            Arg.component("item", itemName(material)));
+                    }
+                    if (failure == null && outcome.left() > 0) {
+                        messenger().send(player, SpawnersMessages.CLAIM_BOX, Arg.number("count", outcome.left()));
+                    }
+                    done.complete(Outcome.DONE);
+                });
             } finally {
-                done.complete(true);
+                this.handouts.end();
             }
-        }, () -> {
-            this.handout.toClaimBox(uuid, stacks, ref);
-            done.complete(false);
         });
-        if (task == Task.NONE) {
-            this.handout.toClaimBox(uuid, stacks, ref);
-            done.complete(false);
-        }
         return done;
     }
 
@@ -741,7 +775,8 @@ final class SpawnerService {
             return CompletableFuture.completedFuture(Outcome.NOTHING);
         }
         SpawnerStore.Snapshot[] snapshot = new SpawnerStore.Snapshot[1];
-        LedgerTx tx = LedgerTx.builder().actor(player.getUniqueId()).silent().note("collect " + amount + " xp from spawner " + spawner.id)
+        LedgerTx.Builder tx = LedgerTx.builder().actor(player.getUniqueId()).silent()
+            .note("collect " + amount + " xp from spawner " + spawner.id)
             .check(() -> spawner.removed() ? "gone" : spawner.xp() < amount ? "changed" : null)
             .apply(() -> {
                 spawner.xp(spawner.xp() - amount);
@@ -750,9 +785,10 @@ final class SpawnerService {
                 spawner.xp(spawner.xp() + amount);
                 spawner.dirty(true);
             })
-            .write(c -> SpawnerStore.persist(snapshot[0]).run(c))
-            .build();
-        TransactionResult result = this.services.ledger().executeDomain(tx);
+            .write(c -> SpawnerStore.persist(snapshot[0]).run(c));
+        // The XP moves into the player's XP box with the same commit, and is paid out of it on their thread.
+        this.xpBox.credit(tx, player.getUniqueId(), amount);
+        TransactionResult result = this.services.ledger().executeDomain(tx.build());
         if (!result.success()) {
             if ("gone".equals(result.reason())) {
                 messenger().send(player, SpawnersMessages.GONE);
@@ -770,17 +806,65 @@ final class SpawnerService {
                 done.complete(Outcome.FAILED);
                 return;
             }
-            var task = this.services.scheduler().entity(player, () -> {
-                giveXp(player, amount);
-                messenger().send(player, SpawnersMessages.XP_COLLECTED, Arg.number("xp", amount));
-                done.complete(Outcome.DONE);
-            }, () -> {
-                returnXp(spawner, amount);
-                done.complete(Outcome.FAILED);
-            });
-            if (task == Task.NONE) {
-                returnXp(spawner, amount);
-                done.complete(Outcome.FAILED);
+            payOutXp(player, SpawnersMessages.XP_COLLECTED)
+                .whenComplete((given, failure) -> done.complete(failure == null && given > 0 ? Outcome.DONE : Outcome.FAILED));
+        });
+        return done;
+    }
+
+    /**
+     * Pays out all XP waiting in the player's XP box: takes it out in a transaction, then gives it on the player's
+     * thread once that is stored (with {@code message}, if not null). If it can't be given after all (they left, the
+     * server is stopping), it goes back into the box for their next join. Completes with the XP given (0 when none
+     * was). Safe from any thread.
+     */
+    CompletableFuture<Long> payOutXp(Player player, MessageKey message) {
+        UUID uuid = player.getUniqueId();
+        if (!player.isOnline() || this.xpBox.waiting(uuid) <= 0) {
+            return CompletableFuture.completedFuture(0L);
+        }
+        // Once shutdown began the XP stays in the box (stored) rather than being taken out when it could no longer be
+        // put back; a payout already under way is waited for (see drainHandovers).
+        if (!this.xpPayouts.beginUnlessClosed()) {
+            return CompletableFuture.completedFuture(0L);
+        }
+        XpBox.Taken taken;
+        try {
+            taken = this.xpBox.take(uuid);
+        } catch (RuntimeException e) {
+            this.xpPayouts.end();
+            throw e;
+        }
+        if (!taken.result().success() || taken.xp() <= 0) {
+            this.xpPayouts.end();
+            return CompletableFuture.completedFuture(0L);
+        }
+        long xp = taken.xp();
+        CompletableFuture<Long> done = new CompletableFuture<>();
+        taken.result().committed().whenComplete((ignored, error) -> {
+            try {
+                if (error != null) {
+                    // Rolled back: the XP is still waiting in the box.
+                    done.complete(0L);
+                    return;
+                }
+                this.xpPayouts.hand(this.services.scheduler(), player, xp, amount -> {
+                    if (!player.isOnline()) {
+                        this.xpBox.credit(uuid, amount, "its player left before it was paid out");
+                        done.complete(0L);
+                        return;
+                    }
+                    giveXp(player, amount);
+                    if (message != null) {
+                        messenger().send(player, message, Arg.number("xp", amount));
+                    }
+                    done.complete(amount);
+                }, amount -> {
+                    this.xpBox.credit(uuid, amount, "its player left before it was paid out");
+                    done.complete(0L);
+                });
+            } finally {
+                this.xpPayouts.end();
             }
         });
         return done;
@@ -795,18 +879,6 @@ final class SpawnerService {
             player.giveExp(part, mending);
             left -= part;
         }
-    }
-
-    /** Puts XP back into a spawner after the player left before receiving it (ignoring the cap). */
-    private void returnXp(ManagedSpawner spawner, long amount) {
-        LedgerTx tx = LedgerTx.builder().actor("system").silent().note("return " + amount + " xp to spawner " + spawner.id)
-            .check(() -> spawner.removed() ? "gone" : null)
-            .apply(() -> {
-                spawner.xp(spawner.xp() + amount);
-                spawner.dirty(true);
-            }, () -> spawner.xp(spawner.xp() - amount))
-            .build();
-        this.services.ledger().executeDomain(tx);
     }
 
     // ------------------------------------------------------------------ picking up
@@ -857,9 +929,11 @@ final class SpawnerService {
     }
 
     /**
-     * Picks a spawner up (MONITOR): one transaction removes it, sends its storage to the owner (claim box or sold)
-     * and puts spawner items that won't fit the player's inventory into their claim box. After the commit the rest
-     * of the spawner items and the stored XP go to the player. False means the pickup must be cancelled.
+     * Picks a spawner up (MONITOR): one transaction removes it, sends its storage to the owner (claim box or sold),
+     * puts all its spawner items into the breaker's claim box and its stored XP into the breaker's XP box. After the
+     * commit the spawner items that fit are claimed into the inventory and the XP is paid out, both on the breaker's
+     * thread; whatever can't be (the breaker left, the server stopped) waits for them. False means the pickup must be
+     * cancelled.
      */
     boolean pickUp(Player player, ManagedSpawner spawner) {
         SpawnersSettings s = this.settings.get();
@@ -871,6 +945,8 @@ final class SpawnerService {
         UUID breaker = player.getUniqueId();
         UUID owner = spawner.owner;
         String ref = "spawner:" + spawner.id;
+        // The spawner items that fit the inventory now get a reference of their own, to be claimed after the commit.
+        String handRef = ref + ":pickup";
         ItemStack unit = this.items.item(spawner.mob, 1);
         long toInventory = Math.min(state.stack(), Handout.room(player, unit));
         long toClaimBox = state.stack() - toInventory;
@@ -915,9 +991,13 @@ final class SpawnerService {
                 claimItems += line.getValue();
             }
         }
+        if (toInventory > 0) {
+            this.handout.addTo(tx, breaker, unit, toInventory, handRef);
+        }
         if (toClaimBox > 0) {
             this.handout.addTo(tx, breaker, unit, toClaimBox, ref);
         }
+        this.xpBox.credit(tx, breaker, state.xp());
         TransactionResult result = this.services.ledger().execute(tx.build());
         if (!result.success()) {
             switch (result.reason() == null ? "" : result.reason()) {
@@ -937,17 +1017,20 @@ final class SpawnerService {
                 messenger().send(player, CoreMessages.ACTION_FAILED);
                 return;
             }
-            deliver(player, Handout.stacks(unit, toInventory), ref, () -> {
-                if (xp > 0) {
-                    giveXp(player, xp);
-                }
-                pickedUp(player, spawner, stack, toClaimBox, stored, sold, xp);
-            });
+            // Everything is stored for the breaker already: what can't be handed over now simply waits for them.
+            Handoffs.onEntity(this.services.scheduler(), player, () -> this.handouts.claim(player, Handout.SOURCE, handRef)
+                .whenComplete((outcome, failure) -> {
+                    long inClaimBox = toClaimBox + (failure != null || outcome.failed() ? toInventory : outcome.left());
+                    pickedUp(player, spawner, stack, inClaimBox, stored, sold);
+                }), () -> { });
+            if (xp > 0) {
+                payOutXp(player, SpawnersMessages.XP_COLLECTED);
+            }
         });
         return true;
     }
 
-    private void pickedUp(Player player, ManagedSpawner spawner, int stack, long spawnersInClaimBox, long stored, Sale sold, long xp) {
+    private void pickedUp(Player player, ManagedSpawner spawner, int stack, long spawnersInClaimBox, long stored, Sale sold) {
         String mob = lowerName(spawner.mob);
         if (stack == 1) {
             messenger().send(player, SpawnersMessages.PICKED_UP_ONE, Arg.text("mob", mob));
@@ -969,9 +1052,6 @@ final class SpawnerService {
             } else {
                 messenger().send(player, SpawnersMessages.STORAGE_TO_OWNER_CLAIM_BOX, Arg.number("count", stored), Arg.text("owner", owner));
             }
-        }
-        if (xp > 0) {
-            messenger().send(player, SpawnersMessages.XP_COLLECTED, Arg.number("xp", xp));
         }
         if (!own) {
             Player ownerOnline = Bukkit.getPlayer(spawner.owner);
@@ -1014,9 +1094,9 @@ final class SpawnerService {
 
     /**
      * Refunds a spawner whose block is gone (removed by an admin tool, a world edit, or a pickup whose storage write
-     * failed): the record is deleted and its spawners and stored items go to the owner's claim box, in one
-     * transaction. Stored XP can't go into a claim box: an online owner gets it, otherwise it is lost. An online owner
-     * is told. Safe from any thread.
+     * failed): the record is deleted, its spawners and stored items go to the owner's claim box and its stored XP into
+     * the owner's XP box, in one transaction. An online owner is told and gets the XP right away; an offline owner gets
+     * it when they next join. Safe from any thread.
      */
     void orphan(ManagedSpawner spawner, String why) {
         ManagedSpawner.State state = state(spawner);
@@ -1047,6 +1127,7 @@ final class SpawnerService {
                 items += line.getValue();
             }
         }
+        this.xpBox.credit(tx, spawner.owner, state.xp());
         TransactionResult result = this.services.ledger().executeDomain(tx.build());
         if (!result.success()) {
             if (!"gone".equals(result.reason())) {
@@ -1061,22 +1142,20 @@ final class SpawnerService {
                 this.logger.log(Level.SEVERE, "Refunding spawner " + spawner.id + " could not be stored; it will be tried again", error);
                 return;
             }
-            // XP can't wait in a claim box: an online owner gets it right away, otherwise it is lost.
+            // The XP waits in the owner's XP box: an online owner gets it right away, otherwise when they next join.
             Player owner = Bukkit.getPlayer(spawner.owner);
-            boolean xpGiven = owner != null && state.xp() > 0
-                && this.services.scheduler().entity(owner, () -> giveXp(owner, state.xp()), null) != Task.NONE;
             if (owner != null) {
                 messenger().send(owner, SpawnersMessages.REFUNDED, Arg.text("mob", lowerName(spawner.mob)), Arg.number("amount", state.stack()),
                     Arg.text("location", spawner.pos.coordinates()), Arg.text("world", spawner.pos.world()), Arg.number("count", stored));
-                if (xpGiven) {
-                    messenger().send(owner, SpawnersMessages.REFUNDED_XP, Arg.number("xp", state.xp()));
+                if (state.xp() > 0) {
+                    payOutXp(owner, SpawnersMessages.REFUNDED_XP);
                 }
             }
             this.logger.warning("Refunded spawner " + spawner.id + " (" + state.stack() + " " + spawner.mob + " at " + spawner.pos.world()
                 + " " + spawner.pos.coordinates() + ", owner " + ownerName(spawner.owner) + ") because " + why + ": its " + state.stack()
                 + " spawners and " + stored + " stored items went to the owner's claim box"
-                + (state.xp() <= 0 ? "" : xpGiven ? " and its " + state.xp() + " stored XP to the owner" : " (" + state.xp()
-                + " stored XP was lost: the owner is offline)") + ".");
+                + (state.xp() <= 0 ? "" : " and its " + state.xp() + " stored XP to the owner's XP box"
+                + (owner != null ? " (paid out now)" : " (paid out when they next join)")) + ".");
         });
     }
 

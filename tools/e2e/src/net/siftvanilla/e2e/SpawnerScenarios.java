@@ -72,6 +72,7 @@ final class SpawnerScenarios {
         list.add(of("spawners-refund", SpawnerScenarios::refund));
         list.add(of("spawners-crates", SpawnerScenarios::crates));
         list.add(of("spawners-persist", SpawnerScenarios::persist));
+        list.add(of("spawners-left-before-commit", SpawnerScenarios::leftBeforeCommit));
         return list;
     }
 
@@ -490,6 +491,94 @@ final class SpawnerScenarios {
         e2e.expect(count(e2e, name, Material.SPAWNER) == 5, "no vanilla spawner item dropped or given");
         List<String> listed = e2e.consoleOutput("spawners list " + name);
         e2e.expect(listed.stream().anyMatch(line -> line.contains(name + " has no spawners.")), "the console list is empty: " + listed);
+    }
+
+    /** Items of a player waiting in the claim box from spawners (works while they are offline). */
+    private static int claimBoxItems(E2E e2e, UUID uuid, java.util.function.Predicate<ItemStack> which) {
+        return e2e.services().deliveries().of(uuid).stream()
+            .filter(delivery -> "spawner".equals(delivery.source()) && which.test(delivery.item()))
+            .mapToInt(delivery -> delivery.item().getAmount()).sum();
+    }
+
+    /**
+     * Taking items and picking a spawner up while storage is slow, then leaving before the change is stored: the items
+     * wait in the claim box and the stored XP in the player's XP box, paid out when they join again. The XP used to be
+     * destroyed with the spawner.
+     */
+    static void leftBeforeCommit(E2E e2e) throws Exception {
+        String name = e2e.name("SpLeft");
+        Bot bot = e2e.bot(name);
+        UUID uuid = e2e.uuid(name);
+        clear(e2e, name);
+        e2e.console("spawners give " + name + " skeleton 5");
+        e2e.eventually(() -> spawnerItems(e2e, name, "skeleton") == 5, "5 skeleton spawners");
+        select(e2e, name, 0);
+        int[] at = workSpot(e2e, name, -2, 2);
+        place(e2e, bot, at, 1);
+        sneak(e2e, bot, true);
+        use(bot, at);
+        e2e.eventually(() -> number(e2e, name, "spawners_stacked") == 5, "a stack of 5");
+        sneak(e2e, bot, false);
+        cycle(e2e, name);
+        long xp = number(e2e, name, "spawners_xp");
+        e2e.expect(xp > 0, "the spawner holds XP: " + xp);
+
+        e2e.step("take a stack while storage is slow, and leave before it is stored");
+        openStorage(e2e, bot, at, "Skeleton spawner");
+        long stored = number(e2e, name, "spawners_stored");
+        int waitingBefore = claimBoxItems(e2e, uuid, item -> item.getType() != Material.SPAWNER);
+        java.util.concurrent.CompletableFuture<Object> stall = e2e.stallStorage(3_000);
+        bot.clickSlot(0);
+        e2e.eventually(() -> number(e2e, name, "spawners_stored") < stored, "taken out of the storage at once");
+        long took = stored - number(e2e, name, "spawners_stored");
+        e2e.kick(bot, "e2e: leaving before the take is stored");
+        e2e.expect(!stall.isDone(), "the take was still waiting for storage");
+        stall.get(10, TimeUnit.SECONDS);
+        e2e.eventually(() -> claimBoxItems(e2e, uuid, item -> item.getType() != Material.SPAWNER) - waitingBefore == took,
+            "the " + took + " taken items wait in the claim box");
+
+        e2e.step("pick the spawner up while storage is slow, and leave before it is stored");
+        bot = e2e.bot(name);
+        clear(e2e, name);
+        e2e.onPlayer(name, () -> {
+            e2e.player(name).getAttribute(Attribute.BLOCK_BREAK_SPEED).setBaseValue(1_000);
+            return null;
+        });
+        ItemStack silk = ItemStack.of(Material.DIAMOND_PICKAXE);
+        silk.addEnchantment(Enchantment.SILK_TOUCH, 1);
+        hold(e2e, name, 0, silk);
+        int expBefore = e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience());
+        ItemStack skeleton = items(e2e).create("skeleton", 1).orElseThrow();
+        int spawnersBefore = claimBoxItems(e2e, uuid, item -> item.isSimilar(skeleton));
+        // The bot may stand far from the spawner after rejoining: walk it back next to the block.
+        Location next = e2e.onPlayer(name, () -> new Location(e2e.player(name).getWorld(), at[0] + 0.5, at[1], at[2] - 1.5));
+        e2e.player(name).teleportAsync(next);
+        Bot picker = bot;
+        e2e.eventually(() -> Math.abs(picker.x() - next.getX()) < 0.6 && Math.abs(picker.z() - next.getZ()) < 0.6, "back at the spawner");
+        e2e.sleep(300);
+        stall = e2e.stallStorage(3_000);
+        bot.breakBlock(at[0], at[1], at[2]);
+        e2e.eventually(() -> blockType(e2e, name, at) == Material.AIR, "the spawner was picked up");
+        e2e.kick(bot, "e2e: leaving before the pickup is stored");
+        e2e.expect(!stall.isDone(), "the pickup was still waiting for storage");
+        stall.get(10, TimeUnit.SECONDS);
+        e2e.eventually(() -> claimBoxItems(e2e, uuid, item -> item.isSimilar(skeleton)) - spawnersBefore == 5,
+            "the 5 spawner items wait in the claim box");
+
+        e2e.step("joining again pays out the stored XP");
+        e2e.sleep(500);
+        Bot back = e2e.bot(name);
+        e2e.eventually(() -> e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience()) == expBefore + xp,
+            "the " + xp + " stored XP was paid on joining (total " + e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience()) + ")");
+        e2e.eventually(() -> back.chatContains("You got " + String.format(java.util.Locale.ROOT, "%,d", xp)
+            + " XP that your spawners kept for you while you were away."), "told: " + back.chat());
+        e2e.eventually(() -> storedSpawners(e2e, name) == 0, "the spawner row is deleted");
+        e2e.step("it is paid once");
+        e2e.kick(back, "e2e: once more");
+        e2e.sleep(500);
+        e2e.bot(name);
+        e2e.sleep(1_000);
+        e2e.expect(e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience()) == expBefore + xp, "no second payout");
     }
 
     static void access(E2E e2e) {

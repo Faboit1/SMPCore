@@ -126,7 +126,7 @@ public final class SellFeature implements Feature, Listener {
         this.history = new SellHistory(services);
         this.dialogs = new SellDialogs(services, this.worth, this.settings, this.sales, this.bids, this.mastery, this.top,
             this.shop::get);
-        this.dialogs.browser((player, category, query) -> openBrowser(player, category, query));
+        this.dialogs.browser(this::openBrowser);
         this.sales.chooseItems(this.menus::openFilled);
         this.menus.onMastery(this.dialogs::mastery);
         this.trades = new TradeGuard(() -> this.settings.get().markTrades(), services.scheduler()::owns);
@@ -156,8 +156,12 @@ public final class SellFeature implements Feature, Listener {
     }
 
     private void openBrowser(Player player, String category, String query) {
+        openBrowser(player, category, query, null);
+    }
+
+    private void openBrowser(Player player, String category, String query, Runnable back) {
         WorthBrowser.open(this.services, player, this.worth, this.settings, this.sales, this.bids, this.shop::get,
-            this.dialogs, category, query);
+            this.dialogs, category, query, back);
     }
 
     @Override

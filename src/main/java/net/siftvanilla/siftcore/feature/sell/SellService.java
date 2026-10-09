@@ -29,6 +29,7 @@ import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.Lang;
+import net.siftvanilla.siftcore.economy.Handoffs;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
@@ -218,6 +219,36 @@ final class SellService {
     }
 
     /**
+     * The mastery details' Sell button: sells what the button showed ({@code shown}). When the inventory no longer
+     * makes exactly that sale, nothing is sold and the confirmation shows the new count and total instead. The
+     * confirmation closes nothing: its Cancel, and its Sell once done, show {@code back} (the details) again.
+     */
+    Outcome sellCategory(Player player, String category, SaleDraft shown, Runnable back) {
+        if (blocked(player)) {
+            return Outcome.NOTHING;
+        }
+        SaleRequest request = SaleRequest.category(category);
+        SaleBuilder.Result result = fresh(player, player.getInventory(), request, routing(player), Set.of());
+        if (result.draft() == null) {
+            refuse(player, result, null);
+            return Outcome.NOTHING;
+        }
+        SaleDraft draft = result.draft();
+        if (!draft.sameAs(shown)) {
+            this.services.dialogs().show(player, confirmView(player, request, draft,
+                this.services.lang().get(SellMessages.CONFIRM_CHANGED), back, true));
+            this.services.messenger().feedback(player, Feedback.ERROR);
+            return Outcome.ASKED;
+        }
+        boolean asking = this.services.settings().enabled(player.getUniqueId(), CONFIRM);
+        if (this.settings.get().sellAll().asks(draft.total(), asking)) {
+            this.services.dialogs().show(player, confirmView(player, request, draft, null, back, true));
+            return Outcome.ASKED;
+        }
+        return execute(player, request, draft);
+    }
+
+    /**
      * The sell menu's Sell button: sells the grid unless the total dropped below what the button showed (orders
      * changed, a rank was lost), in which case nothing is sold and the player sees the new total.
      */
@@ -260,6 +291,15 @@ final class SellService {
 
     /** The "Sell everything" dialog for a draft, with an optional error line; Cancel returns to {@code back} if set. */
     View confirmView(Player player, SaleRequest request, SaleDraft draft, Component error, Runnable back) {
+        return confirmView(player, request, draft, error, back, false);
+    }
+
+    /**
+     * {@link #confirmView(Player, SaleRequest, SaleDraft, Component, Runnable)}; with {@code stay} the confirmation
+     * never closes anything: Cancel, and Sell once done, show {@code back} in its place (the mastery details, which can
+     * sit over a sell menu that closing would close and empty).
+     */
+    private View confirmView(Player player, SaleRequest request, SaleDraft draft, Component error, Runnable back, boolean stay) {
         Lang lang = this.services.lang();
         List<Component> lines = new ArrayList<>();
         lines.addAll(lang.lines(SellMessages.CONFIRM_BODY, Arg.number("count", draft.count()), Arg.money("total", draft.total())));
@@ -287,40 +327,47 @@ final class SellService {
                 Arg.text("category", this.worth.categories().name(request.target())));
             default -> lang.get(SellMessages.CONFIRM_TITLE);
         };
+        boolean returns = stay && back != null;
         Button sell = Button.of(lang.get(SellMessages.CONFIRM_SELL,
-            Arg.text("total", this.services.money().get().format(draft.total()))), s -> onConfirm(s.player(), request, draft, s, back))
-            .width(150);
+            Arg.text("total", this.services.money().get().format(draft.total()))),
+            s -> onConfirm(s.player(), request, draft, s, back, returns)).width(150);
         Button choose = Button.of(lang.get(SellMessages.CONFIRM_CHOOSE), s -> {
             s.close();
             this.chooseItems.accept(s.player(), request);
         }).width(150);
         Button cancel = Button.of(lang.get(CoreMessages.UI_CANCEL), back == null ? null : s -> {
-            s.close();
+            if (!returns) {
+                s.close();
+            }
             back.run();
         }).width(Button.DEFAULT_WIDTH + 100);
         View view = new View(View.Kind.LIST, title, body, List.of(), List.of(sell, choose), cancel, 2, true);
         return error == null ? view : view.withError(error, FormValues.EMPTY);
     }
 
+    /** Sell on the confirmation; {@code returns}: show {@code back} when done instead of closing (see {@code stay}). */
     private void onConfirm(Player player, SaleRequest request, SaleDraft shown,
-                           Submission s, Runnable back) {
+                           Submission s, Runnable back, boolean returns) {
+        Runnable done = returns ? back : s::close;
         if (blocked(player)) {
-            s.close();
+            done.run();
             return;
         }
         SaleBuilder.Result now = fresh(player, player.getInventory(), request, routing(player), Set.of());
         if (now.draft() == null) {
-            s.close();
+            done.run();
             refuse(player, now, null);
             return;
         }
         if (!now.draft().sameAs(shown)) {
-            s.show(confirmView(player, request, now.draft(), this.services.lang().get(SellMessages.CONFIRM_CHANGED), back));
+            s.show(confirmView(player, request, now.draft(), this.services.lang().get(SellMessages.CONFIRM_CHANGED), back, returns));
             this.services.messenger().feedback(player, Feedback.ERROR);
             return;
         }
-        s.close();
+        // Sell first: closing can give back a sell menu's grid that was open under the dialog, which would change the
+        // inventory the draft was made from.
         execute(player, request, now.draft());
+        done.run();
     }
 
     // ------------------------------------------------------------------ selling
@@ -361,9 +408,14 @@ final class SellService {
         List<Moved> moved = new ArrayList<>();
         if (!take(draft, moved)) {
             putBack(player, draft.inventory(), moved);
+            gridChanged(draft);
             this.services.messenger().send(player, SellMessages.FAILED);
             return Outcome.FAILED;
         }
+        // Remove before grant: the items leave the player file (or the sell menu's copy in it) before the money can be
+        // stored, so a crash in between can never leave the items with the player and the money too.
+        gridChanged(draft);
+        saveIfConfigured(player);
         UUID uuid = player.getUniqueId();
         Map<String, Integer> levelsBefore = levels(uuid, draft.credits().keySet());
         LedgerTx.Builder tx = LedgerTx.builder()
@@ -380,6 +432,8 @@ final class SellService {
         TransactionResult result = this.services.ledger().execute(tx.build());
         if (!result.success()) {
             putBack(player, draft.inventory(), moved);
+            gridChanged(draft);
+            saveIfConfigured(player);
             if (result.status() == TransactionStatus.REJECTED && OrderMarket.Refusal.of(result.reason()) != null && round < 2) {
                 SaleBuilder.Result again = round == 0
                     ? fresh(player, draft.inventory(), request, routing(player), Set.of())
@@ -402,13 +456,13 @@ final class SellService {
             }
             return result.status() == TransactionStatus.CANCELLED ? Outcome.CANCELLED : Outcome.FAILED;
         }
-        saveIfConfigured(player);
         Map<String, Integer> levelsAfter = levels(uuid, draft.credits().keySet());
         SaleDraft sold = draft;
         result.committed().whenComplete((ignored, error) -> {
             if (error != null) {
-                // Storage failed and the money (and mastery) was taken back, so the items go back too.
-                this.services.scheduler().entity(player, () -> {
+                // Storage failed and the money (and mastery) was taken back, so the items go back too: on the seller's
+                // thread, or into their claim box when they left (or the server is stopping) before that can run.
+                Handoffs.onEntity(this.services.scheduler(), player, () -> {
                     restoreAfterFailure(player, sold, moved);
                     saveIfConfigured(player);
                     this.services.messenger().send(player, SellMessages.FAILED);
@@ -467,6 +521,13 @@ final class SellService {
             return null;
         }
         return serverOnly.draft();
+    }
+
+    /** A sale from a sell menu changed its grid: the copy in the player's data follows it before anything saves them. */
+    private static void gridChanged(SaleDraft draft) {
+        if (draft.inventory().getHolder(false) instanceof SellMenu menu) {
+            menu.backup();
+        }
     }
 
     /** What was taken out of one slot, for putting it back. */

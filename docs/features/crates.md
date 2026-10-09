@@ -108,7 +108,10 @@ with `audit: true` (rare and up in the shipped file).
    shards, the `crate_reward` source postings; reward items go into the claim box (`deliveries().add`) in the same
    transaction. Either all of it is stored or none of it (a storage failure rolls the key back).
 5. After `committed()`: the audit row (rare and up), the announcement (epic and up, not for vanished players),
-   command rewards (console, global thread, each in try/catch; a failing command is logged with what to give by
+   command rewards (stored in the opening's transaction in `crate_commands`, migration V056, then run from the console
+   on the global thread and deleted; a reward whose commands had not run when the server stopped runs at the next
+   start, logged, and a crash right after a command ran makes it run again at the next start, also logged; each
+   command in try/catch, a failing command is logged with what to give by
    hand), then on the player's thread the items are claimed out of the claim box into the inventory when they all
    fit (marked claimed in storage first, `saveData()` after), and the receipt is sent.
 
@@ -248,7 +251,9 @@ chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diam
   opening's key, money, keys and log row in one transaction, a storage failure rolling the key back); settings
   parsing of the shipped file and every mistake reported at its exact path; the keyall clock (restarts, missed
   keyalls, reloads, countdown moments); who gets keyall keys (vanished and AFK players with every combination of
-  `include-vanished` and `include-afk`); inventory fitting; expected values; the lang file against the design system.
+  `include-vanished` and `include-afk`); inventory fitting; expected values; the lang file against the design system;
+  command rewards stored with the opening, run once it is stored and deleted, kept for the next start when the
+  scheduler stopped or refused them (`RewardCommandsTest`).
 - End-to-end (`tools/e2e`, `CratesScenarios`): `crates-open` (dialog, result, Open another, Back, refusal, main
   menu entry), `crates-rewards` (money with the announcement and the ledger row, keys, a command, the Crate wins
   setting), `crates-claim-box`
@@ -264,7 +269,8 @@ chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diam
   left, nothing is spent, previews still open; after `/combat untag` the crate opens), `crates-spawn-block` (a crate
   block inside the protected spawn opens without the spawn refusal while an ordinary chest next to it stays protected;
   a frozen player gets the freeze refusal and no crate screen, even sneaking; after the unfreeze it works), `crates-persist-setup`/`crates-persist-check` (keys, references and the keyall schedule
-  across a restart).
+  across a restart), `crates-command-stored` (a command reward waits for its opening to be stored, runs once, and its
+  stored row is deleted).
 
 Not verifiable without a real client: how the dialogs and the preview menu look, the waiting screen between Open and
 the result, and icons in the keyall line.

@@ -22,7 +22,9 @@ import org.bukkit.inventory.ItemStack;
  * how many of them come out of shulker boxes, and what the player gets) and Fill from inventory. Delivering takes
  * exactly the accepted items, plain stacks first and then the contents of shulker boxes (which stay in the grid,
  * emptied of what was delivered); everything else goes back to the player, as does the whole grid when the menu
- * closes (or drops with the death drops when the player dies without keeping their inventory).
+ * closes (or drops with the death drops when the player dies without keeping their inventory). While items sit in the
+ * grid, a copy of them is kept in the player's own data ({@link net.siftvanilla.siftcore.ui.gui.GridBackup}), saved
+ * together with their inventory, so a crash can't lose them: a copy still there when the player joins is given back.
  */
 final class DeliveryMenu extends Menu implements OrdersView {
 
@@ -82,6 +84,23 @@ final class DeliveryMenu extends Menu implements OrdersView {
         redraw();
     }
 
+    /** An item is about to leave (or be swapped out of) a grid slot: the copy drops it right away. */
+    @Override
+    protected void itemSlotClicked(int slot) {
+        backup(slot);
+    }
+
+    /** Copies the grid into the viewer's player data, while this menu is the one they have open. Viewer's thread. */
+    void backup() {
+        backup(-1);
+    }
+
+    private void backup(int skip) {
+        if (this.viewer.getOpenInventory().getTopInventory().getHolder(false) == this) {
+            this.service.gridBackup().save(this.viewer, getInventory(), 0, GRID, skip);
+        }
+    }
+
     @Override
     protected void closed() {
         returnAll();
@@ -103,6 +122,7 @@ final class DeliveryMenu extends Menu implements OrdersView {
                 inventory.setItem(slot, null);
             }
         }
+        this.service.gridBackup().clear(this.viewer);
         return stacks;
     }
 
@@ -149,6 +169,7 @@ final class DeliveryMenu extends Menu implements OrdersView {
         set(SLOT_DELIVER, Items.icon(Material.EMERALD, lang.get(OrdersMessages.DELIVER_BUTTON), lore), click -> deliver());
         set(SLOT_FILL, Items.icon(Material.HOPPER, lang.get(OrdersMessages.DELIVER_FILL),
             lang.lines(OrdersMessages.DELIVER_FILL_LORE, itemArg)), click -> fill());
+        backup();
     }
 
     private void deliver() {
@@ -240,6 +261,8 @@ final class DeliveryMenu extends Menu implements OrdersView {
                 inventory.setItem(slot, null);
             }
         }
+        // The copy drops the items before giving them back saves the player, so the saved file never holds them twice.
+        this.service.gridBackup().clear(this.viewer);
         if (!stacks.isEmpty()) {
             this.service.give(this.viewer, stacks, Order.ref(this.orderId));
         }
