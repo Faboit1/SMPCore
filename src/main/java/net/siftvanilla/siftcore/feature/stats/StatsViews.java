@@ -20,6 +20,7 @@ import net.siftvanilla.siftcore.core.player.options.Audience;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -83,6 +84,12 @@ final class StatsViews {
     }
 
     private void showStats(Player viewer, UUID target, StatsSnapshot stats, boolean balance, Button.Handler back) {
+        // Often shown after a database read (an offline target, their balance privacy), outside the command's scope:
+        // written for the viewer, so the balance and earnings follow their money format either way.
+        this.services.lang().viewing(viewer, () -> showStatsNow(viewer, target, stats, balance, back));
+    }
+
+    private void showStatsNow(Player viewer, UUID target, StatsSnapshot stats, boolean balance, Button.Handler back) {
         Lang lang = this.services.lang();
         boolean self = viewer.getUniqueId().equals(target);
         Component title = self
@@ -274,13 +281,13 @@ final class StatsViews {
         };
     }
 
-    /** A board value as plain text (placeholders). */
-    String plain(Board board, long value, long secondary) {
+    /** A board value as plain text (placeholders): money in the money format of {@code reader} (null: the server's way). */
+    String plain(Board board, long value, long secondary, OfflinePlayer reader) {
         return switch (board.format()) {
             case NUMBER -> Lang.number(value);
             case KDR -> Kdr.format(value, secondary);
             case DURATION -> Durations.format(Duration.ofSeconds(value));
-            case MONEY -> this.services.money().get().format(value);
+            case MONEY -> this.services.lang().moneyFor(reader, value);
         };
     }
 

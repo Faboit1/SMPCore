@@ -300,13 +300,14 @@ public final class OrdersFeature implements Feature, Listener {
         });
         placeholders.register("orders_waiting", "Delivered items waiting for you in your orders",
             player -> Long.toString(this.book.waiting(player.getUniqueId())));
-        placeholders.register("orders_held", "Money your active orders hold",
-            player -> this.services.lang().money(this.book.held(player.getUniqueId())));
+        // Amounts in the money format of the player PlaceholderAPI asks for, like the balance placeholders.
+        placeholders.register("orders_held", "Money your active orders hold, in your money format",
+            player -> this.services.lang().moneyFor(player, this.book.held(player.getUniqueId())));
         placeholders.register("orders_open", "Active buy orders on the server", player -> Integer.toString(this.book.activeTotal()));
         placeholders.registerPrefix("orders_best_", "orders_best_<item>", "The best price each of open orders for an item, like "
             + "orders_best_diamond (empty when none)", (player, item) -> {
                 Order best = bestBid(item);
-                return best == null ? "" : this.services.lang().money(best.priceEach());
+                return best == null ? "" : this.services.lang().moneyFor(player, best.priceEach());
             });
         placeholders.registerPrefix("orders_wanted_", "orders_wanted_<item>", "Items still wanted by open orders for an item, like "
             + "orders_wanted_diamond", (player, item) -> {
@@ -322,7 +323,7 @@ public final class OrdersFeature implements Feature, Listener {
         placeholders.registerPrefix("orders_top_item_", "orders_top_item_<n>", "The item of the n-th biggest open order (1-10)",
             (player, rank) -> top(rank, order -> this.items.plainName(order.key())));
         placeholders.registerPrefix("orders_top_price_", "orders_top_price_<n>", "The price each of the n-th biggest open order",
-            (player, rank) -> top(rank, order -> this.services.lang().money(order.priceEach())));
+            (player, rank) -> top(rank, order -> this.services.lang().moneyFor(player, order.priceEach())));
         placeholders.registerPrefix("orders_top_left_", "orders_top_left_<n>", "Items the n-th biggest open order still wants",
             (player, rank) -> top(rank, order -> Integer.toString(order.remaining())));
         placeholders.registerPrefix("orders_top_owner_", "orders_top_owner_<n>", "Who placed the n-th biggest open order",

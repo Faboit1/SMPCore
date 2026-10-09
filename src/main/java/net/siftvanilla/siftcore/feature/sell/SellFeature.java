@@ -276,18 +276,20 @@ public final class SellFeature implements Feature, Listener {
                 }
                 return Integer.toString(this.worth.cachedRates(player.getUniqueId()).level(category));
             });
-        placeholders.register("sell_sold", "Everything you sold to the server, at base value (what mastery counts)",
-            player -> this.services.money().get().format(sold(player.getUniqueId())));
+        // Amounts in the money format of the player PlaceholderAPI asks for, like the balance placeholders.
+        placeholders.register("sell_sold", "Everything you sold to the server, at base value (what mastery counts), in your money format",
+            player -> this.services.lang().moneyFor(player, sold(player.getUniqueId())));
         placeholders.registerPrefix("worth_", "worth_<item>", "What one plain item sells for, like worth_diamond (empty when it can't be sold)",
             (player, item) -> {
                 String key = ItemKeys.normalize(item);
                 long price = key == null ? 0 : this.worth.table().price(key);
-                return price <= 0 ? "" : this.services.money().get().format(price);
+                return price <= 0 ? "" : this.services.lang().moneyFor(player, price);
             });
         placeholders.registerPrefix("sell_top_name_", "sell_top_name_<n>", "Name of the n-th best seller (1-10)",
             (player, place) -> topPlace(place).map(TopSellers.Entry::name).orElse(""));
-        placeholders.registerPrefix("sell_top_value_", "sell_top_value_<n>", "What the n-th best seller sold, formatted (1-10)",
-            (player, place) -> topPlace(place).map(entry -> this.services.money().get().format(entry.sold())).orElse(""));
+        placeholders.registerPrefix("sell_top_value_", "sell_top_value_<n>",
+            "What the n-th best seller sold (1-10), in the viewer's money format (the server's way without a viewer)",
+            (player, place) -> topPlace(place).map(entry -> this.services.lang().moneyFor(player, entry.sold())).orElse(""));
     }
 
     private Optional<TopSellers.Entry> topPlace(String place) {

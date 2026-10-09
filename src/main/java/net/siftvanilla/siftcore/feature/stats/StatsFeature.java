@@ -310,7 +310,11 @@ public final class StatsFeature implements Feature {
         stat(placeholders, "playtime_hours", "Your active playtime in whole hours", s -> Long.toString(s.playtime() / 3600));
         stat(placeholders, "mobs", "Mobs you killed", s -> Lang.number(s.mobs()));
         stat(placeholders, "blocks", "Blocks you mined", s -> Lang.number(s.blocks()));
-        stat(placeholders, "earned", "Money you earned ($1.5m)", s -> this.services.money().get().format(s.earned()));
+        // In the money format of the player PlaceholderAPI asks for, like the balance placeholders.
+        placeholders.register("stats_earned", "Money you earned, in your money format ($1.5m) (online players)", player -> {
+            StatsSnapshot stats = player == null ? null : current(player);
+            return this.services.lang().moneyFor(player, (stats == null ? StatsSnapshot.ZERO : stats).earned());
+        });
         for (Board board : Board.values()) {
             String prefix = "top_" + board.id() + "_";
             placeholders.registerPrefix(prefix + "name_", prefix + "name_<n>",
@@ -318,7 +322,7 @@ public final class StatsFeature implements Feature {
                 (player, place) -> entry(board, place).map(Leaderboard.Entry::name).orElse("-"));
             placeholders.registerPrefix(prefix + "value_", prefix + "value_<n>",
                 "Value at place <n> (1-" + MAX_PLACE + ") of the " + board.id() + " leaderboard, - when empty",
-                (player, place) -> entry(board, place).map(e -> this.views.plain(board, e.value(), e.secondary())).orElse("-"));
+                (player, place) -> entry(board, place).map(e -> this.views.plain(board, e.value(), e.secondary(), player)).orElse("-"));
             placeholders.register(prefix + "rank", "Your place on the " + board.id() + " leaderboard, 0 when not listed",
                 player -> player == null ? "0" : Integer.toString(this.boards.board(board).rankOf(player.getUniqueId())));
         }

@@ -85,6 +85,34 @@ public record MessageKey(String path, Set<String> placeholders, Channel channel,
         return new MessageKey(path, set(placeholders), Channel.NONE, Feedback.NONE);
     }
 
+    /**
+     * Whether this is text of a confirmation: a part of its path is {@code confirm} or starts with {@code confirm-}
+     * ({@code shop.confirm.body}, {@code economy.pay.confirm-body}, {@code auction.buy.confirm-title}). The player
+     * agrees to the amounts in it, so {@link Lang} writes its money with every digit whatever money format they chose.
+     */
+    public boolean confirmation() {
+        return confirmationPath(this.path);
+    }
+
+    /** {@link #confirmation()} for a path. */
+    static boolean confirmationPath(String path) {
+        int start = 0;
+        int length = path.length();
+        while (start < length) {
+            int end = path.indexOf('.', start);
+            if (end < 0) {
+                end = length;
+            }
+            if (path.startsWith(CONFIRM, start) && (start + CONFIRM.length() == end || path.charAt(start + CONFIRM.length()) == '-')) {
+                return true;
+            }
+            start = end + 1;
+        }
+        return false;
+    }
+
+    private static final String CONFIRM = "confirm";
+
     public MessageKey withFeedback(Feedback feedback) {
         return new MessageKey(this.path, this.placeholders, this.channel, feedback, this.status);
     }

@@ -355,7 +355,8 @@ final class SellCommands {
                 return;
             }
             this.services.messenger().send(sender, SellMessages.ADMIN_HEADER, Arg.text("player", name));
-            for (Component line : this.dialogs.adminLines(shown)) {
+            // Read off-thread, outside the command: written for whoever asked (their money format).
+            for (Component line : this.services.lang().viewing(sender, () -> this.dialogs.adminLines(shown))) {
                 sender.sendMessage(line);
             }
         });

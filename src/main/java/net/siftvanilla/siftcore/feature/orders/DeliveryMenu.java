@@ -157,8 +157,9 @@ final class DeliveryMenu extends Menu implements OrdersView {
             long paid = OrderMath.total(units, this.price);
             long tax = OrderMath.tax(paid, this.service.settings().taxBasisPoints());
             int inner = Math.max(0, Math.min(count.inner(), units - Math.min(count.outer(), units)));
+            // The button delivers at once: the amounts agreed to, with every digit.
             lore.addAll(lang.lines(OrdersMessages.DELIVER_BUTTON_LORE, Arg.number("amount", units), Arg.number("remaining", remaining),
-                Arg.number("inner", inner), Arg.money("payout", paid - tax), Arg.money("tax", tax)));
+                Arg.number("inner", inner), Arg.exact("payout", paid - tax), Arg.exact("tax", tax)));
         } else {
             lore.addAll(lang.lines(OrdersMessages.DELIVER_BUTTON_EMPTY, itemArg, Arg.number("remaining", remaining)));
         }

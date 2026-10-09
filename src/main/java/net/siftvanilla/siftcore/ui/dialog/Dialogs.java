@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.key.Key;
@@ -66,6 +67,9 @@ import org.bukkit.inventory.Inventory;
  * A player frozen by staff can't use any of it: every click except a plain close button is refused (and the dialog
  * closed) before a route or handler runs, so the pause-menu hub and dialogs opened from chat can't pay, trade or
  * teleport for them. The session is left unused, so a dialog from chat still works once they are unfrozen.
+ * <p>
+ * Click handlers and routes run as the clicking player reads ({@link net.siftvanilla.siftcore.core.text.Lang#viewing}):
+ * the next screen they build writes money in that player's money format.
  */
 public final class Dialogs implements Listener {
 
@@ -171,6 +175,15 @@ public final class Dialogs implements Listener {
         } else {
             this.scheduler.entity(player, () -> player.showDialog(dialog), null);
         }
+    }
+
+    /**
+     * Builds a view for the player and shows it ({@link #show(Player, View)}): the view is built as they read, so money
+     * in it follows their money format. For screens built after a database read or another wait, which run outside the
+     * click or command that asked for them (the scope a click handler or command has does not last into a callback).
+     */
+    public void show(Player player, Supplier<View> view) {
+        show(player, this.messenger == null ? view.get() : this.messenger.lang().viewing(player, view));
     }
 
     /**
@@ -293,7 +306,7 @@ public final class Dialogs implements Listener {
         long shownBefore = shownCount(player);
         Inventory screenBefore = openContainer(player);
         try {
-            route.accept(player);
+            asPlayer(player, () -> route.accept(player));
         } catch (Throwable t) {
             this.logger.log(Level.SEVERE, "A menu route failed for " + player.getName(), t);
             this.messenger.send(player, CoreMessages.ACTION_FAILED);
@@ -323,7 +336,8 @@ public final class Dialogs implements Listener {
         Button button = buttons.get(buttonIndex);
         Validation validation = validate(view, values);
         this.handled.incrementAndGet();
-        Runnable run = () -> {
+        // The handler renders the next screen for the player who clicked: money in their money format.
+        Runnable run = () -> asPlayer(player, () -> {
             if (!player.isOnline()) {
                 return;
             }
@@ -353,11 +367,20 @@ public final class Dialogs implements Listener {
                     closeUnlessAnswered(player, shownBefore, screenBefore);
                 }
             }
-        };
+        });
         if (this.scheduler.owns(player)) {
             run.run();
         } else {
             this.scheduler.entity(player, run, null);
+        }
+    }
+
+    /** Runs click code as the player reads: the screens and lines it renders write money in their money format. */
+    private void asPlayer(Player player, Runnable action) {
+        if (this.messenger == null) {
+            action.run();
+        } else {
+            this.messenger.lang().viewing(player, action);
         }
     }
 

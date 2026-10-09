@@ -132,16 +132,18 @@ public final class BountiesFeature implements Feature, Listener {
 
     private void registerPlaceholders() {
         var placeholders = this.services.placeholders();
-        var money = this.services.money();
+        // Amounts in the money format of the player PlaceholderAPI asks for, like the balance placeholders.
+        var lang = this.services.lang();
         BountyBook book = this.service.book();
-        placeholders.register("bounty_total", "The bounty on you, formatted ($50,000)",
-            p -> money.get().format(book.total(p.getUniqueId())));
+        placeholders.register("bounty_total", "The bounty on you, in your money format ($50,000)",
+            p -> lang.moneyFor(p, book.total(p.getUniqueId())));
         placeholders.register("bounty_total_raw", "The bounty on you as a plain number",
             p -> Long.toString(book.total(p.getUniqueId())));
         placeholders.registerPrefix("bounty_top_name_", "bounty_top_name_<n>", "Name of the player with the n-th biggest bounty (1-20)",
             (p, arg) -> top(arg).map(bounty -> this.services.directory().name(bounty.target())).orElse("-"));
-        placeholders.registerPrefix("bounty_top_value_", "bounty_top_value_<n>", "The n-th biggest bounty, formatted",
-            (p, arg) -> top(arg).map(bounty -> money.get().format(bounty.total())).orElse("-"));
+        placeholders.registerPrefix("bounty_top_value_", "bounty_top_value_<n>",
+            "The n-th biggest bounty, in the viewer's money format (the server's way without a viewer)",
+            (p, arg) -> top(arg).map(bounty -> lang.moneyFor(p, bounty.total())).orElse("-"));
     }
 
     private java.util.Optional<BountyBook.Bounty> top(String rankText) {

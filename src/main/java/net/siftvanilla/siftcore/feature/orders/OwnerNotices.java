@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -314,7 +316,9 @@ final class OwnerNotices {
                 this.logger.log(Level.WARNING, "Could not read the order notices of " + player.getName(), error);
                 return;
             }
-            this.services.scheduler().entity(player, () -> show(player, rows, book.waiting(player.getUniqueId())), null);
+            // Written for the returning owner: refunds in their money format.
+            this.services.scheduler().entity(player, () -> lang().viewing(player,
+                () -> show(player, rows, book.waiting(player.getUniqueId()))), null);
         }), null, JOIN_DELAY_TICKS);
     }
 
@@ -430,16 +434,17 @@ final class OwnerNotices {
         }
         this.lastAnnounced.put(order.owner(), now);
         String search = OrderItems.path(order.itemType());
-        Component text = lang().get(OrdersMessages.ANNOUNCE, Arg.text("name", ownerName), Arg.number("quantity", order.quantity()),
-                item(order.key()), Arg.money("price", order.priceEach()))
+        // Each reader gets the price in their money format (rendered once per format).
+        Function<Audience, Component> text = lang().perViewer(() -> lang().get(OrdersMessages.ANNOUNCE, Arg.text("name", ownerName),
+                Arg.number("quantity", order.quantity()), item(order.key()), Arg.money("price", order.priceEach()))
             .clickEvent(ClickEvent.runCommand("/orders " + search))
-            .hoverEvent(HoverEvent.showText(lang().get(OrdersMessages.ANNOUNCE_HOVER)));
+            .hoverEvent(HoverEvent.showText(lang().get(OrdersMessages.ANNOUNCE_HOVER))));
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID id = player.getUniqueId();
             if (!this.services.settings().get(id, OrdersFeature.ANNOUNCEMENTS).shows(order.escrow()) || this.ignores.ignores(id, order.owner())) {
                 continue;
             }
-            player.sendMessage(text);
+            player.sendMessage(text.apply(player));
         }
     }
 

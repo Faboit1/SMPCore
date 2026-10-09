@@ -296,9 +296,9 @@ the shop for $1,000" (the shop's purchase dialog), "Order it" (the orders form, 
 | `%siftcore_sell_multiplier%` | The player's rank multiplier (`1`, `1.1`, ... `1.5`); mastery not included. |
 | `%siftcore_sell_multiplier_<category>%` | Rank plus the category's mastery bonus, like `1.6` (a running server booster comes on top and is not included). |
 | `%siftcore_sell_mastery_<category>%` | The player's mastery level in a category (0-5). |
-| `%siftcore_sell_sold%` | Everything the player sold to the server, at base value, formatted as money. |
+| `%siftcore_sell_sold%` | Everything the player sold to the server, at base value, in their money format. |
 | `%siftcore_worth_<item>%` | What one plain item sells for (`worth_diamond` gives `$400`), empty when it can't be sold. |
-| `%siftcore_sell_top_name_<n>%`, `%siftcore_sell_top_value_<n>%` | The n-th best seller (1-10) and what they sold. |
+| `%siftcore_sell_top_name_<n>%`, `%siftcore_sell_top_value_<n>%` | The n-th best seller (1-10) and what they sold (in the viewer's money format, the server's way without a viewer; so is `worth_<item>`). |
 
 Top sellers are read from storage in the background (`SUM(sold) GROUP BY uuid` over `sell_mastery`) every
 `top.refresh` (5m); `/sell top` and the placeholders only read that snapshot. Players who hide from leaderboards

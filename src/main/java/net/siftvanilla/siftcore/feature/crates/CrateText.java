@@ -47,6 +47,18 @@ final class CrateText {
         return Component.text(reward.display());
     }
 
+    /**
+     * {@link #reward} as a message argument for the messenger: a money reward stays an amount, so each reader gets it
+     * in their own money format (an announcement made while the winner's screen is rendered must not carry the
+     * winner's choice).
+     */
+    Arg rewardArg(String name, Reward reward) {
+        if (reward.kind() instanceof Reward.Money money && !reward.customDisplay()) {
+            return Arg.money(name, money.amount());
+        }
+        return Arg.component(name, Component.text(reward.display()));
+    }
+
     /** One line per reward won over several openings, in the order first won: {@code 16 iron ingots, 3 times}. */
     List<Component> wins(List<CrateOpener.Won> wins) {
         Map<String, Reward> rewards = new LinkedHashMap<>();

@@ -1,6 +1,8 @@
 # Placeholders
 
-Every placeholder SiftCore 1.0.0 provides (123), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
+Every placeholder SiftCore 1.0.0 provides (124), generated with `/sift docs`. With PlaceholderAPI installed they are `%siftcore_<name>%`; plugins can also read them through the API (`SiftCoreApi#placeholders`). A name ending in `<...>` takes the rest of the placeholder as an argument, for example `%siftcore_baltop_name_1%`.
+
+Money placeholders (`balance`, `balance_number`, `baltop_value_<rank>`, `bounty_total`, `bounty_top_value_<n>`, `orders_held`, `orders_best_<item>`, `orders_top_price_<n>`, `sell_sold`, `sell_top_value_<n>`, `stats_earned`, `top_money_value_<n>`, `top_earned_value_<n>`, `worth_<item>`) follow the "Money format" setting of the player PlaceholderAPI asks for: $1,234,567 in full, $1.2m short, $1.23m the server's way. Who that player is depends on the plugin showing it. For the SiftCore sidebar and TAB's header and footer it is the player who sees the line. For TAB's tab list names, nametags and below-name lines, and for chat plugins' formats, it is the player the line is about, so everyone sees that player's choice there: use `balance_server` (the server's way for everyone), `balance_exact` (every digit) or `balance_raw` (the plain number) in those places for one format for all. Asked for no player (holograms, plugins that pass none) they are the server's way; asked for a player who is offline, they follow the server's default (or lock) for `money-format` in `features/settings.yml`.
 
 | Placeholder | Shows |
 |---|---|
@@ -12,21 +14,22 @@ Every placeholder SiftCore 1.0.0 provides (123), generated with `/sift docs`. Wi
 | `%siftcore_afk_zone_today%` | Shards the player earned in the AFK zone today |
 | `%siftcore_auction_claims%` | Items waiting in your claim box |
 | `%siftcore_auction_listings%` | Your active auction listings |
-| `%siftcore_balance%` | Your money, formatted ($1,500 or $2.5m) |
+| `%siftcore_balance%` | Your money in your money format ($1,500, $2.5m, or as set in your settings) |
 | `%siftcore_balance_exact%` | Your money with every digit ($2,500,000) |
-| `%siftcore_balance_number%` | Your money without the currency sign (1,500 or 2.5m) |
+| `%siftcore_balance_number%` | Your money without the currency sign, in your money format (1,500 or 2.5m) |
 | `%siftcore_balance_raw%` | Your money as a plain number (2500000) |
+| `%siftcore_balance_server%` | Your money the server's way for everyone ($1,500 or $2.5m), whatever money format anyone chose |
 | `%siftcore_baltop_name_<rank>%` | Name at a leaderboard place (1-100) |
 | `%siftcore_baltop_rank%` | Your place on the money leaderboard (0 when unranked) |
-| `%siftcore_baltop_value_<rank>%` | Money at a leaderboard place, formatted |
+| `%siftcore_baltop_value_<rank>%` | Money at a leaderboard place, in the viewer's money format (the server's way without a viewer) |
 | `%siftcore_booster_active%` | Whether a sell booster runs right now (true or false) |
 | `%siftcore_booster_by%` | Who the running sell booster is from (empty when none runs) |
 | `%siftcore_booster_percent%` | How much the running sell booster raises sell prices, like 10 (0 when none runs) |
 | `%siftcore_booster_queue%` | How many sell boosters wait for the running one to end |
 | `%siftcore_booster_time_left%` | Time the running sell booster has left, like 29m 41s (empty when none runs) |
 | `%siftcore_bounty_top_name_<n>%` | Name of the player with the n-th biggest bounty (1-20) |
-| `%siftcore_bounty_top_value_<n>%` | The n-th biggest bounty, formatted |
-| `%siftcore_bounty_total%` | The bounty on you, formatted ($50,000) |
+| `%siftcore_bounty_top_value_<n>%` | The n-th biggest bounty, in the viewer's money format (the server's way without a viewer) |
+| `%siftcore_bounty_total%` | The bounty on you, in your money format ($50,000) |
 | `%siftcore_bounty_total_raw%` | The bounty on you as a plain number |
 | `%siftcore_chat_color%` | Your chat colour: a colour name, #RRGGBB or #RRGGBB:#RRGGBB for a gradient; empty without one |
 | `%siftcore_chat_ignoring%` | How many players you ignore |
@@ -54,7 +57,7 @@ Every placeholder SiftCore 1.0.0 provides (123), generated with `/sift docs`. Wi
 | `%siftcore_nick%` | Your nickname as plain text, empty without one |
 | `%siftcore_orders_active%` | Your active buy orders |
 | `%siftcore_orders_best_<item>%` | The best price each of open orders for an item, like orders_best_diamond (empty when none) |
-| `%siftcore_orders_held%` | Money your active orders hold |
+| `%siftcore_orders_held%` | Money your active orders hold, in your money format |
 | `%siftcore_orders_limit%` | How many buy orders you may have at once (a number or unlimited) |
 | `%siftcore_orders_open%` | Active buy orders on the server |
 | `%siftcore_orders_top_item_<n>%` | The item of the n-th biggest open order (1-10) |
@@ -69,9 +72,9 @@ Every placeholder SiftCore 1.0.0 provides (123), generated with `/sift docs`. Wi
 | `%siftcore_sell_mastery_<category>%` | Your sell mastery level in a category (0-5) |
 | `%siftcore_sell_multiplier%` | Your sell multiplier from sell.yml multipliers (1 when none apply; mastery not included) |
 | `%siftcore_sell_multiplier_<category>%` | Your multiplier for a sell category, rank plus mastery, like 1.6 (a running sell booster comes on top) |
-| `%siftcore_sell_sold%` | Everything you sold to the server, at base value (what mastery counts) |
+| `%siftcore_sell_sold%` | Everything you sold to the server, at base value (what mastery counts), in your money format |
 | `%siftcore_sell_top_name_<n>%` | Name of the n-th best seller (1-10) |
-| `%siftcore_sell_top_value_<n>%` | What the n-th best seller sold, formatted (1-10) |
+| `%siftcore_sell_top_value_<n>%` | What the n-th best seller sold (1-10), in the viewer's money format (the server's way without a viewer) |
 | `%siftcore_shards%` | Your shards with separators (1,250) |
 | `%siftcore_shards_raw%` | Your shards as a plain number |
 | `%siftcore_spawners_count%` | How many spawner blocks you own |
@@ -84,7 +87,7 @@ Every placeholder SiftCore 1.0.0 provides (123), generated with `/sift docs`. Wi
 | `%siftcore_stats_best_streak%` | Your best kill streak (online players) |
 | `%siftcore_stats_blocks%` | Blocks you mined (online players) |
 | `%siftcore_stats_deaths%` | Your deaths (online players) |
-| `%siftcore_stats_earned%` | Money you earned ($1.5m) (online players) |
+| `%siftcore_stats_earned%` | Money you earned, in your money format ($1.5m) (online players) |
 | `%siftcore_stats_kdr%` | Your kills per death with two decimals (1.50) (online players) |
 | `%siftcore_stats_kills%` | Your kills (online players) |
 | `%siftcore_stats_mobs%` | Mobs you killed (online players) |

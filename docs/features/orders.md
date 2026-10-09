@@ -239,13 +239,14 @@ orderMarket.set(orders.market());
 | `orders_active` | Your active orders |
 | `orders_limit` | How many orders you may have at once (`unlimited` or a number; read on join and when you use orders) |
 | `orders_waiting` | Delivered items waiting for you |
-| `orders_held` | Money your active orders hold |
+| `orders_held` | Money your active orders hold, in your money format |
 | `orders_open` | Active orders on the server |
 | `orders_best_<item>` | Best price each of open orders for an item (`orders_best_diamond`), empty when none |
 | `orders_wanted_<item>` | Items still wanted by open orders for an item |
 | `orders_top_item_<n>`, `orders_top_price_<n>`, `orders_top_left_<n>`, `orders_top_owner_<n>` | The n-th biggest open order by money held (1-10), rebuilt every minute |
 
-All read memory only. A display template for the displays feature (add to `features/displays.yml`):
+All read memory only. The money ones (`orders_held`, `orders_best_<item>`, `orders_top_price_<n>`) are written in the money
+format of the player PlaceholderAPI asks for, the server's way without one (see `docs/placeholders.md`). A display template for the displays feature (add to `features/displays.yml`):
 
 ```yaml
 templates:

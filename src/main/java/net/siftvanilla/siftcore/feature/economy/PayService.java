@@ -142,7 +142,9 @@ public final class PayService {
         boolean unignorable = payer.hasPermission(UNIGNORABLE);
         CompletableFuture<Long> sent = this.limits.load(payer.getUniqueId());
         CompletableFuture<Audience> accepts = prefs().lookup(target, EconomyFeature.PAY_ACCEPT_FROM);
-        CompletableFuture.allOf(sent, accepts).whenComplete((ignored, error) -> this.services.scheduler().entity(payer, () -> {
+        // Answered after the reads, outside the command or click: written for the payer (the daily limit left in their
+        // money format; the confirmation writes every digit anyway).
+        CompletableFuture.allOf(sent, accepts).whenComplete((ignored, error) -> this.services.scheduler().entity(payer, () -> this.services.lang().viewing(payer, () -> {
             if (error != null) {
                 if (form != null) {
                     form.close();
@@ -173,7 +175,7 @@ public final class PayService {
                 }
                 execute(payer, target, amount, limit, choice);
             }
-        }, null));
+        }), null));
     }
 
     /**

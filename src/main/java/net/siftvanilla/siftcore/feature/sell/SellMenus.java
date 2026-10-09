@@ -262,7 +262,8 @@ final class SellMenus implements Listener {
     ItemStack sellIcon(Summary summary) {
         Lang lang = this.services.lang();
         List<Component> lore = summary.total() > 0
-            ? lang.lines(SellMessages.MENU_SELL_LORE, Arg.money("total", summary.total()))
+            // The button sells at once (below the confirmation threshold): the amount agreed to, with every digit.
+            ? lang.lines(SellMessages.MENU_SELL_LORE, Arg.exact("total", summary.total()))
             : lang.lines(SellMessages.MENU_SELL_EMPTY);
         return Items.icon(Material.EMERALD, lang.get(SellMessages.MENU_SELL), lore);
     }

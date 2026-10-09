@@ -94,9 +94,28 @@ stats feature reads them for `/stats` and the stat leaderboards.
 
 ## Placeholders
 
-`balance`, `balance_exact`, `balance_number`, `balance_raw`, `shards`, `shards_raw`, `baltop_rank` (0 when unranked
-or hidden), `baltop_name_<rank>`, `baltop_value_<rank>` (see `docs/placeholders.md`). Placeholders show the player's
-own money; `balance-privacy` is about other players asking.
+`balance`, `balance_exact`, `balance_number`, `balance_raw`, `balance_server`, `shards`, `shards_raw`, `baltop_rank`
+(0 when unranked or hidden), `baltop_name_<rank>`, `baltop_value_<rank>` (see `docs/placeholders.md`). Placeholders
+show the player's own money; `balance-privacy` is about other players asking.
+
+`balance`, `balance_number` and `baltop_value_<rank>` are written in the "Money format" (`money-format`, Display) of
+the player PlaceholderAPI asks for: $1,234,567 in full, $1.2m short, $1.23m the server's way. That player is the one
+who sees the line on the SiftCore sidebar and in TAB's header and footer, but the one the line is about in TAB's tab list
+names, nametags and below-name lines and in chat plugins' formats, where everyone then sees that player's choice. For
+one format for everyone there use `balance_server` (always the server's way), `balance_exact` (always every digit) or
+`balance_raw` (the plain number). Without a player (holograms, plugins asking for no one) they are the server's way;
+for a player who is offline they follow the server's default (or lock) for `money-format`. The other features' money
+placeholders (bounties, orders, sell, stats) follow the same rule.
+
+## Money format
+
+Every amount of money a player reads follows their "Money format" setting (core, see `docs/features/settings.md`):
+`/balance`, payment receipts and alerts, the money page and `/baltop`, the leaderboard lines, the away summary. The
+payment confirmation keeps every digit (its key is a confirmation), as do the exact prices of other features and the
+buttons that pay or charge at once. The money page (opened after the day's pay total loads), the away summary and the
+pay form's daily-limit refusal (after the day's total loads) are rendered for their player. "In full" is not offered
+while `currency.compact-from` is 0, and "Short" while the server already shortens from `k` with one decimal: they
+would change nothing.
 
 ## Self-tests
 
@@ -121,7 +140,18 @@ deletes the row), `money-pay-settings` (changed with `/settings <id> <value>`: a
 default; nobody refused in chat and in the form, also offline; the summary after rejoining, and none with it off; an
 ignored payer refused),
 `money-balance-privacy` (refused for others online and offline, shown to the player, the console and staff),
-`money-leaderboard-hidden` (off the list and without a place, back without the permission or when turned off).
+`money-leaderboard-hidden` (off the list and without a place, back without the permission or when turned off),
+and `MoneyFormatScenarios`: `money-format-views` (the Display page's three formats with their samples, changed in the
+dialog and with `/settings money-format short`; one balance of $1,234,567 read three ways in `/balance`, the sidebar,
+the money page, the shop menu and the `balance`, `balance_number` and `baltop_value_1` placeholders, `balance_exact` exact for
+all; the Richest players dialog opened by a click on the money page and by `/baltop` in each player's format) and `money-format-receipts` (a short-format payer's confirmation shows $123,456 and what is left exactly; their
+own receipt is short; the same "paid you" receipt reads $123,456 for a receiver in full and $123.4k for one in short;
+one bounty announcement reads $60,000 and $60k to two watchers) and `money-format-later` (screens built after a wait,
+for one player: the chat hover card's balance per reader, `/stats` of an offline player after the database read, a
+crate's $1,234,567 reward in the result dialog and its chat receipt, in full and short; a short reader's sale
+confirmation with every digit in the body and on the Sell button, and a short receipt; `balance_server` the server's way;
+with `compact-from: 0` the Display page offers only the server's way and short, a stored "in full" is kept and reads
+every digit, and all three come back after the reload).
 
 What needs a real client: how the alerts above the hotbar look next to other action bar lines, and the summary's
 layout in chat.

@@ -90,10 +90,10 @@ The main menu has a **Bounties** entry (hub id `bounties`, order 75) that opens 
 
 | Name | Value |
 |---|---|
-| `bounty_total` | The bounty on you, formatted (`$50,000`; `$0` without one) |
+| `bounty_total` | The bounty on you in your money format (`$50,000`; `$0` without one) |
 | `bounty_total_raw` | The same as a plain number |
 | `bounty_top_name_<n>` | Name of the player with the n-th biggest bounty (1-20), `-` when there is none |
-| `bounty_top_value_<n>` | The n-th biggest bounty, formatted, `-` when there is none |
+| `bounty_top_value_<n>` | The n-th biggest bounty in the viewer's money format (the server's way without a viewer), `-` when there is none |
 
 They read the in-memory book (the ranking is rebuilt only after a change).
 

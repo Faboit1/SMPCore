@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
@@ -17,8 +18,10 @@ import org.bukkit.entity.Player;
 /**
  * Sends lang messages on their declared channel with their sound, following each player's delivery settings (see
  * {@link Routing}): short results and errors go where the player's {@code feedback-channel} says, and
- * {@link #alert} delivers a notification in the style a feature's setting chose, honouring quiet in combat. All
- * methods are thread-safe: they only send packets to the audience.
+ * {@link #alert} delivers a notification in the style a feature's setting chose, honouring quiet in combat. Every
+ * message is rendered for its recipient: money in it is written in the player's "Money format" ({@link MoneyDisplay}),
+ * whoever caused it, and {@link #broadcast} renders once per format. All methods are thread-safe: they only send
+ * packets to the audience.
  */
 public final class Messenger {
 
@@ -56,7 +59,7 @@ public final class Messenger {
      * get chat.
      */
     public void send(Audience audience, MessageKey key, Arg... args) {
-        Component text = this.lang.get(key, args);
+        Component text = render(audience, key, args);
         if (!(audience instanceof Player player)) {
             audience.sendMessage(text);
             return;
@@ -65,9 +68,17 @@ public final class Messenger {
         this.sounds.play(player, key.feedback());
     }
 
+    /**
+     * A message as its reader gets it: money in the player's money format (the server's way for the console and other
+     * audiences), whatever scope the caller renders in.
+     */
+    public Component render(Audience reader, MessageKey key, Arg... args) {
+        return this.lang.viewing(reader, () -> this.lang.get(key, args));
+    }
+
     /** Sends to chat regardless of the key's channel (used for command output that should be kept). */
     public void chat(Audience audience, MessageKey key, Arg... args) {
-        audience.sendMessage(this.lang.get(key, args));
+        audience.sendMessage(render(audience, key, args));
         if (audience instanceof Player) {
             this.sounds.play(audience, key.feedback());
         }
@@ -75,7 +86,7 @@ public final class Messenger {
 
     /** Sends on the action bar (success and error lines follow the player's feedback channel). */
     public void actionbar(Audience audience, MessageKey key, Arg... args) {
-        Component text = this.lang.get(key, args);
+        Component text = render(audience, key, args);
         if (audience instanceof Player player) {
             deliver(player, text, feedbackPlaces(player.getUniqueId(), key, Channel.ACTIONBAR));
             this.sounds.play(audience, key.feedback());
@@ -89,8 +100,8 @@ public final class Messenger {
     }
 
     public void title(Audience audience, MessageKey title, MessageKey subtitle, Arg... args) {
-        Component sub = subtitle == null ? Component.empty() : this.lang.get(subtitle, args);
-        audience.showTitle(Title.title(this.lang.get(title, args), sub, TITLE_TIMES));
+        Component sub = subtitle == null ? Component.empty() : render(audience, subtitle, args);
+        audience.showTitle(Title.title(render(audience, title, args), sub, TITLE_TIMES));
         this.sounds.play(audience, title.feedback());
     }
 
@@ -111,7 +122,7 @@ public final class Messenger {
         if (style == AlertStyle.OFF) {
             return;
         }
-        Component text = this.lang.get(key, args);
+        Component text = render(audience, key, args);
         if (!(audience instanceof Player player)) {
             audience.sendMessage(text);
             return;
@@ -124,14 +135,17 @@ public final class Messenger {
         this.sounds.play(audience, feedback);
     }
 
-    /** Sends to every online player and the console. */
+    /**
+     * Sends to every online player and the console, each with money in their own money format (the line is rendered
+     * once per format, not once per player).
+     */
     public void broadcast(MessageKey key, Arg... args) {
-        Component text = this.lang.get(key, args);
+        Function<Audience, Component> text = this.lang.perViewer(() -> this.lang.get(key, args));
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendMessage(text);
+            player.sendMessage(text.apply(player));
             this.sounds.play(player, key.feedback());
         }
-        Bukkit.getConsoleSender().sendMessage(text);
+        Bukkit.getConsoleSender().sendMessage(text.apply(Bukkit.getConsoleSender()));
     }
 
     /** Whether quiet in combat applies to a player now (they turned it on and are tagged). */

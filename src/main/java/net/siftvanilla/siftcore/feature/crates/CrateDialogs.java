@@ -167,12 +167,14 @@ final class CrateDialogs {
     private void open(Submission submission, String crateId, Runnable returnTo, Supplier<View> origin) {
         Player player = submission.player();
         this.services.dialogs().markShown(player);
-        this.opener.open(player, crateId, false, result -> {
+        // The result comes after the opening is stored, outside the click: built for the player, so a money reward
+        // reads in their money format like the chat line of the same win.
+        this.opener.open(player, crateId, false, result -> lang().viewing(player, () -> {
             switch (result) {
                 case CrateOpener.Won won -> this.services.dialogs().show(player, resultView(player, won, returnTo, origin));
                 case CrateOpener.Refused refused -> refuse(player, refused, origin);
             }
-        });
+        }));
     }
 
     /**
@@ -182,7 +184,7 @@ final class CrateDialogs {
     private void openMany(Submission submission, String crateId, int count, Runnable returnTo, Supplier<View> origin) {
         Player player = submission.player();
         this.services.dialogs().markShown(player);
-        this.opener.openMany(player, crateId, count, false, batch -> {
+        this.opener.openMany(player, crateId, count, false, batch -> lang().viewing(player, () -> {
             if (batch.wins().isEmpty()) {
                 refuse(player, batch.stoppedBy() == null ? new CrateOpener.Refused(CratesMessages.OPEN_FAILED) : batch.stoppedBy(), origin);
                 return;
@@ -191,7 +193,7 @@ final class CrateDialogs {
             this.services.dialogs().show(player, batch.wins().size() == 1
                 ? resultView(player, batch.wins().getFirst(), returnTo, origin)
                 : batchView(player, batch, returnTo, origin));
-        });
+        }));
     }
 
     private View resultView(Player player, CrateOpener.Won won, Runnable returnTo, Supplier<View> origin) {

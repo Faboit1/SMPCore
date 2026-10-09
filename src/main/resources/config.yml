@@ -24,8 +24,10 @@ currency:
   grouping: true
   # Amounts at or above this are shown short, like $2.5m. Set to 0 to always show full amounts.
   # Confirmations and receipts that need exactness always show the full amount.
+  # This is the server's way; each player can pick their own with the "Money format" setting (Display):
+  # the server's way, always in full ($1,234,567) or short from $1k on ($1.2m, at most one decimal).
   compact-from: 1000000
-  # Decimals kept in the short form ($2.53m). Trailing zeros are dropped.
+  # Decimals kept in the short form ($2.53m). Trailing zeros are dropped. The players' short format keeps at most one.
   compact-decimals: 2
   # Suffixes players may type and that the short form uses. 1.5k = 1500. Results must be whole.
   suffixes:

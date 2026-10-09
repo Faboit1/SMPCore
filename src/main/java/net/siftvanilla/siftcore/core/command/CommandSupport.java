@@ -187,7 +187,9 @@ public final class CommandSupport {
     /**
      * Wraps the body of one command node so a player who runs it first passes the command's commands.yml cooldown
      * ({@link #cooldown(Player, String)}, bypassed with {@code siftcore.bypass.cooldown}). The cooldown is read on every
-     * run, so {@code /sift reload} applies it. The console and command blocks are never held up.
+     * run, so {@code /sift reload} applies it. The console and command blocks are never held up. The body renders as
+     * the player reads (money in their money format, {@link net.siftvanilla.siftcore.core.text.Lang#viewing}): the
+     * lines and screens a command shows its sender follow their choice.
      */
     Command<CommandSourceStack> withCooldown(String command, Command<CommandSourceStack> body) {
         return context -> {
@@ -199,7 +201,7 @@ public final class CommandSupport {
             }
             Charged outer = this.charged.get();
             this.charged.set(new Charged(player.getUniqueId(), command));
-            try {
+            try (var _ = this.messenger.lang().open(player)) {
                 return body.run(context);
             } finally {
                 if (outer == null) {

@@ -3,18 +3,32 @@ package net.siftvanilla.siftcore.core.text;
 import java.time.Duration;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
+import net.siftvanilla.siftcore.core.money.MoneyStyle;
 
 /**
  * A typed placeholder value. Text is always inserted literally (never parsed), so player-supplied strings cannot
  * inject formatting, click or hover events. Money renders in the money colour; every other number renders in the
  * primary colour. Formatting happens in {@link Lang}.
+ * <p>
+ * Money is written the way its reader chose (their "Money format" setting, see {@link Lang#viewing}): the server's
+ * way, in full or short. {@link #exact} pins an amount to every digit, and messages of a confirmation (a key path with a
+ * {@code confirm} part, {@link MessageKey#confirmation()}) write every amount in full.
  */
 public sealed interface Arg {
 
     String name();
 
-    /** A money amount, e.g. {@code $1,500}, in the money colour. */
-    record Money(String name, long amount) implements Arg {
+    /**
+     * A money amount, e.g. {@code $1,500}, in the money colour.
+     *
+     * @param style the format it is always written in, or null for its reader's choice
+     */
+    record Money(String name, long amount, MoneyStyle style) implements Arg {
+
+        /** An amount written the way its reader chose. */
+        public Money(String name, long amount) {
+            this(name, amount, null);
+        }
     }
 
     /** A currency amount: money renders like {@link Money}; shards render as a plain number. */
@@ -41,8 +55,19 @@ public sealed interface Arg {
     record Time(String name, Duration value) implements Arg {
     }
 
+    /** Money written the way the reader chose ({@code $1,500}, {@code $1.2m} or {@code $1,234,567}). */
     static Arg money(String name, long amount) {
         return new Money(name, amount);
+    }
+
+    /** Money always written in one style, whoever reads it (for example a sample of each style). */
+    static Arg money(String name, long amount, MoneyStyle style) {
+        return new Money(name, amount, style);
+    }
+
+    /** Money with every digit ({@code $1,234,567}) whoever reads it: an amount the player must agree to. */
+    static Arg exact(String name, long amount) {
+        return new Money(name, amount, MoneyStyle.FULL);
     }
 
     static Arg amount(String name, Currency currency, long amount) {

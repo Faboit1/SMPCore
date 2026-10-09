@@ -55,6 +55,15 @@ only take effect in a feature's code, so they are offered once a feature declare
 (`services.settings().reads(SharedSettings.X)`); until then they stay out of the dialog. Selling reads
 `sell_receipts`.
 
+Core also defines `money-format` (choice server/full/short, default server, Display; `core.text.MoneyDisplay`, text
+in `lang/core.yml` under `money-format`), which `Lang` applies to every amount rendered for a player (see Delivery).
+Each option's label carries a sample of $1,234,567 written that way ("The server's way ($1.23m)", "In full
+($1,234,567)", "Short ($1.2m)"). An option that writes every amount the server's way under the current `currency`
+section is not offered: "In full" while `compact-from` is 0 (the server already writes every digit), "Short" while
+the server already shortens from the smallest suffix with at most one decimal (`compact-from` at or below 1000 and
+`compact-decimals` at most 1); with neither left the setting is hidden. A player who picked one reads the server's
+way meanwhile, and gets their choice back once the config offers it again (`/sift reload`).
+
 ## Delivery (core)
 
 - `Messenger.send` and `actionbar` send success and error lines on the action bar where the player's
@@ -68,6 +77,22 @@ only take effect in a feature's code, so they are offered once a feature declare
   (chat, action bar, title, both, off), whatever the feedback channel. With quiet in combat on and the player tagged,
   action bar and title alerts become a chat line; combat's own alerts pass `quiet = false`. Sale receipts use it: the
   hotbar style of `sell_receipts` stays above the hotbar, and becomes a chat line in combat with quiet in combat on.
+- Money follows each reader's `money-format`: the server's way (`config.yml` `currency`: in full below
+  `compact-from`, short above it), always in full ($1,234,567), or short from the smallest suffix on ($1.2m, $15.5k: at
+  most one decimal, rounded down). `Lang` writes `Arg.money`, `Arg.amount` (money) and `lang.money`/`moneyComponent`
+  in the format of the viewer whose scope the thread renders in (`lang.viewing(player, ...)`); outside any scope it is
+  the server's way. The messenger renders every message in its recipient's scope (and `broadcast` once per format),
+  menus draw and handle clicks in their viewer's scope, dialog clicks and pause-menu routes run in the clicking
+  player's scope, and commands in their sender's. Screens built after a database read or another wait (a crate's
+  result, `/stats` of an offline player, an order's details) run outside those scopes, so they are built in the
+  player's scope explicitly (`dialogs().show(player, () -> view)`, `lang.viewing(player, ...)`). Confirmations always
+  show every digit: money in a message whose key path has a `confirm` part (`shop.confirm.body`,
+  `economy.pay.confirm-body`) and `Arg.exact` amounts are written in full whatever the reader chose. So are the amounts
+  on buttons that pay or charge at once ("Sell for", "Buy 64 for", "Deliver 64 for", the sell menu's and spawner
+  storage's Sell button): the amount a click agrees to. The hover card on a chat name shows the sender's balance in
+  each reader's format. SiftCore's money placeholders follow the player PlaceholderAPI asks for (see
+  `docs/placeholders.md` for who that is in TAB and chat plugins); without a player (holograms) they are the server's
+  way, and `balance_server` is the server's way for everyone.
 - `Sounds.play` applies the volume, the kind switches and quiet in combat; `Sounds.ping(player, PingSound)` plays the
   ping sounds (`config.yml` `sounds.pings`; Default is the notify sound and follows Notification pings).
 - `StatusBars` keeps one boss bar per player for lasting status lines; the highest priority owner shows (combat

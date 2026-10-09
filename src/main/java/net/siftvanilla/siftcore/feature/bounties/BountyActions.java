@@ -6,8 +6,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
@@ -226,9 +229,8 @@ final class BountyActions {
             }
         }
         if (s.announcePlacements() && amount >= s.announceAbove()) {
-            Component line = lang().get(BountiesMessages.PLACED_ANNOUNCE, Arg.money("amount", amount), Arg.text("name", targetName),
-                Arg.money("total", total));
-            broadcast(line, amount, Set.of(sponsor.getUniqueId(), target));
+            broadcast(() -> lang().get(BountiesMessages.PLACED_ANNOUNCE, Arg.money("amount", amount), Arg.text("name", targetName),
+                Arg.money("total", total)), amount, Set.of(sponsor.getUniqueId(), target));
         }
         if (done != null) {
             done.accept(sponsor);
@@ -300,7 +302,7 @@ final class BountyActions {
             tell(claim.killer(), BountiesMessages.CLAIMED_NO_TAX, Arg.money("payout", split.payout()), Arg.text("name", victimName));
         }
         if (s.announceClaims()) {
-            broadcast(lang().get(BountiesMessages.CLAIM_ANNOUNCE, Arg.text("killer", killerName), Arg.money("total", split.total()),
+            broadcast(() -> lang().get(BountiesMessages.CLAIM_ANNOUNCE, Arg.text("killer", killerName), Arg.money("total", split.total()),
                 Arg.text("name", victimName)), split.total(), Set.of(claim.killer()));
         }
         if (s.notifySponsors()) {
@@ -369,16 +371,17 @@ final class BountyActions {
 
     /**
      * Chat to every online player except {@code skip} whose {@code bounty-announcements} filter shows a bounty of
-     * {@code amount}, and the console.
+     * {@code amount}, and the console. Each reader gets the line with money in their money format.
      */
-    private void broadcast(Component line, long amount, Set<UUID> skip) {
+    private void broadcast(Supplier<Component> render, long amount, Set<UUID> skip) {
+        Function<Audience, Component> line = lang().perViewer(render);
         for (Player online : Bukkit.getOnlinePlayers()) {
             UUID id = online.getUniqueId();
             if (!skip.contains(id) && shows(this.services.settings().get(id, BountiesFeature.ANNOUNCEMENTS), amount)) {
-                online.sendMessage(line);
+                online.sendMessage(line.apply(online));
             }
         }
-        Bukkit.getConsoleSender().sendMessage(line);
+        Bukkit.getConsoleSender().sendMessage(line.apply(Bukkit.getConsoleSender()));
     }
 
     /** Whether a player's announcement filter shows a bounty line about {@code amount}. */

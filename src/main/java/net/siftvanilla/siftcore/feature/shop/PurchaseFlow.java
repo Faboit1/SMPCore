@@ -160,8 +160,9 @@ final class PurchaseFlow {
         }
         String ref = entry.ref();
         long price = entry.price();
+        // Buys at once below the confirmation threshold: the amount agreed to, with every digit.
         Button buy = Button.of(lang.get(ShopMessages.BUY_BUTTON, Arg.text("amount", Lang.number(amount)),
-            Arg.text("total", this.services.money().get().format(total))), s -> onBuy(s, ref, price, amount, back)).width(150);
+            Arg.exact("total", total)), s -> onBuy(s, ref, price, amount, back)).width(150);
         Button backButton = Button.of(lang.get(CoreMessages.UI_BACK), s -> {
             s.close();
             back.run();

@@ -136,9 +136,10 @@ final class StorageMenu extends PagedMenu<StorageMenu.Entry> {
             sellLore = lang.lines(SpawnersMessages.MENU_SELL_EMPTY);
         } else {
             sellLore = new ArrayList<>(rate.rank() > 1.0
-                ? lang.lines(SpawnersMessages.MENU_SELL_LORE_BONUS, Arg.number("count", sale.count()), Arg.money("total", sale.total()),
+                // The button sells at once: the amount agreed to, with every digit.
+                ? lang.lines(SpawnersMessages.MENU_SELL_LORE_BONUS, Arg.number("count", sale.count()), Arg.exact("total", sale.total()),
                     Arg.text("multiplier", SpawnerService.multiplier(rate.rank())))
-                : lang.lines(SpawnersMessages.MENU_SELL_LORE, Arg.number("count", sale.count()), Arg.money("total", sale.total())));
+                : lang.lines(SpawnersMessages.MENU_SELL_LORE, Arg.number("count", sale.count()), Arg.exact("total", sale.total())));
             if (sale.boost() > 0) {
                 sellLore.addAll(lang.lines(SpawnersMessages.MENU_SELL_BOOSTER, Arg.number("percent", sale.boost())));
             }

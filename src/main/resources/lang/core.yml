@@ -122,3 +122,14 @@ shared-settings:
   sell-receipts:
     label: "Sale receipts"
     description: "A detailed receipt in chat, only the total above the hotbar, or nothing. Also used when selling spawner storage."
+# The "Money format" setting (Display group): how amounts of money are written for the player. Each option shows a
+# sample, <sample>, written that way ($1,234,567 by default).
+money-format:
+  label: "Money format"
+  description: "Show amounts the server's way, always in full ($1,234,567) or short ($1.2m). Confirmations always show the exact amount."
+  # Extra words the settings search finds it by.
+  keywords: "money amounts numbers digits balance prices short full compact thousands millions k m"
+  options:
+    server: "The server's way (<sample>)"
+    full: "In full (<sample>)"
+    short: "Short (<sample>)"

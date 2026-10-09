@@ -19,7 +19,8 @@ import org.bukkit.inventory.ItemStack;
  * thread; items can only be moved into it when a subclass opts in with {@link #acceptsItems()}. While an async
  * action runs the menu is busy and ignores clicks, so spamming cannot start an action twice.
  * <p>
- * Titles are plain text in the default title colour.
+ * Titles are plain text in the default title colour. Draws and click handlers render as the viewer reads (money in
+ * their money format, {@link #asViewer}).
  */
 public abstract class Menu implements InventoryHolder {
 
@@ -81,9 +82,21 @@ public abstract class Menu implements InventoryHolder {
                     this.inventory.setItem(i, null);
                 }
             }
-            draw();
+            asViewer(this::draw);
         } finally {
             this.drawing = false;
+        }
+    }
+
+    /**
+     * Runs menu code as the viewer reads it: money drawn or sent meanwhile is written in their money format. Draws,
+     * click handlers, busy results and item callbacks already run this way.
+     */
+    protected final void asViewer(Runnable action) {
+        if (this.ctx.lang() == null) {
+            action.run();
+        } else {
+            this.ctx.lang().viewing(this.viewer, action);
         }
     }
 
@@ -124,9 +137,9 @@ public abstract class Menu implements InventoryHolder {
             this.busy.set(false);
             if (error != null) {
                 this.ctx.messenger().send(this.viewer, CoreMessages.ACTION_FAILED);
-                then.accept(null);
+                asViewer(() -> then.accept(null));
             } else {
-                then.accept(result);
+                asViewer(() -> then.accept(result));
             }
         }, () -> this.busy.set(false)));
     }
@@ -201,7 +214,7 @@ public abstract class Menu implements InventoryHolder {
                 event.setCancelled(true);
                 return;
             }
-            itemSlotClicked(event.getSlot());
+            asViewer(() -> itemSlotClicked(event.getSlot()));
             scheduleItemsChanged();
             return;
         }
@@ -217,7 +230,7 @@ public abstract class Menu implements InventoryHolder {
         if (item == null || item.handler() == null) {
             return;
         }
-        item.handler().click(new ClickContext(this.viewer, event.getClick(), slot));
+        asViewer(() -> item.handler().click(new ClickContext(this.viewer, event.getClick(), slot)));
     }
 
     /** Moves as much of {@code stack} as fits into the item slots; returns what is left (or null). */
@@ -268,10 +281,10 @@ public abstract class Menu implements InventoryHolder {
     }
 
     final void handleClose() {
-        closed();
+        asViewer(this::closed);
     }
 
     private void scheduleItemsChanged() {
-        this.ctx.scheduler().entityLater(this.viewer, this::itemsChanged, null, 1L);
+        this.ctx.scheduler().entityLater(this.viewer, () -> asViewer(this::itemsChanged), null, 1L);
     }
 }

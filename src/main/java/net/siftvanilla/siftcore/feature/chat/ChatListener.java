@@ -22,6 +22,7 @@ import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.MuteStatus;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
+import net.siftvanilla.siftcore.core.money.MoneyStyle;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
@@ -172,8 +173,16 @@ final class ChatListener implements Listener {
      */
     private final class Lines implements ChatRenderer {
 
-        /** What decides a reader's line, apart from a highlight. */
-        private record Variant(boolean colours, boolean strict, boolean balance, boolean profile) {
+        /**
+         * What decides a reader's line, apart from a highlight.
+         *
+         * @param money the money format of the balance on the card (the server's way when the card shows none)
+         */
+        private record Variant(boolean colours, boolean strict, boolean balance, boolean profile, MoneyStyle money) {
+        }
+
+        /** What decides the sender's name for a reader: the balance on the card, its format, and the click. */
+        private record NameKind(boolean balance, boolean profile, MoneyStyle money) {
         }
 
         private final UUID sender;
@@ -183,8 +192,8 @@ final class ChatListener implements Listener {
         private final String profileCommand;
         private final ChatSettings settings;
         private final Map<Variant, Component> rendered = new HashMap<>();
-        /** The sender's name per kind of reader: [balance shown][opens the profile], built when first needed. */
-        private final Component[][] names = new Component[2][2];
+        /** The sender's name per kind of reader, built when first needed. */
+        private final Map<NameKind, Component> names = new HashMap<>();
         private Component lastMessage;
         private Component strictMessage;
         private String typed;
@@ -215,13 +224,14 @@ final class ChatListener implements Listener {
                 this.typedStrict = null;
             }
             if (!(viewer instanceof Player reader)) {
-                return this.rendered.computeIfAbsent(new Variant(true, false, true, this.profileCommand != null),
+                return this.rendered.computeIfAbsent(new Variant(true, false, true, this.profileCommand != null, MoneyStyle.SERVER),
                     v -> build(source, v, null, false, null));
             }
             UUID id = reader.getUniqueId();
             boolean profile = ChatRules.readerProfileCommand(this.profileCommand, reader.hasPermission(PlayerCards.PROFILE_PERMISSION)) != null;
             if (id.equals(this.sender)) {
-                return this.rendered.computeIfAbsent(new Variant(true, false, true, profile), v -> build(source, v, null, false, null));
+                return this.rendered.computeIfAbsent(new Variant(true, false, true, profile, cardMoney(true, id)),
+                    v -> build(source, v, null, false, null));
             }
             PlayerSettings prefs = ChatListener.this.services.settings();
             boolean colours = ChatListener.this.links.cosmetics().showsChatColours(id);
@@ -230,7 +240,7 @@ final class ChatListener implements Listener {
             boolean balance = !this.withCard || this.balance == net.siftvanilla.siftcore.core.player.options.Audience.EVERYONE
                 || ChatRules.showsBalance(false, ChatListener.this.services.relations().allows(this.balance, this.sender, id),
                     reader.hasPermission(BALANCE_BYPASS));
-            Variant variant = new Variant(colours, strict, balance, profile);
+            Variant variant = new Variant(colours, strict, balance, profile, cardMoney(balance, id));
             if (this.settings.mentions()) {
                 TextDecoration decoration = prefs.get(id, ChatFeature.MENTION_HIGHLIGHT).decoration();
                 if (decoration != null) {
@@ -250,17 +260,21 @@ final class ChatListener implements Listener {
                 body = ReaderText.highlight(body, highlight, plain, this.settings.minPlainLength(), decoration);
             }
             Component painted = variant.colours() ? ChatListener.this.links.cosmetics().paint(source, body) : body;
-            return line(this.rank, name(source, variant.balance(), variant.profile()), painted);
+            return line(this.rank, name(source, variant.balance(), variant.profile(), variant.money()), painted);
+        }
+
+        /**
+         * The money format of the balance on a reader's card: theirs (the card is rendered for each reader), or the
+         * server's way when the card shows no balance, so those readers keep sharing one line.
+         */
+        private MoneyStyle cardMoney(boolean balance, UUID reader) {
+            return this.withCard && balance ? ChatListener.this.services.lang().styleOf(reader) : MoneyStyle.SERVER;
         }
 
         /** The sender's name for a kind of reader (the same for every message of this line). */
-        private Component name(Player source, boolean balance, boolean profile) {
-            int b = balance ? 1 : 0;
-            int p = profile ? 1 : 0;
-            if (this.names[b][p] == null) {
-                this.names[b][p] = ChatListener.this.cards.taggedName(source, this.withCard, balance, profile ? this.profileCommand : null);
-            }
-            return this.names[b][p];
+        private Component name(Player source, boolean balance, boolean profile, MoneyStyle money) {
+            return this.names.computeIfAbsent(new NameKind(balance, profile, money), kind -> ChatListener.this.services.lang().within(
+                money, () -> ChatListener.this.cards.taggedName(source, this.withCard, balance, profile ? this.profileCommand : null)));
         }
 
         private Component strictMessage() {

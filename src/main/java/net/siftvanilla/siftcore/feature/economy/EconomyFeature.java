@@ -18,6 +18,7 @@ import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.link.TeamLookup;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
+import net.siftvanilla.siftcore.core.money.MoneyStyle;
 import net.siftvanilla.siftcore.core.player.Choice;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.SettingCategories;
@@ -39,6 +40,7 @@ import net.siftvanilla.siftcore.ui.dialog.FormValues;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -247,31 +249,46 @@ public final class EconomyFeature implements Feature, Listener {
             return;
         }
         Lang lang = this.services.lang();
-        List<Component> lines = new ArrayList<>();
-        lines.add(lang.get(EconomyMessages.AWAY_HEADER, Arg.money("total", away.total())));
-        for (PayRules.Payer payer : away.payers()) {
-            Arg name = Arg.text("name", this.services.directory().name(payer.payer()));
-            Arg amount = Arg.money("amount", payer.total());
-            lines.add(payer.payments() > 1
-                ? lang.get(EconomyMessages.AWAY_LINE_MANY, name, amount, Arg.number("count", payer.payments()))
-                : lang.get(EconomyMessages.AWAY_LINE, name, amount));
-        }
-        if (away.more() > 0) {
-            lines.add(lang.get(EconomyMessages.AWAY_MORE, Arg.number("count", away.more())));
-        }
-        player.sendMessage(Component.join(JoinConfiguration.newlines(), lines));
+        // Written for the returning player: amounts in their money format.
+        player.sendMessage(lang.viewing(player, () -> {
+            List<Component> lines = new ArrayList<>();
+            lines.add(lang.get(EconomyMessages.AWAY_HEADER, Arg.money("total", away.total())));
+            for (PayRules.Payer payer : away.payers()) {
+                Arg name = Arg.text("name", this.services.directory().name(payer.payer()));
+                Arg amount = Arg.money("amount", payer.total());
+                lines.add(payer.payments() > 1
+                    ? lang.get(EconomyMessages.AWAY_LINE_MANY, name, amount, Arg.number("count", payer.payments()))
+                    : lang.get(EconomyMessages.AWAY_LINE, name, amount));
+            }
+            if (away.more() > 0) {
+                lines.add(lang.get(EconomyMessages.AWAY_MORE, Arg.number("count", away.more())));
+            }
+            return Component.join(JoinConfiguration.newlines(), lines);
+        }));
         this.services.messenger().feedback(player, Feedback.NOTIFY);
+    }
+
+    /**
+     * The money format of the player a placeholder is asked for (PlaceholderAPI's player): the viewer for the SiftCore
+     * sidebar and TAB's header and footer, but the subject for tab list names, nametags, below-name lines and chat
+     * formats, where everyone then sees that player's choice. The server's way when no player is given; a player whose
+     * settings are not loaded (offline) reads the server's default or lock for {@code money-format}.
+     */
+    private MoneyStyle style(OfflinePlayer player) {
+        return player == null ? MoneyStyle.SERVER : this.services.lang().styleOf(player.getUniqueId());
     }
 
     private void registerPlaceholders() {
         var placeholders = this.services.placeholders();
         var money = this.services.money();
-        placeholders.register("balance", "Your money, formatted ($1,500 or $2.5m)",
+        placeholders.register("balance", "Your money in your money format ($1,500, $2.5m, or as set in your settings)",
+            p -> money.get().format(this.economy.balance(p.getUniqueId(), Currency.MONEY), style(p)));
+        placeholders.register("balance_server", "Your money the server's way for everyone ($1,500 or $2.5m), whatever money format anyone chose",
             p -> money.get().format(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
         placeholders.register("balance_exact", "Your money with every digit ($2,500,000)",
             p -> money.get().formatExact(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
-        placeholders.register("balance_number", "Your money without the currency sign (1,500 or 2.5m)",
-            p -> money.get().formatNumber(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
+        placeholders.register("balance_number", "Your money without the currency sign, in your money format (1,500 or 2.5m)",
+            p -> style(p).formatNumber(money.get(), this.economy.balance(p.getUniqueId(), Currency.MONEY)));
         placeholders.register("balance_raw", "Your money as a plain number (2500000)",
             p -> Long.toString(this.economy.balance(p.getUniqueId(), Currency.MONEY)));
         placeholders.register("shards", "Your shards with separators (1,250)",
@@ -282,8 +299,9 @@ public final class EconomyFeature implements Feature, Listener {
             p -> Integer.toString(this.economy.leaderboard().rankOf(Currency.MONEY, p.getUniqueId(), this.economy.balance(p.getUniqueId(), Currency.MONEY))));
         placeholders.registerPrefix("baltop_name_", "baltop_name_<rank>", "Name at a leaderboard place (1-100)",
             (p, arg) -> topEntry(arg).map(e -> e.name()).orElse("-"));
-        placeholders.registerPrefix("baltop_value_", "baltop_value_<rank>", "Money at a leaderboard place, formatted",
-            (p, arg) -> topEntry(arg).map(e -> money.get().format(e.value())).orElse("-"));
+        placeholders.registerPrefix("baltop_value_", "baltop_value_<rank>",
+            "Money at a leaderboard place, in the viewer's money format (the server's way without a viewer)",
+            (p, arg) -> topEntry(arg).map(e -> money.get().format(e.value(), style(p))).orElse("-"));
     }
 
     private java.util.Optional<net.siftvanilla.siftcore.api.economy.EconomyApi.TopEntry> topEntry(String rankText) {
@@ -307,7 +325,8 @@ public final class EconomyFeature implements Feature, Listener {
         long balance = this.economy.balance(player.getUniqueId(), Currency.MONEY);
         long limit = this.pay.limitFor(player);
         this.services.dialogs().markShown(player);
-        this.pay.limits().load(player.getUniqueId()).whenComplete((sent, error) -> this.services.scheduler().entity(player, () -> {
+        // Built on the player's thread after the load, for them: amounts in their money format.
+        this.pay.limits().load(player.getUniqueId()).whenComplete((sent, error) -> this.services.scheduler().entity(player, () -> lang.viewing(player, () -> {
             HubLimit line = HubLimit.of(limit, sent, error);
             int rank = this.economy.leaderboard().rankOf(Currency.MONEY, player.getUniqueId(), balance);
             Arg amount = Arg.money("amount", balance);
@@ -326,7 +345,7 @@ public final class EconomyFeature implements Feature, Listener {
             this.services.dialogs().show(player, line == HubLimit.UNKNOWN
                 ? page.withError(lang.get(EconomyMessages.HUB_LIMIT_FAILED), FormValues.EMPTY)
                 : page);
-        }, null));
+        }), null));
     }
 
     /** What the money page says about today's pay limit. */

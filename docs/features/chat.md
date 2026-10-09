@@ -42,9 +42,10 @@ Cosmetics (`docs/features/cosmetics.md`) add to the line:
   (`siftcore.command.profile` taken away), clicking suggests `/msg <name> ` as before (`chat.card.click`). Only
   SiftCore's own `/profile` counts: while another plugin holds the plain label, the click runs
   `/siftcore:profile <name>`. The balance line follows the sender's `balance-privacy` (Privacy settings): readers
-  outside it (and not staff with `siftcore.admin.eco`) get the card without it. The name is built from in-memory
-  sources (rank labels, the team registry, the ledger, the stats store), on the async chat thread, once per message
-  for each kind of reader (with or without the balance, opening the profile or a message), at most four versions.
+  outside it (and not staff with `siftcore.admin.eco`) get the card without it. The balance is written in each
+  reader's money format (`money-format`, Display). The name is built from in-memory sources (rank labels, the team
+  registry, the ledger, the stats store), on the async chat thread, once per message for each kind of reader (with or
+  without the balance and in which money format, opening the profile or a message), at most eight versions.
 - **`[item]` / `[i]`.** The first tag in a message becomes the name of the item in the player's hand (main hand, else
   off hand) in brackets, `[Diamond Sword]` or `[Diamond x5]`, showing the full item on hover. The name is shown in the
   chat colour (no rarity colours). Inventories belong to the player's region thread, so the async chat thread asks

@@ -46,9 +46,9 @@ the leaderboard snapshot, never the database.
 | `stats_streak`, `stats_best_streak` | Current and best kill streak |
 | `stats_playtime` | Active playtime, formatted (`3d 4h`, `5h 12m`, `40s`) |
 | `stats_playtime_hours` | Active playtime in whole hours |
-| `stats_earned` | Money earned, formatted (`$1.5m`) |
+| `stats_earned` | Money earned, in your money format (`$1.5m`) |
 | `top_<board>_name_<n>` | Name at place `n` (1-100) of a board, `-` when empty |
-| `top_<board>_value_<n>` | Value at place `n`, formatted like the board (`-` when empty) |
+| `top_<board>_value_<n>` | Value at place `n`, formatted like the board (`-` when empty); the money boards in the viewer's money format, the server's way without a viewer |
 | `top_<board>_rank` | Your place on a board, `0` when not listed |
 
 `stats_*` are exact for online players and for offline players whose stats are in memory (viewed in the last few

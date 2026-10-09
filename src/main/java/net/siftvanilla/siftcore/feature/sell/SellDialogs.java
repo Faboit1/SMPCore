@@ -111,8 +111,9 @@ final class SellDialogs {
             SaleBuilder.Result preview = this.sales.preview(player, player.getInventory(), SaleRequest.type(key));
             if (preview.draft() != null) {
                 SaleDraft draft = preview.draft();
+                // Sells at once below the confirmation threshold: the amount agreed to, with every digit.
                 buttons.add(Button.of(lang.get(SellMessages.DETAILS_SELL, Arg.text("count", Lang.number(draft.count())),
-                    Arg.text("total", this.services.money().get().format(draft.total()))), s -> {
+                    Arg.exact("total", draft.total())), s -> {
                         // A confirmation replaces this dialog; a sale or refusal without one closes it.
                         if (this.sales.sellType(s.player(), key, false, () -> details(s.player(), key, back)) != SellService.Outcome.ASKED) {
                             s.close();
@@ -122,7 +123,7 @@ final class SellDialogs {
         }
         if (shopPrice.isPresent()) {
             long price = shopPrice.getAsLong();
-            buttons.add(Button.of(lang.get(SellMessages.DETAILS_BUY, Arg.text("price", this.services.money().get().format(price))),
+            buttons.add(Button.of(lang.get(SellMessages.DETAILS_BUY, Arg.money("price", price)),
                 s -> {
                     if (!this.shop.get().open(s.player(), key, () -> details(s.player(), key, back))) {
                         s.close();
@@ -224,8 +225,9 @@ final class SellDialogs {
         SaleBuilder.Result preview = this.sales.preview(player, player.getInventory(), SaleRequest.category(id));
         if (preview.draft() != null) {
             SaleDraft draft = preview.draft();
+            // Sells at once (asking again only when the sale changed): the amount agreed to, with every digit.
             buttons.add(Button.of(lang.get(SellMessages.MASTERY_SELL, Arg.text("name", category.name()),
-                Arg.text("count", Lang.number(draft.count())), Arg.text("total", this.services.money().get().format(draft.total()))),
+                Arg.text("count", Lang.number(draft.count())), Arg.exact("total", draft.total())),
                 s -> {
                     // Sells exactly what the button showed (asks again when that changed), then shows the new progress.
                     // Nothing is closed first: a sell menu under the dialog keeps its grid out of the sale.

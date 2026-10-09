@@ -328,8 +328,8 @@ final class SellService {
         boolean returns = stay && back != null;
         // Sell stays on screen until the server answers: when the total changed in between the confirmation comes back
         // with the new total. Choose items finishes here (the sell menu opens).
-        Button sell = Button.of(lang.get(SellMessages.CONFIRM_SELL,
-            Arg.text("total", this.services.money().get().format(draft.total()))),
+        // The amount the player agrees to: every digit, like the body above, whatever money format they chose.
+        Button sell = Button.of(lang.get(SellMessages.CONFIRM_SELL, Arg.exact("total", draft.total())),
             s -> onConfirm(s.player(), request, draft, s, back, returns)).width(150);
         Button choose = Button.of(lang.get(SellMessages.CONFIRM_CHOOSE), s -> {
             s.close();
@@ -471,8 +471,12 @@ final class SellService {
                 if (!sold.takes().isEmpty()) {
                     market.committed(player, sold.takes());
                 }
-                receipt(player, sold);
-                levelUps(player, levelsBefore, levelsAfter);
+                // After the sale is stored, outside the command or click: the receipt's hover card is built here, for
+                // the seller, so its amounts follow their money format like the line it hangs on.
+                this.services.lang().viewing(player, () -> {
+                    receipt(player, sold);
+                    levelUps(player, levelsBefore, levelsAfter);
+                });
             }, null);
         });
         return Outcome.SOLD;

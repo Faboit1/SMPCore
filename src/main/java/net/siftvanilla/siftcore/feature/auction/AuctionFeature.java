@@ -272,7 +272,8 @@ public final class AuctionFeature implements Feature, Listener {
             return;
         }
         if (sales.count() > 0) {
-            player.sendMessage(Component.join(JoinConfiguration.newlines(), soldLines(sales)));
+            // Written for the returning seller: earnings in their money format.
+            player.sendMessage(this.services.lang().viewing(player, () -> Component.join(JoinConfiguration.newlines(), soldLines(sales))));
             this.services.messenger().feedback(player, Feedback.NOTIFY);
         }
         int waiting = this.claims.count(player.getUniqueId());

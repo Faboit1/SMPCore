@@ -45,6 +45,9 @@ public final class MoneyFormat {
         }
     }
 
+    /** The most decimals the short format players can pick shows ({@code $1.2m}, {@link #formatShort}). */
+    public static final int SHORT_DECIMALS = 1;
+
     public static final List<Suffix> DEFAULT_SUFFIXES = List.of(
         new Suffix("k", 1_000L),
         new Suffix("m", 1_000_000L),
@@ -99,14 +102,77 @@ public final class MoneyFormat {
         return this.pattern.replace("<amount>", group(amount));
     }
 
+    /**
+     * Formats an amount in one reader's {@link MoneyStyle}: the server's way, every digit, or short (null: the
+     * server's way). Confirmations use {@link #formatExact} whatever the reader chose.
+     */
+    public String format(long amount, MoneyStyle style) {
+        return (style == null ? MoneyStyle.SERVER : style).format(this, amount);
+    }
+
+    /**
+     * Formats an amount short from the smallest suffix on, e.g. {@code $1.2m} or {@code $15.5k} (the "short" money
+     * format players can pick): at most {@link #SHORT_DECIMALS} decimal (none when the server's
+     * {@code compact-decimals} is 0), rounded down so an amount never reads as more than it is. Amounts below the
+     * smallest suffix are written in full.
+     */
+    public String formatShort(long amount) {
+        return this.pattern.replace("<amount>", formatShortNumber(amount));
+    }
+
     /** Formats only the number part (no currency symbol). */
     public String formatNumber(long amount) {
+        return compact(amount, this.compactThreshold, this.compactDecimals);
+    }
+
+    /** The number part of {@link #formatExact}: every digit, grouped when the server groups. */
+    public String formatExactNumber(long amount) {
+        return group(amount);
+    }
+
+    /** The number part of {@link #formatShort}. */
+    public String formatShortNumber(long amount) {
+        return compact(amount, smallestSuffix(), Math.min(this.compactDecimals, SHORT_DECIMALS));
+    }
+
+    /**
+     * Whether {@link #format} writes some amount (up to {@link #maxAmount()}) short. When it doesn't
+     * ({@code compact-from: 0}, no suffixes), the server's way is every digit, the same as {@link #formatExact}.
+     */
+    public boolean compactsSome() {
+        long smallest = smallestSuffix();
+        return this.compactThreshold > 0 && smallest > 0 && Math.max(this.compactThreshold, smallest) <= this.maxAmount;
+    }
+
+    /**
+     * Whether {@link #formatShort} writes every amount exactly like {@link #format}: the server shortens from the
+     * smallest suffix on (or earlier) with at most {@link #SHORT_DECIMALS} decimal, or nothing can be shortened.
+     */
+    public boolean shortIsServers() {
+        long smallest = smallestSuffix();
+        if (smallest == 0 || smallest > this.maxAmount) {
+            return true;
+        }
+        return this.compactThreshold > 0 && this.compactThreshold <= smallest && this.compactDecimals <= SHORT_DECIMALS;
+    }
+
+    /** The multiplier of the smallest suffix ({@code k}: 1000), 0 without suffixes. */
+    private long smallestSuffix() {
+        long smallest = 0;
+        for (Suffix suffix : this.suffixes) {
+            smallest = smallest == 0 ? suffix.multiplier() : Math.min(smallest, suffix.multiplier());
+        }
+        return smallest;
+    }
+
+    /** Suffix form ({@code 2.5m}) at or above {@code threshold} (0: never), otherwise the grouped number. */
+    private String compact(long amount, long threshold, int decimals) {
         long abs = amount == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(amount);
-        if (this.compactThreshold > 0 && abs >= this.compactThreshold) {
+        if (threshold > 0 && abs >= threshold) {
             for (Suffix suffix : this.suffixes) {
                 if (abs >= suffix.multiplier()) {
                     BigDecimal value = BigDecimal.valueOf(abs)
-                        .divide(BigDecimal.valueOf(suffix.multiplier()), this.compactDecimals, RoundingMode.DOWN)
+                        .divide(BigDecimal.valueOf(suffix.multiplier()), decimals, RoundingMode.DOWN)
                         .stripTrailingZeros();
                     String number = value.scale() < 0 ? value.setScale(0, RoundingMode.DOWN).toPlainString() : value.toPlainString();
                     return (amount < 0 ? "-" : "") + number + suffix.symbol();

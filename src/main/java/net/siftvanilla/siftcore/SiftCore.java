@@ -47,6 +47,7 @@ import net.siftvanilla.siftcore.core.text.Icons;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.LangFiles;
 import net.siftvanilla.siftcore.core.text.Messenger;
+import net.siftvanilla.siftcore.core.text.MoneyDisplay;
 import net.siftvanilla.siftcore.core.text.Sounds;
 import net.siftvanilla.siftcore.core.text.StatusBars;
 import net.siftvanilla.siftcore.core.text.TextStyle;
@@ -157,6 +158,8 @@ public final class SiftCore implements CoreControl {
         this.lang.register(OptionTexts.class);
         this.lang.register(SharedSettings.class);
         SharedSettings.register(playerSettings, relations);
+        this.lang.register(MoneyDisplay.class);
+        MoneyDisplay.register(playerSettings, this.lang);
         this.sounds = new Sounds(playerSettings, combatTags);
         this.sounds.load(this.core.get().sounds());
         this.sounds.loadPings(this.core.get().pings());

@@ -114,6 +114,27 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
   Use sparingly: scoreboard/stat lines, dialog bodies, hover cards. Never in titles or buttons.
 - Item names/lore via `ui.gui.Items` (italics off). GUI titles: plain `Component.text(...)` from lang with no tags.
 - Money format is `$<amount>` (config `currency.format`); amounts parse `1.5k`, `2m` and reject non-whole results.
+- Each player picks how money reads for them (`money-format`: the server's way, in full, short). `Arg.money`,
+  `Arg.amount` and `lang.money(...)`/`moneyComponent(...)` are written in the format of the viewer whose scope the
+  thread renders in, and the server's way outside one. Scopes are already set where text is made for one player:
+  the messenger (per recipient), menus (draw, clicks, `runBusy` results), dialog clicks and pause-menu routes, and
+  commands (the sender). So:
+  - Send messages through the messenger; they render for their recipient whatever scope you are in.
+  - A scope lasts only for the call that opened it: a `whenComplete`, a scheduler task or a `Consumer` called back
+    after a database write runs outside it. Text you render there for one player (a screen built after an async load,
+    a receipt whose hover card you build yourself, a join summary sent with `player.sendMessage`) goes in
+    `lang.viewing(player, () -> ...)`, and a dialog built there is shown with `dialogs().show(player, () -> view)`,
+    which builds it in the player's scope. Messages sent through the messenger need nothing.
+  - Placeholders run on any thread for the player PlaceholderAPI asks for: write money with
+    `lang.moneyFor(player, amount)` (their format, the server's way for null).
+  - A line rendered once and sent to many players goes through `lang.perViewer(() -> ...)` (one render per format)
+    or `lang.asServer(...)`; rendered inside a command or click it would otherwise carry that player's format to
+    everyone. Prefer `Arg.money` over a pre-rendered `Arg.component` of money, so the messenger can format it per reader.
+  - Amounts the player agrees to stay exact: money in a key whose path has a `confirm` part (`shop.confirm.body`,
+    `economy.pay.confirm-body`) is written with every digit, and `Arg.exact(name, amount)` pins one amount to every
+    digit anywhere: use it on a button (or menu button's lore) that pays or charges at once, like "Sell for <total>".
+    `Arg.money(name, amount, style)` pins one amount to a style. Never pre-format money into `Arg.text` with
+    `money().get().format(...)`: that skips both the reader's format and confirmation exactness.
 
 ## UI
 

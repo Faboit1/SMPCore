@@ -130,6 +130,12 @@ final class CrateOpener {
      * replace the receipt there at once). Player's thread.
      */
     void receipt(Player player, Batch batch) {
+        // The list of rewards is built here (after the openings were stored, outside any click or command) and sent
+        // inside the receipt: built for the player, so money rewards read in their money format.
+        this.services.lang().viewing(player, () -> sendReceipt(player, batch));
+    }
+
+    private void sendReceipt(Player player, Batch batch) {
         AlertStyle shown = AlertStyle.OFF;
         if (batch.wins().size() > 1) {
             Arg count = Arg.number("count", batch.wins().size());
@@ -142,7 +148,7 @@ final class CrateOpener {
                 shown = AlertStyle.CHAT;
             } else {
                 this.services.messenger().alert(player, style, CratesMessages.BATCH_WON_SHORT, count, name,
-                    Arg.component("reward", this.text.reward(rarest(batch).reward())));
+                    this.text.rewardArg("reward", rarest(batch).reward()));
                 shown = style;
             }
         } else if (batch.wins().size() == 1) {
@@ -176,7 +182,7 @@ final class CrateOpener {
      * claim box is always told in chat (the player must learn where it is). Returns where it went. Player's thread.
      */
     private AlertStyle wonLine(Player player, Crate crate, Reward reward, int inClaimBox) {
-        Arg rewardArg = Arg.component("reward", this.text.reward(reward));
+        Arg rewardArg = this.text.rewardArg("reward", reward);
         Arg name = Arg.text("name", crate.name());
         if (inClaimBox > 0) {
             this.services.messenger().send(player, CratesMessages.WON_CLAIM_BOX, rewardArg, name);
@@ -413,7 +419,7 @@ final class CrateOpener {
     /** Tells everyone else whose Crate win announcements let this win through (every win, or only the rarest rarity). */
     private void announce(Player winner, Crate crate, Reward reward, Rarity rarity) {
         Arg player = Arg.text("player", winner.getName());
-        Arg rewardArg = Arg.component("reward", this.text.reward(reward));
+        Arg rewardArg = this.text.rewardArg("reward", reward);
         Arg name = Arg.text("name", crate.name());
         List<Rarity> rarities = this.settings.get().rarities();
         for (Player online : Bukkit.getOnlinePlayers()) {

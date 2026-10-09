@@ -131,7 +131,9 @@ final class Lookups {
             ? CompletableFuture.completedFuture(0)
             : this.store.sharingAddress(hash, 1000).thenApply(rows -> (int) rows.stream().filter(k -> !k.uuid().equals(target)).count())
                 .exceptionally(error -> 0);
-        where.thenCombine(alts, (whereabouts, altCount) -> lines(target, name, known.orElse(null), whereabouts, altCount))
+        // Built when both reads are in, outside the command: written for whoever asked (the balance in their money format).
+        where.thenCombine(alts, (whereabouts, altCount) -> this.services.lang().viewing(sender,
+                () -> lines(target, name, known.orElse(null), whereabouts, altCount)))
             .whenComplete((lines, error) -> {
                 if (error != null) {
                     this.logger.log(Level.WARNING, "Could not look up " + name, error);

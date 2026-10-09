@@ -456,7 +456,8 @@ final class OrderDialogs {
         Player player = submission.player();
         this.services.dialogs().markShown(player);
         this.service.store().fills(order.id(), 8).thenCombine(this.service.store().paidOut(order.id()), (fills, paid) -> {
-            this.services.scheduler().entity(player, () -> this.services.dialogs().show(player, detailsView(order, fills, paid, back)), null);
+            // Built after the reads, for the player who asked: amounts in their money format.
+            this.services.scheduler().entity(player, () -> this.services.dialogs().show(player, () -> detailsView(order, fills, paid, back)), null);
             return null;
         }).whenComplete((ignored, error) -> {
             if (error != null) {
@@ -592,8 +593,9 @@ final class OrderDialogs {
         }
         List<Button> buttons = new ArrayList<>();
         if (view.units() > 0) {
+            // Delivers at once: the amount agreed to, with every digit.
             buttons.add(Button.of(label(OrdersMessages.QUICK_BUTTON, Arg.number("units", view.units()),
-                Arg.money("payout", view.payout())), s -> {
+                Arg.exact("payout", view.payout())), s -> {
                     OrderService.QuickOutcome outcome = this.service.quickDeliver(s.player(), view);
                     switch (outcome) {
                         case null -> finish(s, back);
@@ -634,7 +636,8 @@ final class OrderDialogs {
             }
             this.services.scheduler().entity(staff, () -> {
                 Order current = this.service.book().get(order.id());
-                this.services.dialogs().show(staff, staffView(current == null ? order : current, fills, back));
+                // Built after the read, for the staff member: the money held in their money format.
+                this.services.dialogs().show(staff, () -> staffView(current == null ? order : current, fills, back));
             }, null);
         });
     }
