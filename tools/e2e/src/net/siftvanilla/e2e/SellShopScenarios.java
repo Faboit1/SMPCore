@@ -489,7 +489,7 @@ final class SellShopScenarios {
         e2e.click(bot, "Buy 64", Map.of("amount", 64, "exact", ""));
         e2e.eventually(() -> e2e.money(name) == 1000 - 384, "charged $384");
         e2e.eventually(() -> e2e.services().deliveries().count(e2e.uuid(name)) == before + 1, "one stack in the claim box");
-        e2e.eventually(() -> bot.chatContains("64 didn't fit and are waiting in your claim box."), "the receipt mentions the claim box: " + bot.chat());
+        e2e.eventually(() -> bot.chatContains("64 didn't fit and are waiting in your claim box (/claims)."), "the receipt mentions the claim box: " + bot.chat());
         e2e.expect(count(e2e, name, Material.STONE) == 0, "nothing was forced into the full inventory");
     }
 

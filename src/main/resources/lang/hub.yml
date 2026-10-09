@@ -32,6 +32,9 @@ hub:
     auction:
       label: "Auction house"
       description: "Buy and sell with other players"
+    claims:
+      label: "Claim box"
+      description: "Items waiting for you"
     orders:
       label: "Orders"
       description: "Ask players to deliver items"

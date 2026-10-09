@@ -142,7 +142,7 @@ orders:
     cancelled: "<secondary>Delivery cancelled."
     too-rich: "<primary>You can't hold that much money."
     failed: "<primary>The delivery could not be saved. Your items were given back."
-  items-in-claim-box: "<primary><amount> items didn't fit in your inventory and wait in your claim box."
+  items-in-claim-box: "<primary><amount> items didn't fit in your inventory and wait in your claim box (/claims)."
 
   quick:
     title: "Deliver <item>"
@@ -278,7 +278,7 @@ orders:
   collect:
     done: "<primary>Collected <amount> <item>."
     done-more: "<primary>Collected <amount> <item>. <waiting> more wait here."
-    to-claim-box: "<primary><amount> <item> went to your claim box."
+    to-claim-box: "<primary><amount> <item> went to your claim box (/claims)."
     all-done: "<primary>Collected <amount> items from <count> orders."
     nothing: "<primary>Nothing to collect yet."
     failed: "<primary>Collecting failed. The items are still in your order."

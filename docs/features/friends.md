@@ -51,9 +51,10 @@ tell who is hidden.
 | `remove`, `favourite`, `note` | your friends |
 | `/profile` | online visible players, then known names |
 
-`friend` has no `commands.yml` cooldown by default; one set there applies to sending requests. Spam is stopped by an
-in-flight guard instead: while an action on a pair is on its way to the database, a second one gets "Still working on
-that." Request rate limits are below.
+`friend` has no `commands.yml` cooldown by default; one set there applies to every `/friend` command and, separately,
+to sending requests (by command or from the friend screens), so opening `/friend` never holds up the request sent from
+its screens. Spam is stopped by an in-flight guard instead: while an action on a pair is on its
+way to the database, a second one gets "Still working on that." Request rate limits are below.
 
 | Permission | Default | Meaning |
 |---|---|---|

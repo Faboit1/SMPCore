@@ -155,7 +155,8 @@ final class BountyViews {
             submission.error(problem);
             return;
         }
-        submission.close();
+        // The confirmation or, once placed, the bounty's details replace the form; a late refusal goes to the action
+        // bar and the router closes the form.
         UUID chosen = target.get();
         this.actions.request(player, chosen, parsed.amount(), placed -> openDetails(placed, chosen, fromHub));
     }

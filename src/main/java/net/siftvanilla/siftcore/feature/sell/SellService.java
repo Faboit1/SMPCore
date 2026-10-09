@@ -335,12 +335,10 @@ final class SellService {
             s.close();
             this.chooseItems.accept(s.player(), request);
         }).width(150);
-        Button cancel = Button.of(lang.get(CoreMessages.UI_CANCEL), back == null ? null : s -> {
-            if (!returns) {
-                s.close();
-            }
-            back.run();
-        }).width(Button.DEFAULT_WIDTH + 100);
+        // What back shows (the item's details, the shop, the mastery details) replaces this dialog; a chest menu marks
+        // itself shown, so nothing closes the sell menu under the dialog.
+        Button cancel = Button.of(lang.get(CoreMessages.UI_CANCEL), back == null ? null : s -> back.run())
+            .width(Button.DEFAULT_WIDTH + 100);
         View view = new View(View.Kind.LIST, title, body, List.of(), List.of(sell, choose), cancel, 2, true);
         return error == null ? view : view.withError(error, FormValues.EMPTY);
     }

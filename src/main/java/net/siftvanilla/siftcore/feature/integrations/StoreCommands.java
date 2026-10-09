@@ -334,8 +334,7 @@ final class StoreCommands {
         switch (delivery.kind()) {
             case MONEY -> messenger.send(player, IntegrationsMessages.NOTIFY_MONEY, Arg.money("amount", delivery.amount()));
             case SHARDS -> messenger.send(player, IntegrationsMessages.NOTIFY_SHARDS, Arg.number("amount", delivery.amount()));
-            case KEYS -> messenger.send(player, IntegrationsMessages.NOTIFY_KEYS, Arg.number("amount", delivery.amount()),
-                Arg.text("crate", delivery.item()));
+            case KEYS -> messenger.send(player, IntegrationsMessages.NOTIFY_KEYS, keysArgs(delivery));
             case RANK -> {
                 String rank = RankText.fromGroup(delivery.item());
                 if (delivery.permanent()) {
@@ -348,13 +347,19 @@ final class StoreCommands {
         }
     }
 
-    /** What a delivery gave, e.g. {@code $10,000}, {@code 3 vote keys}, {@code Elite for 30d}. */
+    /** The arguments of a key delivery's text: {@code <keys>} as the crates feature words it ("1 Basic key"). */
+    private Arg[] keysArgs(Delivery delivery) {
+        return new Arg[] {Arg.component("keys", this.keys.keysText(delivery.item(), delivery.amount())),
+            Arg.number("amount", delivery.amount()), Arg.text("crate", delivery.item())};
+    }
+
+    /** What a delivery gave, e.g. {@code $10,000}, {@code 3 Vote keys}, {@code Elite for 30d}. */
     Component what(Delivery delivery) {
         Lang lang = this.services.lang();
         return switch (delivery.kind()) {
             case MONEY -> lang.get(IntegrationsMessages.WHAT_MONEY, Arg.money("amount", delivery.amount()));
             case SHARDS -> lang.get(IntegrationsMessages.WHAT_SHARDS, Arg.number("amount", delivery.amount()));
-            case KEYS -> lang.get(IntegrationsMessages.WHAT_KEYS, Arg.number("amount", delivery.amount()), Arg.text("crate", delivery.item()));
+            case KEYS -> lang.get(IntegrationsMessages.WHAT_KEYS, keysArgs(delivery));
             case RANK -> delivery.permanent()
                 ? lang.get(IntegrationsMessages.WHAT_RANK_PERMANENT, Arg.text("rank", RankText.fromGroup(delivery.item())))
                 : lang.get(IntegrationsMessages.WHAT_RANK, Arg.text("rank", RankText.fromGroup(delivery.item())),

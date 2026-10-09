@@ -88,7 +88,8 @@ public final class IntegrationsMessages {
 
     public static final MessageKey WHAT_MONEY = MessageKey.ui("integrations.store.what.money", "amount");
     public static final MessageKey WHAT_SHARDS = MessageKey.ui("integrations.store.what.shards", "amount");
-    public static final MessageKey WHAT_KEYS = MessageKey.ui("integrations.store.what.keys", "amount", "crate");
+    /** {@code <keys>} reads like the crates' own text ("1 Basic key"); {@code <amount>} and {@code <crate>} stay for older files. */
+    public static final MessageKey WHAT_KEYS = MessageKey.ui("integrations.store.what.keys", "keys", "amount", "crate");
     public static final MessageKey WHAT_RANK = MessageKey.ui("integrations.store.what.rank", "rank", "time");
     public static final MessageKey WHAT_RANK_PERMANENT = MessageKey.ui("integrations.store.what.rank-permanent", "rank");
     public static final MessageKey STATE_DONE = MessageKey.ui("integrations.store.state.done");
@@ -114,7 +115,7 @@ public final class IntegrationsMessages {
     // ------------------------------------------------------------------ players
     public static final MessageKey NOTIFY_MONEY = MessageKey.notify("integrations.store.notify.money", "amount");
     public static final MessageKey NOTIFY_SHARDS = MessageKey.notify("integrations.store.notify.shards", "amount");
-    public static final MessageKey NOTIFY_KEYS = MessageKey.notify("integrations.store.notify.keys", "amount", "crate");
+    public static final MessageKey NOTIFY_KEYS = MessageKey.notify("integrations.store.notify.keys", "keys", "amount", "crate");
     public static final MessageKey NOTIFY_RANK = MessageKey.notify("integrations.store.notify.rank", "rank", "time");
     public static final MessageKey NOTIFY_RANK_PERMANENT = MessageKey.notify("integrations.store.notify.rank-permanent", "rank");
     public static final MessageKey ANNOUNCE = MessageKey.chat("integrations.store.announce", "name", "what");

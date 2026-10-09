@@ -10,8 +10,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
@@ -43,6 +45,7 @@ final class KeyService implements CrateKeys {
     private final Database database;
     private final Supplier<Set<String>> crates;
     private final LongSupplier clock;
+    private final BiFunction<String, Long, Component> text;
     private final KeyBook book = new KeyBook();
     private final String upsert;
 
@@ -51,10 +54,17 @@ final class KeyService implements CrateKeys {
      * @param clock  current time in epoch milliseconds
      */
     KeyService(Ledger ledger, Database database, Supplier<Set<String>> crates, LongSupplier clock) {
+        this(ledger, database, crates, clock, null);
+    }
+
+    /** @param text how an amount of a crate's keys reads ({@link #keysText}), or null for the plain default */
+    KeyService(Ledger ledger, Database database, Supplier<Set<String>> crates, LongSupplier clock,
+               BiFunction<String, Long, Component> text) {
         this.ledger = ledger;
         this.database = database;
         this.crates = crates;
         this.clock = clock;
+        this.text = text;
         this.upsert = database.dialect().addUpsert("crate_keys", new String[] {"uuid", "crate"}, "amount");
     }
 
@@ -131,6 +141,11 @@ final class KeyService implements CrateKeys {
     @Override
     public int keys(UUID player, String crate) {
         return this.book.get(player, crate);
+    }
+
+    @Override
+    public Component keysText(String crate, long amount) {
+        return this.text == null ? CrateKeys.super.keysText(crate, amount) : this.text.apply(crate, amount);
     }
 
     /** A player's keys by crate (only crates with keys). */

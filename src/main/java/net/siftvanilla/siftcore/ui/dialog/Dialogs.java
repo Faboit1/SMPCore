@@ -38,6 +38,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.Inventory;
 
 /**
  * Shows {@link View}s and routes every click back to its handler through one namespaced router.
@@ -170,6 +171,15 @@ public final class Dialogs implements Listener {
         }
     }
 
+    /**
+     * Closes every screen a click may have left the player on, including the "waiting for response" screen of a
+     * {@link Button#waits() waiting} dialog, which {@link #close(Player)} does not leave. For handlers that answer a
+     * waiting click later without a new screen. Safe from any thread.
+     */
+    public void closeScreen(Player player) {
+        closeAfterClick(player);
+    }
+
     private long register(Player player, View view) {
         long token = this.random.nextLong() & Long.MAX_VALUE;
         Map<Long, Session> map = this.sessions.computeIfAbsent(player.getUniqueId(), k -> java.util.Collections.synchronizedMap(
@@ -211,16 +221,7 @@ public final class Dialogs implements Listener {
                 return;
             }
             this.handled.incrementAndGet();
-            this.scheduler.entity(player, () -> {
-                long shownBefore = shownCount(player);
-                try {
-                    route.accept(player);
-                } catch (Throwable t) {
-                    this.logger.log(Level.SEVERE, "A menu route failed for " + player.getName(), t);
-                    this.messenger.send(player, CoreMessages.ACTION_FAILED);
-                }
-                closeUnlessAnswered(player, shownBefore);
-            }, null);
+            this.scheduler.entity(player, () -> runRoute(player, route), null);
             return;
         }
         String[] parts = path.substring(UI_PREFIX.length()).split("/");
@@ -262,6 +263,19 @@ public final class Dialogs implements Listener {
         }
         Map<String, Object> raw = read(session.view(), event.getDialogResponseView());
         dispatch(player, token, button, raw);
+    }
+
+    /** Runs a static route's action on the player's thread, then closes the dialog unless something new is shown. */
+    void runRoute(Player player, Consumer<Player> route) {
+        long shownBefore = shownCount(player);
+        Inventory screenBefore = openContainer(player);
+        try {
+            route.accept(player);
+        } catch (Throwable t) {
+            this.logger.log(Level.SEVERE, "A menu route failed for " + player.getName(), t);
+            this.messenger.send(player, CoreMessages.ACTION_FAILED);
+        }
+        closeUnlessAnswered(player, shownBefore, screenBefore);
     }
 
     private Session session(Player player, long token) {
@@ -313,6 +327,7 @@ public final class Dialogs implements Listener {
             }
             SubmissionImpl submission = new SubmissionImpl(player, validation.values(), view);
             long shownBefore = shownCount(player);
+            Inventory screenBefore = openContainer(player);
             try {
                 button.handler().handle(submission);
             } catch (Throwable t) {
@@ -321,7 +336,7 @@ public final class Dialogs implements Listener {
                 submission.close();
             }
             if (!submission.responded) {
-                closeUnlessAnswered(player, shownBefore);
+                closeUnlessAnswered(player, shownBefore, screenBefore);
             }
         };
         if (this.scheduler.owns(player)) {
@@ -347,28 +362,41 @@ public final class Dialogs implements Listener {
     /**
      * Closes the dialog a click came from unless something new is shown within {@link #CLOSE_GRACE_TICKS}: a screen
      * the handler opens after loading data replaces the dialog directly instead of after a close. Player's thread.
+     *
+     * @param screenBefore the container that was open when the click arrived (see {@link #closeAfterClick(Player, Inventory)})
      */
-    private void closeUnlessAnswered(Player player, long shownBefore) {
+    private void closeUnlessAnswered(Player player, long shownBefore, Inventory screenBefore) {
         if (shownCount(player) != shownBefore) {
             return;
         }
         this.scheduler.entityLater(player, () -> {
             if (player.isOnline() && shownCount(player) == shownBefore) {
-                closeAfterClick(player);
+                closeAfterClick(player, screenBefore);
             }
         }, null, CLOSE_GRACE_TICKS);
+    }
+
+    private void closeAfterClick(Player player) {
+        closeAfterClick(player, null);
     }
 
     /**
      * Closes the screen a click left the client on: the dialog itself, or the "waiting for response" screen of a
      * waiting dialog. That screen ignores the clear-dialog packet (it only closes a dialog screen), so a container
      * close is sent as well: the client handles that by closing whatever screen is open. Runs on the player's thread.
+     *
+     * @param screenBefore the container open when the click arrived, or null to close any container. When another
+     *                     container is open by now, the click opened it without telling the router (another plugin's
+     *                     menu, such as AxAuctions' after a command ran), so it stays open: only the dialog is
+     *                     cleared, which the client ignores while it shows a container.
      */
-    private void closeAfterClick(Player player) {
+    private void closeAfterClick(Player player, Inventory screenBefore) {
         Runnable close = () -> {
             if (player.isOnline()) {
                 player.closeDialog();
-                player.closeInventory();
+                if (screenBefore == null || screenBefore.equals(openContainer(player))) {
+                    player.closeInventory();
+                }
             }
         };
         if (this.scheduler.owns(player)) {
@@ -376,6 +404,11 @@ public final class Dialogs implements Listener {
         } else {
             this.scheduler.entity(player, close, null);
         }
+    }
+
+    /** The top inventory of the player's open view: a container, or their own crafting grid when none is open. */
+    private static Inventory openContainer(Player player) {
+        return player.getOpenInventory().getTopInventory();
     }
 
     private record Validation(FormValues values, Component invalidLabel) {

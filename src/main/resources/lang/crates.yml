@@ -28,10 +28,10 @@ crates:
     in-combat: "<primary>You can't open crates in combat. <time> left."
     # The receipt in chat after every opening.
     won: "<primary>You won <reward> from the <name> crate."
-    won-claim-box: "<primary>You won <reward> from the <name> crate. <secondary>It didn't fit, so it's waiting in your claim box."
+    won-claim-box: "<primary>You won <reward> from the <name> crate. <secondary>It didn't fit, so it's waiting in your claim box (/claims)."
     # The receipt after several openings in a row: one line per reward, with how often it was won.
     batch: "<primary>You opened <count> <name> crates.<newline><rewards>"
-    batch-claim-box: "<primary>You opened <count> <name> crates.<newline><rewards><newline><secondary>Some of it didn't fit, so it's waiting in your claim box."
+    batch-claim-box: "<primary>You opened <count> <name> crates.<newline><rewards><newline><secondary>Some of it didn't fit, so it's waiting in your claim box (/claims)."
     batch-line: "<primary><reward><secondary>, <times> times"
     batch-line-once: "<primary><reward>"
     bulk-limit: "<primary>You can open at most <max> crates at once."
@@ -65,7 +65,7 @@ crates:
       - "<secondary><rarity>"
     left: "<secondary>You have <keys> left."
     last: "<secondary>That was your last key."
-    claim-box: "<secondary>It didn't fit in your inventory, so it's waiting in your claim box."
+    claim-box: "<secondary>It didn't fit in your inventory, so it's waiting in your claim box (/claims)."
     again: "Open another"
     many: "Open <count> more"
     batch: "<primary>You opened <count> crates"
@@ -88,8 +88,8 @@ crates:
       - "<secondary>Right-click to open <count>"
     no-keys: "<primary>No keys"
     no-keys-lore:
-      - "<secondary>Keys come from the keyall,"
-      - "<secondary>the shard shop and the store"
+      - "<secondary>Keys come from the keyall"
+      - "<secondary>and the shard shop"
 
   keyall:
     countdown: "<primary>Keyall in <time>. <secondary>Everyone online gets <keys>."

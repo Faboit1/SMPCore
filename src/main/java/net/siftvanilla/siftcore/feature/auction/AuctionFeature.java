@@ -31,6 +31,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.Plugin;
@@ -70,6 +71,7 @@ public final class AuctionFeature implements Feature, Listener {
         perms.declare(AuctionService.PERMISSION_USE, "Use the auction house with /ah", true);
         perms.declare(AuctionService.PERMISSION_SELL, "List items on the auction house", true);
         perms.declare(AuctionService.PERMISSION_ADMIN, "Remove listings and use /ah admin", false);
+        perms.declare(AuctionService.PERMISSION_CLAIMS, "Open your claim box with /claims", true);
         // Rank limits are numeric nodes (siftcore.auction.listings.<n>, highest wins) given by LuckPerms groups.
         // The unlimited node is declared so it is never granted implicitly (undeclared nodes default to op).
         perms.declare(AuctionService.SLOTS_PREFIX + ".unlimited", "No limit on auction listings", PermissionDefault.FALSE);
@@ -115,6 +117,10 @@ public final class AuctionFeature implements Feature, Listener {
         this.settings.onReload(this::startExpiry);
         this.services.hub().register(new HubEntry("auction", 30, AuctionMessages.HUB_LABEL, AuctionMessages.HUB_DESCRIPTION,
             AuctionService.PERMISSION_USE, this::openFromHub));
+        // Its own entry, not only a button in SiftCore's auction house: that one is out of reach while AxAuctions
+        // runs, and the claim box holds items from every feature.
+        this.services.hub().register(new HubEntry("claims", 32, AuctionMessages.HUB_CLAIMS_LABEL, AuctionMessages.HUB_CLAIMS_DESCRIPTION,
+            AuctionService.PERMISSION_CLAIMS, this.menus::openClaimBox));
         this.services.placeholders().register("auction_listings", "Your active auction listings",
             player -> Integer.toString(this.engine.book().count(player.getUniqueId())));
         this.services.placeholders().register("auction_claims", "Items waiting in your claim box",
@@ -127,6 +133,10 @@ public final class AuctionFeature implements Feature, Listener {
      * for the player; otherwise it opens this feature's menu. Checked on every click, so a failed AxAuctions start
      * falls back to SiftCore's menu. The command goes through {@link PlayerCommandPreprocessEvent} first, like a typed
      * one ({@link Player#performCommand} alone skips it), so the server's command guards (combat, freeze) apply.
+     * <p>
+     * AxAuctions' menu opens without the dialog router knowing, so when the command opened a container it is marked
+     * as shown: the router then leaves it alone instead of closing the dialog (and with it the new menu) after its
+     * grace. When nothing opened (AxAuctions or a guard refused), the router closes the dialog as usual.
      */
     private void openFromHub(Player player) {
         Plugin axAuctions = Bukkit.getPluginManager().getPlugin(AXAUCTIONS);
@@ -134,7 +144,11 @@ public final class AuctionFeature implements Feature, Listener {
             PlayerCommandPreprocessEvent asTyped = new PlayerCommandPreprocessEvent(player, "/ah");
             if (asTyped.callEvent()) {
                 String line = asTyped.getMessage();
+                Inventory before = player.getOpenInventory().getTopInventory();
                 player.performCommand(line.startsWith("/") ? line.substring(1) : line);
+                if (!before.equals(player.getOpenInventory().getTopInventory())) {
+                    this.services.dialogs().markShown(player);
+                }
             }
             return;
         }

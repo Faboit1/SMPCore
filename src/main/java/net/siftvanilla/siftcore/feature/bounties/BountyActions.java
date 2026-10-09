@@ -1,5 +1,6 @@
 package net.siftvanilla.siftcore.feature.bounties;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +36,8 @@ final class BountyActions {
     }
 
     private static final int CLAIM_ATTEMPTS = 3;
+    /** The cooldown key of placing bounties ({@code place.cooldown}). */
+    private static final String PLACE_COOLDOWN = "bounty-place";
 
     private final Services services;
     private final Setting<BountiesSettings> settings;
@@ -90,10 +93,19 @@ final class BountyActions {
         return null;
     }
 
-    /** Why this bounty can't be placed, as a line for a dialog, or null when it can. Runs on the sponsor's thread. */
+    /**
+     * Why this bounty can't be placed, as a line for a dialog, or null when it can. Also says when the placement
+     * cooldown still runs (without starting it: {@link #request} does that), so the form shows it instead of closing
+     * first. Runs on the sponsor's thread.
+     */
     Component problem(Player sponsor, UUID target, long amount) {
         Refusal refusal = refusal(sponsor, target, amount);
-        return refusal == null ? null : lang().get(refusal.key(), refusal.arguments());
+        if (refusal != null) {
+            return lang().get(refusal.key(), refusal.arguments());
+        }
+        Duration wait = sponsor.hasPermission("siftcore.bypass.cooldown") ? Duration.ZERO
+            : this.services.cooldowns().remaining(sponsor.getUniqueId(), PLACE_COOLDOWN);
+        return wait.isZero() ? null : lang().get(CoreMessages.COOLDOWN, Arg.time("time", wait));
     }
 
     /** Tells the sponsor (action bar, error sound) why the bounty can't be placed; false when it can. */
@@ -115,7 +127,7 @@ final class BountyActions {
             return;
         }
         BountiesSettings s = this.settings.get();
-        if (!this.services.commands().cooldown(sponsor, "bounty-place", s.placeCooldown())) {
+        if (!this.services.commands().cooldown(sponsor, PLACE_COOLDOWN, s.placeCooldown())) {
             return;
         }
         if (s.confirmAbove() > 0 && amount >= s.confirmAbove()) {
@@ -136,10 +148,8 @@ final class BountyActions {
                 Arg.time("time", s.expireAfter())),
             lang().get(BountiesMessages.CONFIRM_BUTTON),
             lang().get(CoreMessages.UI_CANCEL),
-            submission -> {
-                submission.close();
-                place(submission.player(), target, amount, done);
-            },
+            // The details (done) replace this dialog after a placement; after a refusal the router closes it.
+            submission -> place(submission.player(), target, amount, done),
             submission -> {
                 submission.close();
                 this.services.messenger().send(submission.player(), BountiesMessages.PLACE_CANCELLED);

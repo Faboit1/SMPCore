@@ -58,6 +58,7 @@ Rank limits (homes, auction listings, team size and similar) are numeric nodes s
 | `siftcore.command.balance.others` | everyone | See other players' balances |
 | `siftcore.command.baltop` | everyone | Use /baltop |
 | `siftcore.command.bounties` | everyone | See bounties with /bounties |
+| `siftcore.command.claims` | everyone | Open your claim box with /claims |
 | `siftcore.command.combat` | everyone | See whether you are in combat with /combat |
 | `siftcore.command.crates` | everyone | Use /crates, open crates and preview them |
 | `siftcore.command.delhome` | everyone | Use /delhome |

@@ -21,9 +21,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
+import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
+import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.text.TextStyle;
 import net.siftvanilla.siftcore.economy.Ledger;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.storage.JdbcDatabase;
@@ -283,5 +286,17 @@ class KeyServiceTest {
         assertFalse(keys.book().applied("will-fail"), "a rolled back grant can be retried with its reference");
         committed(keys.give(player, "rare", 1, "console", "will-fail"));
         assertNull(keys.verify().get(10, TimeUnit.SECONDS));
+    }
+
+    /** Other features (store deliveries) word keys through the crates feature: one key is singular. */
+    @Test
+    void keysReadLikeTheCratesText() throws Exception {
+        assertEquals("1 basic key", TextStyle.plain(CrateKeys.NONE.keysText("basic", 1)));
+        assertEquals("3 basic keys", TextStyle.plain(CrateKeys.NONE.keysText("basic", 3)));
+        assertEquals("1 basic key", TextStyle.plain(service().keysText("basic", 1)), "no wording given: the default");
+        KeyService worded = new KeyService(this.ledger, this.database, () -> CRATES, this.clock::get,
+            (crate, amount) -> Component.text(amount == 1 ? "1 Basic key" : amount + " Basic keys"));
+        assertEquals("1 Basic key", TextStyle.plain(worded.keysText("basic", 1)));
+        assertEquals("2 Basic keys", TextStyle.plain(CrateKeys.late(() -> worded).keysText("basic", 2)), "late keys pass it on");
     }
 }

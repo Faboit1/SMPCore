@@ -1,6 +1,8 @@
 package net.siftvanilla.siftcore.feature.economy;
 
+import java.time.Duration;
 import java.util.UUID;
+import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.event.PlayerPayEvent;
@@ -10,7 +12,9 @@ import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
 import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.economy.LedgerTx;
+import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
 import org.bukkit.Statistic;
@@ -22,6 +26,9 @@ import org.bukkit.entity.Player;
  * notifications and don't ignore the payer; the money arrives either way).
  */
 public final class PayService {
+
+    /** The cooldown key of payments (commands and the form share it). */
+    static final String COOLDOWN_KEY = "pay";
 
     private final Services services;
     private final Setting<EconomySettings> settings;
@@ -63,43 +70,99 @@ public final class PayService {
         return PayLimits.limit(s.dailyLimitBase(), s.dailyLimitPerHour(), s.dailyLimitMaximum(), hours);
     }
 
-    /** Starts a payment from a command or form. Runs on the payer's thread. */
-    public void pay(Player payer, UUID target, long amount) {
+    /** Why a payment can't go ahead: the message and its arguments. */
+    public record Refusal(MessageKey key, Arg... args) {
+    }
+
+    /**
+     * Why this payment can't go ahead, from what is known without a storage read (the daily limit is checked
+     * later), or null when it can. Runs on the payer's thread.
+     */
+    public Refusal refusal(Player payer, UUID target, long amount) {
         EconomySettings s = this.settings.get();
         if (target.equals(payer.getUniqueId())) {
-            this.services.messenger().send(payer, CoreMessages.NOT_YOURSELF);
-            return;
+            return new Refusal(CoreMessages.NOT_YOURSELF);
         }
         if (!s.payOfflineTargets() && Bukkit.getPlayer(target) == null) {
-            this.services.messenger().send(payer, EconomyMessages.PAY_OFFLINE, Arg.text("name", name(target)));
-            return;
+            return new Refusal(EconomyMessages.PAY_OFFLINE, Arg.text("name", name(target)));
         }
         if (amount < s.payMinimum()) {
-            this.services.messenger().send(payer, EconomyMessages.PAY_MINIMUM, Arg.money("amount", s.payMinimum()));
-            return;
+            return new Refusal(EconomyMessages.PAY_MINIMUM, Arg.money("amount", s.payMinimum()));
         }
         if (!this.services.ledger().available()) {
-            this.services.messenger().send(payer, CoreMessages.ECONOMY_UNAVAILABLE);
-            return;
+            return new Refusal(CoreMessages.ECONOMY_UNAVAILABLE);
         }
         if (this.services.ledger().balance(payer.getUniqueId(), Currency.MONEY) < amount) {
-            this.services.messenger().send(payer, CoreMessages.NOT_ENOUGH_MONEY, Arg.money("amount", amount));
+            return new Refusal(CoreMessages.NOT_ENOUGH_MONEY, Arg.money("amount", amount));
+        }
+        return null;
+    }
+
+    /**
+     * Starts the pay cooldown ({@code pay.cooldown}, bypass {@code siftcore.bypass.cooldown}). Returns how long is
+     * left when it is still running, or zero when the payment may go ahead.
+     */
+    public Duration tryCooldown(Player payer) {
+        Duration cooldown = this.settings.get().payCooldown();
+        if (cooldown.isZero() || payer.hasPermission("siftcore.bypass.cooldown")) {
+            return Duration.ZERO;
+        }
+        return this.services.cooldowns().tryUse(payer.getUniqueId(), COOLDOWN_KEY, cooldown);
+    }
+
+    /** Starts a payment from a command: refusals and the cooldown go to the action bar. Runs on the payer's thread. */
+    public void pay(Player payer, UUID target, long amount) {
+        Refusal refusal = refusal(payer, target, amount);
+        if (refusal != null) {
+            this.services.messenger().send(payer, refusal.key(), refusal.args());
             return;
         }
+        Duration wait = tryCooldown(payer);
+        if (!wait.isZero()) {
+            this.services.messenger().send(payer, CoreMessages.COOLDOWN, Arg.time("time", wait));
+            return;
+        }
+        proceed(payer, target, amount, null);
+    }
+
+    /**
+     * Goes on with a payment from the pay form, after {@link #refusal} and {@link #tryCooldown} passed there. The
+     * form stays on screen while the day's total loads: the confirmation replaces it, a daily limit refusal comes
+     * back in it with what was typed, and a payment without confirmation (or a failed load) closes it.
+     */
+    public void payFromForm(Submission form, UUID target, long amount) {
+        this.services.dialogs().markShown(form.player());
+        proceed(form.player(), target, amount, form);
+    }
+
+    /** Checks the daily limit (which needs the day's total), then confirms or pays. {@code form} may be null. */
+    private void proceed(Player payer, UUID target, long amount, Submission form) {
+        EconomySettings s = this.settings.get();
         long limit = limitFor(payer);
         this.limits.load(payer.getUniqueId()).whenComplete((sent, error) -> this.services.scheduler().entity(payer, () -> {
             if (error != null) {
+                if (form != null) {
+                    form.close();
+                }
                 this.services.messenger().send(payer, CoreMessages.ACTION_FAILED);
                 return;
             }
             long left = limit == Long.MAX_VALUE ? Long.MAX_VALUE : Math.max(0, limit - sent);
             if (amount > left) {
-                this.services.messenger().send(payer, EconomyMessages.PAY_LIMIT, Arg.money("left", left), Arg.money("limit", limit));
+                Arg[] args = {Arg.money("left", left), Arg.money("limit", limit)};
+                if (form != null) {
+                    form.error(this.services.lang().get(EconomyMessages.PAY_LIMIT, args));
+                } else {
+                    this.services.messenger().send(payer, EconomyMessages.PAY_LIMIT, args);
+                }
                 return;
             }
             if (amount >= s.payConfirmAbove() && s.payConfirmAbove() > 0) {
                 confirm(payer, target, amount, limit, left);
             } else {
+                if (form != null) {
+                    form.close();
+                }
                 execute(payer, target, amount, limit);
             }
         }, null));
@@ -107,11 +170,15 @@ public final class PayService {
 
     private void confirm(Player payer, UUID target, long amount, long limit, long left) {
         var lang = this.services.lang();
-        Arg leftArg = left == Long.MAX_VALUE ? Arg.text("left", "-") : Arg.money("left", left - amount);
+        // The exact amount, in the money colour like every amount of money.
+        Arg amountArg = Arg.component("amount", Component.text(this.services.money().get().formatExact(amount),
+            lang.style().palette().money()));
+        Arg nameArg = Arg.text("name", name(target));
         View view = this.services.templates().confirm(
             lang.get(EconomyMessages.PAY_CONFIRM_TITLE),
-            lang.lines(EconomyMessages.PAY_CONFIRM_BODY, Arg.text("name", name(target)),
-                Arg.text("amount", this.services.money().get().formatExact(amount)), leftArg),
+            left == Long.MAX_VALUE
+                ? lang.lines(EconomyMessages.PAY_CONFIRM_BODY_UNLIMITED, nameArg, amountArg)
+                : lang.lines(EconomyMessages.PAY_CONFIRM_BODY, nameArg, amountArg, Arg.money("left", left - amount)),
             lang.get(EconomyMessages.PAY_CONFIRM_BUTTON),
             lang.get(CoreMessages.UI_CANCEL),
             submission -> {

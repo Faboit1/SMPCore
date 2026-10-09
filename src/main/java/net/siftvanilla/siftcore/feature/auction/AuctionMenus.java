@@ -72,6 +72,17 @@ final class AuctionMenus {
         new ClaimBoxMenu(this.services.menus(), player, this.service, back != null ? back : () -> openMain(player)).open();
     }
 
+    /**
+     * The claim box on its own ({@code /claims} and the main menu): Back returns to the main menu, never to SiftCore's
+     * auction house, which may not be the server's (AxAuctions).
+     */
+    void openClaimBox(Player player) {
+        if (!admit(player)) {
+            return;
+        }
+        new ClaimBoxMenu(this.services.menus(), player, this.service, hubBack(player)).open();
+    }
+
     /** Back from the auction house goes to the main menu when the hub is installed. */
     private Runnable hubBack(Player player) {
         HubEntry menu = this.services.hub().get("menu");

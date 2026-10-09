@@ -15,6 +15,10 @@ economy:
       - "<primary>Send <amount> to <name>?"
       - "<secondary>You can send <left> more today after this."
       - "<secondary>Payments can't be undone."
+    # The confirmation for players without a daily limit.
+    confirm-body-unlimited:
+      - "<primary>Send <amount> to <name>?"
+      - "<secondary>Payments can't be undone."
     confirm-button: "Pay"
     form-title: "Pay a player"
     form-player: "Player name"
@@ -32,6 +36,9 @@ economy:
     given: "<primary>Gave <name> <amount>. They now have <balance>."
     taken: "<primary>Took <amount> from <name>. They now have <balance>."
     set: "<primary>Set <name>'s balance to <amount>."
+    given-shards: "<primary>Gave <name> <amount> shards. They now have <balance> shards."
+    taken-shards: "<primary>Took <amount> shards from <name>. They now have <balance> shards."
+    set-shards: "<primary>Set <name>'s shards to <amount>."
     failed: "<primary>Nothing changed: <reason>."
     history-header: "<primary>Ledger of <name> <secondary>page <page>"
     history-line: "<secondary>#<id> <primary><sign><amount> <secondary><kind>, <ago> ago, balance <primary><balance>"
@@ -46,6 +53,13 @@ economy:
       - "<primary><icon:shard> <shards> shards"
       - "<secondary>Leaderboard place <primary><rank>"
       - "<secondary>You can still send <primary><left><secondary> today"
+    # The money page without the daily limit line (no limit for this player, or it couldn't be loaded).
+    body-unlimited:
+      - "<primary><icon:money> <amount>"
+      - "<primary><icon:shard> <shards> shards"
+      - "<secondary>Leaderboard place <primary><rank>"
+    # Shown in red under the money page, in place of the daily limit line, when today's payments couldn't be read.
+    limit-failed: "<primary>Your daily pay limit couldn't be loaded. Open this page again to see it."
     pay: "Pay a player"
     top: "Richest players"
   settings:

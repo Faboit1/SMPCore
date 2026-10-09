@@ -117,7 +117,7 @@ Every tool is a `/sift` subcommand, works from the console, and runs anything sl
 | `/sift docs` | `siftcore.admin.registry` | Writes `permissions.md` and `placeholders.md` to `plugins/SiftCore/docs` |
 | `/sift store money <player> <amount> <ref>` | `siftcore.admin.store` | Store delivery of money (`1.5k`, `2m` work) |
 | `/sift store shards <player> <amount> <ref>` | `siftcore.admin.store` | Store delivery of shards |
-| `/sift store keys <player> <crate> <amount> <ref>` | `siftcore.admin.store` | Store delivery of virtual crate keys |
+| `/sift store keys <player> <crate> <amount> <ref>` | `siftcore.admin.store` | Delivery of virtual crate keys, for staff and events (keys are never sold, see [monetization](../monetization.md)). The texts word the keys like the crates do, with the crate's name (`1 Basic key`, `3 Basic keys`) |
 | `/sift store rank <player> <group> [duration] <ref>` | `siftcore.admin.store` | Store delivery of a LuckPerms group, for a time (`30d`, `12h`) or `permanent` (also when the duration is left out) |
 | `/sift store revoke <ref> [reason]` | `siftcore.admin.store` | Takes a delivery back after a refund or chargeback (`reason` is one word, `refund` when left out); the reference stays used |
 | `/sift store check <ref>` | `siftcore.admin.store` | What a reference delivered, to whom, when, by whom, and whether it is done, waiting or revoked (and why) |

@@ -91,6 +91,7 @@ final class FriendsScenarios {
         list.add(of("friends-suggestions", FriendsScenarios::suggestions));
         list.add(of("friends-links", FriendsScenarios::links));
         list.add(of("friends-second-login", FriendsScenarios::secondLogin));
+        list.add(of("friends-command-cooldown", FriendsScenarios::commandCooldown));
         return list;
     }
 
@@ -1002,6 +1003,60 @@ final class FriendsScenarios {
         Bot.SeenDialog profile = open(e2e, back, "profile " + jan, jan);
         e2e.expect(profile.button("Unfavourite") != null, "the favourite survived: " + profile.buttons());
         e2e.expect(profile.bodyText().contains("Your note: met at spawn"), "the note survived: " + profile.body());
+    }
+
+    /**
+     * A friend cooldown in commands.yml holds /friend and requests separately: the request sent from the screens /friend
+     * opened goes out, and the next request waits, from the screens and by command.
+     */
+    static void commandCooldown(E2E e2e) throws Exception {
+        String gus = e2e.name("FrGus");
+        String hal = e2e.name("FrHal");
+        String ivy = e2e.name("FrIvy");
+        Bot g = join(e2e, gus);
+        Bot h = join(e2e, hal);
+        join(e2e, ivy);
+        Path file = e2e.services().plugin().getDataFolder().toPath().resolve("commands.yml");
+        String original = Files.readString(file);
+        org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();
+        yaml.loadFromString(original);
+        yaml.set("commands.friend.cooldown", "30s");
+        Files.writeString(file, yaml.saveToString());
+        e2e.console("sift reload");
+        try {
+            e2e.step("a request from the screens /friend opened goes out");
+            open(e2e, g, "friend", "Friends");
+            e2e.click(g, "Add a friend");
+            e2e.dialog(g, "Add a friend");
+            e2e.click(g, "Enter a name");
+            e2e.dialog(g, "Add a friend");
+            h.clearLogs();
+            e2e.click(g, "Send request", Map.of("name", hal));
+            e2e.eventually(() -> h.chatContains(gus + " sent you a friend request"),
+                "the request went out: " + h.chat() + " / " + g.actionBar());
+            e2e.expect(!g.actionBarContains("before doing that again"), "no cooldown for it: " + g.actionBar());
+
+            e2e.step("the next request waits, from the screens");
+            e2e.eventually(() -> g.dialog() != null && g.dialog().button("Enter a name") != null, "the add dialog comes back");
+            e2e.click(g, "Enter a name");
+            e2e.dialog(g, "Add a friend");
+            g.clearMessages();
+            e2e.click(g, "Send request", Map.of("name", ivy));
+            e2e.eventually(() -> g.actionBarContains("before doing that again"), "the cooldown message: " + g.actionBar());
+            e2e.dialog(g, "Add a friend");
+            e2e.sleep(500);
+            e2e.expect("0".equals(placeholder(e2e, ivy, "friends_requests")), "no request reached " + ivy);
+
+            e2e.step("and by command");
+            g.clearLogs();
+            g.command("friend add " + ivy);
+            e2e.eventually(() -> g.actionBarContains("before doing that again"), "the cooldown message: " + g.actionBar());
+            e2e.sleep(500);
+            e2e.expect("0".equals(placeholder(e2e, ivy, "friends_requests")), "still no request to " + ivy);
+        } finally {
+            Files.writeString(file, original);
+            e2e.console("sift reload");
+        }
     }
 
     /**

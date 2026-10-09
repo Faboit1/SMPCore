@@ -144,7 +144,7 @@ public final class SiftCore implements CoreControl {
 
         CommandSupport commandSupport = new CommandSupport(messenger, directory, cooldowns, commandSettings,
             () -> this.core.get().money());
-        this.commandService = new CommandService(this.plugin, commandSettings);
+        this.commandService = new CommandService(this.plugin, commandSettings, commandSupport);
         this.placeholders = new Placeholders();
         this.permissions = new Permissions();
         CombatTags combatTags = new CombatTags();

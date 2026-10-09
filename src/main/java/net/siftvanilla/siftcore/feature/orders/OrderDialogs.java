@@ -240,7 +240,7 @@ final class OrderDialogs {
             },
             no -> {
                 if (edit != null) {
-                    no.close();
+                    // The form replaces this dialog (when it can't open, the router closes this one).
                     edit.run();
                 } else {
                     this.services.messenger().send(no.player(), OrdersMessages.CREATE_CANCELLED);
@@ -400,10 +400,8 @@ final class OrderDialogs {
             }
             buttons.add(Button.of(label(OrdersMessages.OWN_CANCEL), s -> s.show(cancelView(order, back))));
         } else if (item != null && this.service.items().orderable(order.key())) {
-            buttons.add(Button.of(label(OrdersMessages.OWN_AGAIN), s -> {
-                s.close();
-                orderAgain(s.player(), order, () -> own(s.player(), order, back));
-            }));
+            // The confirmation replaces this dialog; after a refusal (action bar) the router closes it.
+            buttons.add(Button.of(label(OrdersMessages.OWN_AGAIN), s -> orderAgain(s.player(), order, () -> own(s.player(), order, back))));
         }
         buttons.add(Button.of(label(OrdersMessages.OWN_DETAILS), s -> details(s, order, back)));
         return this.services.templates().listWithBody(lang.get(OrdersMessages.OWN_TITLE), body, buttons, 2,
@@ -448,9 +446,13 @@ final class OrderDialogs {
             });
     }
 
+    /**
+     * The details of an order, after two reads. The clicked dialog stays on screen until the details replace it
+     * (marked as shown, so the router does not close it while the reads run); a failed read closes it.
+     */
     private void details(Submission submission, Order order, Runnable back) {
         Player player = submission.player();
-        submission.close();
+        this.services.dialogs().markShown(player);
         this.service.store().fills(order.id(), 8).thenCombine(this.service.store().paidOut(order.id()), (fills, paid) -> {
             this.services.scheduler().entity(player, () -> this.services.dialogs().show(player, detailsView(order, fills, paid, back)), null);
             return null;
@@ -458,6 +460,7 @@ final class OrderDialogs {
             if (error != null) {
                 this.services.plugin().getLogger().log(Level.WARNING, "Loading the details of order " + order.id() + " failed", error);
                 this.services.messenger().send(player, CoreMessages.ACTION_FAILED);
+                this.services.dialogs().close(player);
             }
         });
     }

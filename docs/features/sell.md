@@ -11,7 +11,7 @@ levels, the price list, top sellers, and the guard that keeps items from village
 | `/sell hand` | `siftcore.command.sell.hand` (everyone) | Sells the stack in the main hand. A shulker box in the hand sells what is inside it (an empty plain box sells as an item). |
 | `/sell hand all` | `siftcore.command.sell.hand` | Sells every plain stack of the held item's type from the hotbar, the storage slots and shulker boxes there (never armor or the off hand). Asks first like `/sell all`. |
 | `/sell all` | `siftcore.command.sell.all` (everyone) | Sells every sellable item in the hotbar and the 27 storage slots (never armor or the off hand), including what is inside shulker boxes but never the box itself. Asks first above `sell-all.confirm-above`. |
-| `/sell mastery` | `siftcore.command.sell` | The sell mastery dialog: every category's level, multiplier and progress; each opens its ladder, "Sell your <category> items" and its prices. |
+| `/sell mastery` | `siftcore.command.sell` | The sell mastery dialog: every category's level, multiplier and progress; each opens its ladder, "Sell your <category> items" and its prices. Opened with the sell menu's Mastery button, that Sell first gives the menu's grid back, so it sells those items too. |
 | `/sell top` | `siftcore.command.sell` | The ten players who sold the most (base value), and the viewer's own place. |
 | `/sell history` | `siftcore.command.sell` | The player's last 200 sales (to the server and to buy orders), newest first, with what was sold in the tooltip. |
 | `/sell admin mastery <player> [category]` | `siftcore.admin.sell` (operators) | Shows a player's mastery (every category, or one). Works from the console and for offline players. |
@@ -22,8 +22,8 @@ levels, the price list, top sellers, and the guard that keeps items from village
 | `/worth list [search...]` | `siftcore.command.worth` | The price list, optionally searched. |
 
 `siftcore.worth.details` (operators) adds where a price comes from (base price, the recipe it was derived from, or
-an override) to `/worth` and the price list. `/sell`, `/sell hand`, `/sell hand all` and `/sell all` share the
-`sell` cooldown from `commands.yml` (none by default). Hub entries: `sell` (order 25, opens the menu) and `prices`
+an override) to `/worth` and the price list. Every `/sell` command shares the `sell` cooldown from `commands.yml`
+(none by default). Hub entries: `sell` (order 25, opens the menu) and `prices`
 (order 26, "Prices", "See what items sell for", opens the price list).
 
 Combat-tagged players can't sell (`block-in-combat`): `/sell`, `/sell hand`, `/sell hand all`, `/sell all`, category

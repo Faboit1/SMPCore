@@ -1038,6 +1038,14 @@ final class StaffScenarios {
         e2e.expect(body.contains("$0 and 0 shards"), "the balance: " + whois.body());
         e2e.expect(whois.button("Punishment history") != null, "a history button: " + whois.buttons());
 
+        e2e.step("the history opened from whois goes back to it");
+        e2e.click(mod, "Punishment history");
+        Bot.SeenDialog history = e2e.dialog(mod, "History of " + TARGET);
+        e2e.expect(history.button("Back") != null && history.button("Close") == null, "Back instead of Close: " + history.buttons());
+        e2e.click(mod, "Back");
+        Bot.SeenDialog again = e2e.dialog(mod, TARGET);
+        e2e.expect(again.button("Punishment history") != null, "the whois view again: " + again.title());
+
         e2e.step("alts: bots share one address");
         mod.clearLogs();
         mod.command("alts " + TARGET);

@@ -110,9 +110,18 @@ final class IntegrationsScenarios {
         var keys = e2e.feature(CratesFeature.class).keys();
         String crate = keys.crates().iterator().next();
         int before = keys.keys(id, crate);
-        reply(e2e, "sift store keys " + name + " " + crate + " 2 " + ref + "-k", "Delivered 2 " + crate + " keys");
+        String two = PlainTextComponentSerializer.plainText().serialize(keys.keysText(crate, 2));
+        String one = PlainTextComponentSerializer.plainText().serialize(keys.keysText(crate, 1));
+        e2e.expect(one.startsWith("1 ") && one.endsWith(" key") && two.startsWith("2 ") && two.endsWith(" keys"),
+            "keys read like the crates' text, with a singular: '" + one + "', '" + two + "'");
+        buyer.clearLogs();
+        reply(e2e, "sift store keys " + name + " " + crate + " 2 " + ref + "-k", "Delivered " + two);
+        e2e.eventually(() -> buyer.chatContains("Your store purchase arrived: " + two + "."), "the buyer is told: " + buyer.chat());
         reply(e2e, "sift store keys " + name + " " + crate + " 2 " + ref + "-k", "Already delivered");
         e2e.expect(keys.keys(id, crate) == before + 2, "exactly two keys: " + keys.keys(id, crate));
+        buyer.clearLogs();
+        reply(e2e, "sift store keys " + name + " " + crate + " 1 " + ref + "-k1", "Delivered " + one);
+        e2e.eventually(() -> buyer.chatContains("Your store purchase arrived: " + one + "."), "one key, singular: " + buyer.chat());
 
         e2e.step("by account id, for buyers who are not online");
         String offline = UUID.randomUUID().toString();
@@ -145,7 +154,7 @@ final class IntegrationsScenarios {
 
         e2e.step("lookups and the audit log");
         reply(e2e, "sift store check " + ref + "-m", ref + "-m gave $12,500 to " + name);
-        List<String> history = reply(e2e, "sift store history " + name, "Store deliveries of " + name + " (3)");
+        List<String> history = reply(e2e, "sift store history " + name, "Store deliveries of " + name + " (4)");
         e2e.eventually(() -> contains(history, ref + "-k"), "the history lists the keys: " + history);
         reply(e2e, "sift audit store.money " + name, "store.money " + name + " ref " + ref + "-m");
         reply(e2e, "sift audit store.failed " + name, "too_much");

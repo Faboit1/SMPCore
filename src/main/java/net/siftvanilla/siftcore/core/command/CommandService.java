@@ -16,19 +16,29 @@ import org.bukkit.plugin.java.JavaPlugin;
  * Registers every feature's commands with Paper's Brigadier registrar. Registration happens in the commands
  * lifecycle event, which Paper also re-runs on a datapack reload, so commands survive {@code /minecraft:reload}.
  * {@code commands.yml} can disable a command, replace its aliases, or leave it to another plugin while that plugin
- * runs ({@code yield-to}, checked at registration, which Paper runs after every plugin was enabled).
+ * runs ({@code yield-to}, checked at registration, which Paper runs after every plugin was enabled). Its
+ * {@code cooldown} is applied here to every player who runs the command or any of its subcommands.
  */
 public final class CommandService {
 
     private final JavaPlugin plugin;
     private final Setting<CommandSettings> settings;
+    private final CommandSupport support;
     private final Logger logger;
     private final Map<String, SiftCommand> commands = new LinkedHashMap<>();
     private final List<String> registeredLabels = new ArrayList<>();
 
     public CommandService(JavaPlugin plugin, Setting<CommandSettings> settings) {
+        this(plugin, settings, null);
+    }
+
+    /**
+     * @param support applies each command's commands.yml cooldown to players who run it (null: no cooldowns)
+     */
+    public CommandService(JavaPlugin plugin, Setting<CommandSettings> settings, CommandSupport support) {
         this.plugin = plugin;
         this.settings = settings;
+        this.support = support;
         this.logger = plugin.getLogger();
     }
 
@@ -71,6 +81,12 @@ public final class CommandService {
             }
             List<String> aliases = entry.aliases() == null ? command.aliases() : entry.aliases();
             var node = command.build(command.name()).build();
+            if (this.support != null) {
+                // Every command gets the gate, also one without a cooldown now: commands.yml cooldowns change with
+                // /sift reload, but the trees are registered once.
+                String name = command.name();
+                node = CommandTrees.wrapCommands(node, body -> this.support.withCooldown(name, body));
+            }
             var registered = registrar.register(node, command.description(), aliases);
             this.registeredLabels.addAll(registered);
             for (String alias : aliases) {

@@ -12,7 +12,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
+import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -122,7 +124,11 @@ class IntegrationsResourcesTest {
             Arg.text("ref", "tbx-1"))));
         assertEquals("Elite for 30d", TextStyle.plain(lang.get(IntegrationsMessages.WHAT_RANK, Arg.text("rank", "Elite"),
             Arg.time("time", Duration.ofDays(30)))));
-        assertEquals("Your store purchase arrived: 3 vote keys. Open them with /crates.", TextStyle.plain(lang.get(
-            IntegrationsMessages.NOTIFY_KEYS, Arg.number("amount", 3), Arg.text("crate", "vote"))));
+        // Keys read the way the crates feature words them (CrateKeys.keysText): the crate's name and a singular.
+        assertEquals("Your store purchase arrived: 1 Vote key. Open them with /crates.", TextStyle.plain(lang.get(
+            IntegrationsMessages.NOTIFY_KEYS, Arg.component("keys", Component.text("1 Vote key")), Arg.number("amount", 1),
+            Arg.text("crate", "vote"))));
+        assertEquals("1 vote key", TextStyle.plain(lang.get(IntegrationsMessages.WHAT_KEYS,
+            Arg.component("keys", CrateKeys.NONE.keysText("vote", 1)), Arg.number("amount", 1), Arg.text("crate", "vote"))));
     }
 }

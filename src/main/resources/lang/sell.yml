@@ -43,7 +43,7 @@ sell:
   failed: "<primary>The sale didn't go through. Your items are back."
   balance-full: "<primary>You can't hold that much money. Your items are back."
   too-much: "<primary>That's too much to sell at once. Sell less at a time."
-  claim-box: "<primary><count> items didn't fit in your inventory. <secondary>They're waiting in your claim box."
+  claim-box: "<primary><count> items didn't fit in your inventory. <secondary>They're waiting in your claim box (/claims)."
   # The confirmation before selling everything (sell-all.confirm in features/sell.yml).
   confirm:
     title: "Sell everything"

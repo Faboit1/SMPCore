@@ -1,7 +1,8 @@
 # Crates, virtual keys and the keyall (/crates, /keys, /keyall).
 #
-# Players open crates with keys. Keys are virtual (no key items): they come from the keyall below, the store, the
-# shard shop and staff (/keys give). Opening a crate spends one key and pays one reward, drawn by weight. The key,
+# Players open crates with keys. Keys are virtual (no key items): they come from the keyall below, the shard shop
+# and staff (/keys give, events). Keys are never sold (docs/monetization.md); /sift store keys is a staff and event
+# tool. Opening a crate spends one key and pays one reward, drawn by weight. The key,
 # the reward and the crate log row are stored together in one transaction, so a crash or a full balance can never
 # spend a key without paying or pay without a key. Won items go into the inventory, or into the claim box when they
 # don't fit.

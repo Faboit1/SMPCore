@@ -125,6 +125,11 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - `CommandSupport`: `permission(node)` / `playerPermission(node)` predicates (players only see what they can use),
   `player(ctx)`, `cooldown(player, name[, duration])`, `onlinePlayer(arg)` / `knownPlayer(arg)` (word arguments with
   suggestions, never selectors), `online(ctx, arg)`, `known(ctx, arg)`, `amount(arg)` + `money(ctx, arg)`.
+- The `commands.yml` cooldown of a command applies to every player who runs it or any of its subcommands
+  (`CommandService` gates every node). Call `cooldown(player, name)` only for paths outside the command that do the
+  same thing (a dialog button); inside the command's own run it passes without charging twice. For an action on a
+  screen the command opens (a friend request), use `cooldown(player, name, action)`: it has its own key, so opening the
+  screen doesn't use it up.
 - Node naming: `siftcore.command.<command>` for using a command, `siftcore.<feature>.<thing>` for extras,
   `siftcore.admin.<feature>` for staff tools. Limits use numeric nodes read by `core.player.Limits.highest(...)`
   (e.g. `siftcore.homes.5`).

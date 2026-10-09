@@ -2,6 +2,7 @@ package net.siftvanilla.siftcore.core.link;
 
 import java.util.Set;
 import java.util.UUID;
+import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 
 /** Gives virtual crate keys. Implemented by the crates feature; used by the shard shop, store delivery and keyall. */
@@ -41,7 +42,20 @@ public interface CrateKeys {
             public int keys(UUID player, String crate) {
                 return keys.get().keys(player, crate);
             }
+
+            @Override
+            public Component keysText(String crate, long amount) {
+                return keys.get().keysText(crate, amount);
+            }
         };
+    }
+
+    /**
+     * How an amount of a crate's keys reads inside a message: {@code 1 Basic key}, {@code 3 Basic keys}. The crates
+     * feature answers with its own wording and the crate's display name; this default is for when it is missing.
+     */
+    default Component keysText(String crate, long amount) {
+        return Component.text(amount + " " + crate + (amount == 1 ? " key" : " keys"));
     }
 
     /** Ids of the configured crates. */

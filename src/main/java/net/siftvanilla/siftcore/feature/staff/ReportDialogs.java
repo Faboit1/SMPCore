@@ -41,8 +41,13 @@ final class ReportDialogs {
 
     // ------------------------------------------------------------------ players
 
-    /** The report form (hub entry, and /report without a reason). */
+    /** The report form from /report: Cancel closes it. */
     void openForm(Player player, String name, String reason) {
+        openForm(player, name, reason, null);
+    }
+
+    /** The report form; {@code back} (the main menu, for the hub entry) turns Cancel into Back. */
+    void openForm(Player player, String name, String reason, Button.Handler back) {
         Lang lang = this.services.lang();
         int max = this.settings.get().reports().maxLength();
         this.services.dialogs().show(player, this.services.templates().form(
@@ -52,7 +57,7 @@ final class ReportDialogs {
                 new Input.Text("reason", lang.get(StaffMessages.REPORT_FORM_REASON), reason, max, 3, 250)),
             lang.get(StaffMessages.REPORT_FORM_SUBMIT),
             this::submitForm,
-            null));
+            back));
     }
 
     private void submitForm(Submission submission) {
@@ -161,13 +166,14 @@ final class ReportDialogs {
             submission.close();
             return;
         }
-        submission.close();
         Player target = Bukkit.getPlayer(report.target());
         if (target == null) {
+            // The report again (now without Teleport) replaces this dialog.
             this.services.messenger().send(staff, CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", report.targetName()));
             openDetail(staff, report.id(), page);
             return;
         }
+        submission.close();
         this.services.audit().record(staff.getUniqueId().toString(), "staff.report.teleport", report.target().toString(),
             "#" + report.id());
         this.services.scheduler().supplyOnEntity(target, target::getLocation).whenComplete((location, error) -> {

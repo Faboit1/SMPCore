@@ -201,7 +201,7 @@ final class Lookups {
         if (viewer.hasPermission(StaffNodes.HISTORY)) {
             buttons.add(Button.of(lang.get(StaffMessages.WHOIS_HISTORY), s -> {
                 if (s.player().hasPermission(StaffNodes.HISTORY)) {
-                    this.history.show(s.player(), target, name);
+                    this.history.show(s.player(), target, name, back -> dialog(back.player(), target, name, lines));
                 }
             }).width(150));
         }

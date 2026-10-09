@@ -14,6 +14,8 @@ import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.integration.vault.VaultHook;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.FormValues;
+import net.siftvanilla.siftcore.ui.dialog.View;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -133,25 +135,58 @@ public final class EconomyFeature implements Feature, Listener {
         return rank >= 1 && rank <= top.size() ? java.util.Optional.of(top.get(rank - 1)) : java.util.Optional.empty();
     }
 
-    /** The money page of the hub: balance, shards, rank, daily pay limit left, and actions. */
+    /**
+     * The money page of the hub: balance, shards, rank, daily pay limit left, and actions. The screen it was opened
+     * from stays until the page (shown after the day's pay total loads) replaces it. Pay and Richest players come back
+     * here with Back.
+     */
     public void openHub(Player player) {
         Lang lang = this.services.lang();
         long balance = this.economy.balance(player.getUniqueId(), Currency.MONEY);
         long limit = this.pay.limitFor(player);
+        this.services.dialogs().markShown(player);
         this.pay.limits().load(player.getUniqueId()).whenComplete((sent, error) -> this.services.scheduler().entity(player, () -> {
-            long left = error != null || limit == Long.MAX_VALUE ? -1 : Math.max(0, limit - sent);
+            HubLimit line = HubLimit.of(limit, sent, error);
             int rank = this.economy.leaderboard().rankOf(Currency.MONEY, balance);
-            var body = lang.lines(EconomyMessages.HUB_BODY,
-                Arg.money("amount", balance),
-                Arg.number("shards", this.economy.balance(player.getUniqueId(), Currency.SHARDS)),
-                rank == 0 ? Arg.text("rank", "-") : Arg.number("rank", rank),
-                left < 0 ? Arg.text("left", "-") : Arg.money("left", left));
-            this.services.dialogs().show(player, this.services.templates().list(lang.get(EconomyMessages.HUB_TITLE), body,
+            Arg amount = Arg.money("amount", balance);
+            Arg shards = Arg.number("shards", this.economy.balance(player.getUniqueId(), Currency.SHARDS));
+            Arg place = rank == 0 ? Arg.text("rank", "-") : Arg.number("rank", rank);
+            // Without a limit there is no "you can still send" line rather than a dash.
+            var body = line == HubLimit.LEFT
+                ? lang.lines(EconomyMessages.HUB_BODY, amount, shards, place, Arg.money("left", Math.max(0, limit - sent)))
+                : lang.lines(EconomyMessages.HUB_BODY_UNLIMITED, amount, shards, place);
+            Button.Handler back = s -> openHub(s.player());
+            View page = this.services.templates().list(lang.get(EconomyMessages.HUB_TITLE), body,
                 List.of(
-                    Button.of(lang.get(EconomyMessages.HUB_PAY), s -> this.commands.openPayForm(s.player(), "", "")).width(150),
-                    Button.of(lang.get(EconomyMessages.HUB_TOP), s -> this.commands.openTopDialog(s.player(), 1)).width(150)),
-                2, s -> openMenu(s.player())));
+                    Button.of(lang.get(EconomyMessages.HUB_PAY), s -> this.commands.openPayForm(s.player(), "", "", back)).width(150),
+                    Button.of(lang.get(EconomyMessages.HUB_TOP), s -> this.commands.openTopDialog(s.player(), 1, back)).width(150)),
+                2, s -> openMenu(s.player()));
+            this.services.dialogs().show(player, line == HubLimit.UNKNOWN
+                ? page.withError(lang.get(EconomyMessages.HUB_LIMIT_FAILED), FormValues.EMPTY)
+                : page);
         }, null));
+    }
+
+    /** What the money page says about today's pay limit. */
+    enum HubLimit {
+        /** "You can still send ... today". */
+        LEFT,
+        /** Nothing: this player has no daily limit. */
+        NONE,
+        /** Today's total couldn't be loaded: a red line says so, since no line at all would read like having no limit. */
+        UNKNOWN;
+
+        /**
+         * @param limit the player's daily limit ({@link Long#MAX_VALUE}: none)
+         * @param sent  what they sent today, or null when it failed to load
+         * @param error why it failed to load, or null
+         */
+        static HubLimit of(long limit, Long sent, Throwable error) {
+            if (limit == Long.MAX_VALUE) {
+                return NONE;
+            }
+            return error != null || sent == null ? UNKNOWN : LEFT;
+        }
     }
 
     private void openMenu(Player player) {

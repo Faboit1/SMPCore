@@ -85,7 +85,7 @@ final class CrateDialogs {
                 lang.lines(CratesMessages.LIST_ENTRY, Arg.text("name", crate.name()), Arg.component("keys", this.text.count(owned))))));
             String crateId = crate.id();
             buttons.add(Button.of(lang.get(CratesMessages.LIST_OPEN, Arg.text("name", crate.name())),
-                s -> open(s, crateId, self, () -> listView(player, back))).width(150));
+                s -> open(s, crateId, self, () -> listView(player, back))).width(150).waits());
             buttons.add(Button.of(lang.get(CratesMessages.LIST_PREVIEW, Arg.text("name", crate.name())),
                 s -> preview(s.player(), crateId, self)).width(150));
         }
@@ -124,11 +124,11 @@ final class CrateDialogs {
         Runnable self = () -> crate(player, crateId, back);
         Supplier<View> origin = () -> crateView(player, crateId, back);
         List<Button> buttons = new ArrayList<>();
-        buttons.add(Button.of(lang.get(CratesMessages.VIEW_OPEN), s -> open(s, crateId, self, origin)).width(150));
+        buttons.add(Button.of(lang.get(CratesMessages.VIEW_OPEN), s -> open(s, crateId, self, origin)).width(150).waits());
         int many = bulk(owned);
         if (many >= 2) {
             buttons.add(Button.of(lang.get(CratesMessages.VIEW_OPEN_MANY, Arg.text("count", Integer.toString(many))),
-                s -> openMany(s, crateId, many, self, origin)).width(150));
+                s -> openMany(s, crateId, many, self, origin)).width(150).waits());
         }
         buttons.add(Button.of(lang.get(CratesMessages.VIEW_PREVIEW), s -> preview(s.player(), crateId, self)).width(150));
         return new View(View.Kind.LIST, lang.get(CratesMessages.VIEW_TITLE, Arg.text("name", crate.name())), body, List.of(), buttons,
@@ -147,7 +147,7 @@ final class CrateDialogs {
     private void refuse(Player player, CrateOpener.Refused refused, Supplier<View> origin) {
         View view = origin.get();
         if (view == null) {
-            this.services.dialogs().close(player);
+            this.services.dialogs().closeScreen(player);
             this.opener.report(player, refused);
             return;
         }
@@ -244,12 +244,12 @@ final class CrateDialogs {
         Lang lang = lang();
         List<Button> buttons = new ArrayList<>();
         if (keysLeft > 0) {
-            buttons.add(Button.of(lang.get(CratesMessages.RESULT_AGAIN), s -> open(s, crateId, returnTo, origin)).width(150));
+            buttons.add(Button.of(lang.get(CratesMessages.RESULT_AGAIN), s -> open(s, crateId, returnTo, origin)).width(150).waits());
         }
         int many = bulk(keysLeft);
         if (many >= 2) {
             buttons.add(Button.of(lang.get(CratesMessages.RESULT_MANY, Arg.text("count", Integer.toString(many))),
-                s -> openMany(s, crateId, many, returnTo, origin)).width(150));
+                s -> openMany(s, crateId, many, returnTo, origin)).width(150).waits());
         }
         buttons.add(Button.of(lang.get(CratesMessages.VIEW_PREVIEW), s -> preview(s.player(), crateId, returnTo)).width(150));
         return buttons;

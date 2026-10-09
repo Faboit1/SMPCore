@@ -40,6 +40,14 @@ final class HistoryView {
 
     /** Loads the history and shows it to {@code sender}: a dialog for players, chat for the console. */
     void show(CommandSender sender, UUID target, String name) {
+        show(sender, target, name, null);
+    }
+
+    /**
+     * Like {@link #show(CommandSender, UUID, String)}; {@code back} (the whois view it was opened from) adds a Back
+     * button to the dialog instead of Close.
+     */
+    void show(CommandSender sender, UUID target, String name, Button.Handler back) {
         this.store.history(target, MAX_ROWS).whenComplete((rows, error) -> {
             if (error != null) {
                 this.logger.log(Level.WARNING, "Could not load the history of " + name, error);
@@ -47,14 +55,14 @@ final class HistoryView {
                 return;
             }
             if (sender instanceof Player player) {
-                page(player, name, rows, 1);
+                page(player, name, rows, 1, back);
             } else {
                 print(sender, name, rows);
             }
         });
     }
 
-    private void page(Player viewer, String name, List<Punishment> rows, int page) {
+    private void page(Player viewer, String name, List<Punishment> rows, int page, Button.Handler back) {
         Lang lang = this.services.lang();
         int size = this.settings.get().historyPageSize();
         int pages = Math.max(1, (rows.size() + size - 1) / size);
@@ -73,13 +81,13 @@ final class HistoryView {
         }
         List<Button> buttons = new ArrayList<>();
         if (current > 1) {
-            buttons.add(Button.of(lang.get(StaffMessages.PAGE_PREVIOUS), s -> page(s.player(), name, rows, current - 1)).width(150));
+            buttons.add(Button.of(lang.get(StaffMessages.PAGE_PREVIOUS), s -> page(s.player(), name, rows, current - 1, back)).width(150));
         }
         if (current < pages) {
-            buttons.add(Button.of(lang.get(StaffMessages.PAGE_NEXT), s -> page(s.player(), name, rows, current + 1)).width(150));
+            buttons.add(Button.of(lang.get(StaffMessages.PAGE_NEXT), s -> page(s.player(), name, rows, current + 1, back)).width(150));
         }
         this.services.dialogs().show(viewer, this.services.templates().list(lang.get(StaffMessages.HISTORY_TITLE, Arg.text("name", name)),
-            lines, buttons, 2, null));
+            lines, buttons, 2, back));
     }
 
     private void print(CommandSender sender, String name, List<Punishment> rows) {

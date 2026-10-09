@@ -5,6 +5,9 @@ auction:
   hub:
     label: "Auction house"
     description: "Buy and sell items with other players"
+    # The claim box's own main menu button (/claims), shown even when another plugin is the auction house.
+    claims-label: "Claim box"
+    claims-description: "Items waiting for you: purchases, returns and what didn't fit"
 
   menu:
     title: "Auction house"
@@ -114,7 +117,7 @@ auction:
       - "<secondary>You have <icon:money> <balance>"
     confirm-button: "Buy"
     done: "<primary>You bought <amount> <item> from <seller> for <price>."
-    done-claim-box: "<primary>You bought <amount> <item> from <seller> for <price>. It's waiting in your claim box."
+    done-claim-box: "<primary>You bought <amount> <item> from <seller> for <price>. It's waiting in your claim box (/claims)."
     gone: "<primary>That listing is gone."
     own: "<primary>That's your own listing."
     price-changed: "<primary>The price changed. Have another look."
@@ -133,7 +136,7 @@ auction:
     confirm-button: "Take it down"
     keep-button: "Keep it up"
     done: "<primary>Listing taken down. The item is back in your inventory."
-    done-claim-box: "<primary>Listing taken down. The item is in your claim box."
+    done-claim-box: "<primary>Listing taken down. The item is in your claim box (/claims)."
 
   remove:
     confirm-title: "Remove listing"
@@ -143,15 +146,15 @@ auction:
     confirm-button: "Remove"
 
   expired:
-    one: "<primary>Your listing of <amount> <item> expired. It's waiting in your claim box."
-    many: "<primary><count> of your listings expired. They're waiting in your claim box."
+    one: "<primary>Your listing of <amount> <item> expired. It's waiting in your claim box (/claims)."
+    many: "<primary><count> of your listings expired. They're waiting in your claim box (/claims)."
 
   claim:
     one: "<primary>Claimed <amount> <item>."
     many: "<primary>Claimed <count> stacks."
-    partial: "<primary>Claimed what fits. <count> left in your claim box."
+    partial: "<primary>Claimed what fits. <count> left in your claim box (/claims)."
     empty: "<secondary>Your claim box is empty."
-    reminder: "<primary>You have <count> waiting in your claim box. <click:run_command:'/ah claims'><secondary>Click to open it.</click>"
+    reminder: "<primary>You have <count> waiting in your claim box. <click:run_command:'/claims'><secondary>Click to open it, or use /claims.</click>"
 
   in-combat: "<primary>You can't use the auction house in combat. <time> left."
 

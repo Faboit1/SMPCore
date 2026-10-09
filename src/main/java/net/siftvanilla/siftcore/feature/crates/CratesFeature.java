@@ -83,13 +83,17 @@ public final class CratesFeature implements Feature, Listener {
         perms.declare(PERMISSION_USE, "Use /crates, open crates and preview them", true);
         perms.declare(PERMISSION_KEYALL, "See when the next keyall is with /keyall", true);
         perms.declare(PERMISSION_ADMIN, "Give and take keys, start a keyall and manage crate blocks", false);
+        this.text = new CrateText(services.lang());
+        // Other features (store deliveries) describe keys with this feature's wording and the crate's display name.
         this.keys = new KeyService(services.ledger(), services.database(), () -> this.settings.get().crateIds(),
-            System::currentTimeMillis);
+            System::currentTimeMillis, (crate, amount) -> {
+                Crate configured = this.settings.get().crate(crate);
+                return this.text.keys(amount, configured == null ? crate : configured.name());
+            });
         this.items = new RewardItems(spawners, () -> services.lang().style().palette());
         this.handouts = new Handouts(services);
         this.rewardCommands = new RewardCommands(services.database(), task -> services.scheduler().global(task),
             command -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command), services.plugin().getLogger());
-        this.text = new CrateText(services.lang());
         CrateLog log = new CrateLog(services.database());
         this.opener = new CrateOpener(services, this.settings, this.keys, this.items, this.handouts, this.rewardCommands, log,
             this.text, vanish, combat, WIN_ANNOUNCEMENTS);

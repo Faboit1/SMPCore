@@ -8,6 +8,8 @@ public final class AuctionMessages {
     // ---------------------------------------------------------------- hub and menus
     public static final MessageKey HUB_LABEL = MessageKey.ui("auction.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("auction.hub.description");
+    public static final MessageKey HUB_CLAIMS_LABEL = MessageKey.ui("auction.hub.claims-label");
+    public static final MessageKey HUB_CLAIMS_DESCRIPTION = MessageKey.ui("auction.hub.claims-description");
 
     public static final MessageKey MENU_TITLE = MessageKey.ui("auction.menu.title");
     public static final MessageKey LISTING_LORE = MessageKey.ui("auction.menu.listing", "price", "seller", "time");

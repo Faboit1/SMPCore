@@ -118,6 +118,23 @@ public final class Fakes {
         public final Set<String> permissions = ConcurrentHashMap.newKeySet();
         public volatile Location location;
         public volatile boolean online = true;
+        private final org.bukkit.inventory.Inventory crafting = (org.bukkit.inventory.Inventory) Proxy.newProxyInstance(
+            Fakes.class.getClassLoader(), new Class<?>[] {org.bukkit.inventory.Inventory.class},
+            (proxy, method, args) -> switch (method.getName()) {
+                case "equals" -> proxy == args[0];
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "toString" -> "FakeCraftingInventory";
+                default -> defaultValue(method.getReturnType());
+            });
+        private final org.bukkit.inventory.InventoryView view = (org.bukkit.inventory.InventoryView) Proxy.newProxyInstance(
+            Fakes.class.getClassLoader(), new Class<?>[] {org.bukkit.inventory.InventoryView.class},
+            (proxy, method, args) -> switch (method.getName()) {
+                case "getTopInventory", "getBottomInventory" -> this.crafting;
+                case "equals" -> proxy == args[0];
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "toString" -> "FakeInventoryView";
+                default -> defaultValue(method.getReturnType());
+            });
 
         public FakePlayer(String name) {
             this.id = UUID.nameUUIDFromBytes(("fake:" + name).getBytes(StandardCharsets.UTF_8));
@@ -150,6 +167,9 @@ public final class Fakes {
                         this.chat.add(text);
                     }
                     break;
+                case "getOpenInventory":
+                    // The player's own crafting screen: what a player with nothing open has.
+                    return this.view;
                 case "teleportAsync":
                     this.calls.add(method0);
                     this.teleports.add((Location) args[0]);

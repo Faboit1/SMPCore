@@ -44,7 +44,24 @@ final class AuctionCommands {
 
     List<SiftCommand> all() {
         return List.of(new SimpleCommand("ah", List.of("auction", "auctionhouse"), "Opens the auction house",
-            AuctionService.PERMISSION_USE, this::tree));
+            AuctionService.PERMISSION_USE, this::tree), claims());
+    }
+
+    /**
+     * {@code /claims}: the claim box on its own command, so items owed by every feature (shop, orders, crates,
+     * spawners, the auction house) stay reachable while another plugin owns {@code /ah} (commands.yml yield-to).
+     */
+    private SiftCommand claims() {
+        return new SimpleCommand("claims", List.of("claimbox"), "Opens your claim box", AuctionService.PERMISSION_CLAIMS,
+            label -> Commands.literal(label)
+                .requires(CommandSupport.playerPermission(AuctionService.PERMISSION_CLAIMS))
+                .executes(ctx -> {
+                    Player player = this.support.player(ctx);
+                    if (player != null) {
+                        this.menus.openClaimBox(player);
+                    }
+                    return CommandSupport.OK;
+                }));
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> tree(String label) {

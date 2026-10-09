@@ -74,6 +74,7 @@ final class AuctionScenarios {
         list.add(of("auction-history", AuctionScenarios::history));
         list.add(of("auction-staff", AuctionScenarios::staff));
         list.add(of("auction-hub", AuctionScenarios::hub));
+        list.add(of("auction-claims-command", AuctionScenarios::claimsCommand));
         list.add(of("auction-persist-setup", AuctionScenarios::persistSetup));
         list.add(of("auction-persist-check", AuctionScenarios::persistCheck));
         list.add(of("auction-expiry", AuctionScenarios::expiry));
@@ -411,7 +412,7 @@ final class AuctionScenarios {
             return null;
         });
         buy(e2e, buyer, sellerName);
-        e2e.eventually(() -> buyer.chatContains("You bought 10 Diamond from " + sellerName + " for $1,000. It's waiting in your claim box."),
+        e2e.eventually(() -> buyer.chatContains("You bought 10 Diamond from " + sellerName + " for $1,000. It's waiting in your claim box (/claims)."),
             "claim box receipt: " + buyer.chat());
         e2e.eventually(() -> claimBox(e2e, buyerId) == 1, "one stack in the claim box");
         e2e.expect(count(e2e, buyerName, Material.DIAMOND) == 0, "nothing was dropped or forced into the inventory");
@@ -420,7 +421,7 @@ final class AuctionScenarios {
         e2e.console("kick " + buyerName);
         e2e.eventually(() -> Bukkit.getPlayerExact(buyerName) == null, buyerName + " left");
         Bot back = e2e.bot(buyerName);
-        e2e.eventually(() -> back.chatContains("You have 1 waiting in your claim box."), "join reminder: " + back.chat());
+        e2e.eventually(() -> back.chatContains("You have 1 waiting in your claim box. Click to open it, or use /claims."), "join reminder: " + back.chat());
 
         e2e.step("claiming needs room");
         openMenu(e2e, back, "ah claims", "Claim box");
@@ -888,6 +889,80 @@ final class AuctionScenarios {
         awaitScreen(e2e, bot, closed, TITLE);
     }
 
+    /**
+     * The claim box has its own command and main menu button, independent of /ah (which AxAuctions takes over): items
+     * from any feature can be claimed there, its Back goes to the main menu, and the join reminder runs /claims.
+     */
+    static void claimsCommand(E2E e2e) throws Exception {
+        String name = e2e.name("AhClaims");
+        Bot bot = e2e.bot(name);
+        UUID id = e2e.uuid(name);
+        e2e.expect(claimLabels(e2e).containsAll(List.of("claims", "claimbox")),
+            "/claims and /claimbox are registered on their own: " + claimLabels(e2e));
+        TransactionResult given = e2e.services().deliveries().give(id, "shop", null, ItemStack.of(Material.EMERALD, 7), "console");
+        e2e.expect(given.success(), "a shop delivery was added: " + given);
+        given.committed().get(10, TimeUnit.SECONDS);
+
+        e2e.step("the main menu has a claim box button that opens it");
+        command(e2e, bot, "menu");
+        Bot.SeenDialog menu = e2e.dialog(bot, "SiftVanilla");
+        e2e.expect(menu.button("Claim box") != null, "a Claim box button in " + menu.buttons());
+        Bot.Screen before = bot.screen();
+        e2e.expect(bot.clickButton("Claim box", Map.of()), "can click it");
+        awaitScreen(e2e, bot, before, "Claim box");
+        slotWith(e2e, bot, "From shop");
+
+        e2e.step("its back button returns to the main menu");
+        int seen = bot.dialogs().size();
+        bot.clickSlot(46);
+        newDialog(e2e, bot, seen, "SiftVanilla");
+
+        e2e.step("/claims opens it and the item can be claimed");
+        bot.closeScreen();
+        openMenu(e2e, bot, "claims", "Claim box");
+        bot.clearLogs();
+        bot.clickSlot(slotWith(e2e, bot, "From shop"));
+        e2e.eventually(() -> count(e2e, name, Material.EMERALD) == 7, "the emeralds were claimed");
+        e2e.eventually(() -> claimBox(e2e, id) == 0, "the claim box is empty");
+
+        e2e.step("the join reminder opens it with /claims");
+        TransactionResult again = e2e.services().deliveries().give(id, "orders", null, ItemStack.of(Material.GOLD_INGOT, 2), "console");
+        again.committed().get(10, TimeUnit.SECONDS);
+        bot.closeScreen();
+        e2e.console("kick " + name);
+        e2e.eventually(() -> Bukkit.getPlayerExact(name) == null, name + " left");
+        Bot back = e2e.bot(name);
+        e2e.eventually(() -> back.chatContains("You have 1 waiting in your claim box."), "join reminder: " + back.chat());
+        e2e.expect(back.chatComponents().stream().anyMatch(line -> runsCommand(line, "/claims")),
+            "the reminder's click runs /claims: " + back.chatComponents());
+        openMenu(e2e, back, "claimbox", "Claim box");
+        slotWith(e2e, back, "From orders");
+    }
+
+    private static List<String> claimLabels(E2E e2e) {
+        List<String> labels = new ArrayList<>();
+        for (var command : Bukkit.getCommandMap().getKnownCommands().entrySet()) {
+            if (command.getKey().equals("claims") || command.getKey().equals("claimbox")) {
+                labels.add(command.getKey());
+            }
+        }
+        return labels;
+    }
+
+    /** Whether the chat line (or a part of it) runs this command when clicked. */
+    private static boolean runsCommand(net.minecraft.network.chat.Component line, String command) {
+        if (line.getStyle().getClickEvent() instanceof net.minecraft.network.chat.ClickEvent.RunCommand run
+            && run.command().equals(command)) {
+            return true;
+        }
+        for (net.minecraft.network.chat.Component part : line.getSiblings()) {
+            if (runsCommand(part, command)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Leaves an active listing and an unclaimed claim box item behind for {@link #persistCheck} (after a restart). */
     static void persistSetup(E2E e2e) {
         String sellerName = e2e.name("AhKeeper");
@@ -966,7 +1041,7 @@ final class AuctionScenarios {
             seller.clearLogs();
             e2e.eventually(() -> "EXPIRED".equals(query(e2e, false, "SELECT state FROM auction_listings WHERE id = ?",
                 rs -> rs.next() ? rs.getString(1) : null, id)), 100_000, "expired within 100 seconds");
-            e2e.eventually(() -> seller.chatContains("Your listing of 3 Diamond expired. It's waiting in your claim box."),
+            e2e.eventually(() -> seller.chatContains("Your listing of 3 Diamond expired. It's waiting in your claim box (/claims)."),
                 "the seller is told: " + seller.chat());
             e2e.expect(claimBox(e2e, sellerId) == 1, "one stack in the claim box");
 

@@ -79,7 +79,7 @@ integrations:
     what:
       money: "<amount>"
       shards: "<amount> shards"
-      keys: "<amount> <crate> keys"
+      keys: "<keys>"
       rank: "<rank> for <time>"
       rank-permanent: "<rank> permanently"
     state:
@@ -105,7 +105,7 @@ integrations:
     notify:
       money: "<primary>Your store purchase arrived: <amount> was added to your balance. <secondary>Thank you for supporting the server."
       shards: "<primary>Your store purchase arrived: <amount> shards. <secondary>Thank you for supporting the server."
-      keys: "<primary>Your store purchase arrived: <amount> <crate> keys. <secondary>Open them with /crates."
+      keys: "<primary>Your store purchase arrived: <keys>. <secondary>Open them with /crates."
       rank: "<primary>Your store purchase arrived: you are <rank> for <time>. <secondary>Thank you for supporting the server."
       rank-permanent: "<primary>Your store purchase arrived: you are <rank> for good. <secondary>Thank you for supporting the server."
       revoked: "<primary>A store purchase was cancelled, so <what> was taken back."

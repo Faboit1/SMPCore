@@ -64,14 +64,21 @@ public final class ExtrasFeature implements Feature, Listener {
     @Override
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, this.services.plugin());
+        // From the main menu, the rules' button returns to it; /rules just closes.
         this.services.hub().register(new HubEntry("rules", 94, ExtrasMessages.RULES_LABEL, ExtrasMessages.RULES_DESCRIPTION,
-            null, this::openRules));
+            null, player -> openRules(player, submission -> {
+                HubEntry menu = this.services.hub().get("menu");
+                if (menu != null) {
+                    menu.open().accept(submission.player());
+                }
+            })));
     }
 
-    private void openRules(Player player) {
+    /** The rules notice; {@code after} runs when its button is clicked, or null to close. */
+    private void openRules(Player player, Button.Handler after) {
         var lang = this.services.lang();
         this.services.dialogs().show(player, this.services.templates().notice(lang.get(ExtrasMessages.RULES_TITLE),
-            lang.lines(ExtrasMessages.RULES_BODY), lang.get(ExtrasMessages.RULES_BUTTON), null));
+            lang.lines(ExtrasMessages.RULES_BODY), lang.get(ExtrasMessages.RULES_BUTTON), after));
     }
 
     private void openHelp(Player player) {
@@ -94,7 +101,7 @@ public final class ExtrasFeature implements Feature, Listener {
                 label -> Commands.literal(label).requires(CommandSupport.playerPermission("siftcore.command.rules")).executes(ctx -> {
                     Player player = support.player(ctx);
                     if (player != null) {
-                        openRules(player);
+                        openRules(player, null);
                     }
                     return CommandSupport.OK;
                 })),

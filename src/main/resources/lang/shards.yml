@@ -63,7 +63,7 @@ shards:
   # <count> is how many keys or items the purchase gave.
   bought: "<primary>You bought <count>x <name> for <total> shards."
   bought-keys: "<primary>You bought <count>x <name> for <total> shards. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
-  bought-claim-box: "<primary>You bought <count>x <name> for <total> shards. <secondary><left> didn't fit and are waiting in your claim box."
+  bought-claim-box: "<primary>You bought <count>x <name> for <total> shards. <secondary><left> didn't fit and are waiting in your claim box (/claims)."
   refunded: "<primary>Your <count>x <name> couldn't be given, so your <total> shards were refunded."
   giving: "<secondary>Giving your keys..."
   no-longer-sold: "<primary>That isn't sold anymore."

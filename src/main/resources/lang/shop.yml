@@ -62,7 +62,7 @@ shop:
       - "<secondary>You'll have <left> left."
     button: "Buy"
   bought: "<primary>You bought <amount> <item> for <total>."
-  bought-claim-box: "<primary>You bought <amount> <item> for <total>. <secondary><count> didn't fit and are waiting in your claim box."
+  bought-claim-box: "<primary>You bought <amount> <item> for <total>. <secondary><count> didn't fit and are waiting in your claim box (/claims)."
   no-longer-sold: "<primary>That isn't sold anymore."
   unavailable: "<primary>That isn't available right now."
   cancelled: "<secondary>Purchase cancelled."

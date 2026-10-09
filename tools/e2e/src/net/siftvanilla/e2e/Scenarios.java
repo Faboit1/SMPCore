@@ -1,10 +1,13 @@
 package net.siftvanilla.e2e;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.StringTag;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 /** The scenario catalogue. Each scenario is independent and cleans up its bots. */
 final class Scenarios {
@@ -39,6 +42,7 @@ final class Scenarios {
         list.add(of("forged-clicks", Scenarios::forgedClicks));
         list.add(of("baltop", Scenarios::baltop));
         list.add(of("extras", Scenarios::extras));
+        list.add(of("command-cooldown", Scenarios::commandCooldown));
         list.addAll(FeatureScenarios.all());
         return list;
     }
@@ -170,10 +174,44 @@ final class Scenarios {
         e2e.click(a, "Submit", Map.of("player", FORMTARGET, "amount", "abc"));
         Bot.SeenDialog retry = e2e.dialog(a, "Pay a player");
         e2e.expect(retry.bodyText().contains("not an amount"), "error in the body: " + retry.body());
+        e2e.step("payment refusals come back in the form with what was typed, before anything closes");
+        int cleared = a.dialogsCleared();
+        int seen = a.dialogs().size();
+        e2e.click(a, "Submit", Map.of("player", FORMBOT, "amount", "500"));
+        e2e.eventually(() -> a.dialogs().size() > seen, "the form comes back");
+        Bot.SeenDialog self = a.dialogs().getLast();
+        e2e.expect(self.title().equals("Pay a player") && self.bodyText().contains("You can't do that to yourself."),
+            "paying yourself is refused in the form: " + self.body());
+        e2e.expect(FORMBOT.equals(self.initial("player")) && "500".equals(self.initial("amount")), "the typed values: " + self.initial());
+        int seenMore = a.dialogs().size();
+        e2e.click(a, "Submit", Map.of("player", FORMTARGET, "amount", "50k"));
+        e2e.eventually(() -> a.dialogs().size() > seenMore, "the form comes back again");
+        Bot.SeenDialog poor = a.dialogs().getLast();
+        e2e.expect(poor.bodyText().contains("You need $50,000 for that."), "not enough money, in the form: " + poor.body());
+        e2e.expect(a.dialogsCleared() == cleared, "the form never closed in between");
+        e2e.expect(e2e.money(FORMTARGET) == 0 && e2e.money(FORMBOT) == 10_000, "nothing moved");
+
         e2e.step("valid submission pays");
         e2e.click(a, "Submit", Map.of("player", FORMTARGET, "amount", "1.5k"));
         e2e.eventually(() -> e2e.money(FORMTARGET) == 1_500, "target got $1,500");
         e2e.expect(e2e.money(FORMBOT) == 8_500, "payer has $8,500");
+
+        e2e.step("from the Money page, the form and the leaderboard go back to it");
+        e2e.sleep(500);
+        a.command("menu");
+        e2e.dialog(a, "SiftVanilla");
+        e2e.click(a, "Money");
+        e2e.dialog(a, "Money");
+        e2e.click(a, "Pay a player");
+        Bot.SeenDialog form = e2e.dialog(a, "Pay a player");
+        e2e.expect(form.button("Back") != null && form.button("Cancel") == null, "Back instead of Cancel: " + form.buttons());
+        e2e.click(a, "Back");
+        e2e.dialog(a, "Money");
+        e2e.click(a, "Richest players");
+        Bot.SeenDialog top = e2e.dialog(a, "Richest players");
+        e2e.expect(top.button("Back") != null && top.button("Close") == null, "Back instead of Close: " + top.buttons());
+        e2e.click(a, "Back");
+        e2e.dialog(a, "Money");
     }
 
     static void doubleSubmit(E2E e2e) {
@@ -250,6 +288,42 @@ final class Scenarios {
         e2e.eventually(() -> a.actionBarContains("Your ping is"), "ping on the action bar: " + a.actionBar());
         a.command("seen " + other);
         e2e.eventually(() -> a.chatContains(other + " is online now."), "seen online: " + a.chat());
+    }
+
+    /**
+     * A cooldown in commands.yml holds back any SiftCore command, here /balance (which has no cooldown code of its
+     * own), with its subcommands and aliases, and it applies with /sift reload.
+     */
+    static void commandCooldown(E2E e2e) throws Exception {
+        String name = e2e.name("Cooler");
+        Bot a = e2e.bot(name);
+        Path file = e2e.services().plugin().getDataFolder().toPath().resolve("commands.yml");
+        String original = Files.readString(file);
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.loadFromString(original);
+        yaml.set("commands.balance.cooldown", "30s");
+        Files.writeString(file, yaml.saveToString());
+        e2e.console("sift reload");
+        try {
+            e2e.step("the first /balance answers");
+            a.clearLogs();
+            a.command("balance");
+            e2e.eventually(() -> a.chatContains("You have "), "the balance: " + a.chat());
+            e2e.step("the next one, also through an alias, waits for the cooldown");
+            e2e.sleep(1_500);
+            a.clearLogs();
+            a.command("bal");
+            e2e.eventually(() -> a.actionBarContains("before doing that again"), "the cooldown message: " + a.actionBar());
+            e2e.expect(!a.chatContains("You have "), "no balance this time: " + a.chat());
+        } finally {
+            Files.writeString(file, original);
+            e2e.console("sift reload");
+        }
+        e2e.step("without the cooldown it answers again");
+        e2e.sleep(1_500);
+        a.clearLogs();
+        a.command("balance");
+        e2e.eventually(() -> a.chatContains("You have "), "the balance after the reload: " + a.chat());
     }
 
     static void baltop(E2E e2e) {

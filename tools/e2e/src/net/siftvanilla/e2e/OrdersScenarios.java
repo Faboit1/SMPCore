@@ -552,6 +552,16 @@ final class OrdersScenarios {
         e2e.expect(confirm.bodyText().contains("192 Gold Ingot at $90 each"), "3 stacks of gold: " + confirm.body());
         e2e.expect(confirm.bodyText().contains("$17,280 is held now"), "the total: " + confirm.body());
         e2e.expect(!confirm.bodyText().contains("Players get more from /sell"), "$90 less tax beats $35 at the best sell multiplier: " + confirm.body());
+
+        e2e.step("Back on the confirmation puts the form in its place, without closing anything first");
+        int cleared = bot.dialogsCleared();
+        Bot.Screen browser = bot.screen();
+        Bot.SeenDialog edit = clickToDialog(e2e, bot, "Back", Map.of(), "New order");
+        e2e.expect(bot.dialogsCleared() == cleared, "no dialog close between the confirmation and the form");
+        e2e.expect(bot.screen() != null && bot.screen() == browser, "the browser under the dialogs is still open");
+        e2e.expect("gold_ingot".equals(edit.initial("item")) && "3 stacks".equals(edit.initial("quantity")),
+            "the form keeps the order: " + edit.initial());
+        confirm = clickToDialog(e2e, bot, "Next", typed(edit, Map.of()), "Place order");
         before = bot.screen();
         e2e.expect(bot.clickButton("Place order", Map.of()), "can place it");
         awaitScreen(e2e, bot, before, BROWSER);
@@ -815,6 +825,16 @@ final class OrdersScenarios {
         openMenu(e2e, bot, "orders mine", "Your orders");
         int own = slotWith(e2e, bot, "Money held $500");
         clickForDialog(e2e, bot, own, 0, ContainerInput.PICKUP, "Your order");
+
+        e2e.step("Details replaces the order's dialog after its reads, without closing it or the list under it");
+        int cleared = bot.dialogsCleared();
+        Bot.Screen list = bot.screen();
+        Bot.SeenDialog details = clickToDialog(e2e, bot, "Details", Map.of(), "Order details");
+        e2e.expect(details.bodyText().contains("Order #" + id), "the details of this order: " + details.body());
+        e2e.expect(bot.dialogsCleared() == cleared, "no dialog close before the details");
+        e2e.expect(bot.screen() != null && bot.screen() == list, "the list under the dialog is still open");
+        clickToDialog(e2e, bot, "Back", Map.of(), "Your order");
+
         Bot.SeenDialog cancel = clickToDialog(e2e, bot, "Cancel order", Map.of(), "Cancel order");
         e2e.expect(cancel.bodyText().contains("$500 comes back to you."), "the refund: " + cancel.body());
         bot.clearMessages();
@@ -881,7 +901,7 @@ final class OrdersScenarios {
         e2e.eventually(() -> e2e.services().deliveries().of(e2e.uuid(buyerName)).stream()
             .mapToInt(delivery -> delivery.item().getType() == Material.GOLD_INGOT ? delivery.item().getAmount() : 0).sum() == 4,
             "4 gold wait in the claim box");
-        e2e.eventually(() -> buyer.chatContains("4 Gold Ingot went to your claim box."), "told: " + buyer.chat());
+        e2e.eventually(() -> buyer.chatContains("4 Gold Ingot went to your claim box (/claims)."), "told: " + buyer.chat());
         e2e.eventually(() -> row(e2e, gold).equals("FILLED/10/10/10/50/0"), "the order is settled: " + row(e2e, gold));
         healthy(e2e);
     }

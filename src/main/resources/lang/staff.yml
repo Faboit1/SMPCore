@@ -197,7 +197,7 @@ staff:
     switch-inventory: "<primary>Inventory"
     switch-inventory-lore: "<secondary>See <name>'s inventory"
     taken: "<primary>Took <amount> <item> from <name>."
-    claim-box: "<primary>Your inventory was full, so the rest went to your claim box."
+    claim-box: "<primary>Your inventory was full, so the rest went to your claim box (/claims)."
     changed: "<primary>That slot changed, so nothing was taken. The view is up to date now."
     cleared: "<primary>Deleted <name>'s items. <secondary>Stacks removed: <primary><count>"
     clear-title: "Delete items?"

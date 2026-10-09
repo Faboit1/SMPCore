@@ -22,8 +22,10 @@ import net.siftvanilla.siftcore.core.command.SiftCommand;
 import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -108,43 +110,58 @@ final class EconomyCommands {
         }
         Optional<UUID> target = this.support.known(ctx, "player");
         OptionalLong amount = target.isPresent() ? this.support.money(ctx, "amount") : OptionalLong.empty();
-        if (target.isPresent() && amount.isPresent()
-            && this.support.cooldown(player, "pay", this.settings.get().payCooldown())) {
+        if (target.isPresent() && amount.isPresent()) {
             this.pay.pay(player, target.get(), amount.getAsLong());
         }
         return CommandSupport.OK;
     }
 
-    /** The pay form, also opened from the hub. */
+    /** The pay form from /pay: Cancel closes it. */
     void openPayForm(Player player, String name, String amount) {
+        openPayForm(player, name, amount, null);
+    }
+
+    /**
+     * The pay form. {@code back} (the Money page) turns Cancel into Back. Every check that needs no storage read
+     * runs before the form goes away, and a refusal comes back in the form with what was typed.
+     */
+    void openPayForm(Player player, String name, String amount, Button.Handler back) {
         var lang = this.services.lang();
         this.services.dialogs().show(player, this.services.templates().form(
             lang.get(EconomyMessages.PAY_FORM_TITLE),
             List.of(),
             List.of(Templates.text("player", lang.get(EconomyMessages.PAY_FORM_PLAYER), name, 16),
                 Templates.text("amount", lang.get(EconomyMessages.PAY_FORM_AMOUNT), amount, 24)),
-            submission -> {
-                String targetName = submission.values().text("player");
-                String amountText = submission.values().text("amount");
-                Player online = Bukkit.getPlayerExact(targetName);
-                Optional<UUID> target = online != null ? Optional.of(online.getUniqueId()) : this.services.directory().uuid(targetName);
-                if (target.isEmpty()) {
-                    submission.error(lang.get(CoreMessages.PLAYER_NOT_FOUND, Arg.text("name", targetName)));
-                    return;
-                }
-                var parsed = this.services.money().get().parse(amountText);
-                if (!parsed.ok()) {
-                    submission.error(lang.get(CoreMessages.INVALID_AMOUNT, Arg.text("input", amountText)));
-                    return;
-                }
-                if (!this.support.cooldown(submission.player(), "pay", this.settings.get().payCooldown())) {
-                    submission.close();
-                    return;
-                }
-                submission.close();
-                this.pay.pay(submission.player(), target.get(), parsed.amount());
-            },
-            null));
+            this::submitPayForm,
+            back));
+    }
+
+    private void submitPayForm(Submission submission) {
+        var lang = this.services.lang();
+        String targetName = submission.values().text("player");
+        String amountText = submission.values().text("amount");
+        Player online = Bukkit.getPlayerExact(targetName);
+        Optional<UUID> target = online != null ? Optional.of(online.getUniqueId()) : this.services.directory().uuid(targetName);
+        if (target.isEmpty()) {
+            submission.error(lang.get(CoreMessages.PLAYER_NOT_FOUND, Arg.text("name", targetName)));
+            return;
+        }
+        var parsed = this.services.money().get().parse(amountText);
+        if (!parsed.ok()) {
+            submission.error(lang.get(CoreMessages.INVALID_AMOUNT, Arg.text("input", amountText)));
+            return;
+        }
+        PayService.Refusal refusal = this.pay.refusal(submission.player(), target.get(), parsed.amount());
+        if (refusal != null) {
+            submission.error(lang.get(refusal.key(), refusal.args()));
+            return;
+        }
+        Duration wait = this.pay.tryCooldown(submission.player());
+        if (!wait.isZero()) {
+            submission.error(lang.get(CoreMessages.COOLDOWN, Arg.time("time", wait)));
+            return;
+        }
+        this.pay.payFromForm(submission, target.get(), parsed.amount());
     }
 
     // ------------------------------------------------------------------ /baltop
@@ -165,7 +182,7 @@ final class EconomyCommands {
         int current = Math.clamp(page, 1, pages);
         List<EconomyApi.TopEntry> slice = all.subList(Math.min(all.size(), (current - 1) * pageSize), Math.min(all.size(), current * pageSize));
         if (sender instanceof Player player) {
-            openTopDialog(player, current);
+            openTopDialog(player, current, null);
             return CommandSupport.OK;
         }
         var messenger = this.services.messenger();
@@ -180,8 +197,8 @@ final class EconomyCommands {
         return CommandSupport.OK;
     }
 
-    /** The leaderboard dialog with page buttons. */
-    void openTopDialog(Player player, int page) {
+    /** The leaderboard dialog with page buttons; {@code back} (the Money page) adds Back, null a Close button. */
+    void openTopDialog(Player player, int page, Button.Handler back) {
         var lang = this.services.lang();
         int pageSize = this.settings.get().pageSize();
         List<EconomyApi.TopEntry> all = this.economy.top(Currency.MONEY, this.settings.get().topSize());
@@ -205,13 +222,13 @@ final class EconomyCommands {
         }
         List<Button> buttons = new ArrayList<>();
         if (current > 1) {
-            buttons.add(Button.of(lang.get(EconomyMessages.TOP_PREVIOUS), s -> openTopDialog(s.player(), current - 1)).width(150));
+            buttons.add(Button.of(lang.get(EconomyMessages.TOP_PREVIOUS), s -> openTopDialog(s.player(), current - 1, back)).width(150));
         }
         if (current < pages) {
-            buttons.add(Button.of(lang.get(EconomyMessages.TOP_NEXT), s -> openTopDialog(s.player(), current + 1)).width(150));
+            buttons.add(Button.of(lang.get(EconomyMessages.TOP_NEXT), s -> openTopDialog(s.player(), current + 1, back)).width(150));
         }
         this.services.dialogs().show(player, this.services.templates().list(lang.get(EconomyMessages.TOP_TITLE), lines,
-            buttons, 2, null));
+            buttons, 2, back));
     }
 
     // ------------------------------------------------------------------ /eco
@@ -273,7 +290,7 @@ final class EconomyCommands {
                 long current = this.services.ledger().balance(uuid, currency);
                 long delta = amount - current;
                 if (delta == 0) {
-                    this.services.messenger().chat(sender, EconomyMessages.ECO_SET, Arg.text("name", this.services.directory().name(uuid)),
+                    this.services.messenger().chat(sender, reply(action, currency), Arg.text("name", this.services.directory().name(uuid)),
                         Arg.amount("amount", currency, amount));
                     return CommandSupport.OK;
                 }
@@ -293,15 +310,26 @@ final class EconomyCommands {
         }
         long balance = this.services.ledger().balance(uuid, currency);
         switch (action) {
-            case "give" -> this.services.messenger().chat(sender, EconomyMessages.ECO_GIVEN, Arg.text("name", name),
+            case "give", "take" -> this.services.messenger().chat(sender, reply(action, currency), Arg.text("name", name),
                 Arg.amount("amount", currency, amount), Arg.amount("balance", currency, balance));
-            case "take" -> this.services.messenger().chat(sender, EconomyMessages.ECO_TAKEN, Arg.text("name", name),
-                Arg.amount("amount", currency, amount), Arg.amount("balance", currency, balance));
-            default -> this.services.messenger().chat(sender, EconomyMessages.ECO_SET, Arg.text("name", name),
+            default -> this.services.messenger().chat(sender, reply(action, currency), Arg.text("name", name),
                 Arg.amount("amount", currency, amount));
         }
         this.services.audit().record(actor, "eco." + action, uuid.toString(), currency.id() + " " + amount);
         return CommandSupport.OK;
+    }
+
+    /**
+     * The reply of {@code /eco give|take|set}. Shards have their own lines that name the unit: a shard amount alone is
+     * a bare number, which staff could take for money.
+     */
+    static MessageKey reply(String action, Currency currency) {
+        boolean shards = currency == Currency.SHARDS;
+        return switch (action) {
+            case "give" -> shards ? EconomyMessages.ECO_GIVEN_SHARDS : EconomyMessages.ECO_GIVEN;
+            case "take" -> shards ? EconomyMessages.ECO_TAKEN_SHARDS : EconomyMessages.ECO_TAKEN;
+            default -> shards ? EconomyMessages.ECO_SET_SHARDS : EconomyMessages.ECO_SET;
+        };
     }
 
     private int history(CommandContext<CommandSourceStack> ctx, int page) {

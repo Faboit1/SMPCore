@@ -39,6 +39,7 @@ final class AuctionService {
     static final String PERMISSION_USE = "siftcore.command.ah";
     static final String PERMISSION_SELL = "siftcore.auction.sell";
     static final String PERMISSION_ADMIN = "siftcore.admin.auction";
+    static final String PERMISSION_CLAIMS = "siftcore.command.claims";
     static final String SLOTS_PREFIX = "siftcore.auction.listings";
 
     /** The result of preparing a sale: a draft to confirm or a problem to show. */

@@ -17,6 +17,8 @@ public final class EconomyMessages {
     public static final MessageKey PAY_CANCELLED = MessageKey.info("economy.pay.cancelled");
     public static final MessageKey PAY_CONFIRM_TITLE = MessageKey.ui("economy.pay.confirm-title");
     public static final MessageKey PAY_CONFIRM_BODY = MessageKey.ui("economy.pay.confirm-body", "name", "amount", "left");
+    /** The confirmation for a payer without a daily limit (no "you can send ... more today" line). */
+    public static final MessageKey PAY_CONFIRM_BODY_UNLIMITED = MessageKey.ui("economy.pay.confirm-body-unlimited", "name", "amount");
     public static final MessageKey PAY_CONFIRM_BUTTON = MessageKey.ui("economy.pay.confirm-button");
 
     public static final MessageKey TOP_TITLE = MessageKey.ui("economy.top.title");
@@ -31,6 +33,9 @@ public final class EconomyMessages {
     public static final MessageKey ECO_GIVEN = MessageKey.chat("economy.admin.given", "name", "amount", "balance");
     public static final MessageKey ECO_TAKEN = MessageKey.chat("economy.admin.taken", "name", "amount", "balance");
     public static final MessageKey ECO_SET = MessageKey.chat("economy.admin.set", "name", "amount");
+    public static final MessageKey ECO_GIVEN_SHARDS = MessageKey.chat("economy.admin.given-shards", "name", "amount", "balance");
+    public static final MessageKey ECO_TAKEN_SHARDS = MessageKey.chat("economy.admin.taken-shards", "name", "amount", "balance");
+    public static final MessageKey ECO_SET_SHARDS = MessageKey.chat("economy.admin.set-shards", "name", "amount");
     public static final MessageKey ECO_FAILED = MessageKey.chat("economy.admin.failed", "reason");
     public static final MessageKey ECO_HISTORY_HEADER = MessageKey.chat("economy.admin.history-header", "name", "page");
     public static final MessageKey ECO_HISTORY_LINE = MessageKey.chat("economy.admin.history-line", "id", "sign", "amount", "kind", "ago", "balance");
@@ -41,6 +46,10 @@ public final class EconomyMessages {
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("economy.hub.description");
     public static final MessageKey HUB_TITLE = MessageKey.ui("economy.hub.title");
     public static final MessageKey HUB_BODY = MessageKey.ui("economy.hub.body", "amount", "shards", "rank", "left");
+    /** The money page without the daily limit line (none for this player, or it couldn't be loaded). */
+    public static final MessageKey HUB_BODY_UNLIMITED = MessageKey.ui("economy.hub.body-unlimited", "amount", "shards", "rank");
+    /** The red line under the money page when today's pay total couldn't be loaded. */
+    public static final MessageKey HUB_LIMIT_FAILED = MessageKey.error("economy.hub.limit-failed");
     public static final MessageKey HUB_PAY = MessageKey.ui("economy.hub.pay");
     public static final MessageKey HUB_TOP = MessageKey.ui("economy.hub.top");
     public static final MessageKey PAY_FORM_TITLE = MessageKey.ui("economy.pay.form-title");

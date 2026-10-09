@@ -292,7 +292,8 @@ claim box. Package `feature/auction`, config `features/auction.yml`, text `lang/
 | `/ah search <text>` | `siftcore.command.ah` | Opens the menu searching item names and types |
 | `/ah sell <price> [amount]` | `siftcore.auction.sell` (everyone) | Lists the held item (or `amount` of it) after a confirmation |
 | `/ah listings` | `siftcore.command.ah` | Your listings; click one to take it down |
-| `/ah claims` | `siftcore.command.ah` | The claim box |
+| `/ah claims` | `siftcore.command.ah` | The claim box (Back goes to the auction house) |
+| `/claims` (`/claimbox`) | `siftcore.command.claims` (everyone) | The claim box on its own command, which never yields to AxAuctions: items from every feature (shop, sell, orders, crates, shards, spawners, staff, the auction house) stay claimable while AxAuctions owns `/ah`. Back goes to the main menu |
 | `/ah history` | `siftcore.command.ah` | Your last sales and purchases (dialog) |
 | `/ah admin info` | `siftcore.admin.auction` (op) | Active listings, sellers, pending rows, claim box size, next expiry |
 | `/ah admin list <player>` | `siftcore.admin.auction` | A player's active listings with their ids |
@@ -358,7 +359,14 @@ Both read memory only.
 ### Main menu entry and events
 
 Hub entry `auction` (order 30, permission `siftcore.command.ah`), which is also the `auction` pause-menu entry. While
-AxAuctions is enabled it runs `/ah` (AxAuctions) for the player instead of opening this menu.
+AxAuctions is enabled it runs `/ah` (AxAuctions) for the player instead of opening this menu. When that opened
+AxAuctions' menu, the button marks the screen as shown, so the dialog router does not close the new menu after its
+grace; the router also never closes a container opened since the click (another plugin's menu).
+
+Hub entry `claims` (order 32, permission `siftcore.command.claims`) opens the claim box, like `/claims`. It is always
+there, so the claim box stays reachable while AxAuctions is the auction house. The pause menu can show it too: add
+`claims` to `pause-menu.entries` in `features/hub.yml` (its label is `hub.entries.claims` in `lang/hub.yml`). Every
+"waiting in your claim box" message names `/claims`, and the join reminder's click runs it.
 
 Events (`api.event`), fired on the player's thread before anything changes:
 

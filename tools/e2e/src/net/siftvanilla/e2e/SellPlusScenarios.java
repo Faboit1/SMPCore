@@ -73,6 +73,7 @@ final class SellPlusScenarios {
         list.add(of("worth-browser-open", SellPlusScenarios::worthBrowser));
         list.add(of("worth-details-sell", SellPlusScenarios::worthDetailsSell));
         list.add(of("mastery-credit-and-level", SellPlusScenarios::mastery));
+        list.add(of("sell-mastery-from-menu", SellPlusScenarios::masteryFromMenu));
         list.add(of("sell-menu-add-and-giveback", SellPlusScenarios::menuAddAndGiveBack));
         list.add(of("sell-top-and-history", SellPlusScenarios::topAndHistory));
         list.add(of("sell-traded-refused", SellPlusScenarios::tradedRefused));
@@ -587,6 +588,47 @@ final class SellPlusScenarios {
             "the changes are audited");
     }
 
+    /**
+     * Mastery opened from the sell menu, over a filled grid: a category's Sell gives the grid back first, so the
+     * confirmation counts those items too, and confirming sells them all (closing the now empty menu moves nothing
+     * into the slots the sale takes from).
+     */
+    static void masteryFromMenu(E2E e2e) {
+        String name = e2e.name("MastMenu");
+        Bot bot = e2e.bot(name);
+        e2e.console("eco set " + name + " 0");
+        clear(e2e, name);
+        e2e.eventually(() -> "0".equals(placeholder(e2e, name, "sell_mastery_mining")), "mastery loaded at level 0");
+        setSlot(e2e, name, 9, ItemStack.of(Material.DIAMOND, 24));
+        openScreen(e2e, bot, "sell", "Sell items");
+        e2e.step("24 diamonds in the grid, 40 more in the inventory");
+        bot.clickSlot(45);
+        e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 0, "the diamonds moved into the grid");
+        setSlot(e2e, name, 9, ItemStack.of(Material.DIAMOND, 40));
+        e2e.sleep(300);
+
+        e2e.step("Mastery, Mining, Sell: the confirmation counts the grid too");
+        bot.clearLogs();
+        bot.clickSlot(52);
+        e2e.dialog(bot, "Sell mastery");
+        e2e.click(bot, "Mining");
+        Bot.SeenDialog detail = e2e.dialog(bot, "Mining mastery");
+        String sell = "Sell your Mining items (40 for $16,000)";
+        e2e.expect(detail.button(sell) != null, "the inventory's diamonds on the button: " + detail.buttons());
+        e2e.click(bot, sell);
+        Bot.SeenDialog confirm = e2e.dialog(bot, "Sell Mining items");
+        e2e.expect(confirm.bodyText().contains("Sell 64 items for $25,600?"), "the grid's diamonds are counted: " + confirm.body());
+        e2e.expect(count(e2e, name, Material.DIAMOND) == 64 && e2e.money(name) == 0, "back in the inventory, nothing sold yet");
+
+        e2e.step("confirming sells all 64");
+        e2e.click(bot, "Sell for $25,600");
+        e2e.eventually(() -> e2e.money(name) == 25_600, "paid $25,600 (has " + e2e.money(name) + ")");
+        e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "every diamond sold");
+        e2e.sleep(300);
+        e2e.expect(!bot.anyFeedbackContains("didn't go through"), "no failed sale: " + bot.chat() + " / " + bot.actionBar());
+        e2e.eventually(() -> bot.screen() == null, "the sell menu closed");
+    }
+
     /** Stored sell mastery rows of a player (after everything queued was written). */
     private static long masteryRows(E2E e2e, UUID player) {
         var database = e2e.services().database();
@@ -1010,13 +1052,19 @@ final class SellPlusScenarios {
         bot.clickSlot(9, 1, ContainerInput.PICKUP);
         Bot.SeenDialog dialog = e2e.dialog(bot, "Sell all diamond");
         e2e.expect(dialog.bodyText().contains("Sell 10 items for $4,000?"), "the total: " + dialog.body());
-        e2e.step("Cancel goes back to the shop page");
-        e2e.click(bot, "Cancel");
-        e2e.eventually(() -> bot.screen() != null && bot.screen().title().equals("Ores"), "back on the Ores page");
+        e2e.step("Cancel goes back to the shop page, which replaces the confirmation");
+        Bot.Screen page = bot.screen();
+        int cleared = bot.dialogsCleared();
+        e2e.expect(bot.clickButton("Cancel", Map.of()), "can click Cancel in " + dialog.buttons());
+        e2e.eventually(() -> bot.screen() != null && bot.screen() != page && bot.screen().title().equals("Ores"), "back on the Ores page");
+        e2e.expect(bot.dialogsCleared() == cleared, "no dialog close before the page");
         e2e.expect(e2e.money(name) == 0, "nothing sold");
         e2e.sleep(300);
+        // The bot keeps its last dialog when a container replaces it (a real client shows the container), so wait for
+        // a new one rather than the title.
+        int seen = bot.dialogs().size();
         bot.clickSlot(9, 1, ContainerInput.PICKUP);
-        e2e.dialog(bot, "Sell all diamond");
+        e2e.eventually(() -> bot.dialogs().size() > seen && bot.dialog().title().contains("Sell all diamond"), "the confirmation again");
         e2e.click(bot, "Sell for $4,000");
         e2e.eventually(() -> e2e.money(name) == 4_000, "sold from the shop (has " + e2e.money(name) + ")");
         e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "the diamonds are gone");

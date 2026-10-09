@@ -2,7 +2,8 @@
 
 Players open crates with virtual keys. Each opening spends one key and pays one reward, drawn by weight: items,
 money, shards, keys of another crate, spawners or a console command. Keys come from the keyall (every player online,
-every few hours), the store, the shard shop and staff. Crates can also be blocks in the world. Package
+every few hours), the shard shop and staff. Keys are never sold ([monetization](../monetization.md)); `/sift store keys`
+is a staff and event tool. Crates can also be blocks in the world. Package
 `feature/crates`, config `features/crates.yml`, text `lang/crates.yml`, tables `crate_keys` and `crate_log` (V008)
 plus `crate_grants`, `crate_blocks` and `crate_schedule` (V055).
 

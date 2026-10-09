@@ -32,11 +32,11 @@ spawners:
   gone: "<primary>That spawner isn't there any more."
   changed: "<primary>The spawner just changed. Try again."
   in-combat: "<primary>You can't open spawners in combat. <time> left."
-  claim-box: "<primary><count> items didn't fit in your inventory. <secondary>They're waiting in your claim box."
+  claim-box: "<primary><count> items didn't fit in your inventory. <secondary>They're waiting in your claim box (/claims)."
 
   # A spawner whose block was removed by something other than a pickup (an admin tool, a world edit) is given back.
   refund:
-    notice: "<primary>Your <mob> spawner stack of <amount> at <location> in <world> is gone. <secondary>Its spawners and <count> stored items are waiting in your claim box."
+    notice: "<primary>Your <mob> spawner stack of <amount> at <location> in <world> is gone. <secondary>Its spawners and <count> stored items are waiting in your claim box (/claims)."
     xp: "<primary>You got its <xp> stored XP."
 
   break:
@@ -45,7 +45,7 @@ spawners:
     cancelled: "<secondary>The spawner stays where it is."
     picked-up-one: "<primary>Picked up your <mob> spawner."
     picked-up-many: "<primary>Picked up <amount> <mob> spawners."
-    storage-claim-box: "<primary>Its <count> stored items are waiting in your claim box."
+    storage-claim-box: "<primary>Its <count> stored items are waiting in your claim box (/claims)."
     storage-owner-claim-box: "<primary>Its <count> stored items went to <owner>'s claim box."
     storage-sold: "<primary>Its <count> stored items sold for <total>."
     storage-sold-owner: "<primary>Its <count> stored items sold for <total>, paid to <owner>."

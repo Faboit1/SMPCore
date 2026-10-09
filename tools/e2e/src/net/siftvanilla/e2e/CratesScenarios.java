@@ -345,11 +345,14 @@ final class CratesScenarios {
             e2e.expect(body.contains("Next keyall in") && body.contains("Everyone online gets 1 Basic key"), "the keyall line: " + body);
             e2e.expect(list.button("Open Test") != null && list.button("Preview Test") != null && list.button("Open Legendary") != null,
                 "Open and Preview for every crate: " + list.buttons());
+            e2e.expect("wait_for_response".equals(list.after()), "Open keeps the client on its waiting screen until the result: "
+                + list.after());
 
             e2e.step("Open spends one key and shows the reward once it is stored and handed over");
             e2e.click(bot, "Open Test");
             Bot.SeenDialog result = awaitBody(e2e, bot, "You won 5 diamonds");
             e2e.expect(result.title().equals("Test crate"), "the result is titled after the crate: " + result.title());
+            e2e.expect("wait_for_response".equals(result.after()), "Open another waits for its result too: " + result.after());
             e2e.expect(result.bodyText().contains("Rare") && result.bodyText().contains("You have 1 key left."), "rarity and keys left: "
                 + result.bodyText());
             e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 5, "5 diamonds in the inventory");
@@ -500,7 +503,7 @@ final class CratesScenarios {
             e2e.step("a reward that does not fit waits in the claim box");
             bot.clearLogs();
             command(e2e, bot, "crates open e2etest");
-            e2e.eventually(() -> bot.chatContains("You won 5 diamonds from the Test crate. It didn't fit, so it's waiting in your claim box."),
+            e2e.eventually(() -> bot.chatContains("You won 5 diamonds from the Test crate. It didn't fit, so it's waiting in your claim box (/claims)."),
                 "the receipt names the claim box: " + bot.chat());
             e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "no diamonds in the full inventory");
             e2e.expect(e2e.services().deliveries().count(uuid) == 1, "one stack in the claim box");
@@ -1000,7 +1003,7 @@ final class CratesScenarios {
             e2e.sleep(1_200);
             command(e2e, bot, "crates open e2etest 3");
             e2e.eventually(() -> bot.chatContains("You opened 3 Test crates."), "three opened: " + bot.chat());
-            e2e.expect(bot.chatContains("Some of it didn't fit, so it's waiting in your claim box."), "the claim box note: " + bot.chat());
+            e2e.expect(bot.chatContains("Some of it didn't fit, so it's waiting in your claim box (/claims)."), "the claim box note: " + bot.chat());
             e2e.expect(e2e.services().deliveries().count(uuid) == 3 && count(e2e, name, Material.DIAMOND) == 0, "three stacks wait in the claim box");
 
             e2e.step("right-clicking the preview's open button opens several");

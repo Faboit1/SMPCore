@@ -32,6 +32,11 @@ public final class CommandSupport {
 
     public static final int OK = Command.SINGLE_SUCCESS;
 
+    /** The player and command whose cooldown the command running on this thread was charged for. */
+    private record Charged(UUID player, String command) {
+    }
+
+    private final ThreadLocal<Charged> charged = new ThreadLocal<>();
     private final Messenger messenger;
     private final PlayerDirectory directory;
     private final Cooldowns cooldowns;
@@ -81,8 +86,18 @@ public final class CommandSupport {
         return context.getSource().getSender();
     }
 
-    /** Applies the command's cooldown from commands.yml; returns false (after telling the player) if not ready. */
+    /**
+     * Applies the command's cooldown from commands.yml; returns false (after telling the player) if not ready.
+     * {@link CommandService} already does this for every player who runs a SiftCore command, so a feature only calls
+     * it for its own paths outside the command (a dialog button that does what the command does). Called while that
+     * same command runs, it returns true: the run was already charged when it started. A button on a screen the command
+     * opens would always find this cooldown running; use {@link #cooldown(Player, String, String)} there.
+     */
     public boolean cooldown(Player player, String command) {
+        Charged charged = this.charged.get();
+        if (charged != null && charged.player().equals(player.getUniqueId()) && charged.command().equals(command)) {
+            return true;
+        }
         Duration cooldown = this.settings.get().get(command).cooldown();
         if (cooldown.isZero() || player.hasPermission("siftcore.bypass.cooldown")) {
             return true;
@@ -93,6 +108,42 @@ public final class CommandSupport {
         }
         this.messenger.send(player, CoreMessages.COOLDOWN, Arg.time("time", left));
         return false;
+    }
+
+    /**
+     * Applies the command's commands.yml cooldown to one action that both the command and its screens run (a friend
+     * request), under a key of its own: opening the command's screens or its other subcommands doesn't use it up, and
+     * the action is charged once whichever way it runs. Returns false (after telling the player) if not ready.
+     */
+    public boolean cooldown(Player player, String command, String action) {
+        return cooldown(player, "cmd:" + command + ":" + action, this.settings.get().get(command).cooldown());
+    }
+
+    /**
+     * Wraps the body of one command node so a player who runs it first passes the command's commands.yml cooldown
+     * ({@link #cooldown(Player, String)}, bypassed with {@code siftcore.bypass.cooldown}). The cooldown is read on every
+     * run, so {@code /sift reload} applies it. The console and command blocks are never held up.
+     */
+    Command<CommandSourceStack> withCooldown(String command, Command<CommandSourceStack> body) {
+        return context -> {
+            if (!(context.getSource().getSender() instanceof Player player)) {
+                return body.run(context);
+            }
+            if (!cooldown(player, command)) {
+                return OK;
+            }
+            Charged outer = this.charged.get();
+            this.charged.set(new Charged(player.getUniqueId(), command));
+            try {
+                return body.run(context);
+            } finally {
+                if (outer == null) {
+                    this.charged.remove();
+                } else {
+                    this.charged.set(outer);
+                }
+            }
+        };
     }
 
     /** A cooldown with an explicit duration (feature-specific cooldowns). */

@@ -485,7 +485,7 @@ final class SpawnerScenarios {
         e2e.eventually(() -> bot.actionBarContains("Picked up 5 skeleton spawners."), "told: " + bot.actionBar());
         e2e.eventually(() -> e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience()) == expBefore + xp, "the " + xp + " stored XP was given");
         e2e.eventually(() -> e2e.services().deliveries().count(e2e.uuid(name)) > deliveriesBefore, "the stored loot is in the claim box");
-        e2e.eventually(() -> bot.chatContains("Its " + String.format(java.util.Locale.ROOT, "%,d", stored) + " stored items are waiting in your claim box."), "claim box note: " + bot.chat());
+        e2e.eventually(() -> bot.chatContains("Its " + String.format(java.util.Locale.ROOT, "%,d", stored) + " stored items are waiting in your claim box (/claims)."), "claim box note: " + bot.chat());
         e2e.expect(number(e2e, name, "spawners_count") == 0, "no spawners left");
         e2e.eventually(() -> storedSpawners(e2e, name) == 0, "the spawner row is deleted");
         e2e.expect(count(e2e, name, Material.SPAWNER) == 5, "no vanilla spawner item dropped or given");
@@ -1026,7 +1026,7 @@ final class SpawnerScenarios {
         e2e.expect(count(e2e, name, Material.SPAWNER) == 0, "nothing was handed out into the inventory");
         e2e.eventually(() -> bot.chatContains("Your spider spawner stack of 4 at " + at[0] + ", " + at[1] + ", " + at[2]
             + " in world is gone.") && bot.chatContains("Its spawners and " + String.format(java.util.Locale.ROOT, "%,d", stored)
-            + " stored items are waiting in your claim box."), "the owner is told: " + bot.chat());
+            + " stored items are waiting in your claim box (/claims)."), "the owner is told: " + bot.chat());
         e2e.eventually(() -> e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience()) == expBefore + xp,
             "the " + xp + " stored XP went to the owner");
         e2e.eventually(() -> bot.chatContains("You got its " + String.format(java.util.Locale.ROOT, "%,d", xp) + " stored XP."),

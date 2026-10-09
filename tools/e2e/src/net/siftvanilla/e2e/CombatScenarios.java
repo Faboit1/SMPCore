@@ -821,11 +821,22 @@ final class CombatScenarios {
         e2e.click(s, "Submit", Map.of("player", e2e.name("Nobody"), "amount", "5k"));
         e2e.eventually(() -> s.dialog() != null && s.dialog().bodyText().contains("has played here"), "unknown player: " + s.dialog());
         e2e.sleep(BOUNTY_COOLDOWN_MILLIS);
+        int cleared = s.dialogsCleared();
         e2e.click(s, "Submit", Map.of("player", targetName, "amount", "2k"));
         Bot.SeenDialog after = e2e.dialog(s, "Bounty on " + targetName);
         e2e.eventually(() -> bounty(e2e, targetName) == 207_000, "added through the form");
         e2e.expect(after.bodyText().contains("$207,000"), "the details show the new total: " + after.body());
         e2e.expect(escrow(e2e) == escrow0 + 207_000 && money(e2e, sponsorName) == 793_000, "every dollar accounted for");
+        e2e.expect(s.dialogsCleared() == cleared, "the details replaced the form without a close in between");
+
+        e2e.step("submitting again during the cooldown says so in the form and keeps what was typed");
+        e2e.click(s, "Add to this bounty");
+        e2e.dialog(s, "Place a bounty");
+        e2e.click(s, "Submit", Map.of("player", targetName, "amount", "3k"));
+        e2e.eventually(() -> s.dialog() != null && s.dialog().bodyText().contains("before doing that again"), "cooldown: " + s.dialog());
+        e2e.expect("3k".equals(s.dialog().initial("amount")), "the typed amount: " + s.dialog().initial());
+        e2e.expect(s.dialogsCleared() == cleared, "the form stayed");
+        e2e.expect(bounty(e2e, targetName) == 207_000, "nothing added during the cooldown");
 
         e2e.step("the target sees their own bounty");
         t.command("bounties");

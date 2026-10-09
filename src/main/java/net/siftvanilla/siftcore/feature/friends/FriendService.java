@@ -199,7 +199,9 @@ final class FriendService {
         if (wait > 0) {
             return refuse(sender, via, FriendsMessages.REQUEST_TOO_NEW, Arg.time("time", Duration.ofMillis(wait)));
         }
-        if (!this.services.commands().cooldown(sender, "friend")) {
+        // The friend cooldown of commands.yml on requests themselves (from /friend add and the friend screens alike):
+        // opening /friend charges the command's own cooldown, which must not hold up a request sent from its screens.
+        if (!this.services.commands().cooldown(sender, "friend", "request")) {
             return CompletableFuture.completedFuture(Reply.SILENT_REFUSAL);
         }
         if (!this.inFlight.tryAcquire(self, target)) {

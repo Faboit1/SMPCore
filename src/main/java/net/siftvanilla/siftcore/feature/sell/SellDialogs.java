@@ -108,8 +108,10 @@ final class SellDialogs {
                 SaleDraft draft = preview.draft();
                 buttons.add(Button.of(lang.get(SellMessages.DETAILS_SELL, Arg.text("count", Lang.number(draft.count())),
                     Arg.text("total", this.services.money().get().format(draft.total()))), s -> {
-                        s.close();
-                        this.sales.sellType(s.player(), key, false, () -> details(s.player(), key, back));
+                        // A confirmation replaces this dialog; a sale or refusal without one closes it.
+                        if (this.sales.sellType(s.player(), key, false, () -> details(s.player(), key, back)) != SellService.Outcome.ASKED) {
+                            s.close();
+                        }
                     }).width(Templates.WIDE));
             }
         }
