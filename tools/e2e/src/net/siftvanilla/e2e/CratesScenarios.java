@@ -318,6 +318,23 @@ final class CratesScenarios {
         return stack == null ? "" : stack.getHoverName().getString();
     }
 
+    /** The level of an enchantment ({@code minecraft:sharpness}) on an item as the client got it, 0 when it has none. */
+    static int enchantLevel(net.minecraft.world.item.ItemStack stack, String enchantment) {
+        if (stack == null) {
+            return 0;
+        }
+        var enchantments = stack.get(net.minecraft.core.component.DataComponents.ENCHANTMENTS);
+        if (enchantments == null) {
+            return 0;
+        }
+        for (var entry : enchantments.entrySet()) {
+            if (entry.getKey().getRegisteredName().equals(enchantment)) {
+                return entry.getIntValue();
+            }
+        }
+        return 0;
+    }
+
     private static int slotWith(E2E e2e, Bot bot, String text) {
         e2e.eventually(() -> slotsWith(bot, text) >= 0, bot.name + " sees an entry with '" + text + "'");
         return slotsWith(bot, text);
@@ -1449,6 +1466,27 @@ final class CratesScenarios {
                 if (entry.getKey() < 45) {
                     e2e.expect(itemNameColor(entry.getValue()) != null, "every reward is named in a colour: " + name(entry.getValue()));
                 }
+            }
+            // The same sword is better in every higher crate and named after it (Celestial past vanilla's limits).
+            String sword = switch (crate) {
+                case "legendary" -> "Legendary sword";
+                case "mythic" -> "Mythic sword";
+                case "celestial" -> "Celestial blade";
+                default -> null;
+            };
+            if (sword != null) {
+                var item = bot.screenItems().entrySet().stream().filter(entry -> entry.getKey() < 45 && name(entry.getValue()).equals(sword))
+                    .map(Map.Entry::getValue).findFirst().orElse(null);
+                e2e.expect(item != null, "the " + sword + " in the preview");
+                int sharpness = enchantLevel(item, "minecraft:sharpness");
+                int unbreaking = enchantLevel(item, "minecraft:unbreaking");
+                List<Integer> expected = switch (crate) {
+                    case "legendary" -> List.of(5, 3);
+                    case "mythic" -> List.of(5, 4);
+                    default -> List.of(6, 5);
+                };
+                e2e.expect(List.of(sharpness, unbreaking).equals(expected), sword + " has Sharpness " + sharpness + " and Unbreaking "
+                    + unbreaking + ", expected " + expected);
             }
         }
         bot.closeScreen();
