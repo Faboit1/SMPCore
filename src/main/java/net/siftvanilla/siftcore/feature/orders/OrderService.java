@@ -492,8 +492,15 @@ final class OrderService {
 
     // ------------------------------------------------------------------ delivering
 
-    /** Null when the order can still take deliveries from this seller at the price they saw. */
+    /**
+     * Null when the order can still take deliveries from this seller at the price they saw. Checked when a delivery
+     * screen opens and again when the delivery happens (the seller's permission included: a delivery menu or quick
+     * deliver dialog stays usable for a while, and the permission may be gone by then).
+     */
     Problem deliverable(Player seller, Order order, long seenPrice) {
+        if (!seller.hasPermission(PERMISSION_USE)) {
+            return new Problem(CoreMessages.NO_PERMISSION);
+        }
         if (order == null || !order.active() || order.expiredAt(this.engine.now())) {
             return new Problem(OrdersMessages.DELIVER_GONE);
         }

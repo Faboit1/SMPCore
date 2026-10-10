@@ -84,8 +84,14 @@ final class BountyActions {
         }
     }
 
-    /** Why this bounty can't be placed right now, or null when it can. Reads the sponsor's balance. */
+    /**
+     * Why this bounty can't be placed right now, or null when it can. Reads the sponsor's balance. Runs again when the
+     * placement is confirmed, the sponsor's permission included (a confirmation stays clickable for a while).
+     */
     private Refusal refusal(Player sponsor, UUID target, long amount) {
+        if (!sponsor.hasPermission(BountyCommands.PLACE)) {
+            return new Refusal(CoreMessages.NO_PERMISSION, List.of());
+        }
         BountiesSettings s = this.settings.get();
         BountyService.PlaceProblem problem = BountyService.check(sponsor.getUniqueId(), target, amount, s.minimum());
         if (problem == BountyService.PlaceProblem.YOURSELF) {

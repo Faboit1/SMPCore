@@ -326,6 +326,10 @@ final class AuctionService {
         if (blocked != null) {
             return blocked;
         }
+        // Checked again at the click: a confirmation stays clickable for a while, and the permission may be gone.
+        if (!buyer.hasPermission(PERMISSION_USE)) {
+            return new Problem(CoreMessages.NO_PERMISSION);
+        }
         Listing<ItemStack> listing = this.engine.book().get(id);
         if (listing == null) {
             return new Problem(AuctionMessages.BUY_GONE);
