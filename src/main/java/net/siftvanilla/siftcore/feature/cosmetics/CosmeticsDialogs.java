@@ -172,11 +172,12 @@ final class CosmeticsDialogs {
 
     /**
      * A switch for what the player sees of others (the same setting as in Settings): flips at once and shows the menu
-     * again. Left out while the server locks the setting.
+     * again. Left out while the server locks or hides the setting (a hidden setting can't be changed, so every click
+     * would only show the refusal).
      */
     private void viewerSwitch(List<Button> buttons, Player player, Toggle toggle, MessageKey label, MessageKey description) {
         var settings = this.services.settings();
-        if (settings.locked(toggle)) {
+        if (!offersSwitch(settings, toggle)) {
             return;
         }
         boolean on = Boolean.TRUE.equals(settings.get(player, toggle));
@@ -185,6 +186,11 @@ final class CosmeticsDialogs {
             SetResult result = settings.set(clicker, toggle, !on, Change.dialog(clicker.getName()));
             menu(clicker, result.succeeded() ? null : ui(CosmeticsMessages.MENU_SWITCH_REFUSED, Arg.component("label", ui(label))));
         }));
+    }
+
+    /** Whether the cosmetics menu shows a viewer switch: only while the server neither locks nor hides it. */
+    static boolean offersSwitch(net.siftvanilla.siftcore.core.player.PlayerSettings settings, Toggle toggle) {
+        return !settings.locked(toggle) && !settings.hidden(toggle);
     }
 
     // ------------------------------------------------------------------ chat colour

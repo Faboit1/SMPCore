@@ -54,6 +54,21 @@ class KillEffectsSettingTest {
         assertTrue(entry.offered(), "the shipped config plays kill effects");
     }
 
+    /** The /cosmetics switch is left out while the server locks or hides the setting, so it never only refuses. */
+    @Test
+    void theCosmeticsMenuSwitchFollowsLockedAndHidden() throws Exception {
+        AtomicReference<CosmeticsSettings> current = new AtomicReference<>(parse(shippedYaml()));
+        PlayerSettings settings = new PlayerSettings(null, null, Logger.getLogger("siftcore-test"));
+        CosmeticsFeature.registerKillEffects(settings, SettingCategories.DISPLAY, current::get);
+        assertTrue(CosmeticsDialogs.offersSwitch(settings, CosmeticsFeature.KILL_EFFECTS));
+        settings.overrides(new net.siftvanilla.siftcore.core.player.Overrides(java.util.Map.of(), java.util.Map.of(),
+            java.util.Set.of("show-kill-effects")));
+        org.junit.jupiter.api.Assertions.assertFalse(CosmeticsDialogs.offersSwitch(settings, CosmeticsFeature.KILL_EFFECTS), "hidden");
+        settings.overrides(new net.siftvanilla.siftcore.core.player.Overrides(java.util.Map.of(),
+            java.util.Map.of("show-kill-effects", "false"), java.util.Set.of()));
+        org.junit.jupiter.api.Assertions.assertFalse(CosmeticsDialogs.offersSwitch(settings, CosmeticsFeature.KILL_EFFECTS), "locked");
+    }
+
     @Test
     void itIsOnlyOfferedWhileKillEffectsCanPlay() throws Exception {
         AtomicReference<CosmeticsSettings> current = new AtomicReference<>(parse(shippedYaml()));
