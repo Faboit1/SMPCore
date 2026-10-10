@@ -113,8 +113,16 @@ deleted is audited (`perks.trash`, as before). What is given back goes into the 
 never leaves an item both in the saved inventory and the claim box; if the claim box is unavailable it drops at the
 player's feet. When the bin closes because its player died (without keep-inventory), the items it gives back drop
 where they died with the rest of their inventory, like a crafting grid; a disconnect gives them back into the
-inventory before the player file is saved. Items in an open bin when the server crashes are lost, like items left in a
-crafting table.
+inventory before the player file is saved. When only deleting, the player is saved right after, so a crash can't bring
+deleted items back.
+
+**Trash at a server stop or crash** (dupe audit R12). A stop fires no close event (Canvas halts the schedulers and
+disables plugins before it removes players), so `disable()` empties every open bin first, on the shutdown thread, as
+its close would: a Delete button bin gives everything back, a delete-on-close bin deletes all but what Trash protection
+keeps, and what does not fit goes to the claim box before storage is flushed. While items sit in a bin, a copy of them
+is kept in the player's own data (`siftcore:trash_grid`, the same `GridBackup` as the sell grid), saved together with
+their inventory; a copy a crash left behind is given back, all of it, when the player next joins ("The items you left
+in the trash bin when the server stopped are back in your inventory."), since nothing was deleted.
 
 ## How a claim works (money and items rules)
 

@@ -161,6 +161,8 @@ kits:
     trash-returned: "<secondary>Nothing deleted. Items given back: <accent><count>"
     trash-empty: "<primary>The bin is empty."
     trash-claim-box: "<accent><count></accent><primary> items didn't fit, so they're waiting in your claim box (/claims)."
+    # The server stopped while the player's trash bin held items: nothing was deleted, everything came back.
+    trash-restored: "<primary>The items you left in the trash bin when the server stopped are back in your inventory."
     hat-empty: "<primary>Hold the item you want to wear."
     hat-blocked: "<primary>You can't wear that."
     hat-cursed: "<primary>Your helmet can't be taken off."

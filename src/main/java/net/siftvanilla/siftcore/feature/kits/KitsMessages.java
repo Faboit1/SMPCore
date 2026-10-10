@@ -148,6 +148,8 @@ public final class KitsMessages {
     public static final MessageKey TRASH_RETURNED = MessageKey.info("kits.perks.trash-returned", "count");
     public static final MessageKey TRASH_EMPTY = MessageKey.error("kits.perks.trash-empty");
     public static final MessageKey TRASH_CLAIM_BOX = MessageKey.chat("kits.perks.trash-claim-box", "count");
+    /** The items a trash bin held when the server stopped hard were given back on join. */
+    public static final MessageKey TRASH_RESTORED = MessageKey.chat("kits.perks.trash-restored");
     public static final MessageKey HAT_EMPTY = MessageKey.error("kits.perks.hat-empty");
     public static final MessageKey HAT_BLOCKED = MessageKey.error("kits.perks.hat-blocked");
     public static final MessageKey HAT_CURSED = MessageKey.error("kits.perks.hat-cursed");

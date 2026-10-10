@@ -206,6 +206,8 @@ public final class KitsFeature implements Feature, Listener {
     @Override
     public void disable() {
         this.reminders.cancelAll();
+        // Open trash bins first: what they give back may go to the claim box, which the flushes below commit.
+        this.perks.returnAll();
         try {
             // Let every queued claim commit and register its hand-over (players can no longer receive items: the
             // region threads have stopped), then put every undelivered item back into the claim box, all before

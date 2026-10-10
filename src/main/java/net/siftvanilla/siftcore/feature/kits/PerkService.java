@@ -22,6 +22,7 @@ import net.siftvanilla.siftcore.ui.gui.GridBackup;
 import net.siftvanilla.siftcore.ui.gui.Items;
 import net.siftvanilla.siftcore.ui.gui.Menu;
 import org.bukkit.GameMode;
+import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -31,6 +32,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
@@ -71,6 +73,8 @@ final class PerkService implements Listener {
     private final Setting<KitsSettings> settings;
     private final CombatStatus combat;
     private final WorthLookup worth;
+    /** The copy of an open trash bin kept in its player's data ({@code siftcore:trash_grid}). */
+    private final GridBackup trashCopy;
     private final Map<UUID, Open> open = new ConcurrentHashMap<>();
 
     /** @param worth the server's sell prices, for Trash protection's valuables */
@@ -79,6 +83,7 @@ final class PerkService implements Listener {
         this.settings = settings;
         this.combat = combat;
         this.worth = worth;
+        this.trashCopy = new GridBackup(new NamespacedKey(services.plugin(), "trash_grid"), services.plugin().getLogger());
     }
 
     boolean has(Player player, Perk perk) {
@@ -155,7 +160,8 @@ final class PerkService implements Listener {
         Component title = Component.text(this.services.lang().plain(mode == KitPlayerSettings.TrashMode.DELETE_BUTTON
             ? KitsMessages.TRASH_TITLE_BUTTON : KitsMessages.TRASH_TITLE));
         TrashMenu menu = new TrashMenu(this.services.menus(), player, title, mode, this.services.lang().get(KitsMessages.TRASH_DELETE),
-            this.services.lang().lines(KitsMessages.TRASH_DELETE_LORE), (items, delete, dying) -> emptied(player, items, delete, dying));
+            this.services.lang().lines(KitsMessages.TRASH_DELETE_LORE), this.trashCopy,
+            (items, delete, dying) -> emptied(player, items, delete, dying));
         this.open.put(player.getUniqueId(), new Open(Perk.TRASH, null, menu));
         menu.open();
     }
@@ -186,6 +192,10 @@ final class PerkService implements Listener {
             this.services.audit().record(player.getUniqueId().toString(), "perks.trash", player.getUniqueId().toString(), summary(deleted));
         }
         long claimed = back.isEmpty() ? 0 : giveBack(player, back, dying);
+        if (back.isEmpty() && !dying) {
+            // The bin's copy went with the deleted items: saved now, a crash can't bring them back.
+            this.services.saveAfterTrade(player);
+        }
         if (!delete) {
             this.services.messenger().send(player, KitsMessages.TRASH_RETURNED, Arg.text("count", Lang.number(backCount)));
         } else if (backCount > 0 && deletedCount > 0) {
@@ -434,6 +444,44 @@ final class PerkService implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         this.open.remove(event.getPlayer().getUniqueId());
+    }
+
+    /**
+     * Gives back what a trash bin held when the server stopped hard (its copy in the player's data). Nothing was
+     * deleted then, so everything comes back, whatever the bin's mode.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        List<ItemStack> items = this.trashCopy.take(player);
+        if (items.isEmpty()) {
+            return;
+        }
+        long claimed = giveBack(player, items, false);
+        this.services.messenger().send(player, KitsMessages.TRASH_RESTORED);
+        if (claimed > 0) {
+            this.services.messenger().send(player, KitsMessages.TRASH_CLAIM_BOX, Arg.text("count", Lang.number(claimed)));
+        }
+    }
+
+    /**
+     * Empties every open trash bin as its close would ({@link TrashMenu#closeAtShutdown}). The server fires no close or
+     * quit events at shutdown, so without this whatever sat in a bin, Delete button bins and protected items included,
+     * was gone after a restart (dupe audit R12). Called first in the feature's disable, synchronously (the schedulers
+     * have stopped), while storage still takes the claim box's writes.
+     */
+    void returnAll() {
+        for (Open current : List.copyOf(this.open.values())) {
+            if (current.menu() instanceof TrashMenu bin) {
+                try {
+                    bin.closeAtShutdown();
+                } catch (RuntimeException e) {
+                    this.services.plugin().getLogger().log(Level.SEVERE, "Could not empty the trash bin of "
+                        + bin.viewer().getName() + " at shutdown", e);
+                }
+            }
+        }
+        this.open.clear();
     }
 
     /** Perk screens being tracked. */

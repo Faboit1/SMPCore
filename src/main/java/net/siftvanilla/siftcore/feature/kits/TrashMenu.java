@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.text.Feedback;
+import net.siftvanilla.siftcore.ui.gui.GridBackup;
 import net.siftvanilla.siftcore.ui.gui.Items;
 import net.siftvanilla.siftcore.ui.gui.Menu;
 import net.siftvanilla.siftcore.ui.gui.MenuContext;
@@ -21,6 +22,10 @@ import org.bukkit.inventory.ItemStack;
  * </ul>
  * Either way the bin takes its items out (and clears itself) before anything is deleted or given back, and the
  * player's Trash protection decides what is given back instead of deleted ({@link PerkService}).
+ * <p>
+ * While items sit in the bin a copy of them is kept in the player's own data ({@link GridBackup}), saved together with
+ * their inventory, so a crash can't lose them: a copy still there when the player joins is given back. At a server
+ * stop, which fires no close event, the bin is emptied as its close would ({@link #closeAtShutdown}).
  */
 final class TrashMenu extends Menu {
 
@@ -44,6 +49,7 @@ final class TrashMenu extends Menu {
     }
 
     private final KitPlayerSettings.TrashMode mode;
+    private final GridBackup backup;
     private final Emptied emptied;
     private final Component deleteName;
     private final List<Component> deleteLore;
@@ -52,11 +58,13 @@ final class TrashMenu extends Menu {
     /**
      * @param deleteName the Delete button's name (Delete button mode)
      * @param deleteLore the Delete button's lore
+     * @param backup     the copy of the bin kept in the player's data
      */
     TrashMenu(MenuContext ctx, Player viewer, Component title, KitPlayerSettings.TrashMode mode, Component deleteName,
-              List<Component> deleteLore, Emptied emptied) {
+              List<Component> deleteLore, GridBackup backup, Emptied emptied) {
         super(ctx, viewer, title, mode == KitPlayerSettings.TrashMode.DELETE_BUTTON ? BUTTON_ROWS : ROWS);
         this.mode = mode;
+        this.backup = backup;
         this.emptied = emptied;
         this.deleteName = deleteName;
         this.deleteLore = List.copyOf(deleteLore);
@@ -99,7 +107,42 @@ final class TrashMenu extends Menu {
         }
     }
 
-    /** Takes every item out of the item slots (copies) and clears them, before anything else happens to them. */
+    /**
+     * The server is stopping: it fires no close event (plugins are disabled before players are removed, and the
+     * schedulers have already stopped), so the bin is emptied here as its close would: a Delete button bin gives
+     * everything back, a delete-on-close bin deletes all but what Trash protection keeps. Shutdown thread.
+     */
+    void closeAtShutdown() {
+        closed();
+    }
+
+    @Override
+    protected void itemsChanged() {
+        backup(-1);
+    }
+
+    /** An item is about to leave (or be swapped out of) a slot: the copy drops it right away. */
+    @Override
+    protected void itemSlotClicked(int slot) {
+        backup(slot);
+    }
+
+    @Override
+    protected void persistItems() {
+        backup(-1);
+    }
+
+    /** Copies the bin into the viewer's player data, without slot {@code skip} (-1: none), while it is on screen. */
+    private void backup(int skip) {
+        if (this.viewer.getOpenInventory().getTopInventory().getHolder(false) == this) {
+            this.backup.save(this.viewer, getInventory(), 0, ITEM_SLOTS, skip);
+        }
+    }
+
+    /**
+     * Takes every item out of the item slots (copies) and clears them and their copy, before anything else happens to
+     * them.
+     */
     private List<ItemStack> take() {
         List<ItemStack> contents = new ArrayList<>();
         for (int slot = 0; slot < ITEM_SLOTS; slot++) {
@@ -109,6 +152,7 @@ final class TrashMenu extends Menu {
                 getInventory().setItem(slot, null);
             }
         }
+        this.backup.clear(this.viewer);
         return contents;
     }
 }
