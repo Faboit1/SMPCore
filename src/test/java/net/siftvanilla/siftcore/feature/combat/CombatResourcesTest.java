@@ -166,6 +166,65 @@ class CombatResourcesTest {
         assertEquals("Player kills", lang.plain(CombatMessages.OPTION_DEATHS_PVP));
     }
 
+    /** The death location names the server's three worlds the way players know them, never by their folder names. */
+    @Test
+    void deathLocationNamesTheWorlds() {
+        assertEquals("Overworld", CombatListener.worldName(lang, "world", "world"));
+        assertEquals("Nether", CombatListener.worldName(lang, "world_nether", "world"));
+        assertEquals("The End", CombatListener.worldName(lang, "world_the_end", "world"));
+        assertEquals("arena", CombatListener.worldName(lang, "arena", "world"), "another world keeps its own name");
+        assertEquals("world_nether", CombatListener.worldName(lang, "world_nether", null));
+        assertEquals("You died at 12, 70, -3 in Nether.", lang.plain(CombatMessages.DEATH_LOCATION,
+            Arg.text("world", CombatListener.worldName(lang, "world_nether", "world")), Arg.text("x", "12"), Arg.text("y", "70"),
+            Arg.text("z", "-3")));
+    }
+
+    @Test
+    void recapHeartsReadWithoutANeedlessDecimal() {
+        assertEquals("10", CombatListener.heartsText(10.0));
+        assertEquals("6.5", CombatListener.heartsText(6.5));
+        assertEquals("0.5", CombatListener.heartsText(0.5));
+        assertEquals("0", CombatListener.heartsText(0.0));
+        assertEquals("Sam had 10 hearts left.", lang.plain(CombatMessages.DEATH_RECAP, Arg.text("killer", "Sam"),
+            Arg.text("hearts", CombatListener.heartsText(10.0))));
+    }
+
+    /** The values players read (times, streaks, hearts, positions) are in the accent colour, their words are not. */
+    @Test
+    void valuesAreInTheAccentColour() {
+        net.kyori.adventure.text.format.TextColor accent = Palette.defaults().accent();
+        Component recap = lang.get(CombatMessages.DEATH_RECAP, Arg.text("killer", "Sam"), Arg.text("hearts", "6.5"));
+        assertEquals(accent, colourOf(recap, "6.5"), "hearts: " + recap);
+        Component timer = lang.get(CombatMessages.TAG_ACTION_BAR, Arg.text("time", "12s"));
+        assertEquals(accent, colourOf(timer, "12s"), "the combat timer: " + timer);
+        Component streak = lang.get(CombatMessages.STREAK_REACHED, Arg.text("name", "Alex"), Arg.text("count", "10"));
+        assertEquals(accent, colourOf(streak, "10"), "the streak: " + streak);
+        Component died = lang.get(CombatMessages.DEATH_LOCATION, Arg.text("world", "world"), Arg.text("x", "12"), Arg.text("y", "-64"),
+            Arg.text("z", "-3,500"));
+        assertEquals(accent, colourOf(died, "12"), "the position: " + died);
+        assertEquals(Palette.defaults().secondary(), colourOf(died, "You died at "), "the words stay gray: " + died);
+    }
+
+    /** The colour the part of {@code text} reading exactly {@code part} is shown in (inherited from its parents). */
+    private static net.kyori.adventure.text.format.TextColor colourOf(Component text, String part) {
+        return colourOf(text, part, null);
+    }
+
+    private static net.kyori.adventure.text.format.TextColor colourOf(Component text, String part,
+                                                                       net.kyori.adventure.text.format.TextColor inherited) {
+        net.kyori.adventure.text.format.TextColor colour = text.color() != null ? text.color() : inherited;
+        if (text instanceof net.kyori.adventure.text.TextComponent t && t.content().startsWith(part)) {
+            return colour;
+        }
+        for (Component child : text.children()) {
+            net.kyori.adventure.text.format.TextColor found = colourOf(child, part, colour);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
     @Test
     void messagesHaveNoLeftoverTagsOrStraySpaces() {
         for (MessageKey key : lang.registered().values()) {

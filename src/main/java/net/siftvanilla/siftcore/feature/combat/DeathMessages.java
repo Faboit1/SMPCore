@@ -66,13 +66,13 @@ final class DeathMessages {
 
     /** "Alex is on a kill streak of 10." */
     Component streak(Component name, int streak) {
-        return this.lang.get(CombatMessages.STREAK_REACHED, Arg.component("name", name), Arg.number("count", streak));
+        return this.lang.get(CombatMessages.STREAK_REACHED, Arg.component("name", name), Arg.text("count", Lang.number(streak)));
     }
 
     /** "Sam ended Alex's kill streak of 12." */
     Component streakEnded(Component killer, Component victim, int streak) {
         return this.lang.get(CombatMessages.STREAK_ENDED, Arg.component("killer", killer), Arg.component("victim", victim),
-            Arg.number("count", streak));
+            Arg.text("count", Lang.number(streak)));
     }
 
     /** The game's own death message in the secondary colour (its translation, arguments and hovers are kept). */

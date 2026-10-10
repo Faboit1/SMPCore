@@ -363,7 +363,7 @@ final class StoreCommands {
         Lang lang = this.services.lang();
         return delivery.kind() == StoreDeliveryEvent.Kind.MONEY
             ? lang.get(IntegrationsMessages.WHAT_MONEY, Arg.money("amount", amount))
-            : lang.get(IntegrationsMessages.WHAT_SHARDS, Arg.number("amount", amount));
+            : lang.get(IntegrationsMessages.WHAT_SHARDS, Arg.shards("amount", amount));
     }
 
     private void delivered(CommandSender sender, Delivery delivery, String actor) {
@@ -420,7 +420,7 @@ final class StoreCommands {
         var messenger = this.services.messenger();
         switch (delivery.kind()) {
             case MONEY -> messenger.send(player, IntegrationsMessages.NOTIFY_MONEY, Arg.money("amount", delivery.amount()));
-            case SHARDS -> messenger.send(player, IntegrationsMessages.NOTIFY_SHARDS, Arg.number("amount", delivery.amount()));
+            case SHARDS -> messenger.send(player, IntegrationsMessages.NOTIFY_SHARDS, Arg.shards("amount", delivery.amount()));
             case KEYS -> messenger.send(player, IntegrationsMessages.NOTIFY_KEYS, keysArgs(delivery));
             case RANK -> {
                 String rank = RankText.fromGroup(delivery.item());
@@ -457,7 +457,7 @@ final class StoreCommands {
         Lang lang = this.services.lang();
         return switch (delivery.kind()) {
             case MONEY -> lang.get(IntegrationsMessages.WHAT_MONEY, Arg.money("amount", delivery.amount()));
-            case SHARDS -> lang.get(IntegrationsMessages.WHAT_SHARDS, Arg.number("amount", delivery.amount()));
+            case SHARDS -> lang.get(IntegrationsMessages.WHAT_SHARDS, Arg.shards("amount", delivery.amount()));
             case KEYS -> lang.get(IntegrationsMessages.WHAT_KEYS, keysArgs(delivery));
             case RANK -> delivery.permanent()
                 ? lang.get(IntegrationsMessages.WHAT_RANK_PERMANENT, Arg.text("rank", RankText.fromGroup(delivery.item())))

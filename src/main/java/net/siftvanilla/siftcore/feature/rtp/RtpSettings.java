@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
 import net.siftvanilla.siftcore.feature.spawn.BorderSpec;
@@ -25,9 +26,15 @@ record RtpSettings(Duration warmup, int maxAttempts, int spotsPerChunk, int bord
      * One place players can random teleport to: a ring around a centre in one world.
      *
      * @param permission extra permission needed, or null for everyone who can use /rtp
+     * @param color      the colour of its button in the picker, or null for the primary text colour
      */
     record Region(String id, String name, boolean enabled, String world, String permission, long cost, Duration cooldown,
-                  double centerX, double centerZ, int minRadius, int maxRadius) {
+                  double centerX, double centerZ, int minRadius, int maxRadius, TextColor color) {
+
+        Region(String id, String name, boolean enabled, String world, String permission, long cost, Duration cooldown,
+               double centerX, double centerZ, int minRadius, int maxRadius) {
+            this(id, name, enabled, world, permission, cost, cooldown, centerX, centerZ, minRadius, maxRadius, null);
+        }
     }
 
     /** Finds a region by id or, failing that, by world name (so /rtp world_nether works too). */
@@ -97,8 +104,15 @@ record RtpSettings(Duration warmup, int maxAttempts, int spotsPerChunk, int bord
                     g.problem("max-radius", problem);
                 }
             }
+            TextColor color = r.has("colors." + id) ? r.custom("colors." + id, value -> {
+                TextColor parsed = TextColor.fromHexString(value.strip());
+                if (parsed == null) {
+                    throw new IllegalArgumentException("is not a hex colour");
+                }
+                return parsed;
+            }, "a hex colour like #55FFFF", null) : null;
             regions.put(id, new Region(id, name, enabled, world, permission.isEmpty() ? null : permission, cost, cooldown,
-                centerX, centerZ, minRadius, maxRadius));
+                centerX, centerZ, minRadius, maxRadius, color));
         }
         if (regions.isEmpty() && r.problems().isEmpty()) {
             r.problem("regions", "has no regions; add at least one (see the shipped file for an example)");

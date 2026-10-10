@@ -87,6 +87,7 @@ final class TeleportScenarios {
         list.add(of("homes-settings", TeleportScenarios::homesSettings));
         list.add(of("teleport-display", TeleportScenarios::teleportDisplay));
         list.add(of("rtp-settings", TeleportScenarios::rtpSettings));
+        list.add(of("rtp-free", TeleportScenarios::rtpFree));
         return list;
     }
 
@@ -509,7 +510,7 @@ final class TeleportScenarios {
         bot.clearLogs();
         bot.command("sethome BASE");
         Bot.SeenDialog move = e2e.dialog(bot, "Move home");
-        e2e.expect(move.bodyText().contains("Home base already exists") && move.bodyText().contains("Now: " + second.getWorld().getName() + " "
+        e2e.expect(move.bodyText().contains("Move home base to where you stand?") && move.bodyText().contains("Now: " + shown(second.getWorld()) + " "
             + second.getBlockX() + ", "), "moving an existing home asks first, with where it is: " + move.body());
         e2e.click(bot, "Move it here");
         e2e.eventually(() -> bot.actionBarContains("Home base moved here"), "moved: " + bot.actionBar());
@@ -528,9 +529,16 @@ final class TeleportScenarios {
         bot.clearLogs();
         bot.command("home");
         Bot.SeenDialog list = e2e.dialog(bot, "Homes");
-        e2e.expect(list.bodyText().contains("2 of 2 homes") && list.bodyText().contains("base") && list.bodyText().contains("home"),
-            "both homes in the body: " + list.body());
+        e2e.expect(list.body().size() == 1 && list.bodyText().contains("2 of 2 homes"), "one status line, nothing more: " + list.body());
+        e2e.expect(list.button("base") != null && list.button("home") != null, "a button per home: " + list.buttons());
+        // The main world reads "Overworld", never its folder name.
+        String where = shown(second.getWorld()) + " " + second.getBlockX() + ", ";
+        e2e.expect("Overworld".equals(shown(second.getWorld())), "the bots' homes are in the main world: " + second.getWorld().getName());
+        e2e.expect(list.button("base").tooltip() != null && list.button("base").tooltip().contains(where)
+            && list.button("base").tooltip().contains("Click to teleport to base."), "where it is in the tooltip: " + list.button("base").tooltip());
         e2e.expect(list.button("Set a home here") != null && list.button("Delete") != null, "set and delete buttons: " + list.buttons());
+        e2e.expect("#FF5555".equals(list.button("Delete").valueColor()), "Delete is red: " + list.button("Delete").valueColor());
+        e2e.expect(list.buttons().stream().noneMatch(button -> button.label().contains("page")), "no pages: " + list.buttons());
         long start = System.currentTimeMillis();
         e2e.click(bot, "base");
         e2e.eventually(() -> near(location(e2e, name), second, 0.5), 15_000, "at base");
@@ -691,7 +699,7 @@ final class TeleportScenarios {
         e2e.dialog(fighter, "SiftVanilla");
         e2e.click(fighter, "Teleport to a player");
         e2e.dialog(fighter, "Teleport request");
-        e2e.click(fighter, "Send request", Map.of("player", allyName, "direction", "here"));
+        e2e.click(fighter, "Bring them here", Map.of("player", allyName));
         e2e.eventually(() -> fighter.anyFeedbackContains("You can't use teleport requests in combat."), "refused: " + fighter.actionBar());
         e2e.sleep(800);
         e2e.expect(!ally.chatContains("wants you to teleport"), "the ally got no request: " + ally.chat());
@@ -851,7 +859,14 @@ final class TeleportScenarios {
         e2e.expect("1".equals(placeholder(e2e, hostName, "tpa_requests")), "tpa_requests is 1");
         e2e.expect(host.openChatDialog("wants to teleport to you"), "the chat message opens a dialog: " + host.chatDialogs());
         Bot.SeenDialog answer = e2e.dialog(host, "Teleport request");
-        e2e.expect(answer.bodyText().contains(askerName + " wants to teleport to you."), "who asks: " + answer.body());
+        e2e.expect(answer.body().size() == 1 && answer.bodyText().contains(askerName + " wants to teleport to you."),
+            "one line, who asks: " + answer.body());
+        e2e.expect("#55FF55".equals(answer.button("Accept").valueColor()) && "#FF5555".equals(answer.button("Deny").valueColor()),
+            "Accept green, Deny red: " + answer.button("Accept").valueColor() + " " + answer.button("Deny").valueColor());
+        e2e.expect(answer.button("Accept").tooltip().contains(askerName + " teleports to you.")
+            && answer.button("Accept").tooltip().contains("Requests expire after"), "what Accept does, on hover: "
+            + answer.button("Accept").tooltip());
+        e2e.expect(answer.button("Deny").tooltip() != null, "Deny explained on hover");
         long start = System.currentTimeMillis();
         e2e.click(host, "Accept");
         e2e.eventually(() -> asker.actionBarContains(hostName + " accepted your request"), "accepted: " + asker.actionBar());
@@ -866,7 +881,8 @@ final class TeleportScenarios {
         e2e.eventually(() -> asker.chatContains(hostName + " wants you to teleport to them."), "the request: " + asker.chat());
         asker.command("tpaccept");
         Bot.SeenDialog pulled = e2e.dialog(asker, "Teleport request");
-        e2e.expect(pulled.bodyText().contains("Accepting teleports you to " + hostName), "asked once more: " + pulled.body());
+        e2e.expect(pulled.bodyText().contains(hostName + " wants you to teleport to them.")
+            && pulled.button("Accept").tooltip().contains("You teleport to " + hostName), "asked once more: " + pulled.body());
         e2e.click(asker, "Accept");
         e2e.eventually(() -> near(location(e2e, askerName), location(e2e, hostName), 1.0), 15_000, "the asker came over");
 
@@ -885,7 +901,7 @@ final class TeleportScenarios {
         e2e.eventually(() -> "2".equals(placeholder(e2e, hostName, "tpa_requests")), "two requests wait");
         host.clearLogs();
         host.command("tpaccept");
-        Bot.SeenDialog choice = e2e.dialog(host, "Teleport requests");
+        Bot.SeenDialog choice = e2e.dialog(host, "Accept a request");
         e2e.expect(choice.button(askerName) != null && choice.button(thirdName) != null, "one button per sender: " + choice.buttons());
         e2e.click(host, thirdName);
         e2e.eventually(() -> near(location(e2e, thirdName), location(e2e, hostName), 1.0), 15_000, "the third player came");
@@ -976,12 +992,29 @@ final class TeleportScenarios {
         e2e.dialog(sender, "SiftVanilla");
         e2e.click(sender, "Teleport to a player");
         Bot.SeenDialog form = e2e.dialog(sender, "Teleport request");
-        e2e.expect(form.inputs().containsKey("player") && form.inputs().containsKey("direction"), "player and direction: " + form.inputs());
-        e2e.click(sender, "Send request", Map.of("player", "Nobody_" + e2e.name("x"), "direction", "to"));
+        e2e.expect(form.inputs().keySet().equals(Set.of("player")), "only the name to type: " + form.inputs());
+        e2e.expect(form.body().isEmpty(), "nothing above it while no request waits: " + form.body());
+        Bot.Button go = form.button("Go to them");
+        Bot.Button bring = form.button("Bring them here");
+        e2e.expect(go != null && bring != null && form.button("Back") != null, "a button for each way, and Back: " + form.buttons());
+        e2e.expect(go.tooltip().contains("Ask to teleport to them") && go.tooltip().contains("/tpa")
+            && bring.tooltip().contains("Ask them to teleport to you") && bring.tooltip().contains("/tpahere"),
+            "what each does, on hover: " + go.tooltip() + " / " + bring.tooltip());
+        e2e.click(sender, "Go to them", Map.of("player", "Nobody_" + e2e.name("x")));
         Bot.SeenDialog retry = e2e.dialog(sender, "Teleport request");
         e2e.expect(retry.bodyText().contains("is not online"), "an unknown player: " + retry.body());
-        e2e.click(sender, "Send request", Map.of("player", targetName, "direction", "here"));
+        e2e.click(sender, "Bring them here", Map.of("player", targetName));
         e2e.eventually(() -> target.chatContains(senderName + " wants you to teleport to them."), "the request: " + target.chat());
+        target.command("tpdeny");
+        e2e.sleep(5_200);
+        sender.clearLogs();
+        target.clearLogs();
+        sender.command("menu");
+        e2e.dialog(sender, "SiftVanilla");
+        e2e.click(sender, "Teleport to a player");
+        e2e.dialog(sender, "Teleport request");
+        e2e.click(sender, "Go to them", Map.of("player", targetName));
+        e2e.eventually(() -> target.chatContains(senderName + " wants to teleport to you."), "the /tpa way: " + target.chat());
         target.command("tpdeny");
 
         e2e.step("requests expire on their own");
@@ -1006,11 +1039,38 @@ final class TeleportScenarios {
         }
     }
 
+    /** A world as homes name it to players: Overworld, Nether, The End for the main world and its dimensions. */
+    private static String shown(World world) {
+        String main = Bukkit.getWorlds().getFirst().getName();
+        String name = world.getName();
+        if (name.equals(main)) {
+            return "Overworld";
+        }
+        if (name.equals(main + "_nether")) {
+            return "Nether";
+        }
+        return name.equals(main + "_the_end") ? "The End" : name;
+    }
+
     // ------------------------------------------------------------------ random teleport
 
     private static final String RING = "e2e-ring";
 
-    /** Test regions: a ring around the spawn, a small nether ring, and a ring where no chunk exists. */
+    /** The rtp config with the test regions put first under {@code regions:}, wherever that section is in the file. */
+    private static String withTestRegions(String original, Location spawn) {
+        String marker = "\nregions:\n";
+        int at = original.indexOf(marker);
+        if (at < 0) {
+            throw new E2E.Failure("features/rtp.yml has no regions section");
+        }
+        int insert = at + marker.length();
+        return original.substring(0, insert) + testRegions(spawn).substring(1) + original.substring(insert);
+    }
+
+    /**
+     * Test regions: a ring around the spawn costing $1,000, a free small nether ring, and a ring where no chunk exists
+     * costing $500 (explicit costs, so the paid paths stay tested while every shipped region is free).
+     */
     private static String testRegions(Location spawn) {
         return String.format(Locale.ROOT, """
 
@@ -1059,7 +1119,7 @@ final class TeleportScenarios {
         String original = Files.readString(config);
         try {
             e2e.step("test regions are added and their land generated");
-            Files.writeString(config, original.stripTrailing() + "\n" + testRegions(spawn));
+            Files.writeString(config, withTestRegions(original, spawn));
             List<String> reload = e2e.consoleOutput("sift reload");
             e2e.expect(reload.stream().anyMatch(line -> line.startsWith("Reloaded")), "the test regions load: " + reload);
             generate(e2e, spawn.getWorld(), spawn.getBlockX(), spawn.getBlockZ(), 120);
@@ -1073,7 +1133,21 @@ final class TeleportScenarios {
             Bot.SeenDialog menu = e2e.dialog(bot, "Random teleport");
             e2e.expect(menu.button("Overworld") != null && menu.button("Nether") != null && menu.button("End") != null
                 && menu.button("Test ring") != null, "the regions: " + menu.buttons());
-            e2e.expect(menu.bodyText().contains("$1,000") && menu.bodyText().contains("$2,500"), "the costs: " + menu.body());
+            e2e.expect(menu.body().isEmpty(), "nothing above the buttons: " + menu.body());
+            e2e.expect(menu.button("Test ring").tooltip().contains("Costs $1,000") && menu.button("Test ring").tooltip().contains("80 to 112"),
+                "a paid place shows its price in the tooltip: " + menu.button("Test ring").tooltip());
+            for (String free : List.of("Overworld", "Nether", "End")) {
+                String tip = menu.button(free).tooltip();
+                e2e.expect(tip != null && !tip.contains("$") && !tip.toLowerCase(Locale.ROOT).contains("free") && tip.contains("Ready"),
+                    "the shipped places are free and say nothing about money: " + free + " " + tip);
+            }
+            // "Nether test" comes first and has no colour of its own: pick the shipped Nether by its whole label.
+            Bot.Button shippedNether = menu.buttons().stream().filter(button -> button.label().equals("Nether")).findFirst().orElse(null);
+            e2e.expect(shippedNether != null && "#FF8A65".equals(shippedNether.valueColor()), "each place in its colour: "
+                + (shippedNether == null ? menu.buttons() : shippedNether.valueColor()));
+            Bot.Button test = menu.button("Nether test");
+            e2e.expect(test != null && "#FFFFFF".equals(test.valueColor()), "a place without a colour is white: "
+                + (test == null ? menu.buttons() : test.valueColor()));
 
             e2e.step("the chosen region: warmup, search, pay once, land safely in the ring");
             e2e.click(bot, "Test ring");
@@ -1144,7 +1218,7 @@ final class TeleportScenarios {
         Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/rtp.yml");
         String original = Files.readString(config);
         try {
-            Files.writeString(config, original.stripTrailing() + "\n" + testRegions(spawn));
+            Files.writeString(config, withTestRegions(original, spawn));
             e2e.console("sift reload");
 
             e2e.step("not enough money: refused before the warmup");
@@ -1280,7 +1354,7 @@ final class TeleportScenarios {
         e2e.eventually(() -> host.chatContains(palName + " wants you to teleport to them."), "the pull request: " + host.chat());
         host.command("tpaccept");
         Bot.SeenDialog again = e2e.dialog(host, "Teleport request");
-        e2e.expect(again.bodyText().contains("Accepting teleports you to " + palName), "asked once more: " + again.body());
+        e2e.expect(again.button("Accept").tooltip().contains("You teleport to " + palName), "asked once more: " + again.body());
         e2e.click(host, "Deny");
         e2e.eventually(() -> pal.anyFeedbackContains(hostName + " denied your request"), "denied: " + pal.actionBar());
 
@@ -1297,13 +1371,13 @@ final class TeleportScenarios {
         e2e.eventually(() -> host.chatContains(mateName + " wants to teleport to you.")
             && host.chatContains(palName + " wants you to teleport to them."), "both requests: " + host.chat());
         host.command("tpaccept");
-        Bot.SeenDialog several = e2e.dialog(host, "Teleport requests");
+        Bot.SeenDialog several = e2e.dialog(host, "Accept a request");
         e2e.expect(several.button(palName) != null && several.button(mateName) != null, "one button per sender: " + several.buttons());
         Location hostBefore = location(e2e, hostName);
         e2e.click(host, palName);
         e2e.eventually(() -> host.dialog() != null && host.dialog().title().equals("Teleport request"), "the request's own window: "
             + host.dialogs());
-        e2e.expect(host.dialog().bodyText().contains("Accepting teleports you to " + palName), "asked once more: " + host.dialog().body());
+        e2e.expect(host.dialog().button("Accept").tooltip().contains("You teleport to " + palName), "asked once more: " + host.dialog().body());
         e2e.sleep(1_000);
         e2e.expect(near(location(e2e, hostName), hostBefore, 0.5) && !host.actionBarContains("Teleporting in"),
             "not pulled before saying yes: " + host.actionBar());
@@ -1316,7 +1390,7 @@ final class TeleportScenarios {
         pal.command("tpahere " + hostName);
         e2e.eventually(() -> host.chatContains(palName + " wants you to teleport to them."), "the pull again: " + host.chat());
         host.command("tpaccept");
-        Bot.SeenDialog again2 = e2e.dialog(host, "Teleport requests");
+        Bot.SeenDialog again2 = e2e.dialog(host, "Accept a request");
         e2e.click(host, mateName);
         e2e.eventually(() -> host.anyFeedbackContains("Accepted " + mateName), "accepted at once: " + host.actionBar() + host.chat());
         e2e.expect(host.dialog() == null || !host.dialog().title().startsWith("Teleport request"), "no second question: " + host.dialog());
@@ -1441,8 +1515,9 @@ final class TeleportScenarios {
         bot.clearLogs();
         bot.command("homes");
         Bot.SeenDialog hidden = e2e.dialog(bot, "Homes");
-        e2e.expect(hidden.bodyText().contains("home " + moved.getWorld().getName()) && !hidden.bodyText().contains(position),
-            "no coordinates: " + hidden.body());
+        String hiddenTip = hidden.button("home").tooltip();
+        e2e.expect(hiddenTip != null && hiddenTip.contains(shown(moved.getWorld())) && !hiddenTip.contains(position),
+            "no coordinates: " + hiddenTip);
         bot.clearLogs();
         bot.command("delhome home");
         Bot.SeenDialog delete = e2e.dialog(bot, "Delete home");
@@ -1452,7 +1527,8 @@ final class TeleportScenarios {
         bot.clearLogs();
         bot.command("homes");
         Bot.SeenDialog shown = e2e.dialog(bot, "Homes");
-        e2e.expect(shown.bodyText().contains(position), "the coordinates are back: " + shown.body());
+        e2e.expect(shown.button("home").tooltip() != null && shown.button("home").tooltip().contains(position),
+            "the coordinates are back: " + shown.button("home").tooltip());
     }
 
     /**
@@ -1531,7 +1607,7 @@ final class TeleportScenarios {
         Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/rtp.yml");
         String original = Files.readString(config);
         try {
-            Files.writeString(config, original.stripTrailing() + "\n" + testRegions(spawn));
+            Files.writeString(config, withTestRegions(original, spawn));
             List<String> reload = e2e.consoleOutput("sift reload");
             e2e.expect(reload.stream().anyMatch(line -> line.startsWith("Reloaded")), "the test regions load: " + reload);
             generate(e2e, spawn.getWorld(), spawn.getBlockX(), spawn.getBlockZ(), 120);
@@ -1585,6 +1661,64 @@ final class TeleportScenarios {
             e2e.eventually(() -> bot.actionBarContains("Welcome to Nether test.") && !near(location(e2e, name), before, 2), 40_000,
                 "a new spot in the nether: " + location(e2e, name));
             setting(e2e, bot, "hide-coordinates", "off");
+        } finally {
+            Files.writeString(config, original);
+            e2e.console("sift reload");
+        }
+    }
+
+    /**
+     * Every shipped region is free: the picker names no money, "Confirm paid random teleports" is not offered, and a free
+     * region (the test ring set to cost 0) starts without a question and lands without a money line or a charge. Once a
+     * region costs money again the question is offered.
+     */
+    static void rtpFree(E2E e2e) throws Exception {
+        String name = e2e.name("FreeRoam");
+        Bot bot = e2e.bot(name);
+        Location spawn = spawn(e2e);
+        Path config = e2e.services().plugin().getDataFolder().toPath().resolve("features/rtp.yml");
+        String original = Files.readString(config);
+        try {
+            e2e.step("the shipped places: buttons only, no money anywhere");
+            e2e.console("eco set " + name + " 5000");
+            e2e.eventually(() -> e2e.money(name) == 5_000, "funded");
+            bot.clearLogs();
+            bot.command("rtp");
+            Bot.SeenDialog picker = e2e.dialog(bot, "Random teleport");
+            e2e.expect(picker.body().isEmpty(), "nothing above the buttons: " + picker.body());
+            for (String place : List.of("Overworld", "Nether", "End")) {
+                Bot.Button button = picker.button(place);
+                e2e.expect(button != null && button.tooltip() != null && button.tooltip().contains("blocks out")
+                    && !button.tooltip().contains("$") && !button.tooltip().contains("Costs"), "a free place: " + place + " "
+                    + (button == null ? picker.buttons() : button.tooltip()));
+            }
+            e2e.expect(picker.buttons().stream().noneMatch(button -> button.label().contains("$")), "no price on a button: "
+                + picker.buttons());
+            e2e.click(bot, "Close");
+
+            e2e.step("with nothing to pay, the price question is not a setting");
+            Bot.SeenDialog page = SettingsSteps.openGroup(e2e, bot, "teleport", TELEPORT_PAGE);
+            e2e.expect(!SettingsSteps.read(e2e, page).containsKey("rtp_confirm_cost"),
+                "no Confirm paid random teleports: " + page.buttons().stream().map(Bot.Button::label).toList());
+
+            e2e.step("a free region typed: no question, no money line, nothing charged");
+            Files.writeString(config, withTestRegions(original, spawn).replace("cost: 1000", "cost: 0"));
+            List<String> reload = e2e.consoleOutput("sift reload");
+            e2e.expect(reload.stream().anyMatch(line -> line.startsWith("Reloaded")), "the test regions load: " + reload);
+            generate(e2e, spawn.getWorld(), spawn.getBlockX(), spawn.getBlockZ(), 120);
+            bot.clearLogs();
+            bot.command("rtp " + RING);
+            e2e.eventually(() -> bot.actionBarContains("Teleporting in"), "the warmup at once: " + bot.actionBar());
+            e2e.expect(bot.dialogs().stream().noneMatch(dialog -> dialog.title().contains("Confirm")), "no question: " + bot.dialogs());
+            e2e.eventually(() -> bot.actionBarContains("Welcome to Test ring at "), 40_000, "landed: " + bot.actionBar());
+            e2e.expect(!bot.anyFeedbackContains("Paid ") && !bot.actionBarContains("$"), "no money line: " + bot.actionBar() + " "
+                + bot.chat());
+            e2e.expect(e2e.money(name) == 5_000, "nothing charged: " + e2e.money(name));
+
+            e2e.step("a region that costs money again offers the price question");
+            Bot.SeenDialog paid = SettingsSteps.openGroup(e2e, bot, "teleport", TELEPORT_PAGE);
+            e2e.expect(SettingsSteps.read(e2e, paid).containsKey("rtp_confirm_cost"),
+                "Confirm paid random teleports with the $500 far ring: " + paid.buttons().stream().map(Bot.Button::label).toList());
         } finally {
             Files.writeString(config, original);
             e2e.console("sift reload");

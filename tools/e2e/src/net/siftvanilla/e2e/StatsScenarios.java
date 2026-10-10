@@ -171,19 +171,19 @@ final class StatsScenarios {
             owner.quit();
             e2e.eventually(() -> Bukkit.getPlayerExact(privateName) == null, "left");
             Bot.SeenDialog hidden = openStats(e2e, viewer, privateName, privateName + "'s stats");
-            expectBody(e2e, hidden, "Balance hidden");
-            e2e.expect(!hidden.bodyText().contains("$12,345"), "no amount: " + hidden.body());
+            expectButtons(e2e, hidden, "Balance: hidden");
+            e2e.expect(hidden.buttons().stream().noneMatch(button -> button.label().contains("$12,345")), "no amount: " + hidden.buttons());
 
             e2e.step("staff, the console and the owner's change see it");
             e2e.console("op " + viewerName);
             Bot.SeenDialog staffView = openStats(e2e, viewer, privateName, privateName + "'s stats");
-            expectBody(e2e, staffView, "Balance $12,345");
+            expectButtons(e2e, staffView, "Balance: $12,345");
             e2e.console("deop " + viewerName);
             String console = String.join("\n", CombatScenarios.output(e2e, "stats " + privateName, 1_000));
             e2e.expect(console.contains("balance $12,345"), "the console:\n" + console);
             CombatScenarios.set(e2e, privateName, SharedSettings.BALANCE_PRIVACY, Audience.EVERYONE);
             Bot.SeenDialog open = openStats(e2e, viewer, privateName, privateName + "'s stats");
-            expectBody(e2e, open, "Balance $12,345");
+            expectButtons(e2e, open, "Balance: $12,345");
         } finally {
             e2e.console("deop " + viewerName);
             // These records would top later runs' boards.
@@ -263,6 +263,14 @@ final class StatsScenarios {
         }
     }
 
+    /** Every label is (part of) a button of the dialog: the stats page shows "Kills: 4" buttons, not lines. */
+    private static void expectButtons(E2E e2e, Bot.SeenDialog dialog, String... labels) {
+        for (String label : labels) {
+            e2e.expect(dialog.buttons().stream().anyMatch(button -> button.label().startsWith(label)),
+                "a '" + label + "' button in " + dialog.title() + ": " + dialog.buttons().stream().map(Bot.Button::label).toList());
+        }
+    }
+
     /** Runs on the player's thread and returns a block position next to them that this thread owns, as x y z. */
     private static int[] workSpot(E2E e2e, String name) {
         return e2e.onPlayer(name, () -> {
@@ -339,14 +347,13 @@ final class StatsScenarios {
 
         e2e.step("a new player's stats dialog");
         Bot.SeenDialog own = openStats(e2e, a, null, "Your stats");
-        expectBody(e2e, own, "Kills 0", "Deaths 0", "KDR 0.00", "Streak 0, best 0", "Playtime", "Mobs killed 0",
-            "Blocks mined 0", "Money earned $0", "Balance $0");
-        e2e.expect(own.bodyText().lines().filter(line -> line.startsWith("[")).count() == 9,
-            "every stat line starts with its icon sprite: " + own.body());
-        for (String board : List.of("Kills", "Deaths", "KDR", "Best streak", "Playtime", "Mobs killed", "Blocks mined",
-            "Money earned", "Balance", "Close")) {
-            e2e.expect(own.button(board) != null, "a '" + board + "' button in " + own.buttons());
-        }
+        e2e.expect(own.body().isEmpty(), "buttons only, nothing above them: " + own.body());
+        expectButtons(e2e, own, "Kills: 0", "Deaths: 0", "KDR: 0.00", "Streak: 0 (best 0)", "Playtime: ", "Mobs killed: 0",
+            "Blocks mined: 0", "Money earned: $0", "Balance: $0", "Close");
+        e2e.expect("#FFD866".equals(own.button("Kills: ").valueColor()), "a number in the accent colour: " + own.button("Kills: ").valueColor());
+        e2e.expect("#1AFF1A".equals(own.button("Balance: ").valueColor()), "money in green: " + own.button("Balance: ").valueColor());
+        e2e.expect(own.button("Kills: ").tooltip().contains("Click for the leaderboard"),
+            "a stat's tooltip leads to its leaderboard: " + own.button("Kills: ").tooltip());
 
         e2e.step("kills, deaths and streaks reported by the combat feature");
         StatsRecorder recorder = recorder(e2e);
@@ -358,11 +365,11 @@ final class StatsScenarios {
         e2e.expect(recorder.streak(alexId) == 1 && recorder.bestStreak(alexId) == 3, "streak 1 and best 3, got "
             + recorder.streak(alexId) + " and " + recorder.bestStreak(alexId));
         Bot.SeenDialog after = openStats(e2e, a, null, "Your stats");
-        expectBody(e2e, after, "Kills 4", "Deaths 1", "KDR 4.00", "Streak 1, best 3");
+        expectButtons(e2e, after, "Kills: 4", "Deaths: 1", "KDR: 4.00", "Streak: 1 (best 3)");
 
         e2e.step("another player's stats");
         Bot.SeenDialog other = openStats(e2e, a, blake, blake + "'s stats");
-        expectBody(e2e, other, "Kills 0", "Deaths 4", "KDR 0.00", "Streak 0, best 0");
+        expectButtons(e2e, other, "Kills: 0", "Deaths: 4", "KDR: 0.00", "Streak: 0 (best 0)");
 
         e2e.step("a leaderboard opened from the stats dialog goes back to it");
         e2e.console("sift stats refresh");
@@ -370,10 +377,18 @@ final class StatsScenarios {
         int rank = Integer.parseInt(placeholder(e2e, alex, "top_kills_rank"));
         e2e.click(a, "Kills");
         Bot.SeenDialog kills = e2e.dialog(a, "Most kills");
-        expectBody(e2e, kills, "Page 1 of", "You are number " + rank + " with 4.", "Updated");
-        if (rank <= 10) {
-            e2e.expect(kills.bodyText().contains(". " + alex + " 4"), "Alex's line on the first page:\n" + kills.bodyText());
-        }
+        expectBody(e2e, kills, "You are number " + rank + " with 4.", "Top ", "updated");
+        e2e.expect(!kills.bodyText().contains("Page") && kills.buttons().stream().noneMatch(button -> button.label().contains("page")),
+            "no pages: " + kills.body() + " " + kills.buttons());
+        Bot.Button mine = kills.button(rank + ". " + alex + " 4");
+        e2e.expect(mine != null, "Alex's own line is a button, however far down: " + kills.buttons().size() + " buttons");
+        e2e.expect(mine.tooltip().contains("Click for " + alex + "'s stats"), "it opens Alex's stats: " + mine.tooltip());
+
+        e2e.step("a listed player's button opens their stats, whose Back returns to the leaderboard");
+        e2e.click(a, rank + ". " + alex + " 4");
+        e2e.dialog(a, "Your stats");
+        e2e.click(a, "Back");
+        e2e.dialog(a, "Most kills");
         e2e.click(a, "Back");
         e2e.dialog(a, blake + "'s stats");
 
@@ -474,7 +489,7 @@ final class StatsScenarios {
 
         e2e.step("the dialog shows every counter");
         Bot.SeenDialog stats = openStats(e2e, c, null, "Your stats");
-        expectBody(e2e, stats, "Mobs killed 1", "Blocks mined 2", "Money earned $11,000");
+        expectButtons(e2e, stats, "Mobs killed: 1", "Blocks mined: 2", "Money earned: $11,000");
     }
 
     /** /top, the picker, the KDR rule, staff corrections and the placeholders. */
@@ -495,9 +510,9 @@ final class StatsScenarios {
         bot.clearLogs();
         bot.command("top kdr");
         Bot.SeenDialog kdr = e2e.dialog(bot, "Best KDR");
-        expectBody(e2e, kdr, "Players need 25 kills to be listed.", "You are number " + kdrRank + " with 3.00.", "Updated");
+        expectBody(e2e, kdr, "Players need 25 kills to be listed.", "You are number " + kdrRank + " with 3.00.", "updated");
         if (kdrRank <= 10) {
-            e2e.expect(kdr.bodyText().contains(". " + erin + " 3.00"), "Erin's line on the first page:\n" + kdr.bodyText());
+            e2e.expect(kdr.button(kdrRank + ". " + erin + " 3.00") != null, "Erin's line: " + kdr.buttons());
         }
 
         e2e.step("unknown boards are refused");
@@ -573,6 +588,6 @@ final class StatsScenarios {
         e2e.step("rejoining shows the stored stats");
         Bot back = e2e.bot(finn);
         Bot.SeenDialog stats = openStats(e2e, back, null, "Your stats");
-        expectBody(e2e, stats, "Kills 1", "Streak 1, best 1", "Blocks mined 7", "Money earned $400");
+        expectButtons(e2e, stats, "Kills: 1", "Streak: 1 (best 1)", "Blocks mined: 7", "Money earned: $400");
     }
 }

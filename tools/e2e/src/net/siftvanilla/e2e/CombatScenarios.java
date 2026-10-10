@@ -382,8 +382,20 @@ final class CombatScenarios {
         return lines.stream().filter(line -> line.contains(text)).count();
     }
 
+    /**
+     * The world a player is in, named the way the death location tells players: Overworld, Nether or The End for the
+     * server's main world and its two dimensions, any other world by its own name.
+     */
     private static String worldOf(E2E e2e, String name) {
-        return e2e.onPlayer(name, () -> e2e.player(name).getWorld().getName());
+        String world = e2e.onPlayer(name, () -> e2e.player(name).getWorld().getName());
+        String main = Bukkit.getWorlds().getFirst().getName();
+        if (world.equals(main)) {
+            return "Overworld";
+        }
+        if (world.equals(main + "_nether")) {
+            return "Nether";
+        }
+        return world.equals(main + "_the_end") ? "The End" : world;
     }
 
     // ------------------------------------------------------------------ combat

@@ -8,6 +8,8 @@ public final class RtpMessages {
     public static final MessageKey SEARCHING = MessageKey.info("rtp.searching");
     public static final MessageKey ALREADY_SEARCHING = MessageKey.error("rtp.already-searching");
     public static final MessageKey NO_SPOT = MessageKey.error("rtp.no-spot");
+    /** No spot for a place that costs money: says nothing was charged. */
+    public static final MessageKey NO_SPOT_PAID = MessageKey.error("rtp.no-spot-paid");
     public static final MessageKey LANDED = MessageKey.success("rtp.landed", "region", "x", "z");
     public static final MessageKey LANDED_PAID = MessageKey.success("rtp.landed-paid", "region", "x", "z", "amount");
     /** The landing lines while the player hides coordinates (streamer mode). */
@@ -25,13 +27,12 @@ public final class RtpMessages {
     public static final MessageKey SENT_FAILED = MessageKey.chat("rtp.sent-failed", "name", "region");
 
     public static final MessageKey MENU_TITLE = MessageKey.ui("rtp.menu.title");
-    public static final MessageKey MENU_INTRO = MessageKey.ui("rtp.menu.intro");
-    public static final MessageKey MENU_LINE_FREE = MessageKey.ui("rtp.menu.line-free", "region", "min", "max");
-    public static final MessageKey MENU_LINE_COST = MessageKey.ui("rtp.menu.line-cost", "region", "min", "max", "amount");
+    /** After a place's name on its button while it can't be used yet: " (42s)". */
+    public static final MessageKey MENU_BUTTON_WAIT = MessageKey.ui("rtp.menu.button-wait", "time");
+    public static final MessageKey MENU_RANGE = MessageKey.ui("rtp.menu.range", "min", "max");
+    public static final MessageKey MENU_COST = MessageKey.ui("rtp.menu.cost", "amount");
     public static final MessageKey MENU_READY = MessageKey.ui("rtp.menu.ready");
     public static final MessageKey MENU_WAIT = MessageKey.ui("rtp.menu.wait", "time");
-    public static final MessageKey MENU_TOOLTIP_FREE = MessageKey.ui("rtp.menu.tooltip-free", "min", "max");
-    public static final MessageKey MENU_TOOLTIP_COST = MessageKey.ui("rtp.menu.tooltip-cost", "min", "max", "amount");
 
     /** "Confirm paid random teleports": the question before a /rtp &lt;region&gt; that costs money. */
     public static final MessageKey CONFIRM_TITLE = MessageKey.ui("rtp.confirm.title");

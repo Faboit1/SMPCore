@@ -426,7 +426,7 @@ public final class IntegrationsFeature implements Feature {
             if (service.getName().equals("net.milkbowl.vault.economy.Economy")) {
                 RegisteredServiceProvider<?> registration = Bukkit.getServicesManager().getRegistration(service);
                 if (registration != null && registration.getPlugin() == this.services.plugin()) {
-                    return lang.get(IntegrationsMessages.STATE_ACTIVE_DETAIL, Arg.text("detail", "plugins pay and charge SiftCore money"));
+                    return lang.get(IntegrationsMessages.STATE_ACTIVE_DETAIL, Arg.text("detail", "other plugins pay and charge the server's money"));
                 }
                 return lang.get(IntegrationsMessages.STATE_OVERRIDDEN);
             }

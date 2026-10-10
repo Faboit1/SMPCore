@@ -129,22 +129,6 @@ class StatsResourcesTest {
     }
 
     @Test
-    void statsBodyRendersEveryValue() {
-        List<Component> lines = lang.lines(StatsMessages.VIEW_BODY,
-            Arg.number("kills", 1234), Arg.number("deaths", 56), Arg.text("kdr", "22.04"), Arg.number("streak", 3),
-            Arg.number("best", 17), Arg.time("playtime", Duration.ofHours(30)), Arg.number("mobs", 999),
-            Arg.number("blocks", 120_000), Arg.money("earned", 2_500), Arg.money("balance", 75_000));
-        assertEquals(9, lines.size());
-        String text = lines.stream().map(StatsResourcesTest::plain).collect(Collectors.joining("\n"));
-        for (String expected : List.of("Kills 1,234", "Deaths 56", "KDR 22.04", "Streak 3, best 17", "Playtime 1d 6h",
-            "Mobs killed 999", "Blocks mined 120,000", "Money earned $2,500", "Balance $75,000")) {
-            assertTrue(text.contains(expected), "missing '" + expected + "' in\n" + text);
-        }
-        // Each line starts with an icon sprite.
-        assertTrue(text.lines().allMatch(line -> line.startsWith("[")), text);
-    }
-
-    @Test
     void messagesHaveNoLeftoverTagsOrStraySpaces() {
         for (MessageKey key : lang.registered().values()) {
             Arg[] args = key.placeholders().stream().map(name -> Arg.text(name, "x")).toArray(Arg[]::new);

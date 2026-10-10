@@ -16,21 +16,21 @@ scoreboard:
     # Every line features/scoreboard.yml can use, by name.
     lines:
       balance: "<primary><icon:money> <secondary>Money <money>{balance}"
-      shards: "<primary><icon:shard> <secondary>Shards <primary>{shards}"
-      kills: "<primary><icon:kill> <secondary>Kills <primary>{kills}"
-      deaths: "<primary><icon:death> <secondary>Deaths <primary>{deaths}"
-      kdr: "<primary><icon:kdr> <secondary>KDR <primary>{stats_kdr}"
-      streak: "<primary><icon:streak> <secondary>Streak <primary>{streak}"
-      playtime: "<primary><icon:playtime> <secondary>Playtime <primary>{playtime}"
+      shards: "<primary><icon:shard> <shards>Shards {shards}"
+      kills: "<primary><icon:kill> <secondary>Kills <accent>{kills}"
+      deaths: "<primary><icon:death> <secondary>Deaths <accent>{deaths}"
+      kdr: "<primary><icon:kdr> <secondary>KDR <accent>{stats_kdr}"
+      streak: "<primary><icon:streak> <secondary>Streak <accent>{streak}"
+      playtime: "<primary><icon:playtime> <secondary>Playtime <accent>{playtime}"
       team: "<primary><icon:team> <secondary>Team <primary>{team}"
       rank: "<primary><icon:rank> <secondary>Rank <primary>{rank}"
-      keyall: "<primary><icon:key> <secondary>Keyall <primary>{keyall_countdown}"
+      keyall: "<primary><icon:key> <secondary>Keyall <accent>{keyall_countdown}"
       # Only while a sell booster runs (/booster).
-      booster: "<primary><icon:star> <secondary>Booster <primary>+{booster_percent}% <secondary>{booster_time_left}"
+      booster: "<primary><icon:star> <secondary>Booster <accent>+{booster_percent}% <secondary>{booster_time_left}"
       bounty: "<primary><icon:bounty> <secondary>Bounty <money>{bounty_total}"
-      combat: "<primary><icon:warning> <secondary>Combat <primary>{combat}"
-      online: "<primary><icon:online> <secondary>Online <primary>{online}"
-      ping: "<primary><icon:ping> <secondary>Ping <primary>{ping}ms"
+      combat: "<primary><icon:warning> <secondary>Combat <accent>{combat}"
+      online: "<primary><icon:online> <secondary>Online <accent>{online}"
+      ping: "<primary><icon:ping> <secondary>Ping <accent>{ping}ms"
       website: "<secondary>siftvanilla.com"
 
   tab:
@@ -38,7 +38,7 @@ scoreboard:
     header:
       - ""
       - "<primary>SiftVanilla"
-      - "<secondary>{online} online"
+      - "<accent>{online}<secondary> online"
       - ""
     footer:
       - ""
@@ -72,7 +72,8 @@ scoreboard:
   already-shown: "<primary>Your sidebar is already shown."
   already-hidden: "<primary>Your sidebar is already hidden."
   off-on-server: "<primary>The sidebar is turned off on this server."
-  yielded: "<primary>The sidebar on this server comes from <plugin>."
+  # /sidebar while another part of the server draws the sidebar.
+  yielded: "<primary>The sidebar on this server can't be hidden with /sidebar."
   # /sidebar while the server sets the switch for everyone (features/settings.yml).
   fixed: "<primary>Your sidebar is set by the server."
 

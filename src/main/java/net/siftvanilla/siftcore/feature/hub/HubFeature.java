@@ -15,8 +15,10 @@ import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Icons;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
 import org.bukkit.ServerLinks;
@@ -87,25 +89,31 @@ public final class HubFeature implements Feature {
         }
     }
 
-    /** Opens the main menu. */
+    /**
+     * Opens the main menu: the player's money and shards on one line, then a short button per entry they may use, in
+     * the entry's colour with its icon; what an entry opens is in its button's tooltip.
+     */
     public void open(Player player) {
         Lang lang = this.services.lang();
+        HubSettings settings = this.settings.get();
+        Icons icons = lang.style().icons();
         List<Button> buttons = new ArrayList<>();
         for (HubEntry entry : this.services.hub().visibleTo(player)) {
             if (entry.id().equals("menu")) {
                 continue;
             }
-            Button button = Button.of(lang.get(entry.label()), lang.get(entry.description()),
-                submission -> entry.open().accept(submission.player())).width(150);
+            Component label = MenuButtons.label(lang.plain(entry.label()), settings.look(entry.id()),
+                name -> icons.has(name) ? icons.component(name) : Component.empty(), lang.style().palette().primary());
+            Button button = Button.of(label, lang.get(entry.description()), submission -> entry.open().accept(submission.player()))
+                .width(Templates.HALF);
             // Every entry opens its own screen except Spawn, which starts the teleport and shows nothing next.
             buttons.add(SPAWN.equals(entry.id()) ? button.closes() : button);
         }
         var body = lang.lines(HubMessages.BODY,
-            Arg.text("name", player.getName()),
             Arg.money("balance", this.services.ledger().balance(player.getUniqueId(), Currency.MONEY)),
-            Arg.number("shards", this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS)));
+            Arg.shards("amount", this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS)));
         this.services.dialogs().show(player, this.services.templates().list(lang.get(HubMessages.TITLE), body, buttons,
-            this.settings.get().columns(), null));
+            settings.columns(), null));
     }
 
     @Override
@@ -143,6 +151,16 @@ public final class HubFeature implements Feature {
                 }
             }
             return missing.isEmpty() ? null : "no feature provides " + String.join(", ", missing);
+        });
+        test.check(id(), "menu button icons resolve", () -> {
+            Icons icons = this.services.lang().style().icons();
+            List<String> unknown = new ArrayList<>();
+            this.settings.get().buttons().forEach((id, look) -> {
+                if (look.icon() != null && !icons.has(look.icon())) {
+                    unknown.add(id + " (" + look.icon() + ")");
+                }
+            });
+            return unknown.isEmpty() ? null : "unknown icons in features/hub.yml buttons: " + String.join(", ", unknown);
         });
         test.check(id(), "pause menu dialog is registered and tagged", () -> {
             var registry = io.papermc.paper.registry.RegistryAccess.registryAccess().getRegistry(io.papermc.paper.registry.RegistryKey.DIALOG);

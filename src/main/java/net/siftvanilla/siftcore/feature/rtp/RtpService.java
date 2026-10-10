@@ -15,6 +15,7 @@ import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.event.RandomTeleportEvent;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
@@ -133,7 +134,7 @@ final class RtpService {
         }
         Duration left = cooldownLeft(player.getUniqueId(), region.id());
         if (!left.isZero() && !player.hasPermission(BYPASS_COOLDOWN)) {
-            messenger.send(player, RtpMessages.COOLDOWN, name, Arg.time("time", left));
+            messenger.send(player, RtpMessages.COOLDOWN, name, Arg.text("time", Durations.format(left)));
             return false;
         }
         if (region.cost() > 0) {
@@ -213,12 +214,12 @@ final class RtpService {
         Lang lang = this.services.lang();
         String id = region.id();
         List<Component> lines = List.of(
-            lang.get(RtpMessages.CONFIRM_BODY, Arg.text("region", region.name()), Arg.money("amount", region.cost())),
-            lang.get(RtpMessages.CONFIRM_NOTE));
+            lang.get(RtpMessages.CONFIRM_BODY, Arg.text("region", region.name()), Arg.money("amount", region.cost())));
         View confirm = this.services.templates().confirm(lang.get(RtpMessages.CONFIRM_TITLE), lines, lang.get(RtpMessages.CONFIRM_BUTTON),
             lang.get(CoreMessages.UI_CANCEL), yes -> start(yes.player(), id, true), null);
-        // Teleport finishes here: the window closes at once and the warmup shows.
-        List<Button> buttons = List.of(confirm.buttons().get(0).closes(), confirm.buttons().get(1));
+        // Teleport finishes here: the window closes at once and the warmup shows. When the money is taken is on its tooltip.
+        List<Button> buttons = List.of(confirm.buttons().get(0).tooltip(lang.get(RtpMessages.CONFIRM_NOTE)).closes(),
+            confirm.buttons().get(1));
         this.services.dialogs().show(player, new View(confirm.kind(), confirm.title(), confirm.body(), confirm.inputs(), buttons,
             confirm.exit(), confirm.columns(), confirm.escapable()));
     }
@@ -265,7 +266,8 @@ final class RtpService {
                     if (error != null && !(error instanceof TimeoutException)) {
                         this.logger.log(Level.WARNING, "Random teleport search for " + player.getName() + " failed", error);
                     }
-                    this.services.messenger().send(player, RtpMessages.NO_SPOT);
+                    // "Nothing was charged" only where something could have been.
+                    this.services.messenger().send(player, region.cost() > 0 ? RtpMessages.NO_SPOT_PAID : RtpMessages.NO_SPOT);
                     result.complete(null);
                     return;
                 }
@@ -355,14 +357,14 @@ final class RtpService {
             if (hidden) {
                 this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID_HIDDEN, region, amount);
             } else {
-                this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID, region, Arg.number("x", spot.getBlockX()),
-                    Arg.number("z", spot.getBlockZ()), amount);
+                this.services.teleports().arrival(player, true, RtpMessages.LANDED_PAID, region, Arg.text("x", Lang.number(spot.getBlockX())),
+                    Arg.text("z", Lang.number(spot.getBlockZ())), amount);
             }
         } else if (hidden) {
             this.services.teleports().arrival(player, RtpMessages.LANDED_HIDDEN, region);
         } else {
-            this.services.teleports().arrival(player, RtpMessages.LANDED, region, Arg.number("x", spot.getBlockX()),
-                Arg.number("z", spot.getBlockZ()));
+            this.services.teleports().arrival(player, RtpMessages.LANDED, region, Arg.text("x", Lang.number(spot.getBlockX())),
+                Arg.text("z", Lang.number(spot.getBlockZ())));
         }
     }
 
@@ -420,12 +422,10 @@ final class RtpService {
 
     // ------------------------------------------------------------------ dialog
 
-    /** The region picker. {@code back} null shows Close instead of Back. Player's thread. */
+    /** The picker ({@link RtpPicker}): a button per place the player may use. {@code back} null shows Close. Player's thread. */
     void openMenu(Player player, Button.Handler back) {
         RtpSettings s = this.settings.get();
-        Lang lang = this.services.lang();
-        List<Component> lines = new ArrayList<>(lang.lines(RtpMessages.MENU_INTRO));
-        List<Button> buttons = new ArrayList<>();
+        List<RtpPicker.Choice> choices = new ArrayList<>();
         for (RtpSettings.Region region : s.regions().values()) {
             if (!region.enabled() || (region.permission() != null && !player.hasPermission(region.permission()))) {
                 continue;
@@ -435,26 +435,13 @@ final class RtpService {
                 continue;
             }
             Duration left = player.hasPermission(BYPASS_COOLDOWN) ? Duration.ZERO : cooldownLeft(player.getUniqueId(), region.id());
-            Component status = left.isZero() ? lang.get(RtpMessages.MENU_READY) : lang.get(RtpMessages.MENU_WAIT, Arg.time("time", left));
-            Arg min = Arg.number("min", region.minRadius());
-            Arg maxArg = Arg.number("max", (long) Math.floor(max));
-            Component line = region.cost() > 0
-                ? lang.get(RtpMessages.MENU_LINE_COST, Arg.text("region", region.name()), min, maxArg, Arg.money("amount", region.cost()))
-                : lang.get(RtpMessages.MENU_LINE_FREE, Arg.text("region", region.name()), min, maxArg);
-            lines.add(line.append(Component.space()).append(status));
-            Component tooltip = region.cost() > 0
-                ? lang.get(RtpMessages.MENU_TOOLTIP_COST, min, maxArg, Arg.money("amount", region.cost()))
-                : lang.get(RtpMessages.MENU_TOOLTIP_FREE, min, maxArg);
-            String id = region.id();
-            // The picker shows the price, so starting from it never asks again; the window closes as the warmup starts.
-            buttons.add(Button.of(Component.text(region.name()), tooltip, submission -> start(submission.player(), id, true))
-                .width(150).closes());
+            choices.add(new RtpPicker.Choice(region, (long) Math.floor(max), left));
         }
-        if (buttons.isEmpty()) {
+        if (choices.isEmpty()) {
             this.services.messenger().send(player, RtpMessages.NONE);
             return;
         }
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(RtpMessages.MENU_TITLE), lines, buttons,
-            Math.min(3, buttons.size()), back));
+        this.services.dialogs().show(player, RtpPicker.view(this.services.lang(), this.services.templates(), choices,
+            region -> submission -> start(submission.player(), region.id(), true), back));
     }
 }

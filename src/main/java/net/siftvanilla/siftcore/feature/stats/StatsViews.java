@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.Currency;
@@ -35,7 +36,6 @@ final class StatsViews {
     static final String TOP_PERMISSION = "siftcore.command.top";
     /** Staff who manage balances see every balance. */
     static final String BALANCE_BYPASS = "siftcore.admin.eco";
-    private static final int BOARD_BUTTON_WIDTH = 100;
 
     private final Services services;
     private final StatsStore store;
@@ -89,23 +89,23 @@ final class StatsViews {
         this.services.lang().viewing(viewer, () -> showStatsNow(viewer, target, stats, balance, back));
     }
 
+    /**
+     * The stats page ({@link StatsPages#statsView}): a button per stat showing its value; a click opens that stat's
+     * leaderboard (for players who may see them), whose Back returns here.
+     */
     private void showStatsNow(Player viewer, UUID target, StatsSnapshot stats, boolean balance, Button.Handler back) {
         Lang lang = this.services.lang();
         boolean self = viewer.getUniqueId().equals(target);
         Component title = self
             ? lang.get(StatsMessages.VIEW_TITLE_SELF)
             : lang.get(StatsMessages.VIEW_TITLE_OTHER, Arg.text("name", this.services.directory().name(target)));
-        List<Component> body = new ArrayList<>(lang.lines(StatsMessages.VIEW_BODY, statArgs(target, stats, balance)));
-        List<Button> buttons = new ArrayList<>();
-        if (viewer.hasPermission(TOP_PERMISSION)) {
-            body.add(Component.empty());
-            body.addAll(lang.lines(StatsMessages.VIEW_BOARDS));
-            for (Board board : Board.values()) {
-                buttons.add(Button.of(lang.get(StatsMessages.button(board)),
-                    s -> openBoard(s.player(), board, 1, again -> openStats(again.player(), target, back))).width(BOARD_BUTTON_WIDTH));
-            }
-        }
-        this.services.dialogs().show(viewer, this.services.templates().list(title, body, buttons, 3, back));
+        Long shownBalance = balance ? this.services.ledger().balance(target, Currency.MONEY) : null;
+        Function<Board, Button.Handler> open = viewer.hasPermission(TOP_PERMISSION)
+            ? board -> s -> openBoard(s.player(), board, again -> openStats(again.player(), target, back))
+            : null;
+        this.services.dialogs().show(viewer, StatsPages.statsView(lang, this.services.templates(), title,
+            StatsPages.stats(lang, stats, shownBalance), board -> this.boards.board(board).rankOf(target), open,
+            s -> openStats(s.player(), target, back), back));
     }
 
     /** Prints a player's stats in chat (console). */
@@ -123,7 +123,7 @@ final class StatsViews {
     void sendPlaytime(CommandSender sender, UUID target) {
         Player viewer = sender instanceof Player player ? player : null;
         withStats(target, viewer, stats -> {
-            Arg time = Arg.time("time", Duration.ofSeconds(stats.playtime()));
+            Arg time = Arg.text("time", Durations.format(Duration.ofSeconds(stats.playtime())));
             if (viewer != null && viewer.getUniqueId().equals(target)) {
                 this.services.messenger().chat(sender, StatsMessages.PLAYTIME_SELF, time);
             } else {
@@ -182,58 +182,26 @@ final class StatsViews {
 
     // ------------------------------------------------------------------ leaderboards
 
-    /** The leaderboard picker (/top without arguments). */
+    /** The leaderboard picker (/top without arguments): a button per board. */
     void openPicker(Player viewer, Button.Handler back) {
-        Lang lang = this.services.lang();
-        List<Button> buttons = new ArrayList<>();
-        for (Board board : Board.values()) {
-            buttons.add(Button.of(lang.get(StatsMessages.button(board)),
-                s -> openBoard(s.player(), board, 1, again -> openPicker(again.player(), back))).width(BOARD_BUTTON_WIDTH));
-        }
-        this.services.dialogs().show(viewer, this.services.templates().list(lang.get(StatsMessages.PICKER_TITLE),
-            lang.lines(StatsMessages.PICKER_BODY), buttons, 3, back));
+        UUID id = viewer.getUniqueId();
+        this.services.dialogs().show(viewer, StatsPages.pickerView(this.services.lang(), this.services.templates(),
+            board -> this.boards.board(board).rankOf(id),
+            board -> s -> openBoard(s.player(), board, again -> openPicker(again.player(), back)), back));
     }
 
-    /** One page of a leaderboard. {@code back} null shows Close. */
-    void openBoard(Player viewer, Board board, int page, Button.Handler back) {
-        Lang lang = this.services.lang();
+    /**
+     * A whole leaderboard ({@link StatsPages#boardView}): no pages, every listed player is a button that opens their
+     * stats (for viewers who may see other players' stats), whose Back returns here. {@code back} null shows Close.
+     */
+    void openBoard(Player viewer, Board board, Button.Handler back) {
         Leaderboard snapshot = this.boards.board(board);
-        int pageSize = this.settings.get().pageSize();
-        int pages = snapshot.pages(pageSize);
-        int current = Math.clamp(page, 1, pages);
-        List<Component> lines = new ArrayList<>();
-        lines.add(lang.get(StatsMessages.TOP_PAGE, Arg.number("page", current), Arg.number("pages", pages)));
-        List<Leaderboard.Entry> entries = snapshot.page(current, pageSize);
-        if (entries.isEmpty()) {
-            lines.add(lang.get(snapshot.builtAt() == 0 ? StatsMessages.TOP_NOT_READY : StatsMessages.TOP_EMPTY));
-        }
-        for (Leaderboard.Entry entry : entries) {
-            lines.add(lang.get(StatsMessages.TOP_LINE, Arg.number("rank", entry.rank()), Arg.text("name", entry.name()),
-                value(board, "value", entry.value(), entry.secondary())));
-        }
-        int minKills = this.settings.get().kdrMinKills();
-        if (board == Board.KDR && minKills > 1) {
-            // Only players with kills are ranked anyway, so a rule of 0 or 1 says nothing new.
-            lines.add(lang.get(StatsMessages.TOP_KDR_RULE, Arg.number("kills", minKills)));
-        }
-        lines.add(Component.empty());
-        Optional<Leaderboard.Entry> own = snapshot.entryOf(viewer.getUniqueId());
-        lines.add(own.isPresent()
-            ? lang.get(StatsMessages.TOP_YOU, Arg.number("rank", own.get().rank()), value(board, "value", own.get().value(), own.get().secondary()))
-            : lang.get(StatsMessages.TOP_NOT_LISTED));
-        if (snapshot.builtAt() > 0) {
-            lines.add(lang.get(StatsMessages.TOP_UPDATED,
-                Arg.time("time", Duration.ofMillis(Math.max(0, System.currentTimeMillis() - snapshot.builtAt())))));
-        }
-        List<Button> buttons = new ArrayList<>(2);
-        if (current > 1) {
-            buttons.add(Button.of(lang.get(StatsMessages.TOP_PREVIOUS), s -> openBoard(s.player(), board, current - 1, back)).width(150));
-        }
-        if (current < pages) {
-            buttons.add(Button.of(lang.get(StatsMessages.TOP_NEXT), s -> openBoard(s.player(), board, current + 1, back)).width(150));
-        }
-        this.services.dialogs().show(viewer, this.services.templates().list(lang.get(StatsMessages.title(board)), lines,
-            buttons, 2, back));
+        Function<Leaderboard.Entry, Button.Handler> open = viewer.hasPermission(StatsCommands.STATS_OTHERS)
+            ? entry -> s -> openStats(s.player(), entry.uuid(), again -> openBoard(again.player(), board, back))
+            : null;
+        this.services.dialogs().show(viewer, StatsPages.boardView(this.services.lang(), this.services.templates(), board, snapshot,
+            viewer.getUniqueId(), this.settings.get().kdrMinKills(), System.currentTimeMillis(),
+            entry -> value(board, "value", entry.value(), entry.secondary()), open, s -> openBoard(s.player(), board, back), back));
     }
 
     /** One page of a leaderboard in chat (console). */
@@ -271,12 +239,15 @@ final class StatsViews {
 
     // ------------------------------------------------------------------ values
 
-    /** A board value as a typed placeholder. For KDR, {@code value} is kills and {@code secondary} deaths. */
+    /**
+     * A board value as a placeholder: money in the money colour, everything else as text the lang file colours
+     * ({@code <accent><value>}). For KDR, {@code value} is kills and {@code secondary} deaths.
+     */
     Arg value(Board board, String name, long value, long secondary) {
         return switch (board.format()) {
-            case NUMBER -> Arg.number(name, value);
-            case KDR -> kdr(name, value, secondary);
-            case DURATION -> Arg.time(name, Duration.ofSeconds(value));
+            case NUMBER -> Arg.text(name, Lang.number(value));
+            case KDR -> Arg.text(name, Kdr.format(value, secondary));
+            case DURATION -> Arg.text(name, Durations.format(Duration.ofSeconds(value)));
             case MONEY -> Arg.money(name, value);
         };
     }

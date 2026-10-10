@@ -6,9 +6,9 @@
 
 hub:
   title: "SiftVanilla"
+  # The one line above the menu's buttons: your money and shards. What each button opens is in its tooltip.
   body:
-    - "<primary>Welcome back, <name>."
-    - "<primary><icon:money> <balance>   <icon:shard> <shards> shards"
+    - "<primary><icon:money> <balance>   <icon:shard> <shards><amount> shards</shards>"
   menu:
     label: "Menu"
     description: "Everything on SiftVanilla in one place"
@@ -20,8 +20,10 @@ hub:
   # Text of the SiftVanilla button in the pause screen. Changes apply after a restart.
   pause-menu:
     title: "SiftVanilla"
-    body: "Pick where to go."
-  # Labels used by the pause-screen menu for each entry id (see features/hub.yml). Changes apply after a restart.
+    # A line above the buttons; "" shows none (buttons only: each button's tooltip says where it goes).
+    body: ""
+  # The label and the tooltip of each entry's button, in the main menu and the pause-screen menu. Their colours and
+  # icons are in features/hub.yml. Pause-screen changes apply after a restart.
   entries:
     menu:
       label: "Main menu"

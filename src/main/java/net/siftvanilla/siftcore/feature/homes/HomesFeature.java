@@ -123,7 +123,7 @@ public final class HomesFeature implements Feature, Listener {
         Bukkit.getPluginManager().registerEvents(this, this.services.plugin());
         this.sweeper = this.services.scheduler().asyncTimer(() -> this.store.retain(uuid -> Bukkit.getPlayer(uuid) != null), SWEEP, SWEEP);
         this.services.hub().register(new HubEntry("homes", 55, HomesMessages.HUB_LABEL, HomesMessages.HUB_DESCRIPTION, HOMES,
-            player -> this.service.openList(player, 1, submission -> openMainMenu(submission.player()))));
+            player -> this.service.openList(player, submission -> openMainMenu(submission.player()))));
         var placeholders = this.services.placeholders();
         placeholders.register("homes_count", "How many homes you have set",
             player -> Integer.toString(player == null ? 0 : this.store.count(player.getUniqueId())));
@@ -248,7 +248,7 @@ public final class HomesFeature implements Feature, Listener {
                 .executes(ctx -> {
                     Player player = support.player(ctx);
                     if (player != null) {
-                        this.service.openList(player, 1, null);
+                        this.service.openList(player, null);
                     }
                     return CommandSupport.OK;
                 })
@@ -265,7 +265,7 @@ public final class HomesFeature implements Feature, Listener {
                 .executes(ctx -> {
                     Player player = support.player(ctx);
                     if (player != null) {
-                        this.service.openList(player, 1, null);
+                        this.service.openList(player, null);
                     }
                     return CommandSupport.OK;
                 })
@@ -282,7 +282,7 @@ public final class HomesFeature implements Feature, Listener {
                         this.services.audit().record(sender instanceof Player p ? p.getUniqueId().toString() : "console", "homes.view",
                             target.get().toString(), null);
                         if (sender instanceof Player staff) {
-                            this.service.openOther(staff, target.get(), name, 1);
+                            this.service.openOther(staff, target.get(), name);
                         } else {
                             this.service.listOther(sender, target.get(), name);
                         }

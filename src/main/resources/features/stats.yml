@@ -12,9 +12,10 @@ leaderboards:
   # How often the leaderboards are rebuilt. Each rebuild first saves changed stats, then runs one database query
   # per leaderboard off the main threads. /top, the stats menu and placeholders always read the last rebuild.
   refresh: 60s
-  # Places kept per leaderboard (10 to 100). Placeholders can read places 1 to this number.
+  # Places kept per leaderboard (10 to 100). Placeholders can read places 1 to this number, and the leaderboard
+  # dialogs list them all in one scrolling page.
   size: 100
-  # Lines per page in /top.
+  # Lines per page of /top typed in the console (players see the whole leaderboard in one dialog).
   page-size: 10
   # Players need at least this many kills to appear on the KDR leaderboard.
   kdr-min-kills: 25

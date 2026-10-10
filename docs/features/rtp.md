@@ -1,7 +1,8 @@
 # Random teleport (`rtp`)
 
 `/rtp` sends players to a random safe spot in the overworld, the nether or the end. Package `feature/rtp`, config
-`features/rtp.yml`, text `lang/rtp.yml`. No tables (cooldowns are in memory; the cost goes through the ledger).
+`features/rtp.yml`, text `lang/rtp.yml`. No tables (cooldowns are in memory; a cost, when a region has one, goes
+through the ledger). Every shipped region is free; a cost stays configurable per region.
 
 | Contract | Wired | Used for |
 |---|---|---|
@@ -26,10 +27,14 @@
 
 ## The picker
 
-A dialog with one line per region the player may use: name, ring (`300 to 4,800 blocks out`), cost or free, and
-whether it is ready or how long the cooldown still runs; then one button per region. Regions that are disabled,
-need a permission the player lacks, or whose world is not loaded are left out. A region's button starts the teleport
-and closes the picker at once (the picker already shows the price, so it never asks again).
+Buttons only (`RtpPicker`, the dialog style): nothing above them, one button per region the player may use, its name
+in the region's colour (`colors.<id>` in `features/rtp.yml`) and "(42s)" after it while its cooldown runs. The button's
+tooltip says how far out players land ("Lands 300 to 4,800 blocks out"), the price only when the region costs money
+("Costs $2,500, paid once a safe spot is found"), and "Ready, click to go" or "Ready again in 42s". A free region says
+nothing about money anywhere (picker, confirmation, landing line, the no-spot line). Up to three regions show in one
+column, more in two. Regions that are disabled, need a permission the player lacks, or whose world is not loaded are
+left out. A region's button starts the teleport and closes the picker at once (the tooltip already shows the price,
+so it never asks again).
 
 ## Per-player settings (Settings > Teleports & homes)
 
@@ -38,10 +43,10 @@ Registered in `SettingCategories.TELEPORT` by `RtpFeature#registerSettings` (tex
 
 | Id | Kind | Default | Read in | Meaning |
 |---|---|---|---|---|
-| `rtp-confirm-cost` | switch | on | `RtpService#start` (`RtpDefault#asksCost`) | "Confirm paid random teleports": a typed `/rtp <region>` that costs money shows "A random teleport to X costs $1,000. You pay only once a safe spot is found." with Teleport (closes the window and starts the warmup; every check runs again) and Cancel. Offered only while some enabled region costs money |
-| `rtp-default` | choice menu / last | menu | `RtpService#bare` (`RtpDefault#straight`) | "/rtp with no region": the picker, or straight to the region of the player's last random teleport that happened (kept as the free-form value `rtp_last`). A last region that is gone, turned off, forbidden, outside its world or cooling down opens the picker instead |
+| `rtp-confirm-cost` | switch | on | `RtpService#start` (`RtpDefault#asksCost`) | "Confirm paid random teleports": a typed `/rtp <region>` that costs money shows "A random teleport to X costs $1,000." with Teleport (its tooltip: "You pay only once a safe spot is found."; it closes the window and starts the warmup; every check runs again) and Cancel. Offered only while some enabled region costs money, so with the shipped free regions it is not shown |
+| `rtp-default` | choice menu / last | menu | `RtpService#bare` (`RtpDefault#straight`) | "/rtp on its own": the picker, or straight back to the region of the player's last random teleport that happened (kept as the free-form value `rtp_last`). A last region that is gone, turned off, forbidden, outside its world or cooling down opens the picker instead |
 
-The landing line ("Welcome to X at x, z. Paid $1,000.") is the teleport's arrival line: it shows where the player's
+The landing line ("Welcome to X at x, z.", with "Paid $1,000." only for a paid region) is the teleport's arrival line: it shows where the player's
 "Teleport countdown" setting says (`Teleports#arrival`); a line that says money was paid shows even with that set to
 off. With the shared `hide-coordinates` (streamer mode) on, it leaves the position out (`rtp.landed-hidden`,
 `rtp.landed-paid-hidden`). Staff sends (`/rtp <region> <player>`) are unchanged.
@@ -84,15 +89,19 @@ that did not.
 | `max-attempts` | `12` | Chunks tried per teleport |
 | `spots-per-chunk` | `8` | Columns checked in each loaded chunk |
 | `border-margin` | `32` | Landing spots keep this far from the border |
-| `regions.<id>` | overworld, nether, end | `name`, `enabled`, `world`, `permission`, `cost`, `cooldown`, `center-x`, `center-z`, `min-radius`, `max-radius` |
+| `colors.<id>` | overworld `#86EFAC`, nether `#FF8A65`, end `#F5F0A8` | The colour of a region's button in the picker ("#RRGGBB"); a region left out is white |
+| `regions.<id>` | overworld, nether, end | `name`, `enabled`, `world`, `permission`, `cost` (0 = free, the shipped value; then no money text shows), `cooldown`, `center-x`, `center-z`, `min-radius`, `max-radius` |
 
 Shipped regions (the live worlds are pre-generated to borders of 10,000 / 5,000 / 6,000 around 0, 0):
 
 | Region | World | Ring | Cost | Cooldown |
 |---|---|---|---|---|
 | `overworld` | `world` | 300 to 4,800 | free | 60s |
-| `nether` | `world_nether` | 200 to 2,300 | $2,500 | 60s |
-| `end` | `world_the_end` | 1,000 to 2,800 (outer islands; the main island and the void around it are skipped) | $5,000 | 60s |
+| `nether` | `world_nether` | 200 to 2,300 | free (was $2,500 before the owner removed the fees) | 60s |
+| `end` | `world_the_end` | 1,000 to 2,800 (outer islands; the main island and the void around it are skipped) | free (was $5,000) | 60s |
+
+The live server's `features/rtp.yml` takes the new costs by itself where the owner never edited them (`YamlFiles`
+updates unedited shipped values); a cost the owner set by hand stays.
 
 ### Rings and world borders
 
@@ -124,11 +133,16 @@ ring (same world, different `min-radius`/`max-radius`, its own cost and cooldown
 
 ## Tests
 
-- Unit: `RingSamplerTest`, `RtpBorderTest`, `SafeSpotTest`, `RtpSettingsChoiceTest` (when /rtp goes to the last region,
-  when a paid teleport asks first, the price question offered only while an enabled region costs money);
+- Unit: `RingSamplerTest`, `RtpBorderTest` (the shipped regions are free, an explicit `5k` cost parses), `SafeSpotTest`,
+  `RtpPickerTest` (buttons only, each region in its colour, no money text for a free region, the price in the tooltip of
+  a paid one), `RtpSettingsChoiceTest` (when /rtp goes to the last region, when a paid teleport asks first, the price
+  question offered only while an enabled region costs money);
   `TpaSettingsTest` registers the whole Teleports & homes group (random teleport's two settings last, rtp-confirm-cost
   following the paid regions, streamer mode declared as read).
-- E2E (`TeleportScenarios`): `rtp-flow`, `rtp-limits` (a typed paid region asks with its price first), and
+- E2E (`TeleportScenarios`): `rtp-flow` (the picker: no line above the buttons, the shipped regions free with no money
+  text, a test region costing $1,000 shows its price in the tooltip and charges it once), `rtp-free` (a shipped region
+  from the picker and typed: no question, no money line, the balance untouched), `rtp-limits` (a typed paid region asks
+  with its price first; a failed search of a paid region says nothing was charged), and
   `rtp-settings` (Cancel on the price charges nothing; the confirmation turned off in the settings dialog; the last
   region typed with `/settings`, the picker while it cools down, straight there once it is ready; streamer mode in the
   landing line).

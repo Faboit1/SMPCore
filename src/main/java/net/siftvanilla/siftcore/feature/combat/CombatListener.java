@@ -3,11 +3,13 @@ package net.siftvanilla.siftcore.feature.combat;
 import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.combat.CombatTags;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
@@ -18,10 +20,12 @@ import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.scheduler.Scheduler;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Player;
@@ -205,7 +209,7 @@ final class CombatListener implements Listener {
     }
 
     private void refuse(Player player, MessageKey key, Duration left) {
-        this.messenger.send(player, key, Arg.time("time", Duration.ofSeconds(TagTicker.secondsLeft(left.toMillis(), 0))));
+        this.messenger.send(player, key, Arg.text("time", Durations.format(Duration.ofSeconds(TagTicker.secondsLeft(left.toMillis(), 0)))));
     }
 
     /**
@@ -320,13 +324,35 @@ final class CombatListener implements Listener {
             return;
         }
         Location at = victim.getLocation();
-        Arg world = Arg.text("world", at.getWorld().getName());
+        List<World> worlds = Bukkit.getWorlds();
+        Arg world = Arg.text("world", worldName(this.messenger.lang(), at.getWorld().getName(),
+            worlds.isEmpty() ? null : worlds.getFirst().getName()));
         if (line == CombatMessages.DEATH_LOCATION_HIDDEN) {
             this.messenger.chat(victim, line, world);
         } else {
-            this.messenger.chat(victim, line, world, Arg.number("x", at.getBlockX()), Arg.number("y", at.getBlockY()),
-                Arg.number("z", at.getBlockZ()));
+            this.messenger.chat(victim, line, world, Arg.text("x", Lang.number(at.getBlockX())), Arg.text("y", Lang.number(at.getBlockY())),
+                Arg.text("z", Lang.number(at.getBlockZ())));
         }
+    }
+
+    /**
+     * How a world is named in the death location: the server's main world is "Overworld", its nether "Nether" and its
+     * end "The End" (lang {@code combat.worlds}); any other world shows its own name.
+     *
+     * @param mainWorld the name of the server's main world (the first one loaded), or null when unknown
+     */
+    static String worldName(Lang lang, String world, String mainWorld) {
+        MessageKey key = null;
+        if (mainWorld != null) {
+            if (world.equals(mainWorld)) {
+                key = CombatMessages.WORLD_OVERWORLD;
+            } else if (world.equals(mainWorld + "_nether")) {
+                key = CombatMessages.WORLD_NETHER;
+            } else if (world.equals(mainWorld + "_the_end")) {
+                key = CombatMessages.WORLD_END;
+            }
+        }
+        return key == null ? world : lang.plain(key);
     }
 
     /**
@@ -356,7 +382,7 @@ final class CombatListener implements Listener {
         }
         Arg name = Arg.component("name", this.deathMessages.name(victim.getUniqueId(), victim.getName()));
         switch (notice) {
-            case COUNTED -> this.messenger.alert(killer, style, false, key, name, Arg.number("streak", streak));
+            case COUNTED -> this.messenger.alert(killer, style, false, key, name, Arg.text("streak", Lang.number(streak)));
             case NOT_COUNTED -> this.messenger.alert(killer, style, false, key, name,
                 Arg.text("reason", this.messenger.lang().plain(CombatMessages.reason(decision.reason()))));
             case NOT_COUNTED_PLAIN -> this.messenger.alert(killer, style, false, key, name);
@@ -375,7 +401,7 @@ final class CombatListener implements Listener {
             if (killer.isDead() || !killer.isValid()) {
                 return;
             }
-            Arg hearts = Arg.decimal("hearts", hearts(killer.getHealth(), killer.getAbsorptionAmount()));
+            Arg hearts = Arg.text("hearts", heartsText(hearts(killer.getHealth(), killer.getAbsorptionAmount())));
             if (weapon == null) {
                 this.messenger.chat(victim, CombatMessages.DEATH_RECAP, Arg.component("killer", killerName), hearts);
             } else {
@@ -388,6 +414,12 @@ final class CombatListener implements Listener {
     /** Health plus absorption in hearts (two health points each), to one decimal. */
     static double hearts(double health, double absorption) {
         return Math.round((Math.max(0, health) + Math.max(0, absorption)) * 5) / 10.0;
+    }
+
+    /** Hearts as the recap writes them: "6.5", or "10" without a needless ".0". */
+    static String heartsText(double hearts) {
+        long whole = Math.round(hearts * 10);
+        return whole % 10 == 0 ? Long.toString(whole / 10) : (whole / 10) + "." + Math.abs(whole % 10);
     }
 
     // ------------------------------------------------------------------ leaving

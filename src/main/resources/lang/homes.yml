@@ -4,63 +4,67 @@
 # (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 
 homes:
-  set: "<primary>Home <name> set. <secondary>You have <count> of <limit>."
-  moved: "<primary>Home <name> moved here."
-  limit: "<primary>You have <count> of <limit> homes. Delete one or move an existing one."
+  set: "<primary>Home <accent><name></accent> set. <secondary>You have <accent><count></accent> of <accent><limit></accent>."
+  moved: "<primary>Home <accent><name></accent> moved here."
+  limit: "<primary>You have <accent><count></accent> of <accent><limit></accent> homes. Delete one or move an existing one."
   invalid-name: "<primary>Home names are 1 to 16 letters, numbers, _ or -."
   world-disabled: "<primary>You can't set homes in this world."
-  home-world-disabled: "<primary>Home <name> is in a world where homes are turned off."
+  home-world-disabled: "<primary>Home <accent><name></accent> is in a world where homes are turned off."
   in-spawn: "<primary>You can't set a home at spawn."
-  in-combat: "<primary>You can't set a home in combat. <time> left."
+  in-combat: "<primary>You can't set a home in combat. <accent><time></accent> left."
   loading: "<primary>Your homes are still loading. Try again in a moment."
-  not-found: "<primary>You have no home called <name>."
+  not-found: "<primary>You have no home called <accent><name></accent>."
   none: "<primary>You have no homes yet. Set one with /sethome."
-  gone: "<primary>Home <name> no longer exists."
-  world-missing: "<primary>The world of home <name> isn't available."
-  teleported: "<primary>Welcome to <name>."
-  deleted: "<primary>Home <name> deleted."
+  gone: "<primary>Home <accent><name></accent> no longer exists."
+  world-missing: "<primary>The world of home <accent><name></accent> isn't available."
+  teleported: "<primary>Welcome to <accent><name></accent>."
+  deleted: "<primary>Home <accent><name></accent> deleted."
   unlimited: "unlimited"
   unsafe:
     title: "Unsafe home"
-    body: "<primary>Home <name> doesn't look safe: <reason>."
-    question: "<secondary>Teleport there anyway?"
+    body: "<primary>Home <accent><name></accent> doesn't look safe: <reason>."
     lava: "there is lava"
     fire: "there is fire"
     blocked: "a block fills the space"
-    go: "Teleport anyway"
+    go: "<error>Teleport anyway"
+  # How worlds are named where a home's place shows: the server's main world, its nether and its end. Other worlds
+  # show their own name.
+  worlds:
+    overworld: "Overworld"
+    nether: "Nether"
+    end: "The End"
+  # The homes dialog: one status line, then a button per home (click to go there) with Delete next to it.
   list:
     title: "Homes"
-    header: "<primary><icon:home> <count> of <limit> homes"
-    empty: "<secondary>No homes yet. Set one where you stand."
-    line: "<primary><name> <secondary><world> <x>, <y>, <z>"
-    # The same line while the player hides coordinates (Settings > Privacy > Streamer mode).
-    line-hidden: "<primary><name> <secondary><world>"
-    page: "<secondary>Page <page> of <pages>"
-    delete: "Delete"
-    teleport-tooltip: "<secondary>Teleport to <name>"
-    delete-tooltip: "<secondary>Delete <name>"
-    set-here: "Set a home here"
-    next: "Next page"
-    previous: "Previous page"
+    header: "<primary><icon:home> <accent><count></accent> of <accent><limit></accent> homes"
+    # A home's button, and where it is in its tooltip (the second while Streamer mode hides coordinates).
+    home: "<primary><name>"
+    where: "<secondary><world> <accent><x>, <y>, <z>"
+    where-hidden: "<secondary><world>"
+    teleport-tooltip: "<primary>Click to teleport to <accent><name></accent>."
+    delete: "<error>Delete"
+    delete-tooltip: "<primary>Delete <accent><name></accent>. <secondary>Asks first."
+    set-here: "<on>Set a home here"
+    set-here-tooltip: "<primary>Name a new home where you stand."
   delete:
     title: "Delete home"
     body:
-      - "<primary>Delete home <name>?"
-      - "<secondary><world> <x>, <y>, <z>"
+      - "<primary>Delete home <accent><name></accent>?"
+      - "<secondary><world> <accent><x>, <y>, <z>"
     body-hidden:
-      - "<primary>Delete home <name>?"
+      - "<primary>Delete home <accent><name></accent>?"
       - "<secondary><world>"
-    button: "Delete"
+    button: "<error>Delete"
   # Asked before /sethome (or the form) moves a home that already exists, unless the player turned that off.
   overwrite:
     title: "Move home"
-    body: "<primary>Home <name> already exists. Move it to where you stand?"
-    from: "<secondary>Now: <world> <x>, <y>, <z>"
-    to: "<secondary>New: <world> <x>, <y>, <z>"
+    body: "<primary>Move home <accent><name></accent> to where you stand?"
+    from: "<secondary>Now: <world> <accent><x>, <y>, <z>"
+    to: "<secondary>New: <world> <accent><x>, <y>, <z>"
     from-hidden: "<secondary>Now: <world>"
     to-hidden: "<secondary>New: <world>"
-    button: "Move it here"
-  # The settings in Settings, Teleports & homes: a label, then one line that says what it does.
+    button: "<on>Move it here"
+  # The settings in Settings, Teleports & homes: a label, and what it does (shown when hovering its button).
   settings:
     confirm-overwrite: "Confirm moving a home"
     confirm-overwrite-description: "Ask before /sethome moves a home you already have to where you stand."
@@ -71,12 +75,12 @@ homes:
     bare-list: "Always the list"
   form:
     title: "Set a home"
-    body: "<secondary>The home is set where you stand. Names are 1 to 16 letters, numbers, _ or -."
     name: "Name"
-    submit: "Set home"
+    submit: "<on>Set home"
+    submit-tooltip: "<primary>Sets the home where you stand. <secondary>Names are 1 to 16 letters, numbers, _ or -."
   other:
     title: "Homes of <name>"
-    header: "<primary><icon:home> <name> has <count> homes"
+    header: "<primary><icon:home> <name> has <accent><count></accent> homes"
   admin:
     header: "<primary>Homes of <name> <secondary>(<count>)"
     line: "<primary><home> <secondary><world> <x>, <y>, <z>"

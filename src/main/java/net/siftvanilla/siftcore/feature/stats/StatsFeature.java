@@ -229,7 +229,7 @@ public final class StatsFeature implements Feature {
         for (Climbs.Climb climb : Climbs.of(before, after, online, uuid -> settings.get(uuid, RANK_ALERTS))) {
             Player player = Bukkit.getPlayer(climb.player());
             if (player != null) {
-                this.services.messenger().send(player, StatsMessages.CLIMBED, Arg.number("rank", climb.rank()),
+                this.services.messenger().send(player, StatsMessages.CLIMBED, Arg.text("rank", Lang.number(climb.rank())),
                     Arg.component("board", this.services.lang().get(StatsMessages.button(climb.board()))));
             }
         }

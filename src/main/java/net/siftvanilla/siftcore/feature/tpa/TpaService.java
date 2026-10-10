@@ -12,6 +12,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.api.event.TeleportRequestEvent;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.AfkStatus;
 import net.siftvanilla.siftcore.core.link.IgnoreLookup;
@@ -33,8 +34,9 @@ import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import net.siftvanilla.siftcore.feature.tpa.TpaRequests.Kind;
 import net.siftvanilla.siftcore.feature.tpa.TpaRequests.Request;
+import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
-import net.siftvanilla.siftcore.ui.dialog.Input;
+import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
@@ -132,7 +134,7 @@ final class TpaService {
         if (!this.links.combat().tagged(id)) {
             return false;
         }
-        messenger().send(player, TpaMessages.IN_COMBAT, Arg.time("time", this.links.combat().remaining(id)));
+        messenger().send(player, TpaMessages.IN_COMBAT, Arg.text("time", Durations.format(this.links.combat().remaining(id))));
         return true;
     }
 
@@ -195,7 +197,7 @@ final class TpaService {
         MessageKey sent = kind == Kind.TO_TARGET
             ? (afk ? TpaMessages.SENT_AFK : TpaMessages.SENT)
             : (afk ? TpaMessages.SENT_HERE_AFK : TpaMessages.SENT_HERE);
-        messenger().send(sender, sent, Arg.text("name", target.getName()), Arg.time("time", s.expireAfter()));
+        messenger().send(sender, sent, Arg.text("name", target.getName()), Arg.text("time", Durations.format(s.expireAfter())));
         String senderName = sender.getName();
         messenger().send(target, kind == Kind.TO_TARGET ? TpaMessages.INCOMING : TpaMessages.INCOMING_HERE,
             Arg.text("name", senderName), Arg.component("answer", answerLink(target, request, senderName)));
@@ -247,18 +249,18 @@ final class TpaService {
      */
     private View answerView(Request request, String senderName) {
         Lang lang = this.services.lang();
-        List<Component> lines = new ArrayList<>();
         Arg name = Arg.text("name", senderName);
-        lines.add(lang.get(request.kind() == Kind.TO_TARGET ? TpaMessages.ANSWER_BODY : TpaMessages.ANSWER_BODY_HERE, name));
-        if (request.kind() == Kind.TO_SENDER) {
-            lines.add(lang.get(TpaMessages.ANSWER_MOVES_YOU, name));
-        }
-        lines.add(lang.get(TpaMessages.ANSWER_EXPIRES, Arg.time("time", this.settings.get().expireAfter())));
+        boolean toYou = request.kind() == Kind.TO_TARGET;
+        // One line: who and which way. What each answer does, and when the request expires, are on the buttons.
+        List<Component> lines = List.of(lang.get(toYou ? TpaMessages.ANSWER_BODY : TpaMessages.ANSWER_BODY_HERE, name));
         View confirm = this.services.templates().confirm(lang.get(TpaMessages.ANSWER_TITLE), lines, lang.get(TpaMessages.ACCEPT),
             lang.get(TpaMessages.DENY),
             yes -> accept(yes.player(), request.sender(), request.id()),
             no -> deny(no.player(), request.sender(), request.id()));
-        List<Button> closing = confirm.buttons().stream().map(Button::closes).toList();
+        Component acceptTooltip = Templates.lines(List.of(lang.get(toYou ? TpaMessages.ACCEPT_TOOLTIP : TpaMessages.ACCEPT_TOOLTIP_HERE, name),
+            lang.get(TpaMessages.ANSWER_EXPIRES, Arg.text("time", Durations.format(this.settings.get().expireAfter())))));
+        List<Button> closing = List.of(confirm.buttons().get(0).tooltip(acceptTooltip).closes(),
+            confirm.buttons().get(1).tooltip(lang.get(TpaMessages.DENY_TOOLTIP, name)).closes());
         return new View(confirm.kind(), confirm.title(), confirm.body(), confirm.inputs(), closing, confirm.exit(), confirm.columns(),
             confirm.escapable());
     }
@@ -430,19 +432,20 @@ final class TpaService {
                     case ASK_FIRST -> s.show(answerView(request, name(request.sender())));
                     case ACCEPT -> accept(s.player(), request.sender(), request.id());
                 }
-            }).width(150);
+            });
             // A pick that opens the next window keeps this one up until it does; a finishing pick closes at once.
             buttons.add(answerOf(target, request, accept) == TpaGate.Answer.ASK_FIRST ? pick : pick.closes());
         }
         if (!accept) {
-            buttons.add(Button.of(lang.get(TpaMessages.DENY_ALL), s -> {
+            buttons.add(Button.of(lang.get(TpaMessages.DENY_ALL), lang.get(TpaMessages.DENY_ALL_TOOLTIP), s -> {
                 for (Request request : this.requests.incoming(s.player().getUniqueId())) {
                     deny(s.player(), request.sender(), request.id());
                 }
-            }).width(150).closes());
+            }).closes());
         }
-        this.services.dialogs().show(target, this.services.templates().list(lang.get(TpaMessages.CHOICE_TITLE),
-            lang.lines(accept ? TpaMessages.CHOICE_ACCEPT_BODY : TpaMessages.CHOICE_DENY_BODY), buttons, 2, null));
+        // Nothing above the names: the title says whether a pick accepts or denies.
+        this.services.dialogs().show(target, this.services.templates().grid(
+            lang.get(accept ? TpaMessages.CHOICE_TITLE_ACCEPT : TpaMessages.CHOICE_TITLE_DENY), buttons, null));
     }
 
     /** /tpacancel [player]: cancels the named outgoing request, or all of them. Sender's thread. */
@@ -468,7 +471,7 @@ final class TpaService {
         if (cancelled.size() == 1) {
             messenger().send(sender, TpaMessages.CANCELLED, Arg.text("name", name(cancelled.getFirst().target())));
         } else {
-            messenger().send(sender, TpaMessages.CANCELLED_ALL, Arg.number("count", cancelled.size()));
+            messenger().send(sender, TpaMessages.CANCELLED_ALL, Arg.text("count", Lang.number(cancelled.size())));
         }
         for (Request request : cancelled) {
             Player target = Bukkit.getPlayer(request.target());
@@ -579,34 +582,42 @@ final class TpaService {
 
     // ------------------------------------------------------------------ hub form
 
-    /** The request form from the main menu: a player name and which way to teleport. */
+    /**
+     * The request form from the main menu: a player name, then a button for each way ("Go to them" sends a /tpa,
+     * "Bring them here" a /tpahere), what each does in its tooltip, and Back (Close without a menu to go back to).
+     */
     void openForm(Player player, Button.Handler back) {
         Lang lang = this.services.lang();
-        List<Input.Option> options = List.of(new Input.Option("to", lang.get(TpaMessages.FORM_TO_THEM)),
-            new Input.Option("here", lang.get(TpaMessages.FORM_HERE)));
-        List<Component> lines = new ArrayList<>(lang.lines(TpaMessages.FORM_BODY));
+        // Only a short status above the name: requests waiting for this player.
+        List<Body> body = new ArrayList<>(1);
         int waiting = pending(player.getUniqueId());
         if (waiting > 0) {
-            lines.add(lang.get(TpaMessages.FORM_WAITING, Arg.number("count", waiting)));
+            body.add(Body.text(lang.get(TpaMessages.FORM_WAITING, Arg.text("count", Lang.number(waiting)))));
         }
-        this.services.dialogs().show(player, this.services.templates().form(lang.get(TpaMessages.FORM_TITLE), lines,
-            List.of(Templates.text("player", lang.get(TpaMessages.FORM_PLAYER), "", 16),
-                Templates.choice("direction", lang.get(TpaMessages.FORM_DIRECTION), options, "to")),
-            lang.get(TpaMessages.FORM_SUBMIT),
-            submission -> {
-                String typed = submission.values().text("player");
-                Player target = Bukkit.getPlayerExact(typed);
-                if (target == null || !visible(submission.player(), target)) {
-                    submission.error(lang.get(CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", typed)));
-                    return;
-                }
-                if (target.equals(submission.player())) {
-                    submission.error(lang.get(CoreMessages.NOT_YOURSELF));
-                    return;
-                }
-                submission.close();
-                request(submission.player(), target, "here".equals(submission.values().choice("direction")) ? Kind.TO_SENDER : Kind.TO_TARGET);
-            },
-            back));
+        List<Button> buttons = List.of(
+            Button.of(lang.get(TpaMessages.FORM_TO_THEM), lang.get(TpaMessages.FORM_TO_THEM_TOOLTIP), s -> send(s, Kind.TO_TARGET))
+                .width(Templates.HALF),
+            Button.of(lang.get(TpaMessages.FORM_HERE), lang.get(TpaMessages.FORM_HERE_TOOLTIP), s -> send(s, Kind.TO_SENDER))
+                .width(Templates.HALF));
+        Button exit = Button.of(lang.get(back == null ? CoreMessages.UI_CLOSE : CoreMessages.UI_BACK), back).width(Templates.LONG);
+        this.services.dialogs().show(player, new View(View.Kind.FORM, lang.get(TpaMessages.FORM_TITLE), body,
+            List.of(Templates.text("player", lang.get(TpaMessages.FORM_PLAYER), "", 16)), buttons, exit, 2, true));
+    }
+
+    /** A send button of the form: the typed player must be online and someone else; the request then goes out. */
+    private void send(Submission submission, Kind kind) {
+        Lang lang = this.services.lang();
+        String typed = submission.values().text("player");
+        Player target = Bukkit.getPlayerExact(typed);
+        if (target == null || !visible(submission.player(), target)) {
+            submission.error(lang.get(CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", typed)));
+            return;
+        }
+        if (target.equals(submission.player())) {
+            submission.error(lang.get(CoreMessages.NOT_YOURSELF));
+            return;
+        }
+        submission.close();
+        request(submission.player(), target, kind);
     }
 }

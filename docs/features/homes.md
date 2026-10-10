@@ -39,11 +39,17 @@ Rank nodes on SiftVanilla (the default of 2 comes from the config): `prospector`
 ## The homes dialog
 
 `/homes`, `/home` with several homes and the main menu entry `homes` (order 55, also a pause-menu route) open one
-list: a header with `<count> of <limit> homes`, one line per home (name, world, block position), a teleport button
-named after each home and a Delete button next to it, Set a home here (a form with a name field prefilled with the
-first free name: `home`, `home2`, ...), and paging past 8 homes. Delete asks for confirmation and comes back to the
-list. A wrong name in the form keeps the dialog open with the rule; a name that exists asks "Move home" (Move it here
-goes back to the list, Cancel back to the form). A home's teleport button closes the list at once.
+list in the dialog style (`HomesViews`): one status line, `2 of 3 homes` (the numbers in the accent colour), then a
+button per home named after it, with a red Delete next to it, and a green Set a home here (a form with a name field
+prefilled with the first free name: `home`, `home2`, ...; the name rule is on its Set home button's tooltip). Where a
+home is (world and block position, or the world only in streamer mode) is in its button's tooltip. Worlds are named
+the way players know them: the server's main world "Overworld", its nether "Nether" and its end "The End"
+(`homes.worlds` in `lang/homes.yml`, `HomesViews#worldName`); another world shows its own name. The same names are
+in the delete and "Move home" questions; staff chat lines (`/homes <player>` from the console) keep the folder names.
+No pages: every
+home is in the one dialog, which scrolls. Delete asks for confirmation and comes back to the list. A wrong name in the
+form keeps the dialog open with the rule; a name that exists asks "Move home" (Move it here goes back to the list,
+Cancel back to the form). A home's teleport button closes the list at once. Homes cost nothing to set or use.
 
 ## Per-player settings (Settings > Teleports & homes)
 

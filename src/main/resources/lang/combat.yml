@@ -5,29 +5,29 @@
 
 combat:
   tag:
-    action-bar: "<primary>In combat <time>"
+    action-bar: "<primary>In combat <accent><time>"
     # The combat timer on the boss bar, for players who picked it (Combat timer setting).
-    boss-bar: "<primary>In combat <time>"
+    boss-bar: "<primary>In combat <accent><time>"
     ended: "<primary>You are no longer in combat."
     ended-title: "<primary>Out of combat"
     # When a hit puts a player in combat (not when it starts the timer again). Entering combat alert setting.
-    started: "<primary>You are in combat with <name>! <secondary>Don't log out for <time>."
+    started: "<primary>You are in combat with <name>! <secondary>Don't log out for <accent><time></accent>."
     started-title: "<error>In combat with <name>"
-    started-staff: "<primary>Staff put you in combat. <secondary>Don't log out for <time>."
+    started-staff: "<primary>Staff put you in combat. <secondary>Don't log out for <accent><time></accent>."
     started-staff-title: "<error>In combat"
   # The killer's own result after a player kill (Kill confirmation setting).
   kill:
-    counted: "<primary>Your kill on <name> counted. <secondary>Kill streak <streak><secondary>."
-    counted-title: "<primary>Kill counted <secondary>streak <streak>"
+    counted: "<primary>Your kill on <name> counted. <secondary>Kill streak <accent><streak></accent>."
+    counted-title: "<primary>Kill counted <secondary>streak <accent><streak>"
     not-counted: "<primary>Your kill on <name> didn't count: <secondary><reason>."
     # Used when the reason must stay private (same IP address) or came from another plugin.
     not-counted-plain: "<primary>Your kill on <name> didn't count."
     not-counted-title: "<primary>Kill didn't count"
   blocked:
-    command: "<primary>You can't use that in combat. <time> left."
-    ender-pearl: "<primary>You can't throw ender pearls in combat. <time> left."
-    elytra: "<primary>You can't fly in combat. <time> left."
-    spawn: "<primary>You can't go into spawn in combat. <time> left."
+    command: "<primary>You can't use that in combat. <accent><time></accent> left."
+    ender-pearl: "<primary>You can't throw ender pearls in combat. <accent><time></accent> left."
+    elytra: "<primary>You can't fly in combat. <accent><time></accent> left."
+    spawn: "<primary>You can't go into spawn in combat. <accent><time></accent> left."
   logout:
     announce: "<primary><name> <secondary>logged out in combat."
     announce-killed: "<primary><name> <secondary>logged out in combat. <primary><killer> <secondary>gets the kill."
@@ -35,16 +35,22 @@ combat:
     killed: "<primary><victim> <secondary>was killed by <primary><killer><secondary>."
     killed-using: "<primary><victim> <secondary>was killed by <primary><killer> <secondary>using <primary><item><secondary>."
     # Only the player who died sees these (Death location and Death recap settings).
-    location: "<secondary>You died at <primary><x>, <y>, <z> <secondary>in <primary><world><secondary>."
+    location: "<secondary>You died at <accent><x>, <y>, <z></accent> in <primary><world><secondary>."
     # The same while Streamer mode hides coordinates.
     location-hidden: "<secondary>You died in <primary><world><secondary>."
-    recap: "<primary><killer> <secondary>had <hearts> <secondary>hearts left."
-    recap-using: "<primary><killer> <secondary>had <hearts> <secondary>hearts left, using <primary><item><secondary>."
+    recap: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left."
+    recap-using: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left, using <primary><item><secondary>."
+  # How <world> names the server's main world, its nether and its end in the lines above. Other worlds show their
+  # own name.
+  worlds:
+    overworld: "Overworld"
+    nether: "Nether"
+    end: "The End"
   streak:
-    reached: "<primary><name> <secondary>is on a kill streak of <count><secondary>."
-    ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <count><secondary>."
+    reached: "<primary><name> <secondary>is on a kill streak of <accent><count></accent>."
+    ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <accent><count></accent>."
   status:
-    tagged: "<primary>You are in combat for <time>."
+    tagged: "<primary>You are in combat for <accent><time></accent>."
     clear: "<primary>You are not in combat."
   admin:
     status-tagged: "<primary><name> is in combat for <time>. <secondary>Last hit by <attacker>."

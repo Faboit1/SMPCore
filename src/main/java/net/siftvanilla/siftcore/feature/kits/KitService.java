@@ -14,11 +14,13 @@ import java.util.logging.Logger;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
 import net.siftvanilla.siftcore.api.event.KitClaimEvent;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import org.bukkit.Bukkit;
@@ -195,7 +197,8 @@ final class KitService {
 
     private Refusal combatRefusal(Player player) {
         if (this.settings.get().blockInCombat() && this.combat.tagged(player.getUniqueId())) {
-            return new Refusal(KitsMessages.IN_COMBAT, Arg.time("time", KitText.roundUp(this.combat.remaining(player.getUniqueId()))));
+            return new Refusal(KitsMessages.IN_COMBAT,
+                Arg.text("time", Durations.format(KitText.roundUp(this.combat.remaining(player.getUniqueId())))));
         }
         return null;
     }
@@ -242,7 +245,7 @@ final class KitService {
         return switch (this.claims.status(player, kit)) {
             case KitStatus.Ready ready -> null;
             case KitStatus.Waiting waiting -> new Refusal(KitsMessages.NOT_READY, Arg.text("name", kit.name()),
-                Arg.time("time", waiting.shown()));
+                Arg.text("time", Durations.format(waiting.shown())));
             case KitStatus.Claimed claimed -> new Refusal(KitsMessages.ALREADY_CLAIMED, Arg.text("name", kit.name()));
         };
     }
@@ -302,7 +305,7 @@ final class KitService {
                             this.services.messenger().send(player, KitsMessages.CLAIM_BOX, Arg.text("name", name));
                         }
                     } else {
-                        this.services.messenger().send(player, KitsMessages.CLAIMED_MANY, Arg.number("count", stored.size()));
+                        this.services.messenger().send(player, KitsMessages.CLAIMED_MANY, Arg.text("count", Lang.number(stored.size())));
                         if (outcome.left() > 0) {
                             this.services.messenger().send(player, KitsMessages.CLAIM_BOX_MANY);
                         }

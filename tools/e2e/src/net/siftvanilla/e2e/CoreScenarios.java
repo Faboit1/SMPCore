@@ -20,6 +20,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.siftvanilla.siftcore.SiftCore;
+import net.siftvanilla.siftcore.SiftCoreBootstrap;
 import net.siftvanilla.siftcore.SiftCorePlugin;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.link.VanishStatus;
@@ -67,6 +68,7 @@ final class CoreScenarios {
         list.add(of("core-expired-click", CoreScenarios::expiredClick));
         list.add(of("core-duplicate-login", CoreScenarios::duplicateLogin));
         list.add(of("core-last-seen", CoreScenarios::lastSeen));
+        list.add(of("menu-style", CoreScenarios::menuStyle));
         return list;
     }
 
@@ -113,6 +115,73 @@ final class CoreScenarios {
     /** A message sent to the player {@code ticks} after now, on their thread: a marker in the packet order. */
     private static void markerLater(Services services, Player player, String text, long ticks) {
         services.scheduler().entityLater(player, () -> player.sendMessage(Component.text(text)), null, ticks);
+    }
+
+    // ------------------------------------------------------------------ main menu and pause screen
+
+    /**
+     * The main menu and the pause-screen menu are buttons, not paragraphs: the menu has one line with the money (green)
+     * and the shards (purple), then short buttons in their entries' colours, each explained in its tooltip; the
+     * pause-screen dialog as registered shows only coloured buttons with tooltips, and its buttons open the real screens.
+     */
+    static void menuStyle(E2E e2e) {
+        String name = e2e.name("MenuLook");
+        Bot bot = e2e.bot(name);
+        e2e.console("eco set " + name + " 1500");
+        e2e.eventually(() -> e2e.money(name) == 1_500, "funded");
+
+        e2e.step("/menu: one line of money and shards, then buttons with tooltips");
+        bot.command("menu");
+        Bot.SeenDialog menu = e2e.dialog(bot, "SiftVanilla");
+        e2e.expect(menu.body().size() == 1 && menu.bodyText().contains("$1,500") && menu.bodyText().contains("shards"),
+            "one line, the balance and shards: " + menu.body());
+        e2e.expect(!menu.bodyText().contains("Welcome") && !menu.bodyText().contains("Pick"), "no greeting or paragraph: " + menu.body());
+        for (Bot.Button button : menu.buttons()) {
+            if (!button.label().equals("Close")) {
+                e2e.expect(button.tooltip() != null && !button.tooltip().isBlank(), "a tooltip on " + button.label());
+            }
+        }
+        Bot.Button money = menu.button("Money");
+        e2e.expect(money != null && "#1AFF1A".equals(money.valueColor()), "Money in its green: " + (money == null ? menu.buttons()
+            : money.valueColor()));
+        Bot.Button shards = menu.button("Shards");
+        e2e.expect(shards == null || "#915DFF".equals(shards.valueColor()), "Shards in the shard purple: "
+            + (shards == null ? "not offered" : shards.valueColor()));
+        Bot.Button homes = menu.button("Homes");
+        e2e.expect(homes != null && "#86EFAC".equals(homes.valueColor()) && homes.tooltip().contains("Teleport to your homes"),
+            "Homes in its colour, explained on hover: " + (homes == null ? menu.buttons() : homes.valueColor() + " " + homes.tooltip()));
+        String all = menu.bodyText() + " " + menu.buttons().stream().map(b -> b.label() + " " + b.tooltip()).toList();
+        e2e.expect(!all.contains("SiftCore"), "never SiftCore: " + all);
+        e2e.click(bot, "Homes");
+        e2e.dialog(bot, "Homes");
+        e2e.click(bot, "Back");
+        e2e.dialog(bot, "SiftVanilla");
+
+        e2e.step("the pause-screen menu as the client gets it: buttons only, coloured, with tooltips");
+        var registry = io.papermc.paper.registry.RegistryAccess.registryAccess().getRegistry(io.papermc.paper.registry.RegistryKey.DIALOG);
+        io.papermc.paper.dialog.Dialog pause = registry.get(SiftCoreBootstrap.HUB_DIALOG);
+        e2e.expect(pause != null, "siftcore:hub is registered");
+        e2e.onPlayer(name, () -> {
+            e2e.player(name).showDialog(pause);
+            return null;
+        });
+        e2e.eventually(() -> bot.dialog() != null && bot.dialog().button("Random teleport") != null, "the pause menu: "
+            + (bot.dialog() == null ? "none" : bot.dialog().title()));
+        Bot.SeenDialog shown = bot.dialog();
+        e2e.expect(shown.body().isEmpty(), "no line above the buttons: " + shown.body());
+        for (String id : List.of("Main menu", "Money", "Shop", "Sell", "Homes", "Random teleport", "Stats", "Settings")) {
+            Bot.Button button = shown.button(id);
+            e2e.expect(button != null && button.tooltip() != null && !button.tooltip().isBlank() && button.valueColor() != null,
+                id + " has a colour and a tooltip: " + (button == null ? shown.buttons() : button.valueColor() + " " + button.tooltip()));
+        }
+        e2e.expect("#1AFF1A".equals(shown.button("Money").valueColor()) && "#C4B5FD".equals(shown.button("Random teleport").valueColor()),
+            "the entries' colours: " + shown.button("Money").valueColor() + " " + shown.button("Random teleport").valueColor());
+        e2e.expect(shown.buttons().stream().noneMatch(b -> b.label().contains("SiftCore") || String.valueOf(b.tooltip()).contains("SiftCore")),
+            "never SiftCore: " + shown.buttons());
+
+        e2e.step("a pause-screen button opens the real screen");
+        e2e.expect(bot.clickButton("Random teleport", Map.of()), "can click Random teleport");
+        e2e.dialog(bot, "Random teleport");
     }
 
     // ------------------------------------------------------------------ vanish

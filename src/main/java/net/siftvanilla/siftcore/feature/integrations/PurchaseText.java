@@ -5,7 +5,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/** Pure helpers of {@code /purchases}: shortened references, dates and pages. */
+/** Pure helpers of {@code /purchases}: shortened references, dates and the newest purchases. */
 final class PurchaseText {
 
     /** References longer than this are shortened. */
@@ -34,15 +34,8 @@ final class PurchaseText {
         return DATE.format(Instant.ofEpochMilli(epochMillis));
     }
 
-    /** How many pages {@code size} entries fill, at least one. */
-    static int pages(int size, int pageSize) {
-        return Math.max(1, (size + pageSize - 1) / pageSize);
-    }
-
-    /** The entries of a page (1-based, clamped to the pages there are). */
-    static <T> List<T> page(List<T> entries, int page, int pageSize) {
-        int current = Math.clamp(page, 1, pages(entries.size(), pageSize));
-        int from = (current - 1) * pageSize;
-        return entries.subList(Math.min(from, entries.size()), Math.min(from + pageSize, entries.size()));
+    /** The first {@code cap} entries (the newest purchases: the dialog lists no more, and has no pages). */
+    static <T> List<T> newest(List<T> entries, int cap) {
+        return entries.subList(0, Math.clamp(cap, 0, entries.size()));
     }
 }

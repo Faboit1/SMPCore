@@ -52,8 +52,11 @@ who you asked) or online players you can see (`/tpa`, `/tpahere`); selectors are
    ("<name> isn't taking requests to come to you. Ask with /tpa instead."). Staff with the bypass pass both. Then the
    request cooldown and the cancellable `api.event.TeleportRequestEvent`.
 2. A `/tpa` the target auto-accepts ("Auto-accept /tpa from", see below) skips the request: the sender's warmup starts
-   at once. Otherwise the target gets a chat line with a clickable `Click to answer`: a `ClickEvent.showDialog`
-   carrying an accept/deny dialog made for that target (`Dialogs#inline`). Typing `/tpaccept` works the same. With
+   at once. Otherwise the target gets a chat line with a clickable `Click to answer` (in the accent colour): a
+   `ClickEvent.showDialog` carrying an accept/deny dialog made for that target (`Dialogs#inline`). The dialog is one
+   line ("Alex wants to teleport to you.") and a green Accept and a red Deny; what each answer does, and when requests
+   expire, are on the buttons' tooltips. With several requests waiting, `/tpaccept` and `/tpdeny` open "Accept a
+   request" or "Deny a request": one button per sender (which way in its tooltip) and, for denying, Deny all. Typing `/tpaccept` works the same. With
    "Requests open a pop-up" on, the same window also opens by itself, on the target's thread, unless they are in
    combat, AFK or busy in a window, and only while the request still waits. "Busy in a window" is what the server
    can see: a window it opened (a chest, a SiftCore menu, an anvil) is always seen; the player's own inventory is
@@ -90,8 +93,10 @@ menu's form and answered from the chat dialog, so the feature checks combat itse
   ("<name> is in combat now. The teleport was cancelled."), the other player hears they didn't come, and the request
   is used up (send a new one after the fight). Staff `/tpa` (bypass, no request) is not checked.
 
-The main menu entry `tpa` (order 62) opens a form: a player name and who moves (I go to them / They come to me). It
-also says how many requests wait for you.
+The main menu entry `tpa` (order 62) opens a form: the player's name, then a button for each way, "Go to them" (a
+/tpa) and "Bring them here" (a /tpahere), what each does in its tooltip, and Back. Only while requests wait for you,
+one short line above says how many. An unknown or hidden name, or your own, shows in red on the form again with the
+name kept.
 
 ## Per-player settings (Settings > Teleports & homes)
 
@@ -166,7 +171,9 @@ has no such entry.
   regions, streamer mode declared, tpa-friends retired, friend options and favourites offered only when they exist),
   `TeleportDisplayTest` (the countdown and arrival places, title timing, the title cleared on every cancel and
   failure and not on arrival).
-- E2E (`TeleportScenarios`): `tpa-flow`, `tpa-switches`, `tpa-combat`, `tpa-combat-warmup`, and `tpa-settings`
+- E2E (`TeleportScenarios`): `tpa-flow`, `tpa-switches` (also the menu's form: only the name to type, Go to them and
+  Bring them here with their tooltips, an unknown name refused on the form, both ways sending), `tpa-combat`,
+  `tpa-combat-warmup`, and `tpa-settings`
   (Teleport requests from friends saved in the settings dialog: a stranger refused, a friend's request arrives; Pull
   requests from nobody typed as `/settings tpahere-requests nobody`; no pop-up while the player clicks in their own
   inventory, then the pop-up; being pulled asks once more, Deny there; with a /tpa and a /tpahere waiting, picking

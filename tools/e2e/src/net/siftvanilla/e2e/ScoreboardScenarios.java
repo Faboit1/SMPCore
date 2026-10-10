@@ -230,6 +230,12 @@ final class ScoreboardScenarios {
         Bot.SeenScore money = score(alex, "Money");
         e2e.expect(Integer.valueOf(MONEY_COLOUR).equals(colourOf(money.display(), "$0", null)), "the amount is in the money colour");
         e2e.expect(Integer.valueOf(GRAY).equals(colourOf(money.display(), "Money", null)), "the label is gray");
+        Bot.SeenScore shards = score(alex, "Shards");
+        e2e.expect(Integer.valueOf(0x915DFF).equals(colourOf(shards.display(), "Shards", null)), "shards in the shard purple: "
+            + colourOf(shards.display(), "Shards", null));
+        Bot.SeenScore kills = score(alex, "Kills");
+        e2e.expect(Integer.valueOf(0xFFD866).equals(colourOf(kills.display(), "0", null))
+            && Integer.valueOf(GRAY).equals(colourOf(kills.display(), "Kills", null)), "a value in the accent colour, its label gray");
 
         e2e.step("a payment changes the money line and nothing else");
         Map<String, Integer> before = new HashMap<>();
@@ -599,7 +605,8 @@ final class ScoreboardScenarios {
             e2e.eventually(() -> bot.tabHeader().isEmpty() && bot.tabFooter().isEmpty(), "the header and footer were cleared");
             bot.clearLogs();
             bot.command("sidebar");
-            e2e.eventually(() -> bot.actionBarContains("comes from SiftE2E"), "/sidebar names the plugin: " + bot.actionBar());
+            e2e.eventually(() -> bot.actionBarContains("can't be hidden with /sidebar"), "/sidebar says it can't: " + bot.actionBar());
+            e2e.expect(!bot.anyFeedbackContains("SiftE2E"), "names no plugin to the player: " + bot.actionBar() + " " + bot.chat());
             String status = String.join("\n", output(e2e, "sidebar status"));
             e2e.expect(status.contains("sidebar (SiftE2E), tab list (SiftE2E), nametags (SiftE2E)"), "the status names it:\n" + status);
             String selftest = String.join("\n", output(e2e, "sift selftest", 3_000));

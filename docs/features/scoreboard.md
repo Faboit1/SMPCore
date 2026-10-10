@@ -119,7 +119,7 @@ removed. Two plugins drawing the same sidebar, tab names or nametag teams fight 
 scoreboard team only, and the last sidebar sent wins). So each part has a `yield-to` list: while one of those plugins
 is enabled, SiftCore leaves that part completely alone. With the defaults, installing TAB hands all three parts to
 it; SiftCore then puts players back on the main scoreboard, leaves tab names and the header alone, and `/sidebar`
-says which plugin shows the sidebar. To let SiftCore draw a part TAB has turned off, remove `TAB` from that part's
+tells the player the sidebar can't be hidden with it (naming no plugin; staff see which plugin in `/sidebar status`). To let SiftCore draw a part TAB has turned off, remove `TAB` from that part's
 list. Placeholders keep working for TAB through PlaceholderAPI (`%siftcore_balance%` ...). The check is live, so it
 follows `/sift reload` at once.
 

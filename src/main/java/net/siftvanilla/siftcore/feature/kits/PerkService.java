@@ -10,12 +10,14 @@ import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.event.CombatTagEvent;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.teleport.CombatStatus;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.ui.gui.GridBackup;
 import net.siftvanilla.siftcore.ui.gui.Items;
 import net.siftvanilla.siftcore.ui.gui.Menu;
@@ -100,7 +102,7 @@ final class PerkService implements Listener {
             return false;
         }
         this.services.messenger().send(player, KitsMessages.PERK_IN_COMBAT,
-            Arg.time("time", KitText.roundUp(this.combat.remaining(player.getUniqueId()))));
+            Arg.text("time", Durations.format(KitText.roundUp(this.combat.remaining(player.getUniqueId())))));
         return true;
     }
 
@@ -185,19 +187,19 @@ final class PerkService implements Listener {
         }
         long claimed = back.isEmpty() ? 0 : giveBack(player, back, dying);
         if (!delete) {
-            this.services.messenger().send(player, KitsMessages.TRASH_RETURNED, Arg.number("count", backCount));
+            this.services.messenger().send(player, KitsMessages.TRASH_RETURNED, Arg.text("count", Lang.number(backCount)));
         } else if (backCount > 0 && deletedCount > 0) {
-            this.services.messenger().send(player, KitsMessages.TRASH_DELETED_KEPT, Arg.number("count", deletedCount),
-                Arg.number("kept", backCount));
+            this.services.messenger().send(player, KitsMessages.TRASH_DELETED_KEPT, Arg.text("count", Lang.number(deletedCount)),
+                Arg.text("kept", Lang.number(backCount)));
         } else if (backCount > 0) {
-            this.services.messenger().send(player, KitsMessages.TRASH_KEPT, Arg.number("kept", backCount));
+            this.services.messenger().send(player, KitsMessages.TRASH_KEPT, Arg.text("kept", Lang.number(backCount)));
         } else if (deletedCount == 1) {
             this.services.messenger().send(player, KitsMessages.TRASH_DELETED_ONE);
         } else {
-            this.services.messenger().send(player, KitsMessages.TRASH_DELETED, Arg.number("count", deletedCount));
+            this.services.messenger().send(player, KitsMessages.TRASH_DELETED, Arg.text("count", Lang.number(deletedCount)));
         }
         if (claimed > 0) {
-            this.services.messenger().send(player, KitsMessages.TRASH_CLAIM_BOX, Arg.number("count", claimed));
+            this.services.messenger().send(player, KitsMessages.TRASH_CLAIM_BOX, Arg.text("count", Lang.number(claimed)));
         }
     }
 
