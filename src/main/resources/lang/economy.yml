@@ -1,0 +1,97 @@
+# Text of money: /balance, /pay, /baltop, the Money page of the menu and the /eco staff tools.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Money is coloured automatically, in each reader's money format.
+
+economy:
+  balance:
+    # <shard-count> is the number of shards; <shards> ... </shards> colours them purple.
+    self: "<primary>You have <amount> and <shards><shard-count> shards</shards>."
+    other: "<primary><name> has <amount> and <shards><shard-count> shards</shards>."
+    # /balance <name> of a player who keeps their balance from you (their "Who can see my balance" setting).
+    private: "<primary><name> keeps their balance private."
+  pay:
+    sent: "<primary>You paid <name> <amount>."
+    received: "<primary><name> paid you <amount>."
+    minimum: "<primary>The smallest payment is <amount>."
+    limit: "<primary>You can send <left> more today. Your daily limit is <limit> and grows the more you play."
+    offline: "<primary><name> has to be online to receive money."
+    target-full: "<primary><name> can't hold that much money."
+    # The receiver's "Who can pay me" setting leaves the payer out, or they ignore the payer.
+    not-accepted: "<primary><name> doesn't accept payments from you."
+    cancelled: "<secondary>Payment cancelled."
+    confirm-title: "Confirm payment"
+    confirm-body:
+      - "<primary>Send <amount> to <name>?"
+      - "<secondary>You can send <left> more today after this."
+    # The confirmation for players without a daily limit.
+    confirm-body-unlimited: "<primary>Send <amount> to <name>?"
+    confirm-button: "Pay"
+    confirm-button-tooltip: "<primary>Payments can't be undone."
+    form-title: "Pay a player"
+    form-player: "Player name"
+    form-amount: "Amount, like 1500 or 1.5k"
+    form-submit-tooltip: "<primary>Send the money.<newline><secondary>Big payments ask you first."
+  # /baltop: the whole leaderboard in one dialog (it scrolls). The console gets it in chat, a page at a time.
+  top:
+    title: "Richest players"
+    header: "<primary>Richest players <secondary>page <page> of <pages>"
+    line: "<secondary><rank>. <primary><name> <amount>"
+    you: "<secondary>You are number <accent><rank></accent> with <amount>."
+    empty: "<secondary>Nobody has money yet."
+    not-listed: "<secondary>You are not on this leaderboard yet."
+    # How many are listed (at most baltop.size in features/economy.yml, 100).
+    shown: "<secondary>Top <accent><count></accent>, the richest first."
+    # A listed player's button, and your own (like every leaderboard).
+    entry: "<secondary><rank>. <primary><name> <amount>"
+    entry-you: "<secondary><rank>. <accent><name> <amount>"
+  admin:
+    given: "<primary>Gave <name> <amount>. They now have <balance>."
+    taken: "<primary>Took <amount> from <name>. They now have <balance>."
+    set: "<primary>Set <name>'s balance to <amount>."
+    given-shards: "<primary>Gave <name> <shards><amount> shards</shards>. They now have <shards><balance> shards</shards>."
+    taken-shards: "<primary>Took <shards><amount> shards</shards> from <name>. They now have <shards><balance> shards</shards>."
+    set-shards: "<primary>Set <name>'s <shards>shards</shards> to <shards><amount></shards>."
+    failed: "<primary>Nothing changed: <reason>."
+    history-header: "<primary>Ledger of <name> <secondary>page <page>"
+    history-line: "<secondary>#<id> <primary><sign><amount> <secondary><kind>, <ago> ago, balance <primary><balance>"
+    history-empty: "<secondary>No transactions on this page."
+    resumed: "<primary>The economy accepts transactions again."
+  hub:
+    label: "Money"
+    description: "Your balance, payments and the leaderboard"
+    title: "Money"
+    # Your balance and shards; the buttons' tooltips say the rest.
+    body:
+      - "<primary><icon:money> <amount>"
+      - "<primary><icon:shard> <shards><shard-count> shards"
+    # Shown in red under the money page when today's payments couldn't be read.
+    limit-failed: "<primary>Your daily pay limit couldn't be loaded. Open this page again to see it."
+    pay: "Pay a player"
+    pay-tooltip: "<primary>Send money to another player."
+    # Added to the Pay tooltip for players with a daily limit.
+    pay-left: "<secondary>You can still send <left> today."
+    top: "Richest players"
+    top-tooltip: "<primary>The <count> richest players."
+    # Added to the Richest players tooltip for a player on the leaderboard.
+    top-rank: "<secondary>You are number <accent><rank></accent>."
+  # Shown a moment after joining (the "Offline payments summary" setting): who paid you while you were offline.
+  away:
+    header: "<primary>While you were away you received <total>:"
+    line: "<secondary><name> paid you <primary><amount>"
+    line-many: "<secondary><name> paid you <primary><amount> <secondary>in <count> payments"
+    more: "<secondary>and <count> more players"
+  # The settings in /settings (Money & selling).
+  settings:
+    notifications: "Payment alerts"
+    notifications-description: "How you are told someone paid you."
+    confirm-above: "Confirm payments from"
+    confirm-above-description: "Ask before /pay sends this much or more. Big payments always ask."
+    accept-from: "Who can pay me"
+    accept-from-description: "Who can send you money with /pay. Players you ignore never can."
+    join-summary: "Offline payments summary"
+    join-summary-description: "When you join, list who paid you while you were away."
+    alert-minimum: "Only alert payments from"
+    alert-minimum-description: "Skip payment alerts below this amount. The money still arrives."
+    alert-minimum-any: "Any amount"

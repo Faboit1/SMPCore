@@ -1,0 +1,145 @@
+package net.siftvanilla.siftcore.feature.stats;
+
+import net.siftvanilla.siftcore.core.text.MessageKey;
+
+/** Text of the stats feature ({@code lang/stats.yml}). */
+public final class StatsMessages {
+
+    public static final MessageKey VIEW_TITLE_SELF = MessageKey.ui("stats.view.title-self");
+    public static final MessageKey VIEW_TITLE_OTHER = MessageKey.ui("stats.view.title-other", "name");
+    public static final MessageKey VIEW_CONSOLE = MessageKey.chat("stats.view.console",
+        "name", "kills", "deaths", "kdr", "streak", "best", "playtime", "mobs", "blocks", "earned", "balance");
+    public static final MessageKey LOAD_FAILED = MessageKey.error("stats.view.load-failed");
+    /** The labels of the stats page's buttons ("Kills: 4"). */
+    public static final MessageKey STAT_LABEL_KILLS = MessageKey.ui("stats.view.labels.kills");
+    public static final MessageKey STAT_LABEL_DEATHS = MessageKey.ui("stats.view.labels.deaths");
+    public static final MessageKey STAT_LABEL_KDR = MessageKey.ui("stats.view.labels.kdr");
+    public static final MessageKey STAT_LABEL_STREAK = MessageKey.ui("stats.view.labels.streak");
+    public static final MessageKey STAT_LABEL_PLAYTIME = MessageKey.ui("stats.view.labels.playtime");
+    public static final MessageKey STAT_LABEL_MOBS = MessageKey.ui("stats.view.labels.mobs");
+    public static final MessageKey STAT_LABEL_BLOCKS = MessageKey.ui("stats.view.labels.blocks");
+    public static final MessageKey STAT_LABEL_EARNED = MessageKey.ui("stats.view.labels.earned");
+    public static final MessageKey STAT_LABEL_BALANCE = MessageKey.ui("stats.view.labels.balance");
+    /** The value of the streak button: "1 (best 3)". */
+    public static final MessageKey VIEW_STREAK_VALUE = MessageKey.ui("stats.view.streak-value", "streak", "best");
+    /** The last line of a stat button's tooltip. */
+    public static final MessageKey VIEW_OPEN_BOARD = MessageKey.ui("stats.view.open-board", "board");
+    /** The balance line's value when the player keeps their balance from the viewer ({@code balance-privacy}). */
+    public static final MessageKey BALANCE_HIDDEN = MessageKey.ui("stats.view.balance-hidden");
+
+    public static final MessageKey BOARD_KILLS = MessageKey.ui("stats.boards.kills.button");
+    public static final MessageKey BOARD_KILLS_TITLE = MessageKey.ui("stats.boards.kills.title");
+    public static final MessageKey BOARD_DEATHS = MessageKey.ui("stats.boards.deaths.button");
+    public static final MessageKey BOARD_DEATHS_TITLE = MessageKey.ui("stats.boards.deaths.title");
+    public static final MessageKey BOARD_KDR = MessageKey.ui("stats.boards.kdr.button");
+    public static final MessageKey BOARD_KDR_TITLE = MessageKey.ui("stats.boards.kdr.title");
+    public static final MessageKey BOARD_STREAK = MessageKey.ui("stats.boards.streak.button");
+    public static final MessageKey BOARD_STREAK_TITLE = MessageKey.ui("stats.boards.streak.title");
+    public static final MessageKey BOARD_PLAYTIME = MessageKey.ui("stats.boards.playtime.button");
+    public static final MessageKey BOARD_PLAYTIME_TITLE = MessageKey.ui("stats.boards.playtime.title");
+    public static final MessageKey BOARD_MOBS = MessageKey.ui("stats.boards.mobs.button");
+    public static final MessageKey BOARD_MOBS_TITLE = MessageKey.ui("stats.boards.mobs.title");
+    public static final MessageKey BOARD_BLOCKS = MessageKey.ui("stats.boards.blocks.button");
+    public static final MessageKey BOARD_BLOCKS_TITLE = MessageKey.ui("stats.boards.blocks.title");
+    public static final MessageKey BOARD_EARNED = MessageKey.ui("stats.boards.earned.button");
+    public static final MessageKey BOARD_EARNED_TITLE = MessageKey.ui("stats.boards.earned.title");
+    public static final MessageKey BOARD_MONEY = MessageKey.ui("stats.boards.money.button");
+    public static final MessageKey BOARD_MONEY_TITLE = MessageKey.ui("stats.boards.money.title");
+
+    public static final MessageKey TOP_YOU = MessageKey.ui("stats.top.you", "rank", "value");
+    /** How many players a board lists and when it was rebuilt. */
+    public static final MessageKey TOP_SHOWN = MessageKey.ui("stats.top.shown", "count", "time");
+    /** A listed player's button, and the viewer's own. */
+    public static final MessageKey TOP_ENTRY = MessageKey.ui("stats.top.entry", "rank", "name", "value");
+    public static final MessageKey TOP_ENTRY_YOU = MessageKey.ui("stats.top.entry-you", "rank", "name", "value");
+    public static final MessageKey TOP_ENTRY_TOOLTIP = MessageKey.ui("stats.top.entry-tooltip", "name");
+    /** A player's place on a board, in tooltips. */
+    public static final MessageKey TOP_PLACE = MessageKey.ui("stats.top.place", "rank");
+    public static final MessageKey TOP_NOT_PLACED = MessageKey.ui("stats.top.not-placed");
+    public static final MessageKey TOP_NOT_LISTED = MessageKey.ui("stats.top.not-listed");
+    public static final MessageKey TOP_EMPTY = MessageKey.ui("stats.top.empty");
+    public static final MessageKey TOP_KDR_RULE = MessageKey.ui("stats.top.kdr-rule", "kills");
+    public static final MessageKey TOP_NOT_READY = MessageKey.ui("stats.top.not-ready");
+    public static final MessageKey TOP_UNKNOWN = MessageKey.error("stats.top.unknown", "input", "boards");
+    public static final MessageKey TOP_LIST = MessageKey.chat("stats.top.list", "boards");
+    public static final MessageKey TOP_CONSOLE_HEADER = MessageKey.chat("stats.top.console-header", "title", "page", "pages");
+    public static final MessageKey TOP_CONSOLE_LINE = MessageKey.chat("stats.top.console-line", "rank", "name", "value");
+    public static final MessageKey TOP_CONSOLE_EMPTY = MessageKey.chat("stats.top.console-empty");
+    public static final MessageKey PICKER_TITLE = MessageKey.ui("stats.picker.title");
+
+    public static final MessageKey PLAYTIME_SELF = MessageKey.chat("stats.playtime.self", "time");
+    public static final MessageKey PLAYTIME_OTHER = MessageKey.chat("stats.playtime.other", "name", "time");
+
+    public static final MessageKey STAT_KILLS = MessageKey.ui("stats.names.kills");
+    public static final MessageKey STAT_DEATHS = MessageKey.ui("stats.names.deaths");
+    public static final MessageKey STAT_MOBS = MessageKey.ui("stats.names.mobs");
+    public static final MessageKey STAT_BLOCKS = MessageKey.ui("stats.names.blocks");
+    public static final MessageKey STAT_EARNED = MessageKey.ui("stats.names.earned");
+    public static final MessageKey STAT_PLAYTIME = MessageKey.ui("stats.names.playtime");
+
+    public static final MessageKey ADMIN_SET = MessageKey.chat("stats.admin.set", "name", "stat", "value");
+    public static final MessageKey ADMIN_ADDED = MessageKey.chat("stats.admin.added", "name", "stat", "value");
+    public static final MessageKey ADMIN_RESET = MessageKey.chat("stats.admin.reset", "name");
+    public static final MessageKey ADMIN_SAVE_FAILED = MessageKey.chat("stats.admin.save-failed", "name");
+    public static final MessageKey ADMIN_UNKNOWN_STAT = MessageKey.chat("stats.admin.unknown-stat", "input", "stats");
+    public static final MessageKey ADMIN_INVALID_VALUE = MessageKey.chat("stats.admin.invalid-value", "input", "stat");
+    public static final MessageKey ADMIN_REFRESHED = MessageKey.chat("stats.admin.refreshed", "time");
+    public static final MessageKey ADMIN_REFRESH_BUSY = MessageKey.chat("stats.admin.refresh-busy");
+    public static final MessageKey ADMIN_REFRESH_FAILED = MessageKey.chat("stats.admin.refresh-failed");
+
+    /** A player moved up a leaderboard ({@code leaderboard-rank-alerts}). */
+    public static final MessageKey CLIMBED = MessageKey.notify("stats.climbed", "rank", "board");
+
+    public static final MessageKey SETTING_RANK_ALERTS = MessageKey.ui("stats.settings.leaderboard-rank-alerts");
+    public static final MessageKey SETTING_RANK_ALERTS_DESCRIPTION = MessageKey.ui("stats.settings.leaderboard-rank-alerts-description");
+    public static final MessageKey OPTION_TOP_10 = MessageKey.ui("stats.settings.options.top-10");
+    public static final MessageKey OPTION_ANY_PLACE = MessageKey.ui("stats.settings.options.all");
+
+    public static final MessageKey HUB_LABEL = MessageKey.ui("stats.hub.label");
+    public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("stats.hub.description");
+
+    private StatsMessages() {
+    }
+
+    /** The button label of a board. */
+    public static MessageKey button(Board board) {
+        return switch (board) {
+            case KILLS -> BOARD_KILLS;
+            case DEATHS -> BOARD_DEATHS;
+            case KDR -> BOARD_KDR;
+            case STREAK -> BOARD_STREAK;
+            case PLAYTIME -> BOARD_PLAYTIME;
+            case MOBS -> BOARD_MOBS;
+            case BLOCKS -> BOARD_BLOCKS;
+            case EARNED -> BOARD_EARNED;
+            case MONEY -> BOARD_MONEY;
+        };
+    }
+
+    /** The dialog title of a board. */
+    public static MessageKey title(Board board) {
+        return switch (board) {
+            case KILLS -> BOARD_KILLS_TITLE;
+            case DEATHS -> BOARD_DEATHS_TITLE;
+            case KDR -> BOARD_KDR_TITLE;
+            case STREAK -> BOARD_STREAK_TITLE;
+            case PLAYTIME -> BOARD_PLAYTIME_TITLE;
+            case MOBS -> BOARD_MOBS_TITLE;
+            case BLOCKS -> BOARD_BLOCKS_TITLE;
+            case EARNED -> BOARD_EARNED_TITLE;
+            case MONEY -> BOARD_MONEY_TITLE;
+        };
+    }
+
+    /** The name of a counter in staff messages. */
+    public static MessageKey name(Counter counter) {
+        return switch (counter) {
+            case KILLS -> STAT_KILLS;
+            case DEATHS -> STAT_DEATHS;
+            case MOBS -> STAT_MOBS;
+            case BLOCKS -> STAT_BLOCKS;
+            case EARNED -> STAT_EARNED;
+            case PLAYTIME -> STAT_PLAYTIME;
+        };
+    }
+}

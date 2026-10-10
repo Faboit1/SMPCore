@@ -1,0 +1,60 @@
+# Text of /displays (leaderboards and info boards). What the displays themselves show is set in
+# features/displays.yml.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+
+displays:
+  created: "<primary>Placed <id> at <where>."
+  moved: "<primary>Moved <id> to <where>."
+  deleted: "<primary>Deleted <id>."
+  reset: "<primary><id> is back at its position from displays.yml."
+  hidden: "<primary><id> is hidden until it is placed again."
+  refreshed: "<primary>Refreshed <count> displays."
+  invalid-id: "<primary>Display names use up to 32 lowercase letters, digits, - and _."
+  unknown: "<primary>There is no display called <id>."
+  unknown-template: "<primary>There is no template called <template>."
+  unknown-world: "<primary>There is no world called <world>."
+  exists: "<primary>There is already a display called <id>."
+  in-config: "<primary><id> is set up in displays.yml. Place it with /displays move <id>."
+  config-only: "<primary><id> is set up in displays.yml. Remove it there, then run /sift reload."
+  not-placed: "<primary><id> has no position yet."
+  busy: "<primary><id> is still being saved. Try again in a moment."
+  failed: "<primary>Saving <id> didn't work. Nothing was changed."
+  confirm-console: "<primary>Run /displays delete <id> confirm to delete it."
+  click-unavailable: "<primary>That leaderboard isn't available right now."
+  where: "<world> <x> <y> <z>"
+  # /displays list: a button per display (in chat from the console); what it shows and where is in its tooltip.
+  list:
+    title: "Displays"
+    header: "<primary>Displays <secondary>(<count>)"
+    line: "<primary><id><secondary>, template <accent><template></accent>, <where>, <state>"
+    line-unplaced: "<primary><id><secondary>, template <accent><template></accent>, not placed yet"
+    empty: "<secondary>No displays yet. Stand where one should go and use /displays create."
+    go: "Go to <id>"
+    go-tooltip: "<primary>Click to teleport there."
+    unplaced: "<id> <secondary>(not placed)"
+    place-tooltip: "<primary>Stand where it should go and use /displays move <id>."
+  state:
+    shown: "shown"
+    missing: "not spawned yet"
+    not-loaded: "not loaded"
+    no-template: "template missing"
+    no-world: "world not loaded"
+  delete:
+    title: "Delete display"
+    body:
+      - "<primary>Delete <id>?"
+      - "<secondary>It shows <template> at <where>."
+    reset-body:
+      - "<primary>Remove the in-game position of <id>?"
+      - "<secondary>It goes back to its position from displays.yml."
+    hide-body:
+      - "<primary>Remove the in-game position of <id>?"
+      - "<secondary>It is hidden until it is placed again."
+    button: "Delete"
+    reset-button: "Remove"
+  # The player's switch in /settings (Display group).
+  setting:
+    label: "Spawn holograms"
+    description: "Show the floating leaderboards and info boards at spawn. Hiding them helps screenshots and slow PCs."

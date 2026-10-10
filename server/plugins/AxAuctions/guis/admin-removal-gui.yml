@@ -1,0 +1,65 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+# SiftVanilla: staff only (shift click a listing with axauctions.admin). Returning is the safe default;
+# deleting destroys the item.
+
+title: "Remove listing"
+# a gui can have 1-6 rows
+rows: 3
+# valid values: CHEST, WORKBENCH, HOPPER, DISPENSER, BREWING
+type: CHEST
+
+# ----- ITEMS -----
+
+item:
+  slot: 13
+
+remove-1:
+  slot: 9
+  material: "RED_STAINED_GLASS_PANE"
+  name: "&fDelete quietly"
+  lore:
+    - "&7The item is destroyed"
+    - "&7The seller isn't told"
+  actions:
+    - "[SOUND] ui.button.click|0.25|1"
+
+remove-2:
+  slot: 10
+  material: "RED_STAINED_GLASS_PANE"
+  name: "&fDelete and tell the seller"
+  lore:
+    - "&7The item is destroyed"
+    - "&7The seller gets a message"
+  actions:
+    - "[SOUND] ui.button.click|0.25|1"
+
+remove-3:
+  slot: 16
+  material: "LIME_STAINED_GLASS_PANE"
+  name: "&fReturn quietly"
+  lore:
+    - "&7The item goes back to the seller"
+    - "&7The seller isn't told"
+  actions:
+    - "[SOUND] ui.button.click|0.25|1"
+
+remove-4:
+  slot: 17
+  material: "LIME_STAINED_GLASS_PANE"
+  name: "&fReturn and tell the seller"
+  lore:
+    - "&7The item goes back to the seller"
+    - "&7The seller gets a message"
+  actions:
+    - "[SOUND] ui.button.click|0.25|1"
+
+back:
+  slot: 22
+  material: "OAK_DOOR"
+  name: "&fBack"
+  lore:
+    - "&7To the previous menu"
+  actions:
+    - "[BACK]"
+    - "[SOUND] ui.button.click|0.25|1"

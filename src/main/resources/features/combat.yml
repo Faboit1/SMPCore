@@ -1,0 +1,100 @@
+# Combat: the combat tag, combat logging, kill credit, death messages and the rules for counting kills.
+# Durations are written like 20s, 5m or 1h30m.
+
+tag:
+  # How long a player stays in combat after the last hit they gave or took. Every hit starts it again.
+  # Both players of a hit are tagged: melee, arrows and other projectiles, TNT they lit.
+  duration: 20s
+  # Also tag players when someone's tamed animal (a wolf, for example) hurts them; the owner is tagged too.
+  pets: true
+  # Show the "In combat 12s" timer while tagged. Each player picks where in their settings (Combat timer: above the
+  # hotbar, on the boss bar, both or nowhere). false turns the timer off for everyone and hides that setting.
+  action-bar: true
+
+# What players can't do while in combat. Plugin teleports (homes, TPA, RTP, spawn, warps, team home) are always
+# refused in combat, whichever command started them.
+while-tagged:
+  # Commands that are refused. An entry blocks the command under every alias and namespace: "home" also blocks
+  # /siftcore:home, and /h when /h is an alias of /home. Two words block one subcommand, like "team home".
+  blocked-commands:
+    - spawn
+    - home
+    - homes
+    - sethome
+    - tpa
+    - tpahere
+    - tpaccept
+    - back
+    - rtp
+    - wild
+    - warp
+    - warps
+    - team home
+    - afk
+    - ec
+    - enderchest
+    - craft
+    - workbench
+    - anvil
+    - kit
+    - kits
+    - shop
+    - shardshop
+    - ah
+  # Refuse throwing ender pearls.
+  block-ender-pearls: false
+  # No elytra flight: gliding stops when a player is tagged and can't start again until the tag ends.
+  disable-elytra: true
+  # Keep tagged players out of the protected spawn area. Walking in pushes them back; pearls and chorus fruit
+  # that would land inside are cancelled.
+  block-spawn-entry: true
+
+logout:
+  # What happens to a player who leaves while in combat:
+  #   kill = they die where they stood, their items drop there, and the last player who hit them gets the kill
+  #          (and any bounty on them)
+  #   none = nothing apart from the announcement
+  punishment: kill
+  # Also punish players who are kicked while in combat. On by default: otherwise a player could get themselves
+  # kicked (for spam, for example) to escape. Staff who kick someone in combat can /combat untag them first.
+  # Players who lose their connection or time out are always punished.
+  punish-kicks: true
+  # Say in chat "Alex logged out in combat." to the players who keep their Combat log announcements setting on (and
+  # to the player who gets the kill). Every combat log is also written to the audit log and told to staff, as their
+  # Staff combat alerts setting says, whatever this is.
+  announce: true
+
+death-messages:
+  # Replace player kill messages with "Alex was killed by Sam." and show every other death message in gray.
+  # Each player picks which deaths of others they see in their settings (Death messages: all, only player kills,
+  # only friends and teammates, or none); they always see their own deaths and kills.
+  # false leaves death messages to the game and hides that setting.
+  enabled: true
+  # Add "using <item>" when the killer held an item; hovering it shows the item.
+  show-weapon: true
+
+# Kill streaks: counted kills in a row without dying (they are kept by the stats). Announcements go to the players
+# who keep their Kill streak announcements setting on, and always to the killer and the victim. With both lines
+# turned off here, that setting is not offered.
+streaks:
+  # Announce when a player reaches one of these streaks: "Alex is on a kill streak of 10." [] turns it off.
+  announce-at: [5, 10, 15, 20, 25, 30, 40, 50, 75, 100]
+  # Announce when a player kills someone whose streak was at least this long:
+  # "Sam ended Alex's kill streak of 12." 0 turns it off.
+  announce-ended-from: 5
+
+# Kills that don't count: no kill, no streak and no bounty for the killer. They are still logged with the reason
+# (see /combat kills <player>), and the victim's death still counts.
+anti-farm:
+  # Members of the same team.
+  same-team: true
+  # Players who are friends (/friends), or were until recently: see friends-window.
+  friends: true
+  # Players who stopped being friends within this time still count as friends, so removing a friend, killing them
+  # (and claiming the bounty on them) and adding them back gives nothing. 0s counts only current friends. The friends
+  # feature remembers removed friends for its own anti-farm.remember (7d), so a longer window works like that.
+  friends-window: 24h
+  # Players last seen from the same IP address (alt accounts). Only a salted hash of the address is stored.
+  same-ip: true
+  # The same killer and victim again within this time after a counted kill. 0s turns this rule off; at most 24h.
+  repeated-pair-cooldown: 10m

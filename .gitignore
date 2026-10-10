@@ -1,0 +1,12 @@
+target/
+*.iml
+.idea/
+.vscode/
+*.class
+dependency-reduced-pom.xml
+.claude/worktrees/
+tools/e2e/SiftE2E.jar
+tools/spawn-builder/SiftBuild.jar
+
+# Licensed third-party plugin jars (AxAuctions and others) are never committed
+server/**/*.jar

@@ -1,0 +1,38 @@
+# Text of /spawn, /setspawn, /fly, spawn protection and the first-join welcome.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+
+spawn:
+  not-available: "<primary>Spawn isn't available right now."
+  set: "<primary>Spawn set to <world> <x>, <y>, <z>."
+  unknown-world: "<primary>There is no world called <name>."
+  outside-border: "<primary>That spot is outside the world border of <world>."
+  sent: "<primary>Sent <name> to spawn."
+  sent-by-staff: "<primary>A staff member sent you to spawn."
+  protection:
+    build: "<primary>You can't build at spawn."
+    use: "<primary>You can't use that at spawn."
+    pvp: "<primary>There is no fighting at spawn."
+  # /fly (flight inside the protected spawn area only).
+  fly:
+    "on": "<primary>Flight on. <secondary>You can fly while you're at spawn."
+    "off": "<primary>Flight off."
+    off-left: "<primary>You left spawn, so flight is off."
+    off-left-falling: "<primary>You left spawn, so flight is off. <secondary>Your landing won't hurt."
+    off-combat: "<primary>You're in combat, so flight is off."
+    off-other: "<primary>Flight is off."
+    outside: "<primary>You can only fly inside the spawn area."
+    in-combat: "<primary>You can't fly in combat. <accent><time></accent> left."
+    game-mode: "<secondary>You can already fly in this game mode."
+    disabled: "<primary>Flying at spawn is turned off on this server."
+    # <height> is fly.max-height: how many blocks above the spawn point flight goes.
+    ceiling: "<primary>You can't fly higher here. <secondary>Flight at spawn goes up to <accent><height></accent> blocks above the spawn point."
+    too-high: "<primary>You're too high to fly here. <secondary>Flight at spawn goes up to <accent><height></accent> blocks above the spawn point."
+  welcome:
+    title: "Welcome to SiftVanilla"
+    subtitle: "<secondary>Have fun, <name>"
+    chat: "<primary>Everything is in the menu. <secondary>Press Escape and pick SiftVanilla, or type /menu."
+  hub:
+    label: "Spawn"
+    description: "Back to spawn"

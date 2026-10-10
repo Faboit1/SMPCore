@@ -1,0 +1,53 @@
+# Text of /rules, /help, /ping, /seen, /links and the join and leave messages.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+
+extras:
+  rules:
+    label: "Rules"
+    description: "What's allowed on SiftVanilla"
+    title: "Rules"
+    button: "I understand"
+    body:
+      - "<primary>1. Be decent. No harassment, hate or threats."
+      - "<primary>2. No cheats, hacked clients, x-ray or macros."
+      - "<primary>3. No exploiting bugs or duplication. Report them instead."
+      - "<primary>4. No real-money trading outside the official store."
+      - "<primary>5. One account per person for rewards and the AFK zone."
+      - "<primary>6. PvP and raiding are part of the game, but no spawn camping."
+      - ""
+      - "<secondary>Staff decisions are final. Breaking the rules can mean a ban."
+  # /help: one button per place to start (the menu's own names), what it is in the tooltip.
+  help:
+    title: "Getting started"
+    menu: "Open the menu"
+    menu-tooltip: "<primary>Everything is in the menu.<newline><secondary>Press Escape and pick SiftVanilla, or type /menu."
+    tooltips:
+      rtp: "<primary>Somewhere new to start.<newline><secondary>Or type /rtp"
+      sell: "<primary>Turn what you gather into money.<newline><secondary>Or type /sell"
+      shop: "<primary>Spend your money on what you need.<newline><secondary>Or type /shop"
+      auction: "<primary>Buy from and sell to other players.<newline><secondary>Or type /ah"
+      homes: "<primary>Places that bring you back.<newline><secondary>/sethome saves one, /home takes you there"
+      teams: "<primary>Play together with friends.<newline><secondary>Or type /team"
+      friends: "<primary>See who's online and add friends.<newline><secondary>Or type /friend"
+      spawn: "<primary>Back to spawn.<newline><secondary>Or type /spawn"
+      rules: "<primary>What's allowed here.<newline><secondary>Or type /rules"
+  ping:
+    self: "<primary>Your ping is <ping> ms."
+    other: "<primary><name>'s ping is <ping> ms."
+  seen:
+    online: "<primary><name> is online now. <secondary>Joined <since> ago."
+    offline: "<primary><name> was last online <ago> ago. <secondary>First joined <first>."
+    # A player whose "Who sees when I was last online" setting leaves the asker out (staff always see it).
+    hidden: "<primary><name> keeps their last online time private."
+  join: "<secondary><name> joined"
+  quit: "<secondary><name> left"
+  first-join: "<primary>Welcome <name> to SiftVanilla. <secondary>Player number <number>."
+  # The setting in the settings dialog (Server announcements). "All" and "Off" are the shared option names in
+  # lang/settings.yml.
+  settings:
+    join-leave-messages: "Join and leave messages"
+    join-leave-messages-description: "See every join and leave line, only welcomes for brand-new players, or none. Friend alerts are separate."
+    options:
+      first-joins: "New players only"

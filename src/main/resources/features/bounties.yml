@@ -1,0 +1,42 @@
+# Bounties: players put money on another player's head; whoever kills that player claims it.
+# The money waits in the bounty escrow until it is claimed or refunded. Amounts accept 1500, 1.5k, 2m and so on.
+# Only kills that count claim a bounty (see anti-farm in combat.yml): no claims within a team, between players on
+# the same IP address, or for the same killer and victim again too soon. Nobody can claim money they put up.
+
+place:
+  # The smallest amount one /bounty can add.
+  minimum: 1k
+  # Bounties of at least this much ask for confirmation first, for players on "Server default" in their Confirm
+  # bounties from setting (everyone who never changed it). Players can pick their own threshold instead (always,
+  # from $10k, $100k or $1m), which replaces this one for them. 0 never asks the players on the server default.
+  confirm-above: 100k
+  # Time between two bounties placed by the same player.
+  cooldown: 5s
+  # Announce in chat when a bounty is placed, if it is at least announce-above. 0 announces every bounty.
+  # Each player filters what they see with their Bounty announcements setting (all, from an amount, or none).
+  announce: true
+  announce-above: 50k
+  # Tell the player that someone put money on their head, the way they pick in their Bounty on you alert setting
+  # (chat, above the hotbar, a title or not at all). false tells nobody and hides that setting.
+  notify-target: true
+  # Remind players with a bounty on their head when they join: "There is a $5,000 bounty on your head."
+  # Players can turn it off for themselves (Bounty reminder on join); false hides that setting.
+  remind-on-join: true
+
+claim:
+  # Part of a claimed bounty that is destroyed as tax, in percent (0 to 90). The killer gets the rest.
+  # 0 (no tax) keeps every mention of a tax out of the dialogs and messages.
+  tax-percent: 0
+  # Announce in chat when a bounty is claimed, to the players whose Bounty announcements filter shows its amount.
+  announce: true
+  # Tell the sponsors who are online that their bounty was claimed.
+  notify-sponsors: true
+
+expiry:
+  # Each contribution goes back to its sponsor this long after it was placed if nobody claimed it.
+  after: 14d
+  # How often to look for contributions that ran out.
+  check-every: 5m
+
+# How many of the biggest bounties /bounties shows (1 to 100). The dialog scrolls, so it shows them all at once.
+list-size: 50

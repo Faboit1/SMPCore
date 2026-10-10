@@ -1,0 +1,92 @@
+# Text of /shop. Category names and descriptions live in features/shop.yml.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Money amounts are coloured automatically.
+
+shop:
+  menu:
+    title: "Shop"
+    category-count: "<secondary><count> items"
+    category-hint: "<secondary>Click to browse"
+    balance: "<primary>Balance <balance>"
+    balance-lore: "<secondary>Earn more with /sell"
+    search: "<primary>Search"
+    search-lore: "<secondary>Find any item in the shop"
+    # The "Buy again" row: the player's last purchases.
+    recent: "<secondary>You last bought <amount> for <total>"
+    recent-hint: "<secondary>Click to buy again"
+  entry:
+    price: "<secondary>Price <price> each"
+    max: "<secondary>Up to <primary><max> <secondary>per purchase"
+    hint: "<secondary>Click to buy"
+    # The viewer's own sell price (rank and mastery included), shown for items the server buys.
+    sells-back: "<secondary>Sells back for <price> each"
+    sell-hint: "<secondary>Right click to sell yours"
+    # Shop search: which category an entry is in.
+    category: "<secondary>In <category>"
+    # How spawner entries are named in text ("zombie spawner").
+    spawner: "<mob> spawner"
+  sort:
+    shop: "Shop order"
+    cheapest: "Cheapest first"
+    priciest: "Most expensive first"
+    name: "Name"
+  search:
+    title: "Shop search"
+    filter-all: "All categories"
+  # The buy window: the price and your balance; the buttons' tooltips say the rest.
+  buy:
+    title: "Buy <item>"
+    body:
+      - "<primary><price> <secondary>each"
+      - "<secondary>You have <balance>"
+    button-tooltip: "<primary>Buy them now.<newline><secondary>Up to <accent><max></accent> per purchase."
+    # Added to the Buy tooltip.
+    sells-back: "<secondary>Sells back for <price> each"
+    you-have: "<secondary>You carry <accent><count>"
+    amount: "Amount"
+    exact: "Or type an amount"
+    # The buy button always says what it buys.
+    button: "Buy <amount> for <total>"
+    changed: "<secondary>The amount changed. Check the total, then buy."
+    invalid: "<primary>Type a whole number from 1 to <max>."
+    price-changed: "<primary>The price is now <price> each. Check the total, then buy."
+    not-enough: "<primary>That costs <total> and you have <balance>."
+    too-expensive: "<primary>That's more than one purchase can cost. Buy fewer."
+    # Quick amount buttons; pressing one shows the new total before anything is bought.
+    max-button: "Max you can afford"
+    max-tooltip: "<primary>Set the amount to the most you can pay for.<newline><secondary>Nothing is bought until you press Buy."
+    fill-button: "Fill your inventory"
+    fill-tooltip: "<primary>Set the amount to what fits in your inventory.<newline><secondary>Nothing is bought until you press Buy."
+    cant-afford: "<primary>You can't afford one. They cost <price> each."
+    no-room: "<primary>Your inventory has no room for more."
+  confirm:
+    title: "Confirm purchase"
+    body:
+      - "<primary>Buy <amount> <item> for <total>?"
+      - "<secondary>You'll have <left> left."
+    button: "Buy"
+  bought: "<primary>You bought <amount> <item> for <total>."
+  bought-claim-box: "<primary>You bought <amount> <item> for <total>. <secondary><count> didn't fit and are waiting in your claim box (/claims)."
+  no-longer-sold: "<primary>That isn't sold anymore."
+  unavailable: "<primary>That isn't available right now."
+  cancelled: "<secondary>Purchase cancelled."
+  failed: "<primary>The purchase didn't go through. You weren't charged."
+  unknown-category: "<primary>There's no shop category called <name>."
+  in-combat: "<primary>You can't use the shop in combat. <time> left."
+  hub:
+    label: "Shop"
+    description: "Buy blocks, farming supplies and spawners"
+  # Labels and descriptions of the shop settings (/settings, group Shop, auction & orders).
+  settings:
+    confirm-above: "Confirm purchases from"
+    confirm-above-description: "Ask before buying when the total is at least this much."
+    default-amount: "Buy window starts at"
+    default-amount-description: "How many the buy window starts with."
+    default-amount-stack: "One stack"
+    default-amount-one: "One item"
+    default-amount-last: "My last amount"
+    default-amount-fill: "Full inventory"
+    receipts: "Purchase receipts"
+    receipts-description: "Show what you bought in chat or above the hotbar. Items sent to your claim box are always told in chat."

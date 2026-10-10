@@ -1,0 +1,138 @@
+# Kits (/kits, /kit <name>) and the rank perk commands (/ec, /craft, /anvil, /stonecutter, /grindstone, /smithing,
+# /loom, /cartography, /trash, /hat). Durations are written like 30m, 24h or 1d12h.
+
+# Players in combat can't claim kits. Looking at them in /kits still works.
+block-in-combat: true
+
+# Tell players when they join which kits are ready to claim, and while they play when a kit's cooldown ends. Each
+# player picks in /settings (Crates & kits) how they are reminded (chat, above the hotbar, a title or not at all)
+# and when (on join, the moment a kit is ready, or both). false turns reminders off for everyone.
+reminders: true
+
+# Kits a player doesn't have the permission for:
+#   hide = left out of /kits
+#   show = listed as locked, with what they give, so players see what a rank unlocks
+locked-kits: hide
+
+# Every kit, in the order /kits lists them. The key is the kit's id: what players type after /kit, and the end of
+# its permission node siftcore.kit.<id>. Ids are 1 to 32 lowercase letters, digits, - or _ (not give, reset, check,
+# list, collect, all, perks or help). Settings of a kit:
+#   name:        what it is called (plain text, up to 24 characters; default: the id, capitalized)
+#   description: one short line saying what it is for (optional, plain text, up to 80 characters)
+#   icon:        the item shown for it (default: its first item)
+#   everyone:    true gives every player its permission by default; false (the default) leaves it to ranks.
+#                The ranks inherit each other in LuckPerms (prospector, baron, tycoon), so a Tycoon also has the
+#                Baron and Prospector kits.
+#   cooldown:    once (one claim per player, ever) or the time between two claims (1s to 365d)
+#   items:       what it gives. The key is an item id (bread) or any name you like with material: set. Settings:
+#                  material:            the item id when the key is not one (optional)
+#                  amount:              how many (1 to 640, default 1; more than a stack is given as several stacks)
+#                  name:                a custom name (optional, plain text, up to 48 characters)
+#                  lore:                lines under the name (optional, up to 8 lines of plain text)
+#                  enchantments:        enchantment: level (up to the vanilla maximum unless unsafe-enchantments: true,
+#                                       then up to 255). Enchanted books get them stored in the book.
+#                  unbreakable:         true makes it never break (optional)
+#                Items that don't fit into the inventory wait in /kits (Collect waiting items), never on the ground.
+#   keys:        crate keys it also gives: <crate id>: <amount> (1 to 64; crates are in crates.yml). Keep keys out of
+#                kits that ranks pay for: crates are random rewards, and store rules forbid selling chance.
+# Changing a kit's cooldown applies to claims already made: a player who claimed a 24h kit an hour ago waits 47h
+# more after it is changed to 48h. /kits reset <player> [kit] clears cooldowns.
+#
+# The rank kits are supplies only (building blocks, light, food, bone meal): no armour, weapons, golden apples,
+# totems, pearls or keys, so a paid rank never gives an edge in a fight.
+kits:
+  starter:
+    name: "Starter"
+    description: "Stone tools, leather armor and bread to get you going"
+    icon: stone_pickaxe
+    everyone: true
+    cooldown: once
+    items:
+      stone_sword: {}
+      stone_pickaxe: {}
+      stone_axe: {}
+      stone_shovel: {}
+      bread: {amount: 16}
+      leather_helmet: {}
+      leather_chestplate: {}
+      leather_leggings: {}
+      leather_boots: {}
+
+  daily:
+    name: "Daily"
+    description: "Food for the day, every day"
+    icon: cooked_beef
+    everyone: true
+    cooldown: 24h
+    items:
+      cooked_beef: {amount: 16}
+      baked_potato: {amount: 16}
+      apple: {amount: 8}
+
+  prospector:
+    name: "Prospector"
+    description: "Torches, logs and food for Prospectors and up"
+    icon: torch
+    cooldown: 24h
+    items:
+      torch: {amount: 32}
+      oak_log: {amount: 32}
+      cooked_beef: {amount: 16}
+
+  baron:
+    name: "Baron"
+    description: "Building supplies and bone meal for Barons and up"
+    icon: lantern
+    cooldown: 24h
+    items:
+      torch: {amount: 64}
+      oak_log: {amount: 64}
+      glass: {amount: 64}
+      lantern: {amount: 8}
+      cooked_beef: {amount: 32}
+      bone_meal: {amount: 32}
+
+  tycoon:
+    name: "Tycoon"
+    description: "The biggest supply kit, with a name tag, for Tycoons"
+    icon: name_tag
+    cooldown: 24h
+    items:
+      torch: {amount: 64}
+      oak_log: {amount: 128}
+      glass: {amount: 128}
+      lantern: {amount: 16}
+      cooked_beef: {amount: 32}
+      bone_meal: {amount: 64}
+      name_tag: {}
+
+# Perk commands. Each has its own permission node siftcore.perk.<name> (ec, craft, anvil, stonecutter, grindstone,
+# smithing, loom, cartography, trash, hat), so ranks get exactly the perks they should; staff with
+# siftcore.perk.ec.others can look into another online player's ender chest with /ec <player> (read only).
+# There is no /feed or /heal: on a PvP server they would refill health and hunger between fights.
+# Workstations work like the vanilla blocks (anvil costs, repairs, recipes); what is left in a crafting grid or an
+# anvil goes back into the inventory when it closes.
+perks:
+  # Perks refused while the player is in combat. Paid perks are conveniences, never help in a fight, so all of them
+  # are listed (the combat feature refuses /ec, /craft and /anvil as well).
+  blocked-in-combat:
+    - ec
+    - craft
+    - anvil
+    - stonecutter
+    - grindstone
+    - smithing
+    - loom
+    - cartography
+    - trash
+    - hat
+  # Close a blocked perk's screen when its player gets into combat (and refuse clicks in it while in combat).
+  close-on-combat: true
+  hat:
+    # Items that can't be worn with /hat (item ids). Empty: anything can be worn.
+    blocked: []
+  trash:
+    # Players pick their Trash protection in /settings (Crates & kits): gear (enchanted, named, shulker boxes,
+    # spawners, trial keys) is always given back instead of deleted, and with "valuables" also any stack worth at
+    # least this much at /sell (1500, 1.5k, 2m). 0 turns the valuables option off.
+    protect-worth: 10k

@@ -1,0 +1,300 @@
+# Text of the friends system (/friend, /f, /friends and /profile).
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Player names and notes are always inserted as plain text. Dialog titles and button labels are plain text.
+
+friends:
+  hub:
+    label: "Friends"
+    description: "See who's online and add friends"
+
+  loading: "<secondary>Your friends are still loading."
+  busy: "<secondary>Still working on that."
+  cancelled: "<primary>That was stopped by the server."
+  not-friends: "<primary><name> isn't on your friend list."
+  already-friends: "<secondary>You're already friends with <primary><name><secondary>."
+  invalid-name: "<primary>Names are 1 to 17 letters, numbers, _ or dots."
+
+  request:
+    sent: "<secondary>Friend request sent to <primary><name><secondary>."
+    self: "<primary>You can't add yourself."
+    vanished: "<primary>You can't send friend requests while vanished."
+    too-new: "<primary>You can send friend requests in <time>."
+    slow-down: "<primary>Slow down. Try again in <time>."
+    already-sent: "<primary>You already sent <name> a request."
+    outgoing-full: "<primary>You have <count> requests waiting. Cancel some with /friend requests."
+    daily-cap: "<primary>You sent a lot of friend requests today. Try again later."
+    sender-full: "<primary>Your friend list is full (<limit>). Ranks raise this limit."
+    # The same at limits.hard-cap, where no rank raises it further.
+    sender-full-max: "<primary>Your friend list is full (<limit>)."
+    target-full: "<primary><name>'s friend list is full."
+    private: "<primary><name> isn't taking friend requests from you."
+    gone: "<primary>No request from <name>."
+    no-requests: "<secondary>No friend requests right now."
+    denied: "<secondary>Request from <primary><name> <secondary>denied."
+    denied-all: "<secondary>Requests denied: <primary><count><secondary>."
+    cancelled: "<secondary>Request to <primary><name> <secondary>cancelled."
+    not-sent: "<primary>You have no request waiting for <name>."
+    accept-vanished: "<primary>You can't accept friend requests while vanished."
+
+  alert:
+    request: "<primary><name> <secondary>sent you a friend request. <accept> <secondary>or <deny><secondary>, or type <click:run_command:'/friend requests'>/friend requests</click>."
+    requests: "<secondary>New friend requests: <primary><count><secondary>. <view><secondary>, or type <click:run_command:'/friend requests'>/friend requests</click>."
+    accepted: "<primary><name> <secondary>accepted your friend request."
+    now-friends: "<secondary>You and <primary><name> <secondary>are now friends."
+    online: "<primary><name> <secondary>is online."
+    online-many: "<primary><names> <secondary>are online."
+    offline: "<primary><name> <secondary>went offline."
+
+  summary:
+    online: "<secondary>Friends online: <names><secondary>."
+    requests: "<secondary>Friend requests waiting: <primary><count><secondary>. <view><secondary>, or type <click:run_command:'/friend requests'>/friend requests</click>."
+    new-friends: "<secondary>New friends while you were away: <primary><names><secondary>."
+
+  # Clickable words built into chat lines.
+  link:
+    accept: "<primary>Accept"
+    accept-hover: "<secondary>Runs <primary>/friend accept <name>"
+    deny: "<primary>Deny"
+    deny-hover: "<secondary>Runs <primary>/friend deny <name>"
+    view: "<primary>View"
+    view-hover: "<secondary>Runs <primary>/friend requests"
+    profile-hover: "<secondary>Open <primary><name><secondary>'s profile"
+    command: "<secondary>That didn't work. Run <command><secondary> instead."
+    command-hover: "<secondary>Click to run it"
+
+  # Lists of names: "Alex", "Alex and Bob", "Alex, Bob and 2 more".
+  names:
+    and: "and"
+    more: "<count> more"
+
+  # Status words of /friend list in chat.
+  status:
+    online: "online"
+    afk: "AFK"
+    seen: "seen <ago> ago"
+    # An offline friend who doesn't show you when they were last online (Privacy settings).
+    offline: "offline"
+
+  # The friends dialogs show buttons; what a button does is in its tooltip (hover it).
+  list:
+    title: "Friends"
+    # The one status line of the list.
+    summary: "<on><online></on><secondary> online, <accent><total></accent><secondary> of <accent><limit></accent><secondary> friends"
+    empty: "<secondary>No friends yet."
+    filtered: "<secondary>Names starting with <primary><query><secondary>: <accent><count>"
+    # A friend's button: the name, then the status in its colour.
+    row-online: "<name>, <on>online"
+    row-afk: "<name>, <accent>AFK"
+    row-seen: "<name>, <secondary>seen <ago> ago"
+    # An offline friend who doesn't show you when they were last online (Privacy settings).
+    row-offline: "<name>, <secondary>offline"
+    tooltip-favourite: "<accent>Favourite"
+    tooltip-since: "<secondary>Friends since <accent><date>"
+    tooltip-note: "<secondary>Your note: <primary><note>"
+    tooltip-open: "<secondary>Click for their profile"
+    add: "Add a friend"
+    add-tooltip: "<primary>Send a request by name, or to someone you may know."
+    # Added to the tooltip while the list is full and a rank would raise the limit.
+    add-full-tooltip: "<secondary>Your list is full. Ranks raise the limit."
+    # "Requests: 3" (the count of requests waiting for you).
+    requests: "Requests"
+    requests-tooltip: "<primary>Requests waiting for you, and the ones you sent."
+    settings: "Settings"
+    settings-tooltip: "<primary>Who can add you, friend alerts and the order of this list."
+    find: "Find"
+    find-tooltip: "<primary>Show only the friends whose name starts with what you type."
+    show-all: "Show all"
+    show-all-tooltip: "<primary>Show every friend again."
+    # The chat version of the list (/friend list [page]).
+    chat-header: "<secondary>Friends: <primary><total><secondary>, online: <primary><online><secondary>. Page <primary><page> <secondary>of <primary><pages><secondary>."
+    chat-row: "<primary><name> <secondary><status>"
+    chat-empty: "<secondary>No friends yet. Type /friend add and a name."
+    chat-previous: "<primary>Previous"
+    chat-next: "<primary>Next"
+    chat-page-hover: "<secondary>Runs <primary>/friend list <page>"
+
+  find:
+    title: "Find a friend"
+    input: "Name starts with"
+    submit: "Find"
+
+  requests:
+    title: "Friend requests"
+    # The one status line: requests waiting for you and requests you sent.
+    body: "<secondary>Incoming: <accent><incoming></accent><secondary>. Sent: <accent><sent></accent><secondary>."
+    incoming-row: "<name>, <secondary><ago> ago"
+    # A request you sent: clicking it asks whether to withdraw it.
+    outgoing-row: "Sent to <name>, <secondary><ago> ago"
+    tooltip-mutual: "<secondary>Mutual friends: <accent><count>"
+    tooltip-team: "<secondary>Team: <primary><team>"
+    tooltip-open: "<secondary>Click to answer"
+    tooltip-cancel: "<primary>A request you sent.<newline><secondary>Click to withdraw it (asks first)."
+    cancel-title: "Cancel request"
+    cancel-body: "<secondary>Cancel your request to <primary><name><secondary>?"
+    cancel-yes: "Cancel request"
+    deny-all: "Deny all"
+    deny-all-tooltip: "<primary>Deny every request waiting for you.<newline><secondary>Asks first. Nobody is told."
+    deny-all-title: "Deny all requests"
+    deny-all-body:
+      - "<primary>Deny all <accent><count></accent> requests?"
+      - "<secondary>Nobody is told."
+    deny-all-yes: "Deny all"
+
+  request-view:
+    title: "Friend request"
+    wants: "<primary><name> <secondary>wants to be friends."
+    mutual: "<secondary>Mutual friends: <accent><count>"
+    mutual-names: "<secondary>Mutual friends: <accent><count> <secondary>(<names><secondary>)"
+    team: "<icon:team> <secondary>Team: <primary><team>"
+    sent: "<secondary>Sent <accent><ago></accent> ago"
+    accept: "Accept"
+    accept-tooltip: "<primary>You become friends."
+    deny: "Deny"
+    deny-tooltip: "<primary>They aren't told."
+    deny-ignore: "Deny and ignore"
+    deny-ignore-tooltip: "<primary>Deny it and stop seeing their chat, messages and requests."
+
+  add:
+    title: "Add a friend"
+    enter: "Enter a name"
+    enter-tooltip: "<primary>Type the name of the player you want to add."
+    suggestion: "<name>, <accent><count></accent> mutual friends"
+    suggestion-one: "<name>, <accent>1</accent> mutual friend"
+    suggestion-team: "<name>, <accent>teammate"
+    suggestion-tooltip: "<primary>Sends <name> a friend request."
+    form-title: "Add a friend"
+    form-input: "Player name"
+    form-submit: "Send request"
+    form-submit-tooltip: "<primary>They get a request they can accept or deny."
+
+  profile:
+    title: "<name>"
+    status-online: "<icon:online> <on>Online"
+    status-afk: "<icon:afk> <accent>AFK"
+    status-seen: "<secondary>Seen <accent><ago></accent> ago"
+    status-offline: "<secondary>Offline"
+    since: "<secondary>Friends since <accent><date>"
+    team: "<icon:team> <secondary>Team: <primary><team>"
+    rank: "<icon:rank> <secondary>Rank: <primary><rank>"
+    mutual: "<secondary>Mutual friends: <accent><count>"
+    mutual-names: "<secondary>Mutual friends: <accent><count> <secondary>(<names><secondary>)"
+    note: "<secondary>Your note: <primary><note>"
+    message: "Message"
+    message-tooltip: "<primary>Write them a private message."
+    teleport: "Teleport request"
+    teleport-tooltip: "<primary>Ask to teleport to them."
+    invite: "Invite to team"
+    invite-tooltip: "<primary>Send them an invite to your team."
+    pay: "Pay"
+    pay-tooltip: "<primary>Send them money."
+    stats: "Stats"
+    stats-tooltip: "<primary>Their kills, playtime and more."
+    # A switch: "Favourite: ON" (green) or "Favourite: OFF" (red).
+    favourite: "Favourite"
+    favourite-tooltip: "<primary>Favourites come first in your list.<newline><secondary>Friend join alerts can be set to favourites only."
+    edit-note: "Edit note"
+    edit-note-tooltip: "<primary>A private note on them that only you see."
+    remove: "Remove friend"
+    remove-tooltip: "<primary>End the friendship. They aren't told.<newline><secondary>Asks first."
+    add-friend: "Add friend"
+    add-friend-tooltip: "<primary>Send them a friend request."
+    accept-request: "Accept request"
+    accept-request-tooltip: "<primary>They asked to be friends. You become friends."
+    cancel-request: "Cancel request"
+    cancel-request-tooltip: "<primary>Withdraw the friend request you sent them."
+    message-title: "Message to <name>"
+    message-input: "Message"
+    message-submit: "Send"
+    muted: "<primary>You can't send messages while muted."
+    note-title: "Note on <name>"
+    note-input: "Note"
+    note-submit: "Save"
+    note-submit-tooltip: "<primary>Only you see this note.<newline><secondary>Leave it empty to clear it."
+    note-saved: "<secondary>Note on <primary><name> <secondary>saved."
+    note-cleared: "<secondary>Note on <primary><name> <secondary>cleared."
+    remove-title: "Remove friend"
+    remove-body: "<primary>Remove <name>? <secondary>They won't be told."
+    remove-yes: "Remove"
+    removed: "<primary><name> <secondary>is no longer your friend."
+    favourited: "<primary><name> <secondary>is a favourite now."
+    unfavourited: "<primary><name> <secondary>is no longer a favourite."
+    favourites-full: "<primary>Your favourites are full (<count>)."
+    favourites-off: "<primary>Favourites are turned off on this server."
+
+  # /friend settings [key] [value]. The same settings are in Settings, Friends & teams.
+  settings:
+    set: "<secondary>Set <primary><setting> <secondary>to <primary><value><secondary>."
+    current: "<secondary><setting>: <primary><value>"
+    unknown-key: "<primary>Unknown setting. Use one of: <keys>."
+    unknown-value: "<primary>Use one of these for <setting>: <values>."
+    locked: "<primary><setting> is fixed by the server: <value>."
+    unavailable: "<primary>You can't change <setting> right now."
+    refused: "<primary><setting> couldn't be changed."
+    none: "<secondary>There are no friends settings you can change."
+    # The settings in Settings, Friends & teams: labels, descriptions and option names ("Everyone", "Nobody" and "Off"
+    # are the shared names in settings.yml).
+    requests: "Friend requests from"
+    requests-description: "Who can send you friend requests: everyone, people you know (friends of friends and teammates), or nobody."
+    requests-known: "People I know"
+    join-alerts: "Friend join alerts"
+    join-alerts-description: "Which friends' logins you are told about: all friends, favourites only, or none."
+    join-alerts-all: "All friends"
+    join-alerts-favourites: "Favourites only"
+    toggle-requests: "Friend request alerts"
+    toggle-requests-description: "Tell you in chat when someone sends you a friend request. Requests stay in /friend requests either way."
+    toggle-announce: "Tell friends when I join"
+    toggle-announce-description: "Let your friends get an alert when you log in or out."
+    join-summary: "Friends summary on join"
+    join-summary-description: "When you join, list online friends, waiting requests and new friends."
+    toggle-leave: "Friend leave alerts"
+    toggle-leave-description: "Tell you when a friend logs off."
+    list-order: "Sort friends by"
+    list-order-description: "Order of your friends list: favourites and online first, name, most recently online, or longest friends."
+    list-order-status: "Online first"
+    list-order-name: "Name"
+    list-order-last-seen: "Recently online"
+    list-order-oldest: "Longest friends"
+
+  help:
+    - "<primary>/friend <secondary>opens your friends list."
+    - "<primary>/friend [player] <secondary>sends a request, accepts theirs, or opens their profile."
+    - "<primary>/friend add [player] <secondary>does the same, also for a player named like a subcommand."
+    - "<primary>/friend accept|deny [player] <secondary>answers a request."
+    - "<primary>/friend cancel|remove [player] <secondary>withdraws a request or ends a friendship."
+    - "<primary>/friend requests <secondary>shows waiting requests."
+    - "<primary>/friend favourite|fav [player] <secondary>marks or unmarks a favourite."
+    - "<primary>/friend note [player] [text] <secondary>keeps a private note; - clears it."
+    - "<primary>/friend list [page] <secondary>lists your friends in chat."
+    - "<primary>/friend settings [key] [value] <secondary>changes who can reach you, your alerts and the list order."
+    - "<primary>/profile [player] <secondary>shows a player's card."
+  # /friend and /friend help from the console, followed by the staff help.
+  console-help: "<secondary>/friend is for players. Staff tools: <primary>/sift friends<secondary>."
+
+  staff:
+    help:
+      - "<primary>/sift friends list [player] <secondary>lists a player's friends, since when, favourites and the limit."
+      - "<primary>/sift friends requests [player] <secondary>shows every request row, hidden ones too."
+      - "<primary>/sift friends history [player] [page] <secondary>shows the friends history."
+      - "<primary>/sift friends add [a] [b] <secondary>makes two players friends."
+      - "<primary>/sift friends remove [a] [b] <secondary>ends a friendship."
+      - "<primary>/sift friends clear-requests [player] <secondary>deletes every request of a player."
+    list-header: "<secondary>Friends of <primary><name><secondary>: <primary><count><secondary>, limit <primary><limit><secondary>."
+    list-row: "<primary><friend> <secondary>since <date><favourite>"
+    list-favourite: "<secondary>, favourite"
+    requests-header: "<secondary>Request rows of <primary><name><secondary>: <primary><count>"
+    requests-row: "<primary><sender> <secondary>to <primary><target><secondary>: <state>, sent <date><decided>"
+    requests-decided: "<secondary>, denied <date>"
+    history-header: "<secondary>History of <primary><name><secondary>, page <primary><page><secondary>."
+    history-row: "<secondary><date> <primary><player> <secondary><action> <primary><other> <secondary>by <actor>"
+    empty: "<secondary>Nothing to show."
+    added: "<secondary>Made <primary><first> <secondary>and <primary><second> <secondary>friends."
+    already-friends: "<primary><first> and <second> are already friends."
+    full: "<primary><name> has the most friends anyone can have (<cap>)."
+    same: "<primary>Pick two different players."
+    removed: "<secondary>Ended the friendship of <primary><first> <secondary>and <primary><second><secondary>."
+    not-friends: "<primary><first> and <second> aren't friends."
+    cleared: "<secondary>Requests deleted for <primary><name><secondary>: <primary><count><secondary>."
+    cancelled: "<primary>Another plugin stopped that."
+    failed: "<primary>That didn't work: <reason>"

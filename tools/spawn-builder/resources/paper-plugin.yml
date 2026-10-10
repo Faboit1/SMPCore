@@ -1,0 +1,6 @@
+name: SiftBuild
+version: '1.0'
+main: dev.siftvanilla.build.SiftBuild
+api-version: '26.2'
+folia-supported: true
+description: One-off builder for the SiftVanilla spawn platform. Not part of SiftCore; removed after use.

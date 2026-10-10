@@ -1,0 +1,12 @@
+name: SiftE2E
+version: '1.0.0'
+main: net.siftvanilla.e2e.E2EPlugin
+api-version: '26.2'
+folia-supported: true
+description: End-to-end test harness for SiftCore (test servers only, never production)
+dependencies:
+  server:
+    SiftCore:
+      load: BEFORE
+      required: true
+      join-classpath: true

@@ -1,0 +1,53 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+# SiftVanilla: never shown (one currency, enable-currency-selector is false); styled in case that changes.
+
+title: "Pick a currency"
+# a gui can have 1-6 rows
+rows: 5
+# how many items should be shown on a single page?
+page-size: 27
+
+# ----- ITEMS -----
+
+filler:
+  slot: ["0-8", "36-44"]
+  material: "LIGHT_GRAY_STAINED_GLASS_PANE"
+  name: " "
+
+item:
+  slot: 4
+
+previous-page:
+  slot: 39
+  material: "ARROW"
+  conditions:
+    - "%current_page% > 1"
+  name: "&fPrevious page"
+  lore:
+    - "&7You're on page %current_page% of %max_page%"
+  actions:
+    - "[PAGE] previous"
+    - "[SOUND] ui.button.click|0.25|1"
+
+next-page:
+  slot: 41
+  material: "ARROW"
+  conditions:
+    - "%current_page% < %max_page%"
+  name: "&fNext page"
+  lore:
+    - "&7You're on page %current_page% of %max_page%"
+  actions:
+    - "[PAGE] next"
+    - "[SOUND] ui.button.click|0.25|1"
+
+close:
+  slot: 40
+  material: "OAK_DOOR"
+  name: "&fClose"
+  lore:
+    - "&7Nothing is listed"
+  actions:
+    - "[MENU] close"
+    - "[SOUND] ui.button.click|0.25|1"

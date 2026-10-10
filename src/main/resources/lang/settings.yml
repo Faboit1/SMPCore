@@ -1,0 +1,223 @@
+# Text of the settings dialog (/settings, and Settings in the main menu), its groups and the shared option names.
+# Every feature adds its own settings; their labels and descriptions live in that feature's lang file. The dialog
+# shows buttons only: what a setting does is in its button's tooltip (hover it).
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+
+settings:
+  title: "Settings"
+  # The list of groups: one coloured button per group (colours and icons: features/settings.yml), then Search and
+  # Changed settings. Hovering a group's button shows this; <count> is how many settings the player sees in it.
+  group-tooltip: "<primary><description><newline><secondary><count> settings, <changed> changed"
+  search-button: "Search settings"
+  search-button-tooltip: "<primary>Find a setting by its name, what it does or one of its choices."
+  changed-button: "Changed settings (<count>)"
+  changed-button-tooltip: "<primary>You changed <changed> of <total> settings.<newline><secondary>See them and put them back to the defaults."
+  empty: "<secondary>There is nothing to set yet."
+  # The title of one group's page, like "Chat settings".
+  group-title: "<label> settings"
+  # A page shows one button per setting: "Label: value" (a switch shows ON in green or OFF in red, a choice its
+  # option, a number its value). Clicking a switch flips it, a choice moves to the next option, a number opens a slider.
+  # A setting the server locked (features/settings.yml) shows its value greyed:
+  button-locked: "<secondary><label>: <value>"
+  # The tooltip of a setting's button, line by line (lines that don't apply are left out).
+  tooltip:
+    # Which group it is in (search results and changed settings).
+    group: "<secondary><group>"
+    description: "<primary><description>"
+    # A choice's options; the one chosen now uses option-current.
+    option: "<secondary>• <option>"
+    option-current: "<primary>• <option>"
+    # A number's range, with its unit.
+    range: "<secondary>From <min> to <max>"
+    range-steps: "<secondary>From <min> to <max>, in steps of <step>"
+    default: "<secondary>Default: <default>"
+    rejoin: "<secondary>Takes effect after you rejoin."
+    locked: "<secondary>Set by the server."
+    switch: "<secondary>Click to switch it."
+    choice: "<secondary>Click for the next choice."
+    number: "<secondary>Click to change it."
+  # At the end of a group's page when the player changed something in it.
+  reset-button: "Reset this group"
+  reset-button-tooltip: "<primary>Put the <count> settings you changed here back to their defaults."
+  # After /settings <setting> <value>: one switch, like "Mention alerts turned off."
+  saved-one: "<primary><label> turned <state>."
+  # After /settings <setting> <value>: a choice or number, like "Sound volume set to 60%."
+  saved-value: "<primary><label> set to <value>."
+  # A change the server or another plugin did not allow (shown in red on the page).
+  refused: "<primary><label> couldn't be changed."
+  unknown-group: "<primary>There is no settings group called <name>."
+  # Putting settings back to the defaults (a group's page, the changed settings, /settings reset).
+  reset:
+    title: "Reset <label> settings?"
+    all-title: "Reset every setting?"
+    body: "<secondary><count> settings go back to their defaults."
+    # The Reset button's tooltip lists what goes back, one line each.
+    line: "<primary><label><secondary>: <value> to <primary><default>"
+    more: "<secondary>and <primary><count><secondary> more."
+    confirm: "Reset"
+    done-one: "<primary><label> is back to its default."
+    done-many: "<primary>Reset <count> settings to their defaults."
+    nothing: "<secondary>You use the defaults for every <label> setting."
+    nothing-all: "<secondary>You use the defaults for every setting."
+  # Search settings: a form with one text field, then the matching settings as buttons like a group's.
+  search:
+    title: "Search settings"
+    input: "Search for"
+    submit: "Search"
+    submit-tooltip: "<primary>Type a word from a setting's name, what it does or one of its choices."
+    empty: "Type a word to search for."
+    none: "<secondary>No setting matches <primary><query><secondary>."
+    results-title: "Search: <query>"
+  # The settings a player changed from the defaults, as buttons like a group's.
+  changed:
+    title: "Changed settings"
+    none: "<secondary>You use the defaults for every setting."
+    reset-all: "Reset everything"
+    reset-all-tooltip: "<primary>Put all <count> settings you changed back to their defaults."
+  # /settings <group> <setting> [value] and /settings <setting> [value].
+  command:
+    unknown-setting: "<primary>There is no setting called <name>."
+    # /settings <word> <word> [value] when the first word is neither a group nor a setting the player sees.
+    unknown-word: "<primary>There is no setting or settings group called <name>."
+    unknown-in-group: "<primary>There is no setting called <name> in <group>."
+    # Clicking the line opens the page that holds the setting.
+    info: "<primary><label><secondary>: <primary><value> <secondary>(default <default>). Values: <values>"
+    info-locked: "<primary><label><secondary>: <primary><value> <secondary>(set by the server)"
+    info-hover: "<secondary>Click to open its page"
+    already: "<secondary><label> is already <primary><value><secondary>."
+    locked: "<primary><label> is set by the server."
+    not-offered: "<primary>You can't pick <value> for <label>."
+    invalid: "<primary>For <label>, use <values>."
+    values-toggle: "on, off or toggle"
+    values-range: "a whole number from <min> to <max>"
+    values-steps: "a whole number from <min> to <max> in steps of <step>"
+  # /sift settings (staff, console friendly).
+  admin:
+    help:
+      - "<primary>/sift settings [player] <secondary>lists what a player changed and other values stored for them."
+      - "<primary>/sift settings [player] [setting] <secondary>shows a value, its default and where it comes from."
+      - "<primary>/sift settings [player] [setting] [value] <secondary>changes it; <primary>reset<secondary> puts it back to the default."
+      - "<primary>/sift settings [player] reset [setting|group|all] <secondary>puts settings back to the defaults."
+      - "<primary>/sift settings catalog <secondary>writes every setting as a table for the docs."
+    header: "<secondary>Settings of <primary><name><secondary>: <primary><count><secondary> changed"
+    row: "<secondary>- <primary><id><secondary>: <primary><value> <secondary>(default <default>)"
+    row-ignored: "<secondary>- <id>: <value> (stored, but <reason>)"
+    none: "<primary><name> <secondary>uses the defaults for every setting."
+    other: "<secondary>Other stored values: <keys>"
+    detail: "<primary><id><secondary> of <primary><name><secondary>: <primary><value> <secondary>(default <default>, from <source>)"
+    detail-group: "<secondary>Group <primary><group><secondary>, a <kind>: <values>"
+    detail-permission: "<secondary>Needs <primary><permission><secondary>: <has>"
+    set: "<secondary>Set <primary><id><secondary> of <primary><name><secondary> to <primary><value><secondary> (was <old>)."
+    unchanged: "<primary><id><secondary> of <primary><name><secondary> already is <primary><value><secondary>."
+    refused: "<primary><id> can't be changed: <reason>."
+    no-permission: "<secondary><name> doesn't have <primary><permission><secondary>, so they read the default until they get it."
+    reset: "<secondary>Reset <primary><count><secondary> settings of <primary><name><secondary>."
+    # The same when some of the settings are locked by the server (features/settings.yml) and so stay as they are.
+    reset-locked: "<secondary>Reset <primary><count><secondary> settings of <primary><name><secondary>; <primary><locked><secondary> locked by the server stay as they are (<ids>)."
+    unknown: "<primary>There is no setting or settings group called <name>."
+    failed: "<primary>Couldn't read or change the settings: <reason>"
+    invalid: "<primary>For <id>, use <values>."
+    catalog: "<secondary>Wrote <primary><count><secondary> settings to <primary><file><secondary>."
+    source-stored: "their choice"
+    source-server: "the server's default"
+    source-built-in: "the built-in default"
+    source-locked: "the server's lock"
+    source-hidden: "the server, which hides it"
+    reason-locked: "the server locked it"
+    reason-hidden: "the server hides it"
+    reason-cancelled: "a plugin stopped the change"
+    has-yes: "yes"
+    has-no: "no"
+    has-offline: "unknown while they are offline"
+  state-on: "on"
+  state-off: "off"
+  units:
+    # Written right after the number, like 60%.
+    percent: "%"
+  # The groups. Every feature puts its settings into one of these.
+  categories:
+    chat:
+      label: "Chat"
+      description: "Mentions, private messages and what you see in public chat"
+    social:
+      label: "Friends & teams"
+      description: "Friend requests, join alerts, team news and invites"
+    announcements:
+      label: "Server announcements"
+      description: "Which of other players' events you see in chat: deaths, joins, crate wins, bounties and big orders"
+    sound:
+      label: "Sounds"
+      description: "Volume and which sounds and pings play"
+    teleport:
+      label: "Teleports & homes"
+      description: "Teleport requests, auto-accept, homes and random teleport"
+    economy:
+      label: "Money & selling"
+      description: "Payments, /sell and sell receipts"
+    market:
+      label: "Shop, auction & orders"
+      description: "Sale alerts, purchase confirmations, buy orders and join summaries"
+    combat:
+      label: "Combat & stats"
+      description: "Combat timer, kill and death info, bounties and leaderboard alerts"
+    display:
+      label: "Display"
+      description: "Sidebar, where quick messages appear, money format and spawn holograms"
+    privacy:
+      label: "Privacy"
+      description: "Coordinates, last-seen time, balance and what the server announces about you"
+    afk:
+      label: "AFK & shards"
+      description: "AFK zone countdown and payouts, AFK messages and the <shards>shard</shards> shop"
+    crates:
+      label: "Crates & kits"
+      description: "Crate results and keys, keyall, kit reminders and the trash bin"
+    spawners:
+      label: "Spawners"
+      description: "Opening and stacking spawners, storage alerts and teammate activity"
+    staff:
+      label: "Staff"
+      description: "Spy, staff chat, alerts and vanish (only shown to staff)"
+  # Settings that no feature put in a group of its own.
+  general:
+    label: "General"
+    description: "Notifications, requests and more"
+  # The option names every setting shares, so the same choice reads the same everywhere.
+  options:
+    alert:
+      chat: "Chat"
+      actionbar: "Above the hotbar"
+      title: "Title"
+      bossbar: "Boss bar"
+      both: "Both"
+      "off": "Off"
+    audience:
+      everyone: "Everyone"
+      friends-team: "Friends and teammates"
+      friends: "Friends"
+      nobody: "Nobody"
+    ping:
+      default: "Default"
+      bell: "Bell"
+      pling: "Pling"
+      chime: "Chime"
+      "off": "Off"
+    confirm:
+      server: "Server default"
+      always: "Always"
+      never: "Never"
+    announce:
+      all: "All"
+      "off": "Off"
+    # A threshold, like "From $10,000".
+    from: "From <amount>"
+    auto-accept:
+      nobody: "Nobody"
+      favourites: "Favourite friends"
+      all: "All friends"
+      friends-team: "Friends and teammates"
+  hub:
+    label: "Settings"
+    description: "Chat, sounds, privacy and notifications"

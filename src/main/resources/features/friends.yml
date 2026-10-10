@@ -1,0 +1,72 @@
+# The friends system: /friend (/f, /friends), /profile and the Friends entry of the menu.
+# Durations are written like 30s, 10m, 2h or 7d. /sift reload applies every change.
+
+limits:
+  # Friends a player may have without a rank node. Ranks raise it with siftcore.friends.limit.<n>
+  # (the highest number wins); siftcore.friends.limit.unlimited means "up to hard-cap".
+  default: 50
+  # Nobody goes above this, not with a rank node, the unlimited node, or a staff add.
+  hard-cap: 500
+  # Favourites per player (0 turns favourites off).
+  favourites: 10
+
+requests:
+  # How long a request stays open before it runs out silently (1h to 30d).
+  expire-after: 7d
+  # After a player denies a request, new requests from the same sender stay hidden this long (0s to 30d).
+  # The sender is never told; their request just looks like it is still waiting.
+  deny-memory: 7d
+  # Open requests one player may have sent at a time.
+  max-outgoing: 20
+  # Visible requests one player may have waiting; more are kept hidden so alt accounts can't flood anyone.
+  max-incoming: 50
+  # Requests per minute, counted per player and per address (players with siftcore.bypass.cooldown skip this).
+  per-minute: 5
+  # Requests per player in 24 hours (counted from the history, so it survives restarts).
+  per-day: 30
+  # How long after their first join a player has to wait before sending requests.
+  min-account-age: 10m
+  # Vanished staff can't send or accept requests (the other player would learn that they are online).
+  block-while-vanished: true
+
+presence:
+  # Wait after joining before the login summary (friends online, waiting requests, new friends).
+  summary-delay: 3s
+  # Wait after a friend joins before others are told, so a vanish applied on join is already in effect.
+  # Joins within this window are told in one line.
+  join-delay: 3s
+  # A player who left less than this ago rejoins without join alerts.
+  relog-grace: 2m
+  # Wait before a leave alert; it is dropped when the friend comes back in time.
+  leave-delay: 30s
+  # No join alerts for this long after the server starts (the login summary covers it).
+  startup-quiet: 60s
+  # The first friend request in a quiet period is shown at once; more within this window are added up in one line.
+  request-batch: 10s
+
+list:
+  # The friends dialog shows every friend (it scrolls). From this many friends it also offers Find, which shows only
+  # the names starting with what the player types.
+  find-from: 20
+  # Friends per page of /friend list in chat (4 to 30).
+  page-size: 16
+  # "People you may know" buttons in the add dialog (0 to 12; 0 turns them off).
+  suggestions: 6
+
+profile:
+  # Sneak and right-click a player with an empty hand to see their card.
+  sneak-click: true
+  # Time between two cards opened that way.
+  sneak-click-cooldown: 1s
+
+memory:
+  # How long a player's friends stay in memory after they leave (a quick rejoin needs no reload).
+  grace: 60s
+
+anti-farm:
+  # How long ended friendships are remembered, so combat rules can tell a friend who was just removed.
+  remember: 7d
+
+log:
+  # How long the friends history is kept (at least anti-farm.remember).
+  keep: 90d

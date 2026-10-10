@@ -1,0 +1,170 @@
+# Text of /kits, /kit and the perk commands (/ec, /craft, /anvil, /stonecutter, /grindstone, /smithing, /loom,
+# /cartography, /trash, /hat).
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Kit names and descriptions come from features/kits.yml and are inserted as plain text.
+
+kits:
+  hub:
+    label: "Kits"
+    description: "Starter, daily and rank kits, and your perks"
+
+  # The kits dialog: a button per kit reading "Daily: ready" (what the kit is in its tooltip), then Claim, Collect and
+  # Perks when they apply.
+  list:
+    title: "Kits"
+    empty: "<secondary>There are no kits for you yet."
+    open-tooltip: "<primary>Click to see what it gives."
+    # The claim button when one kit is ready, and when several are.
+    claim-one: "Claim <name>"
+    claim-ready: "Claim <count> ready kits"
+    claim-tooltip: "<primary>Claim every kit that is ready now."
+    collect: "Collect waiting items"
+    # The Collect button's tooltip.
+    waiting: "<primary>Some kit items are waiting for room in your inventory."
+    perks: "Perks"
+    perks-tooltip: "<primary>Ender chest, crafting table and more, anywhere."
+
+  # A kit's status, used in the kits dialog, /kits check and the kit_<id> placeholder.
+  status:
+    ready: "<on>ready"
+    waiting: "<secondary>in <accent><time>"
+    claimed: "<off>claimed"
+    locked: "<off>locked"
+
+  kit:
+    title: "<name> kit"
+    description: "<secondary><description>"
+    once: "<secondary>One claim per player"
+    every: "<secondary>Claim it every <accent><time>"
+    # The one status line above what the kit gives.
+    ready: "<on>Ready to claim"
+    waiting: "<secondary><icon:playtime> Ready again in <accent><time>"
+    claimed: "<secondary>You already claimed this kit."
+    locked: "<secondary>You haven't unlocked this kit."
+    # Next to each item of the kit.
+    item: "<primary><name>"
+    item-many: "<primary><name> <secondary>x<accent><amount>"
+    keys: "<secondary><icon:key> Also gives <primary><keys>"
+    claim: "Claim"
+
+  # Crate keys a kit gives: "1 Common key", "2 Rare keys" (<crate> is the crate's name in its colour).
+  keys:
+    one: "1 <crate> key"
+    many: "<count> <crate> keys"
+  # Between names in a list: "Daily, Supporter".
+  separator: "<secondary>, "
+
+  claim:
+    claimed: "<primary>You claimed the <name> kit."
+    claimed-many: "<primary>You claimed <accent><count></accent> kits."
+    claim-box: "<primary>Some of the <name> kit didn't fit. <click:run_command:'/kits'><secondary>It's waiting in /kits, click to collect it.</click>"
+    claim-box-many: "<primary>Some of your kits didn't fit. <click:run_command:'/kits'><secondary>They're waiting in /kits, click to collect them.</click>"
+    keys: "<primary>The <name> kit gave you <keys>. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
+    keys-failed: "<primary>The <name> kit couldn't give you <keys>. <secondary>Ask staff to give them to you."
+    not-ready: "<primary>The <name> kit is ready again in <accent><time></accent>."
+    already-claimed: "<primary>You already claimed the <name> kit."
+    unknown: "<primary>There is no kit called <input>."
+    locked: "<primary>You haven't unlocked the <name> kit."
+    in-combat: "<primary>You can't claim kits in combat. <accent><time></accent> left."
+    cancelled: "<secondary>The <name> kit wasn't claimed."
+    failed: "<primary>The kit couldn't be claimed. Nothing changed, try again in a moment."
+    none-ready: "<primary>No kit is ready to claim."
+
+  collect:
+    done: "<primary>You collected your kit items."
+    partly: "<primary>You collected some of your kit items. <secondary>Make room for the rest."
+    no-room: "<primary>Make room in your inventory first."
+    none: "<primary>No kit items are waiting."
+
+  reminder:
+    join: "<primary>Kits ready to claim: <kits>. <click:run_command:'/kits'><secondary>Click to claim them.</click>"
+    ready: "<primary>Your <name> kit is ready. <click:run_command:'/kits'><secondary>Click to claim it.</click>"
+    waiting: "<primary>Kit items are waiting for room in your inventory. <click:run_command:'/kits'><secondary>Click to collect them.</click>"
+    # The same for players who get kit reminders above the hotbar or as a title (nothing can be clicked there).
+    join-short: "<primary>Kits ready to claim: <kits> <secondary>(/kits)"
+    ready-short: "<primary>Your <name> kit is ready <secondary>(/kits)"
+    waiting-short: "<primary>Kit items are waiting <secondary>(/kits)"
+    # Kits ready and kit items waiting at once, in one line (above the hotbar or as a title only one line shows).
+    join-waiting-short: "<primary>Kits ready: <kits>, kit items waiting <secondary>(/kits)"
+
+  # The kit and trash settings in /settings (Crates & kits).
+  settings:
+    reminders: "Kit reminders"
+    reminders-description: "How you are reminded that a kit is ready."
+    reminder-when: "When to remind about kits"
+    reminder-when-description: "Remind you about kits when you join, the moment one is ready, or both."
+    auto-equip: "Auto-equip kit armour"
+    auto-equip-description: "Put armour from claimed kits straight into empty armour slots. Worn armour is never replaced."
+    trash-protect: "Trash protection"
+    trash-protect-description: "Give back valuable items you put in /trash instead of deleting them: gear (enchanted or named items, shulker boxes, spawners, trial keys), gear and other valuables, or nothing."
+    trash-mode: "Trash bin mode"
+    trash-mode-description: "Delete items when the bin closes, or only when you click Delete (closing gives them back)."
+    options:
+      join-and-ready: "On join and when ready"
+      join: "Only on join"
+      ready: "Only when ready"
+      gear: "Gear"
+      valuables: "Gear and valuables"
+      protect-off: "Nothing"
+      delete-on-close: "Delete on close"
+      delete-button: "Delete button"
+
+  admin:
+    given: "<primary>Gave <player> the <name> kit."
+    given-offline: "<primary><player> is offline. <secondary>The <name> kit is waiting in their claim box."
+    received: "<primary>Staff gave you the <name> kit."
+    give-failed: "<primary>The <name> kit couldn't be given to <player>. Nothing changed."
+    give-cancelled: "<primary>Another plugin stopped the <name> kit for <player>."
+    reset-one: "<primary>Reset <player>'s <name> kit. <secondary>They can claim it again."
+    reset-all: "<primary>Reset every kit of <player>. <secondary>They can claim them again."
+    reset-none: "<primary><player> has no kit to reset."
+    check-header: "<primary>Kits of <player>"
+    check-line: "<secondary><name> (<id>): <status>"
+    list-header: "<primary>Kits <secondary>(<count>)"
+    # One line per kit for /kits from the console: "Daily (daily): every 1d, 3 items, everyone".
+    list-line: "<primary><name> <secondary>(<id>): <cooldown>, <items> items, <access>"
+    everyone: "everyone"
+    node: "<node>"
+
+  perks:
+    title: "Perks"
+    # A perk button's tooltip.
+    command: "<secondary>Works anywhere, also with <accent>/<command>"
+    names:
+      ec: "Ender chest"
+      craft: "Crafting table"
+      anvil: "Anvil"
+      stonecutter: "Stonecutter"
+      grindstone: "Grindstone"
+      smithing: "Smithing table"
+      loom: "Loom"
+      cartography: "Cartography table"
+      trash: "Trash"
+      hat: "Hat"
+    in-combat: "<primary>You can't use that in combat. <accent><time></accent> left."
+    closed: "<primary>Closed because you're in combat."
+    ec-others-title: "<name>'s ender chest"
+    trash-title: "Trash: deleted when you close it"
+    trash-deleted-one: "<primary>Deleted 1 item."
+    trash-deleted: "<primary>Deleted <accent><count></accent> items."
+    # The bin of players whose Trash bin mode is the Delete button: closing it gives everything back.
+    trash-title-button: "Trash: click Delete to delete"
+    trash-delete: "<primary>Delete"
+    trash-delete-lore:
+      - "<secondary>Deletes what is in the bin."
+      - "<secondary>Closing the bin gives it back."
+    # Trash protection gave back what it protects (enchanted, named, shulker boxes, spawners, trial keys, valuables).
+    trash-deleted-kept: "<primary>Items deleted: <accent><count></accent>. <secondary>Protected items given back: <accent><kept>"
+    trash-kept: "<secondary>Nothing deleted. Protected items given back: <accent><kept>"
+    trash-returned: "<secondary>Nothing deleted. Items given back: <accent><count>"
+    trash-empty: "<primary>The bin is empty."
+    trash-claim-box: "<accent><count></accent><primary> items didn't fit, so they're waiting in your claim box (/claims)."
+    # The server stopped while the player's trash bin held items: nothing was deleted, everything came back.
+    trash-restored: "<primary>The items you left in the trash bin when the server stopped are back in your inventory."
+    hat-empty: "<primary>Hold the item you want to wear."
+    hat-blocked: "<primary>You can't wear that."
+    hat-cursed: "<primary>Your helmet can't be taken off."
+    hat-no-room: "<primary>Make room for your helmet first."
+    hat-done: "<primary>You're wearing <item>."
