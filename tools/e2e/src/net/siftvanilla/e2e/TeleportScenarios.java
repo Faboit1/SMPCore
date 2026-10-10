@@ -510,7 +510,7 @@ final class TeleportScenarios {
         bot.clearLogs();
         bot.command("sethome BASE");
         Bot.SeenDialog move = e2e.dialog(bot, "Move home");
-        e2e.expect(move.bodyText().contains("Move home base to where you stand?") && move.bodyText().contains("Now: " + second.getWorld().getName() + " "
+        e2e.expect(move.bodyText().contains("Move home base to where you stand?") && move.bodyText().contains("Now: " + shown(second.getWorld()) + " "
             + second.getBlockX() + ", "), "moving an existing home asks first, with where it is: " + move.body());
         e2e.click(bot, "Move it here");
         e2e.eventually(() -> bot.actionBarContains("Home base moved here"), "moved: " + bot.actionBar());
@@ -531,7 +531,9 @@ final class TeleportScenarios {
         Bot.SeenDialog list = e2e.dialog(bot, "Homes");
         e2e.expect(list.body().size() == 1 && list.bodyText().contains("2 of 2 homes"), "one status line, nothing more: " + list.body());
         e2e.expect(list.button("base") != null && list.button("home") != null, "a button per home: " + list.buttons());
-        String where = second.getWorld().getName() + " " + second.getBlockX() + ", ";
+        // The main world reads "Overworld", never its folder name.
+        String where = shown(second.getWorld()) + " " + second.getBlockX() + ", ";
+        e2e.expect("Overworld".equals(shown(second.getWorld())), "the bots' homes are in the main world: " + second.getWorld().getName());
         e2e.expect(list.button("base").tooltip() != null && list.button("base").tooltip().contains(where)
             && list.button("base").tooltip().contains("Click to teleport to base."), "where it is in the tooltip: " + list.button("base").tooltip());
         e2e.expect(list.button("Set a home here") != null && list.button("Delete") != null, "set and delete buttons: " + list.buttons());
@@ -1037,6 +1039,19 @@ final class TeleportScenarios {
         }
     }
 
+    /** A world as homes name it to players: Overworld, Nether, The End for the main world and its dimensions. */
+    private static String shown(World world) {
+        String main = Bukkit.getWorlds().getFirst().getName();
+        String name = world.getName();
+        if (name.equals(main)) {
+            return "Overworld";
+        }
+        if (name.equals(main + "_nether")) {
+            return "Nether";
+        }
+        return name.equals(main + "_the_end") ? "The End" : name;
+    }
+
     // ------------------------------------------------------------------ random teleport
 
     private static final String RING = "e2e-ring";
@@ -1501,7 +1516,7 @@ final class TeleportScenarios {
         bot.command("homes");
         Bot.SeenDialog hidden = e2e.dialog(bot, "Homes");
         String hiddenTip = hidden.button("home").tooltip();
-        e2e.expect(hiddenTip != null && hiddenTip.contains(moved.getWorld().getName()) && !hiddenTip.contains(position),
+        e2e.expect(hiddenTip != null && hiddenTip.contains(shown(moved.getWorld())) && !hiddenTip.contains(position),
             "no coordinates: " + hiddenTip);
         bot.clearLogs();
         bot.command("delhome home");

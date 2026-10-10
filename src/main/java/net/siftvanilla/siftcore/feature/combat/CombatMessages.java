@@ -67,6 +67,10 @@ public final class CombatMessages {
     /** The victim's private lines after a death ({@code death-coordinates}, {@code death-recap}). */
     public static final MessageKey DEATH_LOCATION = MessageKey.chat("combat.death.location", "world", "x", "y", "z");
     public static final MessageKey DEATH_LOCATION_HIDDEN = MessageKey.chat("combat.death.location-hidden", "world");
+    /** How the main world, its nether and its end are named in the death location (other worlds show their own name). */
+    public static final MessageKey WORLD_OVERWORLD = MessageKey.ui("combat.worlds.overworld");
+    public static final MessageKey WORLD_NETHER = MessageKey.ui("combat.worlds.nether");
+    public static final MessageKey WORLD_END = MessageKey.ui("combat.worlds.end");
     public static final MessageKey DEATH_RECAP = MessageKey.chat("combat.death.recap", "killer", "hearts");
     public static final MessageKey DEATH_RECAP_USING = MessageKey.chat("combat.death.recap-using", "killer", "hearts", "item");
 

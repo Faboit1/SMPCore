@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.combat;
 import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -24,6 +25,7 @@ import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Player;
@@ -322,13 +324,35 @@ final class CombatListener implements Listener {
             return;
         }
         Location at = victim.getLocation();
-        Arg world = Arg.text("world", at.getWorld().getName());
+        List<World> worlds = Bukkit.getWorlds();
+        Arg world = Arg.text("world", worldName(this.messenger.lang(), at.getWorld().getName(),
+            worlds.isEmpty() ? null : worlds.getFirst().getName()));
         if (line == CombatMessages.DEATH_LOCATION_HIDDEN) {
             this.messenger.chat(victim, line, world);
         } else {
             this.messenger.chat(victim, line, world, Arg.text("x", Lang.number(at.getBlockX())), Arg.text("y", Lang.number(at.getBlockY())),
                 Arg.text("z", Lang.number(at.getBlockZ())));
         }
+    }
+
+    /**
+     * How a world is named in the death location: the server's main world is "Overworld", its nether "Nether" and its
+     * end "The End" (lang {@code combat.worlds}); any other world shows its own name.
+     *
+     * @param mainWorld the name of the server's main world (the first one loaded), or null when unknown
+     */
+    static String worldName(Lang lang, String world, String mainWorld) {
+        MessageKey key = null;
+        if (mainWorld != null) {
+            if (world.equals(mainWorld)) {
+                key = CombatMessages.WORLD_OVERWORLD;
+            } else if (world.equals(mainWorld + "_nether")) {
+                key = CombatMessages.WORLD_NETHER;
+            } else if (world.equals(mainWorld + "_the_end")) {
+                key = CombatMessages.WORLD_END;
+            }
+        }
+        return key == null ? world : lang.plain(key);
     }
 
     /**

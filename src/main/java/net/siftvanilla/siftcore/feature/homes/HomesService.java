@@ -100,6 +100,15 @@ final class HomesService {
         tell(player, result);
     }
 
+    /**
+     * How a world is named to players ({@link HomesViews#worldName}): Overworld, Nether and The End for the server's
+     * main world and its two dimensions, any other world by its own name. Any thread.
+     */
+    private String worldName(String world) {
+        List<World> worlds = Bukkit.getWorlds();
+        return HomesViews.worldName(this.services.lang(), world, worlds.isEmpty() ? null : worlds.getFirst().getName());
+    }
+
     /** Whether the player hides coordinates (streamer mode) in their own homes list and windows. */
     private boolean hidesCoordinates(Player player) {
         return this.services.settings().get(player, SharedSettings.HIDE_COORDINATES);
@@ -119,12 +128,12 @@ final class HomesService {
         List<Component> lines = new ArrayList<>();
         lines.add(lang.get(HomesMessages.OVERWRITE_BODY, Arg.text("name", existing.name())));
         if (hidesCoordinates(player)) {
-            lines.add(lang.get(HomesMessages.OVERWRITE_FROM_HIDDEN, Arg.text("world", existing.world())));
-            lines.add(lang.get(HomesMessages.OVERWRITE_TO_HIDDEN, Arg.text("world", world)));
+            lines.add(lang.get(HomesMessages.OVERWRITE_FROM_HIDDEN, Arg.text("world", worldName(existing.world()))));
+            lines.add(lang.get(HomesMessages.OVERWRITE_TO_HIDDEN, Arg.text("world", worldName(world))));
         } else {
-            lines.add(lang.get(HomesMessages.OVERWRITE_FROM, HomesViews.at(existing.world(), existing.blockX(), existing.blockY(),
-                existing.blockZ())));
-            lines.add(lang.get(HomesMessages.OVERWRITE_TO, HomesViews.at(world, here.getBlockX(), here.getBlockY(), here.getBlockZ())));
+            lines.add(lang.get(HomesMessages.OVERWRITE_FROM, HomesViews.at(existing, this::worldName)));
+            lines.add(lang.get(HomesMessages.OVERWRITE_TO, HomesViews.at(worldName(world), here.getBlockX(), here.getBlockY(),
+                here.getBlockZ())));
         }
         View confirm = this.services.templates().confirm(lang.get(HomesMessages.OVERWRITE_TITLE), lines,
             lang.get(HomesMessages.OVERWRITE_BUTTON), lang.get(CoreMessages.UI_CANCEL), onYes, onNo);
@@ -340,8 +349,8 @@ final class HomesService {
         }
         Lang lang = this.services.lang();
         List<Component> body = hidesCoordinates(player)
-            ? lang.lines(HomesMessages.DELETE_BODY_HIDDEN, Arg.text("name", home.name()), Arg.text("world", home.world()))
-            : lang.lines(HomesMessages.DELETE_BODY, HomesViews.with(Arg.text("name", home.name()), HomesViews.at(home)));
+            ? lang.lines(HomesMessages.DELETE_BODY_HIDDEN, Arg.text("name", home.name()), Arg.text("world", worldName(home.world())))
+            : lang.lines(HomesMessages.DELETE_BODY, HomesViews.with(Arg.text("name", home.name()), HomesViews.at(home, this::worldName)));
         View confirm = this.services.templates().confirm(lang.get(HomesMessages.DELETE_TITLE), body,
             lang.get(HomesMessages.DELETE_BUTTON), lang.get(CoreMessages.UI_CANCEL),
             yes -> {
@@ -378,7 +387,7 @@ final class HomesService {
             s -> openSetForm(s.player(), back),
             back);
         this.services.dialogs().show(player, HomesViews.list(this.services.lang(), this.services.templates(), all, limit(player),
-            hidesCoordinates(player), actions));
+            hidesCoordinates(player), this::worldName, actions));
     }
 
     /**
@@ -453,7 +462,8 @@ final class HomesService {
             null);
         // Shown after a database read, outside the command's scope: written for the staff member.
         this.services.dialogs().show(staff, () ->
-            HomesViews.other(this.services.lang(), this.services.templates(), targetName, new ArrayList<>(homes.values()), actions));
+            HomesViews.other(this.services.lang(), this.services.templates(), targetName, new ArrayList<>(homes.values()), this::worldName,
+                actions));
     }
 
     /** The audit details of a staff teleport to a home: its name, world and block position. */
@@ -464,7 +474,7 @@ final class HomesService {
     private void confirmOtherDelete(Player staff, UUID target, String targetName, Home home) {
         Lang lang = this.services.lang();
         this.services.dialogs().show(staff, this.services.templates().confirm(lang.get(HomesMessages.DELETE_TITLE),
-            lang.lines(HomesMessages.DELETE_BODY, HomesViews.with(Arg.text("name", home.name()), HomesViews.at(home))),
+            lang.lines(HomesMessages.DELETE_BODY, HomesViews.with(Arg.text("name", home.name()), HomesViews.at(home, this::worldName))),
             lang.get(HomesMessages.DELETE_BUTTON), lang.get(CoreMessages.UI_CANCEL),
             yes -> deleteOther(yes.player(), target, targetName, home.name(), () -> openOther(yes.player(), target, targetName)),
             no -> openOther(no.player(), target, targetName)));

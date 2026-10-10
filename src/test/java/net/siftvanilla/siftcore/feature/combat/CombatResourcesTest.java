@@ -166,6 +166,19 @@ class CombatResourcesTest {
         assertEquals("Player kills", lang.plain(CombatMessages.OPTION_DEATHS_PVP));
     }
 
+    /** The death location names the server's three worlds the way players know them, never by their folder names. */
+    @Test
+    void deathLocationNamesTheWorlds() {
+        assertEquals("Overworld", CombatListener.worldName(lang, "world", "world"));
+        assertEquals("Nether", CombatListener.worldName(lang, "world_nether", "world"));
+        assertEquals("The End", CombatListener.worldName(lang, "world_the_end", "world"));
+        assertEquals("arena", CombatListener.worldName(lang, "arena", "world"), "another world keeps its own name");
+        assertEquals("world_nether", CombatListener.worldName(lang, "world_nether", null));
+        assertEquals("You died at 12, 70, -3 in Nether.", lang.plain(CombatMessages.DEATH_LOCATION,
+            Arg.text("world", CombatListener.worldName(lang, "world_nether", "world")), Arg.text("x", "12"), Arg.text("y", "70"),
+            Arg.text("z", "-3")));
+    }
+
     @Test
     void recapHeartsReadWithoutANeedlessDecimal() {
         assertEquals("10", CombatListener.heartsText(10.0));

@@ -43,6 +43,11 @@ class HomesViewsTest {
         return homes;
     }
 
+    /** World names as players see them, with "world" as the server's main world. */
+    private static String worldName(String world) {
+        return HomesViews.worldName(lang, world, "world");
+    }
+
     private static HomesViews.Actions actions(List<String> clicks) {
         return new HomesViews.Actions(home -> s -> clicks.add("go " + home.name()), home -> s -> clicks.add("delete " + home.name()),
             s -> clicks.add("set"), s -> clicks.add("back"));
@@ -56,14 +61,14 @@ class HomesViewsTest {
     @Test
     void everyHomeIsAButtonWithNoPages() {
         List<String> clicks = new ArrayList<>();
-        View view = HomesViews.list(lang, templates, homes(12), 15, false, actions(clicks));
+        View view = HomesViews.list(lang, templates, homes(12), 15, false, HomesViewsTest::worldName, actions(clicks));
         assertTrue(body(view).strip().endsWith(" 12 of 15 homes"), "one status line only: " + body(view));
         List<String> labels = view.allButtons().stream().map(button -> plain(button.label())).toList();
         assertEquals(12 * 2 + 2, labels.size(), "a home and its Delete for each, Set a home here, Back: " + labels);
         assertTrue(labels.stream().noneMatch(label -> label.contains("page")), labels.toString());
         Button first = view.buttons().get(0);
         assertEquals("home0", plain(first.label()));
-        assertTrue(plain(first.tooltip()).contains("world 100, 64, -20"), plain(first.tooltip()));
+        assertTrue(plain(first.tooltip()).contains("Overworld 100, 64, -20"), plain(first.tooltip()));
         assertTrue(plain(first.tooltip()).contains("Click to teleport to home0."), plain(first.tooltip()));
         Button delete = view.buttons().get(1);
         assertEquals("Delete", plain(delete.label()));
@@ -94,7 +99,7 @@ class HomesViewsTest {
 
     @Test
     void valuesAreInTheAccentColour() {
-        View view = HomesViews.list(lang, templates, homes(2), 5, false, actions(new ArrayList<>()));
+        View view = HomesViews.list(lang, templates, homes(2), 5, false, HomesViewsTest::worldName, actions(new ArrayList<>()));
         Component header = ((Body.Text) view.body().getFirst()).text();
         assertEquals(Palette.DEFAULT_ACCENT, colourOf(header, "2", null), "the count: " + header);
         assertEquals(Palette.DEFAULT_ACCENT, colourOf(header, "5", null), "the limit: " + header);
@@ -106,15 +111,32 @@ class HomesViewsTest {
 
     @Test
     void streamerModeHidesPositionsAndUnlimitedReads() {
-        View view = HomesViews.list(lang, templates, homes(1), Limits.UNLIMITED, true, actions(new ArrayList<>()));
+        View view = HomesViews.list(lang, templates, homes(1), Limits.UNLIMITED, true, HomesViewsTest::worldName, actions(new ArrayList<>()));
         assertTrue(body(view).strip().endsWith(" 1 of unlimited homes"), body(view));
         String tooltip = plain(view.buttons().getFirst().tooltip());
-        assertTrue(tooltip.contains("world") && !tooltip.contains("100"), tooltip);
+        assertTrue(tooltip.contains("Overworld") && !tooltip.contains("100"), tooltip);
+    }
+
+    /** Players read Overworld, Nether and The End for the server's three worlds, never their folder names. */
+    @Test
+    void worldsAreNamedTheWayPlayersKnowThem() {
+        assertEquals("Overworld", HomesViews.worldName(lang, "world", "world"));
+        assertEquals("Nether", HomesViews.worldName(lang, "world_nether", "world"));
+        assertEquals("The End", HomesViews.worldName(lang, "world_the_end", "world"));
+        assertEquals("resources", HomesViews.worldName(lang, "resources", "world"), "another world keeps its own name");
+        assertEquals("Overworld", HomesViews.worldName(lang, "smp", "smp"), "whatever the main world is called");
+        assertEquals("Nether", HomesViews.worldName(lang, "smp_nether", "smp"));
+        assertEquals("world_nether", HomesViews.worldName(lang, "world_nether", "smp"), "only the main world's nether");
+        assertEquals("world", HomesViews.worldName(lang, "world", null), "no worlds loaded: the name as it is");
+        List<Home> homes = List.of(new Home("hell", "world_nether", 8, 70, 8, 0, 0, 1));
+        View view = HomesViews.list(lang, templates, homes, 3, false, HomesViewsTest::worldName, actions(new ArrayList<>()));
+        assertTrue(plain(view.buttons().getFirst().tooltip()).contains("Nether 8, 70, 8"), plain(view.buttons().getFirst().tooltip()));
     }
 
     @Test
     void staffSeeAnotherPlayersHomesWithPositions() {
-        View view = HomesViews.other(lang, templates, "Alex", homes(2), new HomesViews.Actions(home -> s -> { }, home -> s -> { }, null, null));
+        View view = HomesViews.other(lang, templates, "Alex", homes(2), HomesViewsTest::worldName,
+            new HomesViews.Actions(home -> s -> { }, home -> s -> { }, null, null));
         assertEquals("Homes of Alex", plain(view.title()));
         assertTrue(body(view).strip().endsWith(" Alex has 2 homes"), body(view));
         assertTrue(plain(view.buttons().getFirst().tooltip()).contains("100, 64, -20"));

@@ -92,7 +92,9 @@ added as it happens.
   friends or teams), or none. It was a switch: stored `true`/`false` rows and config entries read as all and none.
   The victim and the killer always see theirs, and so does the console.
 - After a death (not a combat log) the victim gets two private chat lines: where they died (`death-coordinates`,
-  on; only the world while streamer mode `hide-coordinates` is on) and, after a player kill, the killer's health
+  on; only the world while streamer mode `hide-coordinates` is on; "You died at 12, 70, -3 in Nether.", the server's
+  main world, its nether and its end named Overworld, Nether and The End by `combat.worlds` in `lang/combat.yml`,
+  other worlds by their own name) and, after a player kill, the killer's health
   and weapon (`death-recap`, on): `Sam had 6.5 hearts left, using Diamond Sword.` The killer's health is read on the
   killer's thread, which then sends the line.
 - Lines about a vanished player only reach the players involved and staff who can see vanished players.
