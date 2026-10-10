@@ -185,6 +185,17 @@ what doesn't fit (or can't be handed over because the player left or the server 
 (`/ah claims`). At shutdown, hand-overs that were claimed but not delivered yet go back into the claim box before
 storage closes.
 
+**Checked against the dupe audit's crate-plugin findings** (R1 to R5, R9, R10 and R18, all about ExcellentCrates). No
+crate plugin is installed or called: there is no ExcellentCrates or nightcore code, dependency or config. Keys live
+only in `crate_keys` and change only inside ledger transactions: an opening spends its key and stores its reward in one
+unit, and grants (shard shop, store, keyall) are deduplicated by their reference in `crate_grants`, so there is no
+second key store to fall out of step, no offline redeem and no unlocked balance. One key opens exactly one crate, and
+there are no crate items. The animation runs on the player's own entity timer, reveals at most once and reports the
+opening once (the reveal and the window's close are joined before the result goes out); a quit, a death or a stop in
+the middle leaves the reward in the claim box, and command rewards are kept in `crate_commands` until they ran, so a
+stop before they run runs them at the next start. Openings are refused in combat (`block-in-combat`), and `/crates`
+is SiftCore's own command.
+
 ## Keyall
 
 A global-thread timer ticks once a second. At the configured moments (`countdown.chat`, shipped 5m and 1m) it
