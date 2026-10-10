@@ -156,7 +156,12 @@ Crash safety:
   handed out only after the commit.
 - **Idempotent claims.** A claim updates its row with `claimed IS NULL`, so one item can only be claimed once.
 - **Player saves after item trades.** Players are saved right after trades that moved items, so a crash can't
-  roll back an inventory while keeping the money.
+  roll back an inventory while keeping the money. Every such save goes through `Services.saveAfterTrade`, which first
+  has the item grid the player has open (sell, order delivery, trash bin) write its crash copy, so a save in the tick
+  after a click into the grid never finds the moved items in neither place.
+- **Hand-backs at a stop are synchronous.** Canvas halts the schedulers before it disables plugins, and players get
+  no close or quit event at a stop: open grids and trash bins are emptied in `disable()` on the shutdown thread, before
+  storage is flushed.
 
 Invariants, checked by `/sift selftest` and the unit tests:
 
@@ -248,7 +253,8 @@ one framework (`Menu`/`PagedMenu`) with one layout:
 - bottom row: previous page, back, sort, filter, search, three extra buttons, next page.
 
 Every click is cancelled and routed; double-click gathering and shift-moves into button slots are blocked; a
-click-rate limiter and a per-menu busy lock stop spam.
+click-rate limiter on the menu's own slots and a per-menu busy lock stop spam, and changes to item slots redraw a menu
+at most once a tick (shift-clicks from the player's own inventory are not rate limited, so each must stay cheap).
 
 **Text** comes only from lang files. Messages declare their placeholders and channel. `TextStyle` is the only
 MiniMessage setup for trusted text, and the loader checks every line against it: allowed are the palette tags
