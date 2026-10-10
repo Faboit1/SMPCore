@@ -390,6 +390,8 @@ chest, ender chest or barrel opens its lid while a reward spins above it. A layo
 | Mythic | red shulker box | `/crates block add mythic` |
 | Celestial | cyan shulker box | `/crates block add celestial` |
 
+On SiftVanilla the seven blocks stand in a row on the spawn platform's south side (y 101, z 16; Common at x 9 on the east end through Celestial at x -9), see docs/server-undo-log.md row 44.
+
 Put them in a row or an arc inside the protected spawn, at least 3 blocks apart (each has a name 1.5 blocks above it
 and particles circling it), with open sky or 3 blocks of air above. Crate blocks at spawn need no change to
 `spawn.yml`. `/crates block list` shows them all; `/crates block remove` while looking at one undoes it. Each block

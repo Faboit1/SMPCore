@@ -1,6 +1,7 @@
 package dev.siftvanilla.build;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.util.HashMap;
@@ -49,7 +50,59 @@ public final class SiftBuild extends JavaPlugin {
                     apply(ctx.getSource().getSender(), IntegerArgumentType.getInteger(ctx, "y"), true);
                     return 1;
                 })))
+                .then(Commands.literal("show").then(position(ctx -> {
+                    show(ctx.getSource().getSender(), IntegerArgumentType.getInteger(ctx, "x"),
+                        IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z"));
+                    return 1;
+                })))
+                .then(Commands.literal("set").then(Commands.argument("x", IntegerArgumentType.integer())
+                    .then(Commands.argument("y", IntegerArgumentType.integer())
+                        .then(Commands.argument("z", IntegerArgumentType.integer())
+                            .then(Commands.argument("block", StringArgumentType.greedyString()).executes(ctx -> {
+                                set(ctx.getSource().getSender(), IntegerArgumentType.getInteger(ctx, "x"),
+                                    IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z"),
+                                    StringArgumentType.getString(ctx, "block"));
+                                return 1;
+                            }))))))
                 .build(), "Builds the SiftVanilla spawn platform"));
+    }
+
+    /** {@code <x> <y> <z>} running {@code command}. */
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<io.papermc.paper.command.brigadier.CommandSourceStack, Integer> position(
+        com.mojang.brigadier.Command<io.papermc.paper.command.brigadier.CommandSourceStack> command) {
+        return Commands.argument("x", IntegerArgumentType.integer()).then(Commands.argument("y", IntegerArgumentType.integer())
+            .then(Commands.argument("z", IntegerArgumentType.integer()).executes(command)));
+    }
+
+    /** Prints the block at a position of the overworld, read on that chunk's region thread. */
+    private void show(CommandSender sender, int x, int y, int z) {
+        World world = overworld();
+        Bukkit.getRegionScheduler().execute(this, world, x >> 4, z >> 4, () -> {
+            world.getChunkAt(x >> 4, z >> 4);
+            sender.sendMessage("SiftBuild: " + x + " " + y + " " + z + " is " + world.getBlockAt(x, y, z).getBlockData().getAsString());
+        });
+    }
+
+    /** Places one block (exact block state, no physics) where there is only air now; refuses anything else. */
+    private void set(CommandSender sender, int x, int y, int z, String block) {
+        World world = overworld();
+        BlockData data;
+        try {
+            data = Bukkit.createBlockData(block);
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage("SiftBuild: not a block state: " + block);
+            return;
+        }
+        Bukkit.getRegionScheduler().execute(this, world, x >> 4, z >> 4, () -> {
+            world.getChunkAt(x >> 4, z >> 4);
+            org.bukkit.block.Block target = world.getBlockAt(x, y, z);
+            if (!target.getType().isAir()) {
+                sender.sendMessage("SiftBuild: refused, " + x + " " + y + " " + z + " is " + target.getBlockData().getAsString());
+                return;
+            }
+            target.setBlockData(data, false);
+            sender.sendMessage("SiftBuild: placed " + data.getAsString() + " at " + x + " " + y + " " + z);
+        });
     }
 
     private World overworld() {

@@ -21,6 +21,8 @@ Console commands (operators only):
 | `siftbuild probe` | Prints the highest terrain block under the platform's footprint |
 | `siftbuild spawn <y>` | Builds the platform with its floor at `y`, clears 4 blocks of air above it, and sets the world spawn to `0.5, y+1, 0.5` |
 | `siftbuild clear <y>` | Removes a platform built at `y` (every block it placed becomes air) |
+| `siftbuild show <x> <y> <z>` | Prints the overworld block at a position (read on its region thread) |
+| `siftbuild set <x> <y> <z> <block>` | Places one block state (for example `chest[facing=north]`) where there is only air; anything else is refused |
 
 Each chunk is edited on its own region thread, with explicit block states and no physics, so the build is safe
 on Folia and Canvas.
