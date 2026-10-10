@@ -2,6 +2,7 @@ package net.siftvanilla.siftcore.feature.crates;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -9,6 +10,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.sound.Sound;
+import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
@@ -26,11 +30,12 @@ import net.siftvanilla.siftcore.core.money.MoneyFormat;
  * @param rememberGrants how long grant references are remembered (a repeated grant inside this window is refused)
  * @param keyall         the keyall schedule
  * @param rarities       rarity tiers in file order
- * @param crates         crates in file order
+ * @param crates         crates by tier (then file order)
+ * @param effects        holograms, particles and the opening animation
  */
 public record CratesSettings(Duration openCooldown, boolean blockInCombat, int bulkOpen, boolean quickOpen,
                              boolean joinReminder, Duration rememberGrants,
-                             Keyall keyall, List<Rarity> rarities, List<Crate> crates) {
+                             Keyall keyall, List<Rarity> rarities, List<Crate> crates, Effects effects) {
 
     /** Crate ids fit the crate_keys and crate_log columns. */
     static final String CRATE_ID = "[a-z0-9_-]{1,32}";
@@ -44,7 +49,7 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
     static final int MAX_NAME = 24;
     static final int MAX_DISPLAY = 64;
 
-    private static final Set<String> CRATE_KEYS = Set.of("name", "icon", "blocks", "rewards");
+    private static final Set<String> CRATE_KEYS = Set.of("name", "tier", "color", "icon", "blocks", "rewards");
     private static final Set<String> REWARD_KEYS = Set.of("item", "amount", "name", "lore", "enchants", "unsafe-enchants",
         "money", "shards", "keys", "spawner", "commands", "weight", "rarity", "display", "icon");
     private static final List<String> KINDS = List.of("item", "money", "shards", "keys", "spawner", "commands");
@@ -70,6 +75,38 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
 
     }
 
+    /**
+     * How the crates look and sound.
+     *
+     * @param holograms      a floating name above every crate block
+     * @param hologramHeight how far above the top of the block the name floats, in blocks
+     * @param particleRange  particles circle every crate block while a player is this close (0: no particles)
+     * @param animation      the opening animation
+     */
+    public record Effects(boolean holograms, double hologramHeight, int particleRange, Animation animation) {
+
+        /** Everything on, as shipped (tests and settings built in code). */
+        public static final Effects DEFAULTS = new Effects(true, 0.5, 16, Animation.DEFAULTS);
+    }
+
+    /**
+     * The opening animation.
+     *
+     * @param enabled   whether single openings from a crate screen or the preview animate
+     * @param length    how long the row of rewards rolls
+     * @param reveal    how long the window shows the reward before it closes
+     * @param tick      played on every step of the roll (null: none)
+     * @param revealed  played when the reward shows (null: none)
+     * @param bigReveal played instead when the reward's rarity is announced (null: none)
+     */
+    public record Animation(boolean enabled, Duration length, Duration reveal, Sound tick, Sound revealed, Sound bigReveal) {
+
+        public static final Animation DEFAULTS = new Animation(true, Duration.ofSeconds(4), Duration.ofSeconds(2),
+            Sound.sound(Key.key("block.note_block.hat"), Sound.Source.MASTER, 0.6f, 1.0f),
+            Sound.sound(Key.key("entity.player.levelup"), Sound.Source.MASTER, 0.7f, 1.2f),
+            Sound.sound(Key.key("ui.toast.challenge_complete"), Sound.Source.MASTER, 0.6f, 1.0f));
+    }
+
     /** What the config may refer to in this Minecraft version and on this server. */
     public record Catalog(Set<String> items, Map<String, Integer> enchantments, Set<String> mobs, Set<String> worlds) {
         public Catalog {
@@ -83,6 +120,34 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
     public CratesSettings {
         rarities = List.copyOf(rarities);
         crates = List.copyOf(crates);
+        effects = effects == null ? Effects.DEFAULTS : effects;
+    }
+
+    /** Settings with the shipped effects (tests and settings built in code). */
+    public CratesSettings(Duration openCooldown, boolean blockInCombat, int bulkOpen, boolean quickOpen, boolean joinReminder,
+                          Duration rememberGrants, Keyall keyall, List<Rarity> rarities, List<Crate> crates) {
+        this(openCooldown, blockInCombat, bulkOpen, quickOpen, joinReminder, rememberGrants, keyall, rarities, crates, Effects.DEFAULTS);
+    }
+
+    /** The rank of a rarity, 0 for the most common (and for an unknown one). */
+    public int rank(String rarity) {
+        for (int i = 0; i < this.rarities.size(); i++) {
+            if (this.rarities.get(i).id().equals(rarity)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    /** The crate of the next tier above this one, or null at the top (the lowest tier when several share it). */
+    public Crate nextTier(Crate crate) {
+        Crate next = null;
+        for (Crate candidate : this.crates) {
+            if (candidate.tier() > crate.tier() && (next == null || candidate.tier() < next.tier())) {
+                next = candidate;
+            }
+        }
+        return next;
     }
 
     public Crate crate(String id) {
@@ -124,7 +189,7 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
         boolean quickOpen = r.bool("quick-open", true);
         boolean joinReminder = r.bool("join-reminder", true);
         Duration remember = r.section("grants").duration("remember", Duration.ofDays(1), Duration.ofDays(3650), Duration.ofDays(90));
-        List<Rarity> rarities = rarities(r);
+        List<Rarity> rarities = rarities(r, catalog);
         Set<String> rarityIds = new LinkedHashSet<>();
         for (Rarity rarity : rarities) {
             rarityIds.add(rarity.id());
@@ -143,7 +208,7 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
                     : "is not a valid crate id (1 to 32 lowercase letters, digits, - or _)");
                 continue;
             }
-            Draft draft = crate(id, c, catalog, money, rarityIds);
+            Draft draft = crate(id, c, catalog, money, rarityIds, drafts.size() + 1);
             if (draft != null) {
                 drafts.put(id, draft);
             }
@@ -186,11 +251,62 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
                 }
                 blocks.add(block);
             }
-            crates.add(new Crate(draft.id, draft.name, draft.icon, rewards, blocks));
+            crates.add(new Crate(draft.id, draft.name, draft.icon, rewards, blocks, draft.tier, draft.color));
         }
+        // Listed from the lowest tier up; crates of one tier keep their file order (the sort is stable). New crates
+        // added to an older file land at its end, so the order of the file can't be relied on.
+        crates.sort(Comparator.comparingInt(Crate::tier));
 
         Keyall keyall = keyall(r, crates);
-        return new CratesSettings(openCooldown, blockInCombat, bulkOpen, quickOpen, joinReminder, remember, keyall, rarities, crates);
+        Effects effects = effects(r);
+        return new CratesSettings(openCooldown, blockInCombat, bulkOpen, quickOpen, joinReminder, remember, keyall, rarities, crates,
+            effects);
+    }
+
+    private static Effects effects(ConfigReader r) {
+        if (!r.has("effects")) {
+            return Effects.DEFAULTS;
+        }
+        ConfigReader e = r.section("effects");
+        boolean holograms = e.bool("holograms", true);
+        double height = e.decimal("hologram-height", 0.0, 3.0, 0.5);
+        int range = e.integer("particle-range", 0, 64, 16);
+        Animation animation = Animation.DEFAULTS;
+        if (e.has("animation")) {
+            ConfigReader a = e.section("animation");
+            ConfigReader sounds = a.section("sounds", false);
+            animation = new Animation(a.bool("enabled", true),
+                a.duration("length", Duration.ofSeconds(1), Duration.ofSeconds(10), Duration.ofSeconds(4)),
+                a.duration("reveal", Duration.ZERO, Duration.ofSeconds(10), Duration.ofSeconds(2)),
+                sound(sounds, "tick", Animation.DEFAULTS.tick()),
+                sound(sounds, "reveal", Animation.DEFAULTS.revealed()),
+                sound(sounds, "big-reveal", Animation.DEFAULTS.bigReveal()));
+        }
+        return new Effects(holograms, height, range, animation);
+    }
+
+    /** One sound: {@code sound}, {@code volume} and {@code pitch}; the shipped one when the section is missing. */
+    private static Sound sound(ConfigReader sounds, String name, Sound fallback) {
+        if (!sounds.has(name)) {
+            return fallback;
+        }
+        ConfigReader s = sounds.section(name);
+        return Sound.sound(s.key("sound", fallback.name()), Sound.Source.MASTER,
+            (float) s.decimal("volume", 0.0, 2.0, fallback.volume()), (float) s.decimal("pitch", 0.5, 2.0, fallback.pitch()));
+    }
+
+    /** A hex colour like {@code #4DA6FF}, or the fallback after reporting a mistake. */
+    private static TextColor color(ConfigReader c, String path, TextColor fallback) {
+        if (!c.has(path)) {
+            return fallback;
+        }
+        return c.custom(path, value -> {
+            TextColor parsed = TextColor.fromHexString(value.strip());
+            if (parsed == null) {
+                throw new IllegalArgumentException("is not a hex colour");
+            }
+            return parsed;
+        }, "a hex colour like \"#4DA6FF\"", fallback);
     }
 
     /** The default text of a keys reward: {@code 1 Rare key}, {@code 3 Basic keys}. */
@@ -198,7 +314,7 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
         return amount + " " + crateName + (amount == 1 ? " key" : " keys");
     }
 
-    private static List<Rarity> rarities(ConfigReader r) {
+    private static List<Rarity> rarities(ConfigReader r, Catalog catalog) {
         List<Rarity> rarities = new ArrayList<>();
         for (Map.Entry<String, ConfigReader> entry : r.children("rarities").entrySet()) {
             String id = entry.getKey();
@@ -210,7 +326,8 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
             String label = plain(c, "label", id, MAX_NAME);
             boolean audit = c.has("audit") ? c.bool("audit", false) : false;
             boolean announce = c.has("announce") ? c.bool("announce", false) : false;
-            rarities.add(new Rarity(id, label, audit, announce));
+            String glass = c.has("glass") ? item(c, "glass", catalog, null) : null;
+            rarities.add(new Rarity(id, label, audit, announce, color(c, "color", Rarity.DEFAULT_COLOR), glass));
         }
         if (rarities.isEmpty()) {
             r.problem("rarities", "has no rarities; add at least one (for example common)");
@@ -220,16 +337,20 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
     }
 
     /** A parsed crate whose keys rewards are not resolved yet. */
-    private record Draft(String id, String name, String icon, List<Reward> rewards, List<BlockKey> blocks, ConfigReader reader) {
+    private record Draft(String id, String name, String icon, List<Reward> rewards, List<BlockKey> blocks, int tier, TextColor color,
+                         ConfigReader reader) {
     }
 
-    private static Draft crate(String id, ConfigReader c, Catalog catalog, MoneyFormat money, Set<String> rarityIds) {
+    /** @param position the crate's place in the file (from 1), its tier when none is set */
+    private static Draft crate(String id, ConfigReader c, Catalog catalog, MoneyFormat money, Set<String> rarityIds, int position) {
         for (String key : c.keys()) {
             if (!CRATE_KEYS.contains(key)) {
-                c.problem(key, "is not a crate setting (crate settings: name, icon, blocks, rewards)");
+                c.problem(key, "is not a crate setting (crate settings: name, tier, color, icon, blocks, rewards)");
             }
         }
         String name = plain(c, "name", capitalize(id), MAX_NAME);
+        int tier = c.has("tier") ? c.integer("tier", 1, 100, position) : position;
+        TextColor color = color(c, "color", Crate.DEFAULT_COLOR);
         String icon = c.has("icon") ? item(c, "icon", catalog, "minecraft:chest") : "minecraft:chest";
         List<BlockKey> blocks = new ArrayList<>();
         for (String text : c.optionalStringList("blocks")) {
@@ -269,7 +390,7 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
                 rewards.add(reward);
             }
         }
-        return new Draft(id, name, icon, rewards, blocks, c);
+        return new Draft(id, name, icon, rewards, blocks, tier, color, c);
     }
 
     private static Reward reward(String id, ConfigReader parent, ConfigReader c, Catalog catalog, MoneyFormat money,

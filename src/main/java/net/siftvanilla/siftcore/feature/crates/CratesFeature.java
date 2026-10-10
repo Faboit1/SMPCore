@@ -64,6 +64,7 @@ public final class CratesFeature implements Feature, Listener {
     private final Keyall keyall;
     private final CrateDialogs dialogs;
     private final CrateBlocks blocks;
+    private final CrateDecor decor;
     private final CrateCommands commands;
     private volatile Task pruneTask = Task.NONE;
 
@@ -86,14 +87,13 @@ public final class CratesFeature implements Feature, Listener {
         perms.declare(PERMISSION_USE, "Use /crates, open crates and preview them", true);
         perms.declare(PERMISSION_KEYALL, "See when the next keyall is with /keyall", true);
         perms.declare(PERMISSION_ADMIN, "Give and take keys, start a keyall and manage crate blocks", false);
-        this.text = new CrateText(services.lang());
-        // Other features (store deliveries) describe keys with this feature's wording and the crate's display name.
+        this.text = new CrateText(services.lang(), this.settings::get);
+        // Other features (store deliveries, the shard shop) describe keys with this feature's wording and the crate's
+        // name in its colour.
         this.keys = new KeyService(services.ledger(), services.database(), () -> this.settings.get().crateIds(),
-            System::currentTimeMillis, (crate, amount) -> {
-                Crate configured = this.settings.get().crate(crate);
-                return this.text.keys(amount, configured == null ? crate : configured.name());
-            });
-        this.items = new RewardItems(spawners, () -> services.lang().style().palette());
+            System::currentTimeMillis, (crate, amount) -> this.text.keys(amount, crate), this.text::name);
+        this.items = new RewardItems(spawners, () -> services.lang().style().palette(),
+            rarity -> this.settings.get().rarity(rarity).color());
         this.handouts = new Handouts(services);
         this.rewardCommands = new RewardCommands(services.database(), task -> services.scheduler().global(task),
             command -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command), services.plugin().getLogger());
@@ -104,13 +104,13 @@ public final class CratesFeature implements Feature, Listener {
         this.dialogs = new CrateDialogs(services, this.settings, this.keys, this.items, this.opener, this.text, worth, this.keyall);
         this.blocks = new CrateBlocks(services, this.settings, new CrateBlocks.Actions() {
             @Override
-            public void view(Player player, String crate) {
-                CratesFeature.this.dialogs.crate(player, crate, null);
+            public void view(Player player, String crate, BlockKey block) {
+                CratesFeature.this.dialogs.crate(player, crate, null, block);
             }
 
             @Override
-            public void preview(Player player, String crate) {
-                CratesFeature.this.dialogs.preview(player, crate, null);
+            public void preview(Player player, String crate, BlockKey block) {
+                CratesFeature.this.dialogs.preview(player, crate, null, block);
             }
 
             @Override
@@ -118,6 +118,8 @@ public final class CratesFeature implements Feature, Listener {
                 CratesFeature.this.quickOpen(player, crate);
             }
         });
+        this.decor = new CrateDecor(services.plugin(), services.scheduler(), this.settings, this.blocks::all, services.lang());
+        this.opener.animator(new CrateShows(services, this.settings, this.items, this.text, this.decor));
         this.commands = new CrateCommands(services, this.settings, this.keys, this.dialogs, this.opener, this.blocks, this.keyall,
             log, this.items, this.text, worth);
     }
@@ -164,7 +166,9 @@ public final class CratesFeature implements Feature, Listener {
         // Command rewards whose openings were stored but that had not run when the server stopped run once it is up.
         this.rewardCommands.resume(this.rewardCommands.leftovers());
         Bukkit.getPluginManager().registerEvents(this.blocks, this.services.plugin());
+        Bukkit.getPluginManager().registerEvents(this.decor, this.services.plugin());
         Bukkit.getPluginManager().registerEvents(this, this.services.plugin());
+        this.decor.start();
         this.keyall.start();
         this.settings.onReload(next -> {
             this.blocks.rebuild();
@@ -254,6 +258,7 @@ public final class CratesFeature implements Feature, Listener {
     @Override
     public void disable() {
         this.keyall.stop();
+        this.decor.stop();
         this.pruneTask.cancel();
         try {
             // Let every queued opening commit and register its hand-over (players can no longer receive items: the
@@ -333,6 +338,18 @@ public final class CratesFeature implements Feature, Listener {
                     if (!ItemStack.deserializeBytes(one.serializeAsBytes()).isSimilar(one)) {
                         return crate.id() + "/" + reward.id() + " does not survive storage";
                     }
+                }
+            }
+            return null;
+        });
+        test.check(id(), "the opening animation lands on the reward won", () -> {
+            for (int length : new int[] {20, 80, 200}) {
+                AnimationPlan plan = AnimationPlan.of(length, new double[] {50, 30, 15, 5}, 2, java.util.concurrent.ThreadLocalRandom.current());
+                if (plan.pointed(plan.steps()) != 2) {
+                    return "a " + length + "-tick roll ends on reward " + plan.pointed(plan.steps()) + " instead of the one won";
+                }
+                if (Math.abs(plan.ticks() - length) > AnimationPlan.SLOWEST) {
+                    return "a " + length + "-tick roll takes " + plan.ticks() + " ticks";
                 }
             }
             return null;

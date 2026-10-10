@@ -14,9 +14,19 @@ import java.util.OptionalLong;
  * @param price       shards for one unit
  * @param max         most units per purchase
  * @param permission  needed to see and buy it, or empty for everyone
+ * @param order       where it is listed, lower first
  */
 record ShardOffer(String id, Kind kind, String name, String description, String target, int amount, long price, int max,
-                  String permission) {
+                  String permission, int order) {
+
+    /** Where an offer without an order is listed: after the shipped ones. */
+    static final int DEFAULT_ORDER = 100;
+
+    /** An offer listed at the default place. */
+    ShardOffer(String id, Kind kind, String name, String description, String target, int amount, long price, int max,
+               String permission) {
+        this(id, kind, name, description, target, amount, price, max, permission, DEFAULT_ORDER);
+    }
 
     /** What an offer gives. */
     enum Kind {

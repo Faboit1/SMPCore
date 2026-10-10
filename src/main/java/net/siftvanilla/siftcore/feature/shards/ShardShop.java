@@ -32,8 +32,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * The shard shop: a dialog listing the offers, a purchase dialog per offer (amount slider, a Buy button that names
- * what it buys, a confirmation for large purchases), and the purchase itself.
+ * The shard shop: a dialog listing the offers (one button each, what it is in the button's tooltip, the balance as
+ * the one line above), a purchase dialog per offer (price and balance, an amount slider, a Buy button that names what
+ * it buys, a confirmation for large purchases), and the purchase itself. Every shard amount is in the shards colour;
+ * a key's name is in its crate's colour.
  * <p>
  * Everything is checked again when the player buys (the offer still exists, its price is the one they saw, it is
  * still available to them, the balance covers it), and the price once more inside the transaction. Items: the shards
@@ -122,15 +124,25 @@ final class ShardShop {
         return Optional.of(ItemStack.of(material, 1));
     }
 
-    /** What an offer is called: its configured name, else the item's own name or "<crate> key". */
+    /**
+     * What an offer is called: its configured name (a key offer's in its crate's colour), else the item's own name or
+     * "<crate> key" with the crate's name as players know it, in its colour.
+     */
     Component name(ShardOffer offer) {
+        if (offer.kind() == ShardOffer.Kind.KEY) {
+            Component crate = this.crates.crateName(offer.target());
+            if (!offer.name().isEmpty()) {
+                return Component.text(offer.name(), crate.color());
+            }
+            if (crate.equals(Component.text(offer.target()))) {
+                String id = offer.target();
+                crate = Component.text(id.isEmpty() ? id : id.substring(0, 1).toUpperCase(Locale.ROOT) + id.substring(1).replace('_', ' '));
+            }
+            Component name = this.services.lang().get(ShardsMessages.KEY_NAME, Arg.component("crate", crate));
+            return crate.color() == null ? name : name.color(crate.color());
+        }
         if (!offer.name().isEmpty()) {
             return Component.text(offer.name());
-        }
-        if (offer.kind() == ShardOffer.Kind.KEY) {
-            String crate = offer.target();
-            String label = crate.isEmpty() ? crate : crate.substring(0, 1).toUpperCase(Locale.ROOT) + crate.substring(1).replace('_', ' ');
-            return this.services.lang().get(ShardsMessages.KEY_NAME, Arg.text("crate", label));
         }
         Material material = Material.matchMaterial(offer.target());
         return material == null ? Component.text(offer.target()) : Component.translatable(material.translationKey());
@@ -145,25 +157,36 @@ final class ShardShop {
         }
         Lang lang = this.services.lang();
         long shards = this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS);
-        List<Component> lines = new ArrayList<>(lang.lines(ShardsMessages.SHOP_BODY, Arg.number("shards", shards)));
+        List<Component> lines = new ArrayList<>();
+        lines.add(lang.get(ShardsMessages.SHOP_BALANCE, Arg.shards("amount", shards)));
         List<ShardOffer> offers = visible(player);
         if (offers.isEmpty()) {
             lines.add(lang.get(ShardsMessages.SHOP_EMPTY));
         }
         List<Button> buttons = new ArrayList<>();
         for (ShardOffer offer : offers) {
-            Component tooltip = Component.join(JoinConfiguration.newlines(), lang.lines(ShardsMessages.SHOP_OFFER_TOOLTIP,
-                Arg.text("description", offer.description()), Arg.number("max", offer.max())));
             String id = offer.id();
             Component label = offer.amount() > 1
                 ? lang.get(ShardsMessages.SHOP_OFFER_MANY, Arg.number("amount", offer.amount()), Arg.component("name", name(offer)),
-                    Arg.number("price", offer.price()))
-                : lang.get(ShardsMessages.SHOP_OFFER, Arg.component("name", name(offer)), Arg.number("price", offer.price()));
-            buttons.add(Button.of(label, offer.description().isEmpty() ? null : tooltip,
-                s -> openOffer(s.player(), id, back)).width(Templates.WIDE));
+                    Arg.shards("price", offer.price()))
+                : lang.get(ShardsMessages.SHOP_OFFER, Arg.component("name", name(offer)), Arg.shards("price", offer.price()));
+            buttons.add(Button.of(label, offerTooltip(offer), s -> openOffer(s.player(), id, back)));
         }
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(ShardsMessages.SHOP_TITLE), lines, buttons, 1,
+        this.services.dialogs().show(player, this.services.templates().column(lang.get(ShardsMessages.SHOP_TITLE), lines, buttons,
             back == null ? null : s -> back.run()));
+    }
+
+    /** What an offer is, and how many one purchase may take (when more than one); null when there is nothing to say. */
+    private Component offerTooltip(ShardOffer offer) {
+        Lang lang = this.services.lang();
+        List<Component> lines = new ArrayList<>(2);
+        if (!offer.description().isEmpty()) {
+            lines.add(lang.get(ShardsMessages.SHOP_OFFER_TOOLTIP, Arg.text("description", offer.description())));
+        }
+        if (offer.max() > 1) {
+            lines.add(lang.get(ShardsMessages.SHOP_OFFER_LIMIT, Arg.number("max", offer.max())));
+        }
+        return Templates.lines(lines);
     }
 
     /** Opens the purchase dialog of an offer. Player's thread. */
@@ -185,6 +208,11 @@ final class ShardShop {
         this.services.dialogs().show(player, offerView(player, offer, 1, null, back));
     }
 
+    /**
+     * The purchase dialog: the item (item offers), the price and the balance, the keys of that crate the player has
+     * (key offers), the amount slider when more than one may be bought, and Buy, whose tooltip says what it is and
+     * what one gives.
+     */
     private View offerView(Player player, ShardOffer offer, int amount, Component note, Runnable back) {
         Lang lang = this.services.lang();
         long shards = this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS);
@@ -192,19 +220,8 @@ final class ShardShop {
         List<Body> body = new ArrayList<>();
         Optional<ItemStack> unit = unit(offer);
         unit.ifPresent(item -> body.add(Body.item(item.asQuantity(offer.amount()), null)));
-        List<Component> lines = new ArrayList<>();
-        if (!offer.description().isEmpty()) {
-            lines.add(lang.get(ShardsMessages.BUY_DESCRIPTION, Arg.text("description", offer.description())));
-        }
-        if (offer.amount() > 1) {
-            lines.add(offer.kind() == ShardOffer.Kind.KEY
-                ? lang.get(ShardsMessages.BUY_KEYS, Arg.number("keys", offer.amount()))
-                : lang.get(ShardsMessages.BUY_ITEMS, Arg.number("items", offer.amount())));
-        }
-        lines.addAll(lang.lines(ShardsMessages.BUY_BODY, Arg.number("price", offer.price()), Arg.number("shards", shards)));
-        if (offer.max() > 1) {
-            lines.add(lang.get(ShardsMessages.BUY_MAX, Arg.number("max", offer.max())));
-        }
+        List<Component> lines = new ArrayList<>(lang.lines(ShardsMessages.BUY_BODY, Arg.shards("price", offer.price()),
+            Arg.shards("balance", shards)));
         if (offer.kind() == ShardOffer.Kind.KEY) {
             lines.add(lang.get(ShardsMessages.BUY_OWNED, Arg.number("keys", this.crates.keys(player.getUniqueId(), offer.target()))));
         }
@@ -218,8 +235,17 @@ final class ShardShop {
         }
         String id = offer.id();
         long price = offer.price();
-        Button buy = Button.of(lang.get(ShardsMessages.BUY_BUTTON, Arg.number("amount", amount), Arg.number("total", total)),
-            s -> onBuy(s, id, price, amount, back)).width(150);
+        List<Component> tooltip = new ArrayList<>(2);
+        if (!offer.description().isEmpty()) {
+            tooltip.add(lang.get(ShardsMessages.SHOP_OFFER_TOOLTIP, Arg.text("description", offer.description())));
+        }
+        if (offer.amount() > 1) {
+            tooltip.add(offer.kind() == ShardOffer.Kind.KEY
+                ? lang.get(ShardsMessages.BUY_GIVES_KEYS, Arg.number("keys", offer.amount()))
+                : lang.get(ShardsMessages.BUY_GIVES_ITEMS, Arg.number("items", offer.amount())));
+        }
+        Button buy = Button.of(lang.get(ShardsMessages.BUY_BUTTON, Arg.number("amount", amount), Arg.shards("total", total)),
+            Templates.lines(tooltip), s -> onBuy(s, id, price, amount, back)).width(150);
         Button backButton = Button.of(lang.get(CoreMessages.UI_BACK), s -> open(s.player(), back)).width(150);
         return new View(View.Kind.FORM, lang.get(ShardsMessages.BUY_TITLE, Arg.component("name", name(offer))), body, inputs,
             List.of(buy, backButton), null, 2, true);
@@ -238,7 +264,7 @@ final class ShardShop {
         int wanted = offer.max() > 1 ? ShardOffer.clampUnits(s.values().number(AMOUNT), offer.max()) : 1;
         Lang lang = this.services.lang();
         if (offer.price() != price) {
-            showError(s, offer, wanted, lang.get(ShardsMessages.BUY_PRICE_CHANGED, Arg.number("price", offer.price())), back);
+            showError(s, offer, wanted, lang.get(ShardsMessages.BUY_PRICE_CHANGED, Arg.shards("price", offer.price())), back);
             return;
         }
         if (wanted != amount) {
@@ -252,7 +278,7 @@ final class ShardShop {
         Lang lang = this.services.lang();
         long shards = this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS);
         List<Component> lines = lang.lines(ShardsMessages.CONFIRM_BODY, Arg.number("count", offer.given(amount)),
-            Arg.component("name", name(offer)), Arg.number("total", total), Arg.number("left", ShardMath.left(shards, total)));
+            Arg.component("name", name(offer)), Arg.shards("total", total), Arg.shards("left", ShardMath.left(shards, total)));
         String id = offer.id();
         long price = offer.price();
         return this.services.templates().confirm(lang.get(ShardsMessages.CONFIRM_TITLE), lines, lang.get(ShardsMessages.CONFIRM_BUTTON),
@@ -277,7 +303,7 @@ final class ShardShop {
         }
         if (offer.price() != price || amount > offer.max()) {
             showError(s, offer, Math.min(amount, offer.max()),
-                this.services.lang().get(ShardsMessages.BUY_PRICE_CHANGED, Arg.number("price", offer.price())), back);
+                this.services.lang().get(ShardsMessages.BUY_PRICE_CHANGED, Arg.shards("price", offer.price())), back);
             return;
         }
         buy(s, offer, amount, true, back);
@@ -313,7 +339,7 @@ final class ShardShop {
         long total = maybeTotal.getAsLong();
         long balance = this.services.ledger().balance(uuid, Currency.SHARDS);
         if (balance < total) {
-            showError(s, offer, amount, lang.get(ShardsMessages.BUY_NOT_ENOUGH, Arg.number("total", total), Arg.number("shards", balance)), back);
+            showError(s, offer, amount, lang.get(ShardsMessages.BUY_NOT_ENOUGH, Arg.shards("total", total), Arg.shards("balance", balance)), back);
             return;
         }
         if (!confirmed && ShardMath.needsConfirmation(total, this.services.settings().get(uuid, ShardsFeature.CONFIRM_ABOVE),
@@ -386,9 +412,9 @@ final class ShardShop {
         }
         switch (outcome) {
             case GRANTED -> this.services.messenger().send(player, ShardsMessages.BOUGHT_KEYS, Arg.number("count", purchase.keys()),
-                Arg.component("name", name), Arg.number("total", purchase.cost()));
+                Arg.component("name", name), Arg.shards("total", purchase.cost()));
             case REFUNDED -> this.services.messenger().send(player, ShardsMessages.REFUNDED, Arg.number("count", purchase.keys()),
-                Arg.component("name", name), Arg.number("total", purchase.cost()));
+                Arg.component("name", name), Arg.shards("total", purchase.cost()));
             case PENDING, FINISHED -> {
             }
         }
@@ -432,10 +458,10 @@ final class ShardShop {
             this.services.scheduler().entity(player, () -> this.handouts.claim(player, ref, (given, left) -> {
                 if (left > 0) {
                     this.services.messenger().send(player, ShardsMessages.BOUGHT_CLAIM_BOX, Arg.number("count", items),
-                        Arg.component("name", name), Arg.number("total", total), Arg.number("left", left));
+                        Arg.component("name", name), Arg.shards("total", total), Arg.number("left", left));
                 } else {
                     this.services.messenger().send(player, ShardsMessages.BOUGHT, Arg.number("count", items), Arg.component("name", name),
-                        Arg.number("total", total));
+                        Arg.shards("total", total));
                 }
             }), null);
         });
@@ -463,8 +489,8 @@ final class ShardShop {
             case SUCCESS -> {
                 return true;
             }
-            case INSUFFICIENT_FUNDS -> showError(s, offer, amount, lang.get(ShardsMessages.BUY_NOT_ENOUGH, Arg.number("total", total),
-                Arg.number("shards", this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS))), back);
+            case INSUFFICIENT_FUNDS -> showError(s, offer, amount, lang.get(ShardsMessages.BUY_NOT_ENOUGH, Arg.shards("total", total),
+                Arg.shards("balance", this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS))), back);
             case REJECTED -> {
                 ShardOffer now = this.settings.get().offer(offer.id());
                 if (now == null) {
@@ -472,7 +498,7 @@ final class ShardShop {
                     this.services.messenger().send(player, ShardsMessages.NO_LONGER_SOLD);
                 } else {
                     showError(s, now, Math.min(amount, now.max()),
-                        lang.get(ShardsMessages.BUY_PRICE_CHANGED, Arg.number("price", now.price())), back);
+                        lang.get(ShardsMessages.BUY_PRICE_CHANGED, Arg.shards("price", now.price())), back);
                 }
             }
             case CANCELLED -> {

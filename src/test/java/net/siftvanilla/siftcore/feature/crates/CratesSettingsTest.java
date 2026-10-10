@@ -32,10 +32,19 @@ class CratesSettingsTest {
             "minecraft:netherite_scrap", "minecraft:diamond_helmet", "minecraft:diamond_leggings", "minecraft:diamond_boots",
             "minecraft:enchanted_golden_apple", "minecraft:elytra", "minecraft:shulker_box", "minecraft:netherite_ingot",
             "minecraft:netherite_sword", "minecraft:netherite_pickaxe", "minecraft:netherite_chestplate", "minecraft:beacon",
-            "minecraft:name_tag", "minecraft:stone"),
-        Map.of("minecraft:efficiency", 5, "minecraft:unbreaking", 3, "minecraft:protection", 4, "minecraft:fortune", 3,
-            "minecraft:sharpness", 5, "minecraft:mending", 1, "minecraft:looting", 3, "minecraft:feather_falling", 4),
-        Set.of("minecraft:zombie", "minecraft:skeleton", "minecraft:blaze"),
+            "minecraft:name_tag", "minecraft:stone", "minecraft:ender_pearl", "minecraft:barrel", "minecraft:iron_block",
+            "minecraft:gold_block", "minecraft:purple_shulker_box", "minecraft:respawn_anchor", "minecraft:netherite_helmet",
+            "minecraft:netherite_leggings", "minecraft:netherite_boots", "minecraft:netherite_block", "minecraft:end_crystal",
+            "minecraft:light_gray_stained_glass_pane", "minecraft:lime_stained_glass_pane", "minecraft:light_blue_stained_glass_pane",
+            "minecraft:purple_stained_glass_pane", "minecraft:orange_stained_glass_pane", "minecraft:red_stained_glass_pane",
+            "minecraft:cyan_stained_glass_pane"),
+        Map.ofEntries(Map.entry("minecraft:efficiency", 5), Map.entry("minecraft:unbreaking", 3), Map.entry("minecraft:protection", 4),
+            Map.entry("minecraft:fortune", 3), Map.entry("minecraft:sharpness", 5), Map.entry("minecraft:mending", 1),
+            Map.entry("minecraft:looting", 3), Map.entry("minecraft:feather_falling", 4), Map.entry("minecraft:respiration", 3),
+            Map.entry("minecraft:aqua_affinity", 1), Map.entry("minecraft:depth_strider", 3), Map.entry("minecraft:fire_aspect", 2),
+            Map.entry("minecraft:sweeping_edge", 3), Map.entry("minecraft:thorns", 3), Map.entry("minecraft:swift_sneak", 3),
+            Map.entry("minecraft:soul_speed", 3)),
+        Set.of("minecraft:zombie", "minecraft:skeleton", "minecraft:blaze", "minecraft:enderman", "minecraft:iron_golem"),
         Set.of("world", "world_nether"));
 
     static YamlConfiguration yaml(String text) throws Exception {
@@ -94,19 +103,42 @@ class CratesSettingsTest {
         List<ConfigProblem> problems = new ArrayList<>();
         CratesSettings settings = parse(bundled(), problems);
         assertEquals(List.of(), problems);
-        assertEquals(List.of("basic", "rare", "epic", "legendary"), settings.crates().stream().map(Crate::id).toList());
-        assertEquals(List.of("common", "uncommon", "rare", "epic", "legendary"), settings.rarities().stream().map(Rarity::id).toList());
+        assertEquals(List.of("basic", "uncommon", "rare", "epic", "legendary", "mythic", "celestial"),
+            settings.crates().stream().map(Crate::id).toList(), "seven tiers, from the lowest up");
+        assertEquals(List.of("Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Celestial"),
+            settings.crates().stream().map(Crate::name).toList(), "the basic crate keeps its id and is called Common");
+        assertEquals(List.of(1, 2, 3, 4, 5, 6, 7), settings.crates().stream().map(Crate::tier).toList());
+        assertEquals(List.of("common", "uncommon", "rare", "epic", "legendary", "mythic", "celestial"),
+            settings.rarities().stream().map(Rarity::id).toList());
+        assertEquals(7, settings.rarities().stream().map(Rarity::color).distinct().count(), "every rarity has its own colour");
+        assertEquals(7, settings.rarities().stream().map(Rarity::glass).distinct().count(), "and its own glass");
+        assertEquals(7, settings.crates().stream().map(Crate::color).distinct().count(), "every crate has its own colour");
         for (Crate crate : settings.crates()) {
             double total = crate.rewards().stream().mapToDouble(Reward::weight).sum();
             assertEquals(100.0, total, 1e-9, crate.id() + " weights add up to 100, so weights read as percentages");
+            assertTrue(crate.rewards().size() >= 10 && crate.rewards().size() <= 20, crate.id() + " has 10 to 20 rewards");
             assertTrue(crate.rewards().stream().anyMatch(r -> r.kind() instanceof Reward.Money), crate.id() + " pays some money");
             assertTrue(crate.rewards().stream().anyMatch(r -> r.kind() instanceof Reward.Shards), crate.id() + " pays some shards");
             assertTrue(crate.rewards().stream().anyMatch(r -> r.kind() instanceof Reward.Keys), crate.id() + " can give keys");
+            Crate next = settings.nextTier(crate);
+            if (next != null) {
+                assertTrue(crate.rewards().stream().anyMatch(r -> r.kind() instanceof Reward.Keys k && k.crate().equals(next.id())),
+                    crate.id() + " has a chance of a " + next.id() + " key, so the lower crates lead upward");
+            }
+            assertEquals(crate.color(), settings.rarities().get(crate.tier() - 1).color(), crate.id() + " has its tier's rarity colour");
         }
+        assertEquals(null, settings.nextTier(settings.crate("celestial")), "Celestial is the top");
+        CratesSettings.Effects effects = settings.effects();
+        assertTrue(effects.holograms());
+        assertEquals(16, effects.particleRange());
+        assertTrue(effects.animation().enabled());
+        assertEquals(Duration.ofSeconds(4), effects.animation().length());
+        assertEquals(Duration.ofSeconds(2), effects.animation().reveal());
+        assertEquals("minecraft:ui.toast.challenge_complete", effects.animation().bigReveal().name().asString());
         CratesSettings.Keyall keyall = settings.keyall();
         assertTrue(keyall.enabled());
         assertEquals(Duration.ofHours(4), keyall.interval());
-        assertEquals("basic", keyall.crate());
+        assertEquals("uncommon", keyall.crate(), "the keyall gives an Uncommon key");
         assertEquals(1, keyall.amount());
         assertEquals(List.of(Duration.ofMinutes(5), Duration.ofMinutes(1)), keyall.chatAt());
         assertEquals(Duration.ofSeconds(10), keyall.actionBarFrom());
@@ -117,19 +149,25 @@ class CratesSettingsTest {
         assertFalse(keyall.includeVanished());
         assertEquals(Duration.ofDays(90), settings.rememberGrants());
         assertTrue(settings.rarity("legendary").announce());
+        assertFalse(settings.rarity("epic").announce(), "epic wins are too common in the high crates to announce");
+        assertTrue(settings.rarity("celestial").announce());
         assertFalse(settings.rarity("uncommon").audit());
-        assertTrue(settings.rarity("rare").audit());
+        assertTrue(settings.rarity("epic").audit());
 
         Reward pickaxe = settings.crate("basic").reward("pickaxe");
         Reward.Item item = assertInstanceOf(Reward.Item.class, pickaxe.kind());
         assertEquals("minecraft:iron_pickaxe", item.item());
-        assertEquals(Map.of("minecraft:efficiency", 3, "minecraft:unbreaking", 2), item.enchants());
+        assertEquals(Map.of("minecraft:efficiency", 4, "minecraft:unbreaking", 3), item.enchants());
         Reward money = settings.crate("basic").reward("money-small");
-        assertEquals("$750", money.display());
+        assertEquals("$1,000", money.display());
         assertFalse(money.customDisplay());
+        assertEquals("1 Uncommon key", settings.crate("basic").reward("uncommon-key").display());
         assertEquals("1 Rare key", settings.crate("basic").reward("rare-key").display());
-        assertEquals("3 Basic keys", settings.crate("rare").reward("basic-keys").display());
-        assertEquals("10 shards", settings.crate("basic").reward("shards").display());
+        assertEquals("3 Common keys", settings.crate("rare").reward("basic-keys").display());
+        assertEquals("15 shards", settings.crate("basic").reward("shards").display());
+        Reward.Item blade = assertInstanceOf(Reward.Item.class, settings.crate("celestial").reward("blade").kind());
+        assertEquals("Celestial blade", blade.name());
+        assertEquals("celestial", settings.crate("celestial").reward("blade").rarity());
         Reward spawner = settings.crate("legendary").reward("blaze-spawner");
         assertEquals("blaze", assertInstanceOf(Reward.Spawner.class, spawner.kind()).mobId());
     }

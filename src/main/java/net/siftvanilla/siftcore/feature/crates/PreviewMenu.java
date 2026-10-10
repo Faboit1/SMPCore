@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.siftvanilla.siftcore.core.config.Setting;
@@ -25,9 +26,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * A crate's rewards with their chances. Every reward that can currently be won is shown with its chance (the shown
- * chances add up to exactly 100%), its rarity and, for items, what the server pays for them. Slot 50 opens a key
- * right here; the menu is locked while that opening is stored.
+ * A crate's rewards with their chances. Every reward that can currently be won is shown, named in its rarity's colour,
+ * with its chance (the shown chances add up to exactly 100%), its rarity and, for items, what the server pays for
+ * them. They are sorted by rarity (most common first) unless the player picks another order. Slot 50 opens a key right
+ * here (with the opening animation when the server has it on, after which the preview comes back); the menu is locked
+ * while that opening is stored.
  */
 final class PreviewMenu extends PagedMenu<Reward> {
 
@@ -39,6 +42,7 @@ final class PreviewMenu extends PagedMenu<Reward> {
     private final CrateText text;
     private final WorthLookup worth;
     private final PlayerSettings prefs;
+    private final BlockKey block;
     private final Cycle<Comparator<Reward>> sort;
     private String savedSort;
     private Map<String, Long> chances = Map.of();
@@ -46,15 +50,18 @@ final class PreviewMenu extends PagedMenu<Reward> {
     /** The remembered sort of preview menus (a free per-player value, not a setting). */
     static final String SORT_SETTING = "crate-preview-sort";
 
-    /** @param prefs the players' settings (Keys per bulk open sets what a right-click opens; the remembered sort) */
+    /**
+     * @param prefs the players' settings (Keys per bulk open sets what a right-click opens; the remembered sort)
+     * @param block the crate block it was opened at (an opening from here spins up out of it), or null
+     */
     PreviewMenu(MenuContext ctx, Player viewer, Crate crate, Setting<CratesSettings> settings, RewardItems items, KeyService keys,
-                CrateOpener opener, CrateText text, WorthLookup worth, PlayerSettings prefs, Runnable back) {
-        this(ctx, viewer, crate, settings, items, keys, opener, text, worth, prefs, back,
-            sort(ctx.lang(), prefs.raw(viewer.getUniqueId(), SORT_SETTING, "order")));
+                CrateOpener opener, CrateText text, WorthLookup worth, PlayerSettings prefs, Runnable back, BlockKey block) {
+        this(ctx, viewer, crate, settings, items, keys, opener, text, worth, prefs, back, block,
+            sort(ctx.lang(), settings::get, prefs.raw(viewer.getUniqueId(), SORT_SETTING, "order")));
     }
 
     private PreviewMenu(MenuContext ctx, Player viewer, Crate crate, Setting<CratesSettings> settings, RewardItems items, KeyService keys,
-                        CrateOpener opener, CrateText text, WorthLookup worth, PlayerSettings prefs, Runnable back,
+                        CrateOpener opener, CrateText text, WorthLookup worth, PlayerSettings prefs, Runnable back, BlockKey block,
                         Cycle<Comparator<Reward>> sort) {
         super(ctx, viewer, Component.text(ctx.lang().plain(CratesMessages.PREVIEW_TITLE, Arg.text("name", crate.name()))),
             sort, null, back);
@@ -66,17 +73,23 @@ final class PreviewMenu extends PagedMenu<Reward> {
         this.text = text;
         this.worth = worth;
         this.prefs = prefs;
+        this.block = block;
         this.sort = sort;
         this.savedSort = sort.selected().id();
     }
 
-    private static Cycle<Comparator<Reward>> sort(Lang lang, String initial) {
+    /**
+     * The orders: by rarity (most common first; the stored id {@code order} keeps players' earlier pick), most likely
+     * first, rarest first.
+     */
+    private static Cycle<Comparator<Reward>> sort(Lang lang, Supplier<CratesSettings> settings, String initial) {
+        Comparator<Reward> byRarity = Comparator.comparingInt(reward -> settings.get().rank(reward.rarity()));
         return new Cycle<>(List.of(
-            new Cycle.Option<Comparator<Reward>>("order", lang.get(CratesMessages.PREVIEW_SORT_ORDER), (a, b) -> 0),
+            new Cycle.Option<Comparator<Reward>>("order", lang.get(CratesMessages.PREVIEW_SORT_ORDER), byRarity),
             new Cycle.Option<Comparator<Reward>>("likely", lang.get(CratesMessages.PREVIEW_SORT_LIKELY),
                 Comparator.comparingDouble(Reward::weight).reversed()),
             new Cycle.Option<Comparator<Reward>>("rarest", lang.get(CratesMessages.PREVIEW_SORT_RAREST),
-                Comparator.comparingDouble(Reward::weight))), initial);
+                byRarity.reversed().thenComparingDouble(Reward::weight))), initial);
     }
 
     /** The next preview opens with the sort the player last picked. */
@@ -117,12 +130,12 @@ final class PreviewMenu extends PagedMenu<Reward> {
     @Override
     protected ItemStack icon(Reward reward) {
         Lang lang = this.ctx.lang();
+        Rarity rarity = this.settings.get().rarity(reward.rarity());
         List<Component> lore = new ArrayList<>();
         lore.add(lang.get(CratesMessages.PREVIEW_CHANCE, Arg.text("chance", Chances.format(this.chances.getOrDefault(reward.id(), 0L)))));
-        lore.add(lang.get(CratesMessages.PREVIEW_RARITY, Arg.text("rarity", this.settings.get().rarity(reward.rarity()).label())));
+        lore.add(lang.get(CratesMessages.PREVIEW_RARITY, Arg.component("rarity", CrateText.rarity(rarity))));
         if (reward.kind() instanceof Reward.Keys keys) {
-            Crate target = this.settings.get().crate(keys.crate());
-            lore.add(lang.get(CratesMessages.PREVIEW_OPENS, Arg.text("name", target == null ? keys.crate() : target.name())));
+            lore.add(lang.get(CratesMessages.PREVIEW_OPENS, Arg.component("name", this.text.name(keys.crate()))));
         }
         ItemStack icon = this.items.icon(reward);
         if (RewardItems.showsOwnItem(reward)) {
@@ -130,7 +143,13 @@ final class PreviewMenu extends PagedMenu<Reward> {
             if (value > 0) {
                 lore.add(lang.get(CratesMessages.PREVIEW_WORTH, Arg.money("worth", value)));
             }
-            return Items.display(icon, lore);
+            ItemStack shown = Items.display(icon, lore);
+            if (shown.getData(DataComponentTypes.CUSTOM_NAME) == null) {
+                // A plain item reads as its reward, in its rarity's colour; named rewards keep their (coloured) name.
+                shown.setData(DataComponentTypes.CUSTOM_NAME, lang.get(CratesMessages.PREVIEW_NAME,
+                    Arg.component("reward", this.text.reward(reward))).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
+            }
+            return shown;
         }
         icon.setData(DataComponentTypes.CUSTOM_NAME, lang.get(CratesMessages.PREVIEW_NAME, Arg.component("reward", this.text.reward(reward)))
             .decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
@@ -166,7 +185,7 @@ final class PreviewMenu extends PagedMenu<Reward> {
         int many = CratePlayerSettings.bulkAmount(this.prefs.get(this.viewer, CratePlayerSettings.BULK_AMOUNT), owned,
             this.settings.get().bulkOpen());
         List<Component> lore = new ArrayList<>(lang.lines(CratesMessages.PREVIEW_OPEN_LORE,
-            Arg.component("keys", this.text.keys(owned, crate.name()))));
+            Arg.component("keys", this.text.keys(owned, crate))));
         if (many >= 2) {
             lore.addAll(lang.lines(CratesMessages.PREVIEW_OPEN_MANY_LORE, Arg.number("count", many)));
         }
@@ -174,19 +193,27 @@ final class PreviewMenu extends PagedMenu<Reward> {
             click -> open(click, click.right() && many >= 2 ? many : 1));
     }
 
-    /** Opens one key (left click) or several in a row (right click); the menu is locked until they are stored. */
+    /**
+     * Opens one key (left click, with the animation when the server has it on, after which this preview opens again) or
+     * several in a row (right click, never animated); the menu is locked until they are stored.
+     */
     private void open(ClickContext click, int count) {
         if (!lock()) {
             return;
         }
         click(Feedback.CLICK);
         if (count == 1) {
-            this.opener.open(this.viewer, this.crateId, false, result -> {
+            boolean animated = this.settings.get().effects().animation().enabled();
+            this.opener.open(this.viewer, this.crateId, false, new CrateOpener.Show(animated, this.block), result -> {
                 unlock();
                 if (result instanceof CrateOpener.Refused refused) {
                     this.opener.report(this.viewer, refused);
                 }
-                redraw();
+                if (animated && result instanceof CrateOpener.Won) {
+                    open();
+                } else {
+                    redraw();
+                }
             });
             return;
         }

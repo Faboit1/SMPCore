@@ -84,14 +84,14 @@ final class ShardsCommands {
                         Optional<UUID> target = this.support.known(ctx, "player");
                         target.ifPresent(uuid -> messenger().chat(ctx.getSource().getSender(), ShardsMessages.BALANCE_OTHER,
                             Arg.text("name", this.services.directory().name(uuid)),
-                            Arg.number("shards", this.services.ledger().balance(uuid, Currency.SHARDS))));
+                            Arg.shards("amount", this.services.ledger().balance(uuid, Currency.SHARDS))));
                         return CommandSupport.OK;
                     })));
     }
 
     private void showOwn(Player player) {
         messenger().chat(player, ShardsMessages.BALANCE_SELF,
-            Arg.number("shards", this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS)));
+            Arg.shards("amount", this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS)));
         messenger().chat(player, ShardsMessages.BALANCE_EARN);
     }
 
@@ -138,7 +138,7 @@ final class ShardsCommands {
             case "give" -> tx.source(uuid, Currency.SHARDS, amount, "admin_give", null);
             case "take" -> {
                 if (current < amount) {
-                    messenger().chat(sender, ShardsMessages.ADMIN_NOT_ENOUGH, Arg.text("name", name), Arg.number("balance", current));
+                    messenger().chat(sender, ShardsMessages.ADMIN_NOT_ENOUGH, Arg.text("name", name), Arg.shards("balance", current));
                     return CommandSupport.OK;
                 }
                 tx.sink(uuid, Currency.SHARDS, amount, "admin_take", null);
@@ -146,7 +146,7 @@ final class ShardsCommands {
             default -> {
                 long delta = amount - current;
                 if (delta == 0) {
-                    messenger().chat(sender, ShardsMessages.ADMIN_SET, Arg.text("name", name), Arg.number("amount", amount));
+                    messenger().chat(sender, ShardsMessages.ADMIN_SET, Arg.text("name", name), Arg.shards("amount", amount));
                     return CommandSupport.OK;
                 }
                 if (delta > 0) {
@@ -173,16 +173,16 @@ final class ShardsCommands {
         long balance = this.services.ledger().balance(uuid, Currency.SHARDS);
         switch (action) {
             case "give" -> {
-                messenger().chat(sender, ShardsMessages.ADMIN_GIVEN, Arg.text("name", name), Arg.number("amount", amount),
-                    Arg.number("balance", balance));
+                messenger().chat(sender, ShardsMessages.ADMIN_GIVEN, Arg.text("name", name), Arg.shards("amount", amount),
+                    Arg.shards("balance", balance));
                 Player online = Bukkit.getPlayer(uuid);
                 if (online != null && online != sender) {
-                    messenger().send(online, ShardsMessages.RECEIVED, Arg.number("amount", amount), Arg.number("balance", balance));
+                    messenger().send(online, ShardsMessages.RECEIVED, Arg.shards("amount", amount), Arg.shards("balance", balance));
                 }
             }
-            case "take" -> messenger().chat(sender, ShardsMessages.ADMIN_TAKEN, Arg.text("name", name), Arg.number("amount", amount),
-                Arg.number("balance", balance));
-            default -> messenger().chat(sender, ShardsMessages.ADMIN_SET, Arg.text("name", name), Arg.number("amount", amount));
+            case "take" -> messenger().chat(sender, ShardsMessages.ADMIN_TAKEN, Arg.text("name", name), Arg.shards("amount", amount),
+                Arg.shards("balance", balance));
+            default -> messenger().chat(sender, ShardsMessages.ADMIN_SET, Arg.text("name", name), Arg.shards("amount", amount));
         }
         this.services.audit().record(actor, "shards." + action, uuid.toString(), Long.toString(amount));
         return CommandSupport.OK;
@@ -195,7 +195,7 @@ final class ShardsCommands {
         for (KeyGrants.Purchase purchase : pending) {
             messenger().chat(sender, ShardsMessages.ADMIN_PENDING_LINE, Arg.text("name", this.services.directory().name(purchase.player())),
                 Arg.number("keys", purchase.keys()), Arg.text("crate", purchase.crate().toLowerCase(Locale.ROOT)),
-                Arg.number("cost", purchase.cost()), Arg.time("ago", Duration.ofMillis(Math.max(0, now - purchase.created()))));
+                Arg.shards("cost", purchase.cost()), Arg.time("ago", Duration.ofMillis(Math.max(0, now - purchase.created()))));
         }
         if (retry && !pending.isEmpty()) {
             messenger().chat(sender, ShardsMessages.ADMIN_PENDING_RETRY);

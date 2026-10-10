@@ -130,11 +130,11 @@ final class Keyall {
         return KeyallClock.remaining(this.nextRun, System.currentTimeMillis());
     }
 
-    /** {@code 1 Basic key}: what the scheduled keyall gives, or null when its crate is unknown. */
+    /** {@code 1 Uncommon key}: what the scheduled keyall gives, or null when its crate is unknown. */
     Component reward() {
         CratesSettings settings = this.settings.get();
         Crate crate = settings.crate(settings.keyall().crate());
-        return crate == null ? null : this.text.keys(settings.keyall().amount(), crate.name());
+        return crate == null ? null : this.text.keys(settings.keyall().amount(), crate);
     }
 
     /** Moves the next scheduled keyall to {@code delay} from now (staff). */
@@ -235,7 +235,7 @@ final class Keyall {
                 this.logger.warning("Keyall keys for " + player.getName() + " were not given: " + result.status() + " " + result.reason());
             }
         }
-        Component keys = this.text.keys(amount, target.name());
+        Component keys = this.text.keys(amount, target);
         if (given > 0) {
             this.services.messenger().broadcast(CratesMessages.KEYALL_DONE, Arg.component("keys", keys));
             // Players left out for being AFK are told why, so the broadcast doesn't read like a mistake.

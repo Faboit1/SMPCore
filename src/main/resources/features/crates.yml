@@ -83,7 +83,9 @@ effects:
 # Rarity tiers, in order from most common to rarest. Every reward names one (the first one is the default).
 #   label:    the plain text shown in the preview and in the result (no tags or colour codes).
 #   color:    the rarity's colour, as a hex colour like "#FFB12E": the reward's name in the preview, the result, the
-#             receipt and announcements, and the glass of the opening animation when it shows the reward.
+#             receipt and announcements.
+#   glass:    the glass the opening animation shows around a reward of this rarity (any item, usually a stained glass
+#             pane); without it, the pane closest to the colour.
 #   audit:    wins of this rarity are also written to the audit log (every win is always in the crate log).
 #   announce: wins of this rarity are announced in chat to everyone (never for vanished staff). Each player picks
 #             in /settings whether they see every announced win, only the rarest rarity's, or none.
@@ -91,36 +93,43 @@ rarities:
   common:
     label: "Common"
     color: "#C8C8C8"
+    glass: light_gray_stained_glass_pane
     audit: false
     announce: false
   uncommon:
     label: "Uncommon"
     color: "#5BE36B"
+    glass: lime_stained_glass_pane
     audit: false
     announce: false
   rare:
     label: "Rare"
     color: "#4DA6FF"
+    glass: light_blue_stained_glass_pane
     audit: false
     announce: false
   epic:
     label: "Epic"
     color: "#C65BFF"
+    glass: purple_stained_glass_pane
     audit: true
     announce: false
   legendary:
     label: "Legendary"
     color: "#FFB12E"
+    glass: orange_stained_glass_pane
     audit: true
     announce: true
   mythic:
     label: "Mythic"
     color: "#FF4D6A"
+    glass: red_stained_glass_pane
     audit: true
     announce: true
   celestial:
     label: "Celestial"
     color: "#6FF3FF"
+    glass: cyan_stained_glass_pane
     audit: true
     announce: true
 

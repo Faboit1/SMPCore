@@ -295,8 +295,12 @@ class KeyServiceTest {
         assertEquals("3 basic keys", TextStyle.plain(CrateKeys.NONE.keysText("basic", 3)));
         assertEquals("1 basic key", TextStyle.plain(service().keysText("basic", 1)), "no wording given: the default");
         KeyService worded = new KeyService(this.ledger, this.database, () -> CRATES, this.clock::get,
-            (crate, amount) -> Component.text(amount == 1 ? "1 Basic key" : amount + " Basic keys"));
+            (crate, amount) -> Component.text(amount == 1 ? "1 Basic key" : amount + " Basic keys"),
+            crate -> Component.text("Common", net.kyori.adventure.text.format.TextColor.color(0xC8C8C8)));
         assertEquals("1 Basic key", TextStyle.plain(worded.keysText("basic", 1)));
         assertEquals("2 Basic keys", TextStyle.plain(CrateKeys.late(() -> worded).keysText("basic", 2)), "late keys pass it on");
+        assertEquals("basic", TextStyle.plain(CrateKeys.NONE.crateName("basic")), "without the crates feature: the id");
+        assertEquals("Common", TextStyle.plain(CrateKeys.late(() -> worded).crateName("basic")), "the crate's name, passed on");
+        assertEquals(0xC8C8C8, CrateKeys.late(() -> worded).crateName("basic").color().value(), "in the crate's colour");
     }
 }

@@ -141,7 +141,7 @@ final class CrateCommands {
                 .then(crateArgument().executes(ctx -> asPlayer(ctx, player -> {
                     Crate crate = crate(ctx);
                     if (crate != null) {
-                        this.dialogs.preview(player, crate.id(), null);
+                        this.dialogs.preview(player, crate.id(), null, null);
                     }
                 }))))
             .then(Commands.literal("give").requires(CommandSupport.permission(admin))
@@ -231,7 +231,7 @@ final class CrateCommands {
         String actor = actor(sender);
         TransactionResult result = this.keys.give(uuid, crate.id(), amount, actor, ref);
         String name = this.services.directory().name(uuid);
-        Component given = this.text.keys(amount, crate.name());
+        Component given = this.text.keys(amount, crate);
         if (!result.success()) {
             reportFailure(sender, result, ref, uuid, crate);
             return CommandSupport.OK;
@@ -259,7 +259,7 @@ final class CrateCommands {
             case KeyService.DUPLICATE -> messenger().chat(sender, CratesMessages.DUPLICATE, Arg.text("ref", ref == null ? "" : ref));
             case KeyService.NOT_ENOUGH -> messenger().chat(sender, CratesMessages.NOT_ENOUGH,
                 Arg.text("player", this.services.directory().name(player)),
-                Arg.component("keys", this.text.keys(this.keys.keys(player, crate.id()), crate.name())));
+                Arg.component("keys", this.text.keys(this.keys.keys(player, crate.id()), crate)));
             default -> messenger().chat(sender, CratesMessages.FAILED, Arg.text("reason", reason.replace('_', ' ')));
         }
     }
@@ -286,7 +286,7 @@ final class CrateCommands {
                 return;
             }
             messenger().chat(sender, CratesMessages.TAKEN, Arg.text("player", name),
-                Arg.component("keys", this.text.keys(amount, crate.name())), Arg.number("total", this.keys.keys(uuid, crate.id())));
+                Arg.component("keys", this.text.keys(amount, crate)), Arg.number("total", this.keys.keys(uuid, crate.id())));
             this.services.audit().record(actor, "crates.take", uuid.toString(), "crate=" + crate.id() + " amount=" + amount);
         });
         return CommandSupport.OK;
@@ -376,7 +376,7 @@ final class CrateCommands {
             for (int i = 0; i < available.size(); i++) {
                 Reward reward = available.get(i);
                 messenger().chat(sender, CratesMessages.INFO_LINE, Arg.text("chance", Chances.format(chances[i])),
-                    Arg.component("reward", this.text.reward(reward)), Arg.text("rarity", settings.rarity(reward.rarity()).label()));
+                    Arg.component("reward", this.text.reward(reward)), Arg.component("rarity", CrateText.rarity(settings.rarity(reward.rarity()))));
             }
         }
         ExpectedValue value = ExpectedValue.of(available, reward -> this.items.build(reward).map(this.worth::price).orElse(0L));
@@ -568,7 +568,7 @@ final class CrateCommands {
             messenger().chat(sender, CratesMessages.KEYALL_NOBODY);
         } else {
             messenger().chat(sender, CratesMessages.KEYALL_RAN, Arg.number("count", run.given()),
-                Arg.component("keys", this.text.keys(amount, crate.name())));
+                Arg.component("keys", this.text.keys(amount, crate)));
         }
         return CommandSupport.OK;
     }

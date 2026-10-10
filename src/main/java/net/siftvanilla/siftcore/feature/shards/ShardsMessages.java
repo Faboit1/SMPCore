@@ -2,11 +2,14 @@ package net.siftvanilla.siftcore.feature.shards;
 
 import net.siftvanilla.siftcore.core.text.MessageKey;
 
-/** Text of the shards feature ({@code lang/shards.yml}). */
+/**
+ * Text of the shards feature ({@code lang/shards.yml}). Shard amounts are {@code Arg.shards} (purple); a placeholder is
+ * never called {@code shards}, so {@code <shards>} stays the colour tag in every message.
+ */
 public final class ShardsMessages {
 
-    public static final MessageKey BALANCE_SELF = MessageKey.chat("shards.balance.self", "shards");
-    public static final MessageKey BALANCE_OTHER = MessageKey.chat("shards.balance.other", "name", "shards");
+    public static final MessageKey BALANCE_SELF = MessageKey.chat("shards.balance.self", "amount");
+    public static final MessageKey BALANCE_OTHER = MessageKey.chat("shards.balance.other", "name", "amount");
     public static final MessageKey BALANCE_EARN = MessageKey.chat("shards.balance.earn");
 
     public static final MessageKey ADMIN_GIVEN = MessageKey.chat("shards.admin.given", "name", "amount", "balance");
@@ -20,25 +23,24 @@ public final class ShardsMessages {
     public static final MessageKey RECEIVED = MessageKey.notify("shards.received", "amount", "balance");
 
     public static final MessageKey SHOP_TITLE = MessageKey.ui("shards.shop.title");
-    public static final MessageKey SHOP_BODY = MessageKey.ui("shards.shop.body", "shards");
+    public static final MessageKey SHOP_BALANCE = MessageKey.ui("shards.shop.balance", "amount");
     public static final MessageKey SHOP_EMPTY = MessageKey.ui("shards.shop.empty");
     public static final MessageKey SHOP_OFFER = MessageKey.ui("shards.shop.offer", "name", "price");
     public static final MessageKey SHOP_OFFER_MANY = MessageKey.ui("shards.shop.offer-many", "amount", "name", "price");
-    public static final MessageKey SHOP_OFFER_TOOLTIP = MessageKey.ui("shards.shop.offer-tooltip", "description", "max");
+    public static final MessageKey SHOP_OFFER_TOOLTIP = MessageKey.ui("shards.shop.offer-tooltip", "description");
+    public static final MessageKey SHOP_OFFER_LIMIT = MessageKey.ui("shards.shop.offer-limit", "max");
     public static final MessageKey KEY_NAME = MessageKey.ui("shards.shop.key-name", "crate");
 
     public static final MessageKey BUY_TITLE = MessageKey.ui("shards.buy.title", "name");
-    public static final MessageKey BUY_BODY = MessageKey.ui("shards.buy.body", "price", "shards");
-    public static final MessageKey BUY_MAX = MessageKey.ui("shards.buy.max", "max");
-    public static final MessageKey BUY_KEYS = MessageKey.ui("shards.buy.keys", "keys");
-    public static final MessageKey BUY_ITEMS = MessageKey.ui("shards.buy.items", "items");
+    public static final MessageKey BUY_BODY = MessageKey.ui("shards.buy.body", "price", "balance");
     public static final MessageKey BUY_OWNED = MessageKey.ui("shards.buy.owned", "keys");
-    public static final MessageKey BUY_DESCRIPTION = MessageKey.ui("shards.buy.description", "description");
     public static final MessageKey BUY_AMOUNT = MessageKey.ui("shards.buy.amount");
     public static final MessageKey BUY_BUTTON = MessageKey.ui("shards.buy.button", "amount", "total");
+    public static final MessageKey BUY_GIVES_KEYS = MessageKey.ui("shards.buy.gives-keys", "keys");
+    public static final MessageKey BUY_GIVES_ITEMS = MessageKey.ui("shards.buy.gives-items", "items");
     public static final MessageKey BUY_CHANGED = MessageKey.ui("shards.buy.changed");
     public static final MessageKey BUY_PRICE_CHANGED = MessageKey.ui("shards.buy.price-changed", "price");
-    public static final MessageKey BUY_NOT_ENOUGH = MessageKey.ui("shards.buy.not-enough", "total", "shards");
+    public static final MessageKey BUY_NOT_ENOUGH = MessageKey.ui("shards.buy.not-enough", "total", "balance");
     public static final MessageKey BUY_TOO_EXPENSIVE = MessageKey.ui("shards.buy.too-expensive");
 
     public static final MessageKey CONFIRM_TITLE = MessageKey.ui("shards.confirm.title");
@@ -64,17 +66,15 @@ public final class ShardsMessages {
     public static final MessageKey HUB_LABEL = MessageKey.ui("shards.hub.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("shards.hub.description");
     public static final MessageKey HUB_TITLE = MessageKey.ui("shards.hub.title");
-    public static final MessageKey HUB_BALANCE = MessageKey.ui("shards.hub.balance", "shards");
-    public static final MessageKey HUB_ZONE_RATE = MessageKey.ui("shards.hub.zone-rate", "shards", "time");
-    public static final MessageKey HUB_ZONE_TODAY = MessageKey.ui("shards.hub.zone-today", "today");
-    public static final MessageKey HUB_ZONE_TODAY_CAP = MessageKey.ui("shards.hub.zone-today-cap", "today", "cap");
-    public static final MessageKey HUB_ZONE_INSIDE = MessageKey.ui("shards.hub.zone-inside");
+    public static final MessageKey HUB_BALANCE = MessageKey.ui("shards.hub.balance", "amount");
+    public static final MessageKey HUB_ZONE_INSIDE = MessageKey.ui("shards.hub.zone-inside", "amount", "time");
     public static final MessageKey HUB_ZONE_CLOSED = MessageKey.ui("shards.hub.zone-closed");
-    public static final MessageKey HUB_SPEND = MessageKey.ui("shards.hub.spend");
     public static final MessageKey HUB_SHOP = MessageKey.ui("shards.hub.shop");
     public static final MessageKey HUB_SHOP_TOOLTIP = MessageKey.ui("shards.hub.shop-tooltip");
     public static final MessageKey HUB_ZONE = MessageKey.ui("shards.hub.zone");
-    public static final MessageKey HUB_ZONE_TOOLTIP = MessageKey.ui("shards.hub.zone-tooltip");
+    public static final MessageKey HUB_ZONE_RATE = MessageKey.ui("shards.hub.zone-rate", "amount", "time");
+    public static final MessageKey HUB_ZONE_TODAY = MessageKey.ui("shards.hub.zone-today", "today");
+    public static final MessageKey HUB_ZONE_TODAY_CAP = MessageKey.ui("shards.hub.zone-today-cap", "today", "cap");
 
     private ShardsMessages() {
     }

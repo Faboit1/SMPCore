@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
@@ -46,6 +47,7 @@ final class KeyService implements CrateKeys {
     private final Supplier<Set<String>> crates;
     private final LongSupplier clock;
     private final BiFunction<String, Long, Component> text;
+    private final Function<String, Component> names;
     private final KeyBook book = new KeyBook();
     private final String upsert;
 
@@ -54,17 +56,21 @@ final class KeyService implements CrateKeys {
      * @param clock  current time in epoch milliseconds
      */
     KeyService(Ledger ledger, Database database, Supplier<Set<String>> crates, LongSupplier clock) {
-        this(ledger, database, crates, clock, null);
+        this(ledger, database, crates, clock, null, null);
     }
 
-    /** @param text how an amount of a crate's keys reads ({@link #keysText}), or null for the plain default */
+    /**
+     * @param text  how an amount of a crate's keys reads ({@link #keysText}), or null for the plain default
+     * @param names a crate's name in its colour ({@link #crateName}), or null for the plain default
+     */
     KeyService(Ledger ledger, Database database, Supplier<Set<String>> crates, LongSupplier clock,
-               BiFunction<String, Long, Component> text) {
+               BiFunction<String, Long, Component> text, Function<String, Component> names) {
         this.ledger = ledger;
         this.database = database;
         this.crates = crates;
         this.clock = clock;
         this.text = text;
+        this.names = names;
         this.upsert = database.dialect().addUpsert("crate_keys", new String[] {"uuid", "crate"}, "amount");
     }
 
@@ -146,6 +152,11 @@ final class KeyService implements CrateKeys {
     @Override
     public Component keysText(String crate, long amount) {
         return this.text == null ? CrateKeys.super.keysText(crate, amount) : this.text.apply(crate, amount);
+    }
+
+    @Override
+    public Component crateName(String crate) {
+        return this.names == null ? CrateKeys.super.crateName(crate) : this.names.apply(crate);
     }
 
     /** A player's keys by crate (only crates with keys). */
