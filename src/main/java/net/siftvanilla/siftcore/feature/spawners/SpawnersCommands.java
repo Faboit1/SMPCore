@@ -50,7 +50,7 @@ final class SpawnersCommands {
                 .executes(ctx -> {
                     Player player = support.player(ctx);
                     if (player != null && player.hasPermission(COMMAND) && support.cooldown(player, "spawners")) {
-                        this.dialogs.openList(player, 1, null);
+                        this.dialogs.openList(player, null);
                     }
                     return CommandSupport.OK;
                 })

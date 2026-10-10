@@ -73,8 +73,8 @@ xp:
   # /settings (Spawners, Spawner XP and mending).
   apply-mending: true
 
-# Spawners per page in /spawners.
-page-size: 10
+# The most spawners /spawners lists, all on one page (the dialog scrolls; a line says how many more there are).
+list-limit: 100
 
 # Spawner types. The key is the vanilla mob id. Spawners of a mob that is removed here keep working as storage and
 # can be picked up, but make no loot.

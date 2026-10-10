@@ -152,7 +152,7 @@ public final class SpawnersFeature implements Feature {
         startFlushTimer(this.settings.get());
         this.settings.onReload(this::startFlushTimer);
         this.services.hub().register(new HubEntry("spawners", 40, SpawnersMessages.HUB_LABEL, SpawnersMessages.HUB_DESCRIPTION,
-            SpawnersCommands.COMMAND, player -> this.dialogs.openList(player, 1, this::backToMenu)));
+            SpawnersCommands.COMMAND, player -> this.dialogs.openList(player, this::backToMenu)));
         registerPlaceholders();
         this.logger.info("Spawners: " + rows.size() + " placed spawners (" + stacked + " stacked) of " + this.registry.owners()
             + " players, " + this.settings.get().enabledMobs().size() + " spawner types."

@@ -93,24 +93,25 @@ public final class SpawnersMessages {
     // /spawners dialogs
     public static final MessageKey LIST_TITLE = MessageKey.ui("spawners.list.title");
     public static final MessageKey LIST_SUMMARY = MessageKey.ui("spawners.list.summary", "count", "stacked", "stored", "xp");
-    public static final MessageKey LIST_PAGE = MessageKey.ui("spawners.list.page", "page", "pages");
+    public static final MessageKey LIST_LIMIT = MessageKey.ui("spawners.list.limit", "limit", "count");
     public static final MessageKey LIST_EMPTY = MessageKey.ui("spawners.list.empty");
-    public static final MessageKey LIST_ENTRY = MessageKey.ui("spawners.list.entry", "name", "stack", "location", "world", "used",
-        "capacity");
     public static final MessageKey LIST_BUTTON = MessageKey.ui("spawners.list.button", "name", "stack");
-    public static final MessageKey LIST_TOOLTIP = MessageKey.ui("spawners.list.tooltip", "location", "world", "used", "capacity");
-    public static final MessageKey PAGE_PREVIOUS = MessageKey.ui("spawners.list.previous");
-    public static final MessageKey PAGE_NEXT = MessageKey.ui("spawners.list.next");
+    public static final MessageKey LIST_FULLNESS = MessageKey.ui("spawners.list.fullness", "percent");
+    public static final MessageKey LIST_FULL = MessageKey.ui("spawners.list.full");
+    public static final MessageKey LIST_TOOLTIP = MessageKey.ui("spawners.list.tooltip", "location", "world", "used", "capacity", "xp");
+    public static final MessageKey LIST_TOOLTIP_OWNER = MessageKey.ui("spawners.list.tooltip-owner", "owner");
     public static final MessageKey LIST_SHOW_TEAM = MessageKey.ui("spawners.list.show-team");
+    public static final MessageKey LIST_SHOW_TEAM_TOOLTIP = MessageKey.ui("spawners.list.show-team-tooltip");
     public static final MessageKey LIST_SHOW_OWN = MessageKey.ui("spawners.list.show-own");
+    public static final MessageKey LIST_SHOW_OWN_TOOLTIP = MessageKey.ui("spawners.list.show-own-tooltip");
     public static final MessageKey TEAM_LIST_TITLE = MessageKey.ui("spawners.team-list.title");
     public static final MessageKey TEAM_LIST_SUMMARY = MessageKey.ui("spawners.team-list.summary", "count", "stacked", "stored", "xp");
     public static final MessageKey TEAM_LIST_EMPTY = MessageKey.ui("spawners.team-list.empty");
-    public static final MessageKey TEAM_LIST_ENTRY = MessageKey.ui("spawners.team-list.entry", "name", "stack", "owner", "location",
-        "world", "used", "capacity");
     public static final MessageKey DETAILS_TITLE = MessageKey.ui("spawners.details.title", "name");
-    public static final MessageKey DETAILS_BODY = MessageKey.ui("spawners.details.body", "name", "stack", "cap", "owner", "location",
-        "world", "used", "capacity", "xp", "xp-cap", "value", "rate");
+    public static final MessageKey DETAILS_BODY = MessageKey.ui("spawners.details.body", "name", "stack", "cap", "used", "capacity",
+        "xp", "xp-cap", "value");
+    public static final MessageKey DETAILS_OPEN_TOOLTIP = MessageKey.ui("spawners.details.open-tooltip", "owner", "location", "world",
+        "rate", "range");
     public static final MessageKey STATUS_ACTIVE = MessageKey.ui("spawners.details.status.active");
     public static final MessageKey STATUS_FULL = MessageKey.ui("spawners.details.status.full");
     public static final MessageKey STATUS_IDLE = MessageKey.ui("spawners.details.status.idle", "radius");
