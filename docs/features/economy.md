@@ -42,7 +42,9 @@ Every payment runs on the payer's thread:
    tooltip. The pay form's Submit says in its tooltip that big payments ask first.
 4. **Transfer**: who may pay is checked again (the receiver may have changed it, or the two their relation, while the
    confirmation was open), `PlayerPayEvent` (cancellable), then one `LedgerTx` transfer (kind `pay`) with the daily
-   limit checked inside the transaction.
+   limit checked inside the transaction. The day's total is read from the ledger at the first payment of the day and
+   then kept in memory until the day ends, also while the player is offline: a payment applies at once but is stored a
+   little later, so reading the total back on rejoin could miss it (dupe audit R15).
 5. **Told**: the payer in chat ("You paid Alex $1,500."); the receiver, if online, in their "Payment alerts" style
    (chat, above the hotbar, or not at all) when the amount reaches their "Only alert payments from" minimum. The
    money arrives either way.
