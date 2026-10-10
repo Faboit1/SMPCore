@@ -111,6 +111,9 @@ class KitsResourcesTest {
         keys.put("basic", 1);
         keys.put("rare", 2);
         assertEquals("1 Basic key, 2 Rare keys", TextStyle.plain(text.keys(keys)));
+        KitText named = new KitText(lang, crate -> crate.equals("basic") ? net.kyori.adventure.text.Component.text("Common")
+            : net.kyori.adventure.text.Component.text(crate));
+        assertEquals("1 Common key, 2 Rare keys", TextStyle.plain(named.keys(keys)), "keys use the crates' names");
         Kit daily = new Kit("daily", "Daily", null, "minecraft:bread", true, Cooldown.parse("24h"), List.of(), Map.of("basic", 1));
         Kit legend = new Kit("legend", "Legend", null, "minecraft:bread", false, Cooldown.parse("72h"), List.of(), Map.of("epic", 1));
         assertEquals("Daily, Legend", TextStyle.plain(text.names(List.of(daily, legend))));
