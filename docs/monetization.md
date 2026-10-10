@@ -233,7 +233,8 @@ Options: cumulative pricing **on** (an upgrade costs only the difference: Prospe
 
 Boosters queue one after another and never add up, are announced with the buyer's name, show a boss bar to everyone,
 and only count down while the server runs. They raise /sell and spawner sales for everyone online; player-to-player
-trades (orders, the auction house) are not boosted. The shop's arbitrage guard accounts for the largest booster, so
+trades (orders, the auction house) are not boosted, and carry no fee either: the auction house and buy orders take no
+tax (`tax: 0` in `features/auction.yml` and `features/orders.yml`), so sellers get the whole price. The shop's arbitrage guard accounts for the largest booster, so
 buying from the shop and selling back never makes money. A booster package is never refused because of `sell.max-percent`
 (the buyer paid and Tebex does not retry): above the limit it is delivered and pays the limit, and `/sift selftest`
 fails `the store's booster packages arrive and pay in full` when the config would cap one of these packages. Full

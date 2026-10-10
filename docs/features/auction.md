@@ -69,9 +69,10 @@ directory and style any new text the same way.
 
 ### How it plugs into SiftCore
 
-**Money.** AxAuctions uses the Vault currency (`currencies.yml`: only `Vault` is registered, 5% tax). It calls the
-legacy `net.milkbowl.vault.economy.Economy` interface with `double` amounts: `has`, `withdrawPlayer` on the buyer,
-then `depositPlayer` on the seller with the price minus tax. The checks under "Verified behaviour" ran against the
+**Money.** AxAuctions uses the Vault currency (`currencies.yml`: only `Vault` is registered, no tax: SiftVanilla
+takes no fee on trades between players; `tax: 5` would take 5%). It calls the legacy
+`net.milkbowl.vault.economy.Economy` interface with `double` amounts: `has`, `withdrawPlayer` on the buyer, then
+`depositPlayer` on the seller with the price minus the tax, if any. The checks under "Verified behaviour" ran against the
 TEST-ONLY TestEco economy; with SiftCore installed the Vault economy is SiftCore's own provider (`integration/vault`,
 registered by the economy feature when VaultUnlocked is installed; see
 [architecture](../architecture.md#vault) and [economy](economy.md)). What that means for AxAuctions:
@@ -80,13 +81,14 @@ registered by the economy feature when VaultUnlocked is installed; see
   economy turned read-only after storage failures (until `/eco resume`). AxAuctions does not undo a purchase when the
   seller's deposit fails: the buyer keeps the item, has paid, and the seller's money is gone (verified with TestEco,
   see below), so those two cases are the remaining risk.
-- **Amounts that aren't whole dollars.** The 5% tax makes most payouts fractional ($33 sells for $31.35) and
+- **Amounts that aren't whole dollars.** A tax makes most payouts fractional (at 5%, $33 sells for $31.35) and
   AxAuctions accepts decimal prices (`/ah sell 10.5`). SiftCore rounds every Vault amount in the server's favour after
   rounding to six decimals: a deposit rounds down ($31.35 pays $31), a withdrawal rounds up (a price of $10.50 costs
   $11). AxAuctions' menus and messages round half-even to whole dollars (`#,##0`), so for a fractional price the
   buyer can pay up to $1 more than shown (10.5 shows as $10) and the seller get up to $1 less (9.5 shows as $10).
   Whole-dollar prices and payouts are exact. Each call is its own ledger transaction (kind `vault_axauctions`), so
-  the books balance: the withdrawal and the deposit are separate postings and the difference is the tax sink.
+  the books balance: the withdrawal and the deposit are separate postings and the difference (with a tax) is the tax
+  sink.
 - `has` uses the same rounding as `withdrawPlayer`, and every call is safe from any thread (AxAuctions calls from
   region and async threads); balances come from memory.
 
@@ -138,7 +140,7 @@ plugin's own (config 20, lang 15, currencies 8, categories 1, discord 1).
 | `prefix` | `""` | No plugin prefix, like the rest of the server |
 | `database.type` | `h2` | One server; see "Database" below |
 | `multi-server-support.mode` | `disabled` | One server |
-| `currencies.yml` | Vault only, `tax: 5`, Experience/Level and every other integration off | One currency; the tax is a money sink |
+| `currencies.yml` | Vault only, `tax: 0`, Experience/Level and every other integration off | One currency; no fee on trades between players (the owner's choice; a number like 5 takes 5% as a money sink) |
 | `min-price` / `max-price` | `1` / `10000000000` | $1 to $10,000,000,000 |
 | `number-formatting` | mode 0, `#,##0` | `$10,000`, no decimals |
 | `timer-format`, `date-format` | 3, `d MMM yyyy, HH:mm` | `1d 23h 59m 59s`, `8 Oct 2026, 09:03` |
@@ -203,7 +205,9 @@ plugin's defaults. The e2e scenarios check the rendered menus and chat the same 
 Checked with the e2e bots (`AxAuctionsScenarios`) between 08:49 and 09:12 UTC on 8 Oct 2026, on Canvas 26.2
 build 962 with VaultUnlocked 2.20.3, PlaceholderAPI 2.12.3, LuckPerms 5.5.87, the TEST-ONLY TestEco economy and
 SiftCore, with this configuration (byte for byte, as the plugin left it after `/ahadmin reload`) except the later
-changes listed under "Not verified".
+changes listed under "Not verified". That run had `tax: 5` (the amounts below include it); the configuration now ships
+`tax: 0` and no "tax is taken" line in Confirm listing, and the scenarios read the tax from the installed
+`currencies.yml`, so they check whichever is set.
 
 - **Start**: `Loaded currency integrations: Vault`, `Successfully registered internal expansion: axauctions
   [2.7.2]`, `/ah` is AxAuctions' command (`PluginVanillaCommandWrapper owned by AxAuctions`).
@@ -306,7 +310,7 @@ claim box. Package `feature/auction`, config `features/auction.yml`, text `lang/
 | `/ah listings` | `siftcore.command.ah` | Your listings; click one to take it down |
 | `/ah claims` | `siftcore.command.ah` | The claim box (Back goes to the auction house) |
 | `/claims` (`/claimbox`) | `siftcore.command.claims` (everyone) | The claim box on its own command, which never yields to AxAuctions: items from every feature (shop, sell, orders, crates, shards, spawners, staff, the auction house) stay claimable while AxAuctions owns `/ah`. Back goes to the main menu |
-| `/ah history` | `siftcore.command.ah` | Your last sales and purchases (dialog) |
+| `/ah history` | `siftcore.command.ah` | Your last sales and purchases (dialog; the line above them names the cap, "Your last 20 sales and purchases") |
 | `/ah admin info` | `siftcore.admin.auction` (op) | Active listings, sellers, pending rows, claim box size, next expiry |
 | `/ah admin list <player>` | `siftcore.admin.auction` | A player's active listings with their ids |
 | `/ah admin remove <id>` | `siftcore.admin.auction` | Takes a listing down; the item goes to the seller's claim box (audited as `auction.remove`) |
@@ -397,7 +401,7 @@ The purchase transaction also fires the ledger's `EconomyTransactionEvent` (kind
 | `listings.default-slots` | `3` | Listing slots without a `siftcore.auction.listings.<n>` node (0: needs a node) |
 | `price.minimum` / `price.maximum` | `1` / `10b` | Price limits of a whole listing |
 | `price.minimum-per-item` / `price.maximum-per-item` | `1` / `0` | Per-item limits, multiplied by the amount (0 = none) |
-| `tax` | `5` | Percent of the price the seller pays when it sells (0-100, two decimals, rounded down) |
+| `tax` | `0` | Percent of the price the seller pays when it sells (0-100, two decimals, rounded down). 0: no tax, and nothing mentions one (the listing confirmation, the sale alert, the join summary); a taxed sale's messages name what the seller got after tax |
 | `blacklist.items` | barrier, bedrock, command blocks, structure blocks, jigsaw, light, debug stick, knowledge book, test blocks, every spawn egg | Item ids that can't be listed; `*` is a wildcard |
 | `blacklist.allow-filled-containers` | `true` | Whether shulker boxes and bundles with items in them can be listed |
 | `blacklist.max-item-size` | `128` | Largest item data in KiB (uncompressed, one item, contents included; 0 = no limit, up to 4096) |
@@ -417,7 +421,7 @@ and falls back to the default.
 | Id | Kind, default | What it does | Read in |
 |---|---|---|---|
 | `auction-sales` | choice chat / actionbar / off, chat | How a seller is told a listing sold (`Messenger.alert`; quiet in combat turns the hotbar line into chat). Was a switch: stored `true` reads as chat, `false` as off | `AuctionService.notifySeller` |
-| `auction-join-summary` | switch, on | A moment after joining: what sold since the player last left (one sale by name, or the count and earnings after tax with the newest three and "and n more", `AuctionEngine.salesSince` from `PlayerDirectory.previousSeen` up to the moment they joined: later sales were told live), then the claim box reminder while `join-reminder` is on | `AuctionFeature.onJoin` |
+| `auction-join-summary` | switch, on | A moment after joining: what sold since the player last left (one sale by name, or the count and earnings with the newest three and "and n more"; "after tax" only when those sales paid a tax, `AuctionEngine.salesSince` from `PlayerDirectory.previousSeen` up to the moment they joined: later sales were told live), then the claim box reminder while `join-reminder` is on | `AuctionFeature.onJoin` |
 | `auction-price-warning` | switch, on | Red warning lines in the listing confirmation when the price is below what `/sell` pays the player for the items, or less than half the price per item of the cheapest similar listing of another seller (`ItemStack.isSimilar`, `PriceCheck.FAR_BELOW_PERCENT`). Never blocks | `AuctionDialogs.sellConfirmView` |
 | `auction-expiry-alerts` | choice chat / actionbar / off, chat | How a seller is told listings expired and went to the claim box | `AuctionService.notifyExpired` |
 | `auction-hide-own` | switch, off | Leaves the viewer's own listings out of the auction house; they stay in Your listings | `AuctionMenu.entries` |
@@ -441,8 +445,9 @@ States: `ACTIVE` leads to exactly one of `SOLD` (`Sale`), `CANCELLED` (`Cancella
 change again.
 
 - **Listing** (`/ah sell` or the sell form): validated (not air, not blacklisted, not a filled container if
-  disallowed, not over the size limit, not in creative, price limits, slots), then a confirmation with the item, price, tax, proceeds,
-  duration and slots used. On confirm, on the player's thread: every check runs again, the slot must still hold the
+  disallowed, not over the size limit, not in creative, price limits, slots), then a confirmation in the dialog style:
+  the item and "List 10 Diamond for $1,000?" (with "Tax when it sells $50 (5%), you get $950" only while there is a
+  tax, and the low price warnings in red), the duration and the slots used in the List it tooltip. On confirm, on the player's thread: every check runs again, the slot must still hold the
   same item (`isSimilar` and at least the amount), `AuctionListEvent` fires, the slot is checked once more (listeners
   are other plugins' code), the items are removed from the inventory and the player file is saved
   (`save-player-after-trade`), then one domain transaction checks the slot limit under the lock, adds the listing to
@@ -453,9 +458,10 @@ change again.
   and the items go back to the player or their claim box.
 - **Unsaved listings** hold their seller's slot but can't be bought, cancelled or expired until their row is
   committed, so no close can depend on a row that might still be rolled back.
-- **Buying**: purchase confirmation with the item, price, seller, time left and balance. On confirm: cheap
+- **Buying**: purchase confirmation with the item, "Buy 10 Diamond from Alex for $1,000?" and the balance; the time
+  left is in the Buy tooltip. On confirm: cheap
   pre-checks, `AuctionPurchaseEvent`, then one transaction: transfer the price buyer to seller (kind `ah_sale`,
-  ref `listing:<id>`), sink the tax from the seller (kind `ah_tax`, same transaction), check the listing is still the
+  ref `listing:<id>`), sink the tax from the seller when there is one (kind `ah_tax`, same transaction), check the listing is still the
   active, stored, unexpired listing at the confirmed price and not the buyer's own, remove it from the book, mark the
   row `SOLD` with buyer, close time and tax, and add the item to the buyer's claim box (`Deliveries.add`). After the
   commit the item is claimed straight into the inventory when it all fits (`Deliveries.claim`: marked claimed in
@@ -505,8 +511,10 @@ compared on the ordered writer), that the expiry timer runs and that nothing is 
   naming the sale while away but not the one bought right after the join, which was told live, and the summary turned
   off) and `market-auction-expiry-alerts` (one-minute listings: `/settings auction-expiry-alerts off` says nothing
   while the item still reaches the claim box, `actionbar` shows it above the hotbar and not in chat).
-- End to end (`tools/e2e`, `AuctionScenarios`): selling with `/ah sell` and the sell form, buying (money, tax, item,
-  receipts), taking down, the claim box (full inventory, claim one, claim all, join reminder), refusals (including
+- End to end (`tools/e2e`, `AuctionScenarios`): selling with `/ah sell` and the sell form (no text above the inputs,
+  the duration and slots in the List it tooltip), buying (money, item, receipts; `auction-sell-buy` as shipped with no
+  tax and no word about one, `auction-sell-buy-taxed` with `tax: 5` set for the scenario: the tax line, $950 to the
+  seller, the `ah_tax` row), taking down (the question, what happens in the tooltip), taking down, the claim box (full inventory, claim one, claim all, join reminder), refusals (including
   oversized items and exponent prices), triple clicks
   and replayed tokens, two buyers racing for one listing, sort/filter/search, history, staff removal, the hub entry,
   expiry through the real timer, and `auction-persist-setup` / `auction-persist-check` across a restart.

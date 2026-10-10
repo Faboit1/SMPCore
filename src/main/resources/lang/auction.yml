@@ -81,21 +81,20 @@ auction:
       - "<secondary>Items waiting <primary><count>"
       - "<secondary>Takes everything that fits in your inventory"
 
+  # The dialogs show the item and buttons; what a button does is in its tooltip (hover it).
   sell:
     form-title: "Sell an item"
-    form-body:
-      - "<primary>Selling up to <amount> <item>"
-      - "<secondary>The price you enter is for all of them."
     form-price: "Price for all of them, like 1500 or 1.5k"
     form-amount: "How many"
     form-button: "Next"
+    form-button-tooltip: "<primary>See the listing before it goes up."
     confirm-title: "List item"
-    confirm-body:
-      - "<primary>List <amount> <item> for <price>?"
-      - "<secondary>Tax when it sells <tax> (<rate>)"
-      - "<secondary>You get <earn>"
-      - "<secondary>It ends in <primary><time></primary> if nobody buys it"
-    confirm-slots: "<secondary>Listing slots used <primary><used></primary> of <primary><limit>"
+    confirm-body: "<primary>List <amount> <item> for <price>?"
+    # Only while the auction house takes a tax (tax in features/auction.yml above 0).
+    confirm-tax: "<secondary>Tax when it sells <tax> (<rate>), you get <earn>"
+    confirm-button-tooltip: "<primary>Put it up for <accent><time></accent>.<newline><secondary>If nobody buys it, it waits in your claim box."
+    # Added to the List it tooltip for players with a listing limit.
+    confirm-slots: "<secondary>Listing slots used <accent><used></accent> of <accent><limit>"
     # The low price warning (players can turn it off). It never blocks the listing.
     warning-sell: "<error>That's less than /sell pays you for them (<worth>)."
     warning-market: "<error>That's far below similar listings: they start at <price> each, you ask <yours> each."
@@ -117,11 +116,10 @@ auction:
   buy:
     confirm-title: "Buy item"
     confirm-body:
-      - "<primary>Buy <amount> <item> for <price>?"
-      - "<secondary>Seller <primary><seller>"
-      - "<secondary>Ends in <primary><time>"
+      - "<primary>Buy <amount> <item> from <seller> for <price>?"
       - "<secondary>You have <icon:money> <balance>"
     confirm-button: "Buy"
+    confirm-button-tooltip: "<primary>Pay the seller now.<newline><secondary>The listing ends in <accent><time></accent> otherwise."
     done: "<primary>You bought <amount> <item> from <seller> for <price>."
     done-claim-box: "<primary>You bought <amount> <item> from <seller> for <price>. It's waiting in your claim box (/claims)."
     gone: "<primary>That listing is gone."
@@ -132,24 +130,24 @@ auction:
     seller-full: "<primary>The seller can't hold that much money."
     cancelled: "<secondary>Nothing was bought."
 
-  sold: "<primary><buyer> bought your <amount> <item> for <price>. You got <earned> after tax."
+  sold: "<primary><buyer> bought your <amount> <item> for <price>."
+  # The same while the auction house takes a tax: what the seller got after it.
+  sold-taxed: "<primary><buyer> bought your <amount> <item> for <price>. You got <earned> after tax."
 
   cancel:
     confirm-title: "Take down listing"
-    confirm-body:
-      - "<primary>Take down your <amount> <item> listed for <price>?"
-      - "<secondary>The item comes back to you."
+    confirm-body: "<primary>Take down your <amount> <item> listed for <price>?"
     confirm-button: "Take it down"
+    confirm-button-tooltip: "<primary>The item comes back to you."
     keep-button: "Keep it up"
     done: "<primary>Listing taken down. The item is back in your inventory."
     done-claim-box: "<primary>Listing taken down. The item is in your claim box (/claims)."
 
   remove:
     confirm-title: "Remove listing"
-    confirm-body:
-      - "<primary>Remove <seller>'s <amount> <item> listed for <price>?"
-      - "<secondary>The item goes to their claim box."
+    confirm-body: "<primary>Remove <seller>'s <amount> <item> listed for <price>?"
     confirm-button: "Remove"
+    confirm-button-tooltip: "<primary>The item goes to their claim box."
 
   expired:
     one: "<primary>Your listing of <amount> <item> expired. It's waiting in your claim box (/claims)."
@@ -166,15 +164,19 @@ auction:
 
   history:
     title: "Auction history"
-    header: "<secondary>Your latest sales and purchases, newest first"
+    # <count> is how many the history shows at most (history-size in features/auction.yml).
+    header: "<secondary>Your last <count> sales and purchases, newest first"
     sold: "<primary>Sold <amount> <item> to <name> for <price><newline><secondary><ago> ago"
     bought: "<primary>Bought <amount> <item> from <name> for <price><newline><secondary><ago> ago"
     empty: "<secondary>You haven't sold or bought anything yet."
 
   # The summary a moment after joining (players can turn it off): what sold since they last left.
   away:
-    sold-one: "<primary>While you were away, <name> bought your <amount> <item> for <price>. You got <earned> after tax."
-    sold-many: "<primary>While you were away, <count> of your listings sold. You got <earned> after tax:"
+    sold-one: "<primary>While you were away, <name> bought your <amount> <item> for <price>."
+    sold-many: "<primary>While you were away, <count> of your listings sold for <earned>:"
+    # The same when some of those sales were taxed.
+    sold-one-taxed: "<primary>While you were away, <name> bought your <amount> <item> for <price>. You got <earned> after tax."
+    sold-many-taxed: "<primary>While you were away, <count> of your listings sold. You got <earned> after tax:"
     sold-line: "<secondary><amount> <item> to <primary><name></primary> for <price>"
     sold-more: "<secondary>and <count> more. <click:run_command:'/ah history'>Click to see your history, or use /ah history.</click>"
 

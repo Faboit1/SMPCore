@@ -15,7 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * The deliveries a player made to other players' orders, newest first: the item, how many, what they earned after tax,
+ * The deliveries a player made to other players' orders, newest first: the item, how many, what they earned (after tax),
  * whose order it was and when. The header shows what they earned over all their deliveries.
  */
 final class DeliveriesMenu extends PagedMenu<OrderStore.Delivery> implements OrdersView {

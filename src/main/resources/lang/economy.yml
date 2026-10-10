@@ -6,8 +6,9 @@
 
 economy:
   balance:
-    self: "<primary>You have <amount> and <shards> shards."
-    other: "<primary><name> has <amount> and <shards> shards."
+    # <shard-count> is the number of shards; <shards> ... </shards> colours them purple.
+    self: "<primary>You have <amount> and <shards><shard-count> shards</shards>."
+    other: "<primary><name> has <amount> and <shards><shard-count> shards</shards>."
     # /balance <name> of a player who keeps their balance from you (their "Who can see my balance" setting).
     private: "<primary><name> keeps their balance private."
   pay:
@@ -24,31 +25,30 @@ economy:
     confirm-body:
       - "<primary>Send <amount> to <name>?"
       - "<secondary>You can send <left> more today after this."
-      - "<secondary>Payments can't be undone."
     # The confirmation for players without a daily limit.
-    confirm-body-unlimited:
-      - "<primary>Send <amount> to <name>?"
-      - "<secondary>Payments can't be undone."
+    confirm-body-unlimited: "<primary>Send <amount> to <name>?"
     confirm-button: "Pay"
+    confirm-button-tooltip: "<primary>Payments can't be undone."
     form-title: "Pay a player"
     form-player: "Player name"
     form-amount: "Amount, like 1500 or 1.5k"
+    form-submit-tooltip: "<primary>Send the money.<newline><secondary>Big payments ask you first."
+  # /baltop: the whole leaderboard in one dialog (it scrolls). The console gets it in chat, a page at a time.
   top:
     title: "Richest players"
     header: "<primary>Richest players <secondary>page <page> of <pages>"
     line: "<secondary><rank>. <primary><name> <amount>"
-    you: "<secondary>You are number <rank> with <amount>."
+    you: "<secondary>You are number <accent><rank></accent> with <amount>."
     empty: "<secondary>Nobody has money yet."
-    page: "<secondary>Page <page> of <pages>"
-    next: "Next page"
-    previous: "Previous page"
+    # Under a full leaderboard (baltop.size in features/economy.yml).
+    cap: "<secondary>Only the top <count> are listed."
   admin:
     given: "<primary>Gave <name> <amount>. They now have <balance>."
     taken: "<primary>Took <amount> from <name>. They now have <balance>."
     set: "<primary>Set <name>'s balance to <amount>."
-    given-shards: "<primary>Gave <name> <amount> shards. They now have <balance> shards."
-    taken-shards: "<primary>Took <amount> shards from <name>. They now have <balance> shards."
-    set-shards: "<primary>Set <name>'s shards to <amount>."
+    given-shards: "<primary>Gave <name> <shards><amount> shards</shards>. They now have <shards><balance> shards</shards>."
+    taken-shards: "<primary>Took <shards><amount> shards</shards> from <name>. They now have <shards><balance> shards</shards>."
+    set-shards: "<primary>Set <name>'s <shards>shards</shards> to <shards><amount></shards>."
     failed: "<primary>Nothing changed: <reason>."
     history-header: "<primary>Ledger of <name> <secondary>page <page>"
     history-line: "<secondary>#<id> <primary><sign><amount> <secondary><kind>, <ago> ago, balance <primary><balance>"
@@ -58,20 +58,20 @@ economy:
     label: "Money"
     description: "Your balance, payments and the leaderboard"
     title: "Money"
+    # Your balance and shards; the buttons' tooltips say the rest.
     body:
       - "<primary><icon:money> <amount>"
-      - "<primary><icon:shard> <shards> shards"
-      - "<secondary>Leaderboard place <primary><rank>"
-      - "<secondary>You can still send <primary><left><secondary> today"
-    # The money page without the daily limit line (no limit for this player, or it couldn't be loaded).
-    body-unlimited:
-      - "<primary><icon:money> <amount>"
-      - "<primary><icon:shard> <shards> shards"
-      - "<secondary>Leaderboard place <primary><rank>"
-    # Shown in red under the money page, in place of the daily limit line, when today's payments couldn't be read.
+      - "<primary><icon:shard> <shards><shard-count> shards"
+    # Shown in red under the money page when today's payments couldn't be read.
     limit-failed: "<primary>Your daily pay limit couldn't be loaded. Open this page again to see it."
     pay: "Pay a player"
+    pay-tooltip: "<primary>Send money to another player."
+    # Added to the Pay tooltip for players with a daily limit.
+    pay-left: "<secondary>You can still send <left> today."
     top: "Richest players"
+    top-tooltip: "<primary>The <count> richest players."
+    # Added to the Richest players tooltip for a player on the leaderboard.
+    top-rank: "<secondary>You are number <accent><rank></accent>."
   # Shown a moment after joining (the "Offline payments summary" setting): who paid you while you were offline.
   away:
     header: "<primary>While you were away you received <total>:"
@@ -83,9 +83,9 @@ economy:
     notifications: "Payment alerts"
     notifications-description: "How you are told someone paid you."
     confirm-above: "Confirm payments from"
-    confirm-above-description: "Ask you to confirm /pay at or above this amount. Never looser than the server's limit."
+    confirm-above-description: "Ask before /pay sends this much or more. Big payments always ask."
     accept-from: "Who can pay me"
-    accept-from-description: "Accept /pay from everyone, friends and teammates, friends only, or nobody. Ignored players can never pay you."
+    accept-from-description: "Who can send you money with /pay. Players you ignore never can."
     join-summary: "Offline payments summary"
     join-summary-description: "When you join, list who paid you while you were away."
     alert-minimum: "Only alert payments from"

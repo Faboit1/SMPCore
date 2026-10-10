@@ -205,7 +205,9 @@ final class SellPlusScenarios {
         bot.command("sell all");
         Bot.SeenDialog dialog = e2e.dialog(bot, "Sell everything");
         e2e.expect(dialog.bodyText().contains("Sell 64 items for $25,600?"), "the total in the dialog: " + dialog.body());
-        e2e.expect(dialog.bodyText().contains("Kept: 5 items"), "the kept items: " + dialog.body());
+        e2e.expect(!dialog.bodyText().contains("Kept"), "only the question in the body: " + dialog.body());
+        String sellTip = dialog.button("Sell for $25,600").tooltip();
+        e2e.expect(sellTip != null && sellTip.contains("Kept: 5 items"), "the kept items, in the Sell tooltip: " + sellTip);
         e2e.expect(dialog.button("Choose items") != null, "a Choose items button: " + dialog.buttons());
         e2e.sleep(300);
         e2e.expect(e2e.money(name) == 0 && count(e2e, name, Material.DIAMOND) == 64, "nothing sold before confirming");
@@ -525,9 +527,12 @@ final class SellPlusScenarios {
         bot.clickSlot(0);
         Bot.SeenDialog details = e2e.dialog(bot, "Diamond");
         e2e.expect(details.bodyText().contains("Sells for $400 each"), "the price: " + details.body());
-        e2e.expect(details.bodyText().contains("You carry 10"), "the count: " + details.body());
-        e2e.expect(details.bodyText().contains("The shop sells it for $1,000"), "the shop: " + details.body());
+        e2e.expect(!details.bodyText().contains("You carry") && !details.bodyText().contains("The shop sells"),
+            "what the buttons say is not repeated above them: " + details.body());
+        e2e.expect(details.button("Sell your 10 for $4,000") != null, "the count, on the Sell button: " + details.buttons());
         e2e.expect(details.button("Buy in the shop for $1,000") != null, "a shop button: " + details.buttons());
+        e2e.expect(details.buttons().stream().filter(button -> !button.label().equals("Back")).allMatch(button -> button.tooltip() != null),
+            "every action says what it does: " + details.buttons());
         e2e.click(bot, "Sell your 10 for $4,000");
         e2e.eventually(() -> e2e.money(name) == 4_000, "sold from the details (has " + e2e.money(name) + ")");
         e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "the diamonds are gone");
@@ -563,10 +568,15 @@ final class SellPlusScenarios {
         bot.clearLogs();
         bot.command("sell mastery");
         Bot.SeenDialog dialog = e2e.dialog(bot, "Sell mastery");
-        e2e.expect(dialog.bodyText().contains("Mining level 1 of 5, 1.05x"), "the mining line: " + dialog.body());
+        e2e.expect(dialog.body().isEmpty(), "buttons only: " + dialog.body());
+        Bot.Button mining = dialog.button("Mining: level 1 of 5");
+        e2e.expect(mining != null, "the mining button with its level: " + dialog.buttons());
+        e2e.expect(mining.tooltip() != null && mining.tooltip().contains("Mining items sell for 1.05x")
+            && mining.tooltip().contains("Level 2 $250,000"), "the rate and the ladder in its tooltip: " + mining.tooltip());
         e2e.click(bot, "Mining");
         Bot.SeenDialog detail = e2e.dialog(bot, "Mining mastery");
-        e2e.expect(detail.bodyText().contains("Level 2 $250,000"), "the ladder: " + detail.body());
+        e2e.expect(detail.bodyText().contains("Mining items sell for 1.05x") && detail.bodyText().contains("Level 1 of 5")
+            && detail.bodyText().contains("to level 2"), "the rate and progress: " + detail.body());
         bot.clickButton("Back", Map.of());
         e2e.step("staff can look at and set it from the console");
         List<String> shown = e2e.consoleOutput("sell admin mastery " + name);
@@ -1003,8 +1013,15 @@ final class SellPlusScenarios {
         e2e.sleep(300);
         bot.clickSlot(0);
         Bot.SeenDialog dialog = e2e.dialog(bot, "Buy stone");
-        e2e.expect(dialog.bodyText().contains("Sells back for $2 each"), "the sell-back price: " + dialog.body());
-        e2e.expect(dialog.bodyText().contains("You have 0"), "how many the player has: " + dialog.body());
+        Bot.Button buy = dialog.buttons().stream().filter(button -> button.label().startsWith("Buy ") && button.label().contains(" for $"))
+            .findFirst().orElse(null);
+        e2e.expect(buy != null && buy.tooltip() != null, "a Buy button with a tooltip: " + dialog.buttons());
+        e2e.expect(buy.tooltip().contains("Sells back for $2 each"), "the sell-back price, in the Buy tooltip: " + buy.tooltip());
+        e2e.expect(buy.tooltip().contains("You carry 0"), "how many the player has: " + buy.tooltip());
+        e2e.expect(!dialog.bodyText().contains("Sells back") && !dialog.bodyText().contains("per purchase"),
+            "the body has the price and balance only: " + dialog.body());
+        e2e.expect(dialog.button("Max you can afford").tooltip() != null && dialog.button("Fill your inventory").tooltip() != null,
+            "the quick buttons explain themselves: " + dialog.buttons());
         e2e.step("Max you can afford shows the new total first");
         e2e.click(bot, "Max you can afford", Map.of("amount", 64, "exact", ""));
         Bot.SeenDialog max = e2e.dialog(bot, "Buy stone");

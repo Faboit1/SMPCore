@@ -9,6 +9,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.player.Limits;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -30,8 +31,16 @@ import org.bukkit.potion.PotionType;
  * <p>
  * Every flow ends with a screen change the client acts on: back into the menu or dialog it came from, another dialog,
  * or a full close. Every button re-checks what it acts on at click time; what a dialog showed is never trusted.
+ * <p>
+ * The dialog style ({@code docs/development.md}): a dialog shows the item, the amounts the player decides on and the
+ * order's short status; what a button does is in its tooltip, and the tax is only mentioned while deliveries are taxed.
  */
 final class OrderDialogs {
+
+    /** How many deliveries the owner's details list (the latest). */
+    private static final int DETAIL_FILLS = 8;
+    /** How many deliveries the staff dialog lists (the latest). */
+    private static final int STAFF_FILLS = 5;
 
     private final Services services;
     private final OrderService service;
@@ -86,6 +95,21 @@ final class OrderDialogs {
 
     private Button.Handler backTo(Runnable back) {
         return submission -> finish(submission, back);
+    }
+
+    /** A number for a lang text that colours it ({@code <accent><count></accent>}). */
+    private static Arg accent(String name, long number) {
+        return Arg.text(name, Lang.number(number));
+    }
+
+    /** A time for a lang text that colours it. */
+    private static Arg accent(String name, Duration time) {
+        return Arg.text(name, Durations.format(time));
+    }
+
+    /** A button with a plain label and a tooltip from lang. */
+    private Button button(MessageKey label, MessageKey tooltip, Button.Handler handler, Arg... tooltipArgs) {
+        return Button.of(label(label), lang().get(tooltip, tooltipArgs), handler);
     }
 
     // ------------------------------------------------------------------ the new-order form
@@ -144,8 +168,6 @@ final class OrderDialogs {
         if (chosen != null) {
             body.add(Body.item(chosen.prototype(), lang.get(OrdersMessages.CREATE_CHOSEN, Arg.component("item", chosen.name()))));
         }
-        body.add(text(limit == Limits.UNLIMITED ? lang.lines(OrdersMessages.CREATE_BODY_UNLIMITED, Arg.number("count", count))
-            : lang.lines(OrdersMessages.CREATE_BODY, Arg.number("count", count), Arg.number("limit", Math.max(0, limit)))));
         String price = draft.price();
         if (price.isEmpty() && draft.itemKey() != null) {
             long suggested = this.service.suggestedPrice(draft.itemKey());
@@ -159,9 +181,13 @@ final class OrderDialogs {
                 OrderInput.MAX_INPUT),
             Templates.text("price", lang.get(OrdersMessages.CREATE_PRICE), price, OrderInput.MAX_INPUT));
         CreateDrafts.Draft shown = draft;
+        // How the order works and how many are up: in Next's tooltip, nothing above the inputs.
+        Component nextTooltip = Templates.lines(limit == Limits.UNLIMITED
+            ? lang.lines(OrdersMessages.CREATE_NEXT_TOOLTIP_UNLIMITED, accent("count", count))
+            : lang.lines(OrdersMessages.CREATE_NEXT_TOOLTIP, accent("count", count), accent("limit", Math.max(0, limit))));
         List<Button> buttons = List.of(
-            Button.of(label(OrdersMessages.CREATE_NEXT), submission -> submitForm(submission, shown, back)).width(150),
-            Button.of(label(OrdersMessages.CREATE_CHOOSE), submission -> choose(submission, shown, back)).width(150),
+            Button.of(label(OrdersMessages.CREATE_NEXT), nextTooltip, submission -> submitForm(submission, shown, back)).width(150),
+            button(OrdersMessages.CREATE_CHOOSE, OrdersMessages.CREATE_CHOOSE_TOOLTIP, submission -> choose(submission, shown, back)).width(150),
             Button.of(lang.get(back == null ? CoreMessages.UI_CANCEL : CoreMessages.UI_BACK), submission -> {
                 this.drafts.forget(submission.player().getUniqueId());
                 finish(submission, back);
@@ -213,11 +239,12 @@ final class OrderDialogs {
         OrdersSettings s = this.service.settings();
         OrderItem item = this.service.items().resolve(draft.key());
         List<Component> lines = new ArrayList<>(lang.lines(OrdersMessages.CONFIRM_BODY, Arg.number("quantity", draft.quantity()),
-            item(draft.key()), this.service.exact("price", draft.priceEach()), this.service.exact("total", draft.total()),
-            Arg.time("time", s.duration())));
+            item(draft.key()), this.service.exact("price", draft.priceEach()), this.service.exact("total", draft.total())));
+        List<Component> tooltip = new ArrayList<>(lang.lines(OrdersMessages.CONFIRM_BUTTON_TOOLTIP, accent("time", s.duration())));
         long worth = item == null ? 0 : this.service.worthEach(item);
         if (worth > 0) {
-            lines.addAll(lang.lines(OrdersMessages.CONFIRM_WORTH, Arg.money("worth", worth), item(draft.key())));
+            tooltip.addAll(lang.lines(OrdersMessages.CONFIRM_WORTH, Arg.money("worth", worth), item(draft.key())));
+            // A warning the player should see before paying: in the body, in red.
             if (OrderMath.serverPaysMore(worth, this.service.highestMultiplier(), draft.priceEach(), s.taxBasisPoints())) {
                 lines.addAll(lang.lines(OrdersMessages.CONFIRM_SELL_MORE));
             }
@@ -227,26 +254,25 @@ final class OrderDialogs {
             body.add(Body.item(item.display(draft.quantity()), null));
         }
         body.add(text(lines));
-        View confirm = this.services.templates().confirmWithBody(lang.get(OrdersMessages.CONFIRM_TITLE), body,
-            label(OrdersMessages.CONFIRM_BUTTON), lang.get(CoreMessages.UI_BACK),
-            yes -> {
-                OrderService.Problem problem = this.service.create(yes.player(), draft);
-                if (problem != null) {
-                    send(yes.player(), problem);
-                } else {
-                    this.drafts.forget(yes.player().getUniqueId());
-                }
-                finish(yes, after);
-            },
-            no -> {
-                if (edit != null) {
-                    // The form replaces this dialog (when it can't open, the router closes this one).
-                    edit.run();
-                } else {
-                    this.services.messenger().send(no.player(), OrdersMessages.CREATE_CANCELLED);
-                    finish(no, after);
-                }
-            });
+        Button yes = Button.of(label(OrdersMessages.CONFIRM_BUTTON), Templates.lines(tooltip), submission -> {
+            OrderService.Problem problem = this.service.create(submission.player(), draft);
+            if (problem != null) {
+                send(submission.player(), problem);
+            } else {
+                this.drafts.forget(submission.player().getUniqueId());
+            }
+            finish(submission, after);
+        }).width(150);
+        Button no = Button.of(lang.get(CoreMessages.UI_BACK), submission -> {
+            if (edit != null) {
+                // The form replaces this dialog (when it can't open, the router closes this one).
+                edit.run();
+            } else {
+                this.services.messenger().send(submission.player(), OrdersMessages.CREATE_CANCELLED);
+                finish(submission, after);
+            }
+        }).width(150);
+        View confirm = new View(View.Kind.CONFIRM, lang.get(OrdersMessages.CONFIRM_TITLE), body, List.of(), List.of(yes, no), null, 2, true);
         // Without a form to go back to, both answers finish here: the client closes it at once.
         return edit == null ? confirm.closing() : confirm;
     }
@@ -271,13 +297,12 @@ final class OrderDialogs {
         Lang lang = lang();
         List<Button> buttons = new ArrayList<>();
         MessageKey title;
-        MessageKey bodyKey;
         if (OrderItems.ENCHANTED_BOOK.equals(itemType)) {
             title = OrdersMessages.ENCHANT_TITLE;
-            bodyKey = OrdersMessages.ENCHANT_BODY;
+            Component tooltip = lang.get(OrdersMessages.ENCHANT_TOOLTIP);
             for (Enchantment enchantment : items.bookEnchantments()) {
                 String key = enchantment.getKey().asString();
-                buttons.add(Button.of(Component.text(items.enchantmentName(key)), submission -> {
+                buttons.add(Button.of(Component.text(items.enchantmentName(key)), tooltip, submission -> {
                     if (enchantment.getMaxLevel() <= 1) {
                         chosenFromList(submission, OrderKeys.key(itemType, new Variant.Enchant(key, 1).id()), formBack);
                     } else {
@@ -287,25 +312,27 @@ final class OrderDialogs {
             }
         } else if (OrderItems.POTIONS.contains(itemType)) {
             title = OrdersMessages.POTION_TITLE;
-            bodyKey = OrdersMessages.POTION_BODY;
+            Component tooltip = lang.get(OrdersMessages.POTION_TOOLTIP);
             for (PotionType type : items.potionTypes()) {
                 String key = OrderKeys.key(itemType, new Variant.Potion(type.getKey().asString()).id());
                 OrderItem item = items.resolve(key);
                 if (item == null) {
                     continue;
                 }
-                buttons.add(Button.of(Component.text(item.plainName()), submission -> chosenFromList(submission, key, formBack)).width(100));
+                buttons.add(Button.of(Component.text(item.plainName()), tooltip, submission -> chosenFromList(submission, key, formBack))
+                    .width(100));
             }
         } else if (OrderItems.SPAWNER.equals(itemType)) {
             title = OrdersMessages.SPAWNER_TITLE;
-            bodyKey = OrdersMessages.SPAWNER_BODY;
+            Component tooltip = lang.get(OrdersMessages.SPAWNER_TOOLTIP);
             for (String mob : items.spawnerMobs()) {
                 String key = OrderKeys.key(itemType, new Variant.Spawner(mob).id());
                 OrderItem item = items.resolve(key);
                 if (item == null) {
                     continue;
                 }
-                buttons.add(Button.of(Component.text(item.plainName()), submission -> chosenFromList(submission, key, formBack)).width(100));
+                buttons.add(Button.of(Component.text(item.plainName()), tooltip, submission -> chosenFromList(submission, key, formBack))
+                    .width(100));
             }
         } else {
             return;
@@ -314,7 +341,7 @@ final class OrderDialogs {
             this.services.messenger().send(player, OrdersMessages.CREATE_BLOCKED, Arg.component("item", items.name(itemType)));
             return;
         }
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(title), lang.lines(bodyKey), buttons, 3,
+        this.services.dialogs().show(player, this.services.templates().list(lang.get(title), List.of(), buttons, 3,
             submission -> {
                 submission.close();
                 pickerBack.run();
@@ -325,17 +352,17 @@ final class OrderDialogs {
         OrderItems items = this.service.items();
         String key = enchantment.getKey().asString();
         List<Button> buttons = new ArrayList<>();
+        Component tooltip = lang().get(OrdersMessages.LEVEL_TOOLTIP);
         for (int level = 1; level <= enchantment.getMaxLevel(); level++) {
             String orderKey = OrderKeys.key(OrderItems.ENCHANTED_BOOK, new Variant.Enchant(key, level).id());
             OrderItem item = items.resolve(orderKey);
             if (item == null) {
                 continue;
             }
-            buttons.add(Button.of(Component.text(items.enchantmentName(key) + " " + Variant.roman(level)),
+            buttons.add(Button.of(Component.text(items.enchantmentName(key) + " " + Variant.roman(level)), tooltip,
                 submission -> chosenFromList(submission, orderKey, formBack)).width(100));
         }
-        return this.services.templates().list(lang().get(OrdersMessages.LEVEL_TITLE),
-            lang().lines(OrdersMessages.LEVEL_BODY, Arg.text("item", items.enchantmentName(key))), buttons, 3, submission -> {
+        return this.services.templates().list(lang().get(OrdersMessages.LEVEL_TITLE), List.of(), buttons, 3, submission -> {
                 submission.close();
                 pickerBack.run();
             });
@@ -365,11 +392,11 @@ final class OrderDialogs {
         OrderItem item = this.service.items().of(order);
         long now = this.service.engine().now();
         List<Component> lines = order.active()
-            ? new ArrayList<>(lang.lines(OrdersMessages.OWN_BODY, Arg.number("quantity", order.quantity()), item(order.key()),
-                Arg.money("price", order.priceEach()), Arg.number("filled", order.filled()), Arg.number("waiting", order.waiting()),
-                Arg.money("held", order.escrow()), Arg.time("time", Duration.ofMillis(order.millisLeft(now)))))
-            : new ArrayList<>(lang.lines(OrdersMessages.OWN_BODY_ENDED, Arg.number("quantity", order.quantity()), item(order.key()),
-                Arg.money("price", order.priceEach()), Arg.number("filled", order.filled()), Arg.number("waiting", order.waiting()),
+            ? new ArrayList<>(lang.lines(OrdersMessages.OWN_BODY, accent("quantity", order.quantity()), item(order.key()),
+                Arg.money("price", order.priceEach()), accent("filled", order.filled()), accent("waiting", order.waiting()),
+                Arg.money("held", order.escrow()), accent("time", Duration.ofMillis(order.millisLeft(now)))))
+            : new ArrayList<>(lang.lines(OrdersMessages.OWN_BODY_ENDED, accent("quantity", order.quantity()), item(order.key()),
+                Arg.money("price", order.priceEach()), accent("filled", order.filled()), accent("waiting", order.waiting()),
                 Arg.component("state", lang.get(this.service.stateLabel(order.state())))));
         if (item == null) {
             lines.addAll(lang.lines(OrdersMessages.OWN_UNAVAILABLE));
@@ -382,30 +409,34 @@ final class OrderDialogs {
         long id = order.id();
         List<Button> buttons = new ArrayList<>();
         if (order.waiting() > 0 && item != null) {
-            buttons.add(Button.of(label(OrdersMessages.OWN_COLLECT), s -> collect(s, id, OrderService.CollectMode.FITS, back)));
+            buttons.add(button(OrdersMessages.OWN_COLLECT, OrdersMessages.OWN_COLLECT_TOOLTIP,
+                s -> collect(s, id, OrderService.CollectMode.FITS, back)));
             if (order.waiting() > item.maxStack()) {
-                buttons.add(Button.of(label(OrdersMessages.OWN_COLLECT_STACK), s -> collect(s, id, OrderService.CollectMode.ONE_STACK, back)));
+                buttons.add(button(OrdersMessages.OWN_COLLECT_STACK, OrdersMessages.OWN_COLLECT_STACK_TOOLTIP,
+                    s -> collect(s, id, OrderService.CollectMode.ONE_STACK, back)));
             }
-            buttons.add(Button.of(label(OrdersMessages.OWN_TO_CLAIM_BOX), s -> collect(s, id, OrderService.CollectMode.CLAIM_REST, back)));
+            buttons.add(button(OrdersMessages.OWN_TO_CLAIM_BOX, OrdersMessages.OWN_TO_CLAIM_BOX_TOOLTIP,
+                s -> collect(s, id, OrderService.CollectMode.CLAIM_REST, back)));
         }
         if (order.active()) {
-            buttons.add(Button.of(label(OrdersMessages.OWN_RAISE), s -> s.show(editView(s.player(), order, back))));
-            buttons.add(Button.of(label(OrdersMessages.OWN_ADD), s -> s.show(editView(s.player(), order, back))));
+            buttons.add(button(OrdersMessages.OWN_RAISE, OrdersMessages.OWN_RAISE_TOOLTIP, s -> s.show(editView(s.player(), order, back))));
+            buttons.add(button(OrdersMessages.OWN_ADD, OrdersMessages.OWN_ADD_TOOLTIP, s -> s.show(editView(s.player(), order, back))));
             if (this.service.settings().extendEnabled() && this.service.extendedEnd(order) > 0) {
-                buttons.add(Button.of(label(OrdersMessages.OWN_EXTEND), s -> {
+                buttons.add(button(OrdersMessages.OWN_EXTEND, OrdersMessages.OWN_EXTEND_TOOLTIP, s -> {
                     OrderService.Problem problem = this.service.extend(s.player(), id);
                     if (problem != null) {
                         send(s.player(), problem);
                     }
                     reshowOwn(s, id, back);
-                }));
+                }, accent("time", this.service.settings().duration())));
             }
-            buttons.add(Button.of(label(OrdersMessages.OWN_CANCEL), s -> s.show(cancelView(order, back))));
+            buttons.add(button(OrdersMessages.OWN_CANCEL, OrdersMessages.OWN_CANCEL_TOOLTIP, s -> s.show(cancelView(order, back))));
         } else if (item != null && this.service.items().orderable(order.key())) {
             // The confirmation replaces this dialog; after a refusal (action bar) the router closes it.
-            buttons.add(Button.of(label(OrdersMessages.OWN_AGAIN), s -> orderAgain(s.player(), order, () -> own(s.player(), order, back))));
+            buttons.add(button(OrdersMessages.OWN_AGAIN, OrdersMessages.OWN_AGAIN_TOOLTIP,
+                s -> orderAgain(s.player(), order, () -> own(s.player(), order, back))));
         }
-        buttons.add(Button.of(label(OrdersMessages.OWN_DETAILS), s -> details(s, order, back)));
+        buttons.add(button(OrdersMessages.OWN_DETAILS, OrdersMessages.OWN_DETAILS_TOOLTIP, s -> details(s, order, back)));
         return this.services.templates().listWithBody(lang.get(OrdersMessages.OWN_TITLE), body, buttons, 2,
             back == null ? null : backTo(back));
     }
@@ -432,7 +463,7 @@ final class OrderDialogs {
         Lang lang = lang();
         Order current = this.service.book().get(order.id());
         long refund = current == null ? 0 : current.escrow();
-        return this.services.templates().confirm(lang.get(OrdersMessages.CANCEL_TITLE),
+        View confirm = this.services.templates().confirm(lang.get(OrdersMessages.CANCEL_TITLE),
             lang.lines(OrdersMessages.CANCEL_BODY, Arg.number("quantity", order.quantity()), item(order.key()), this.service.exact("refund", refund)),
             label(OrdersMessages.CANCEL_YES), label(OrdersMessages.CANCEL_NO),
             yes -> {
@@ -446,6 +477,10 @@ final class OrderDialogs {
                 this.services.messenger().send(no.player(), OrdersMessages.CANCEL_KEPT);
                 reshowOwn(no, order.id(), back);
             });
+        List<Button> buttons = new ArrayList<>(confirm.buttons());
+        buttons.set(0, buttons.getFirst().tooltip(lang.get(OrdersMessages.CANCEL_YES_TOOLTIP)));
+        return new View(confirm.kind(), confirm.title(), confirm.body(), confirm.inputs(), buttons, confirm.exit(), confirm.columns(),
+            confirm.escapable());
     }
 
     /**
@@ -455,7 +490,7 @@ final class OrderDialogs {
     private void details(Submission submission, Order order, Runnable back) {
         Player player = submission.player();
         this.services.dialogs().markShown(player);
-        this.service.store().fills(order.id(), 8).thenCombine(this.service.store().paidOut(order.id()), (fills, paid) -> {
+        this.service.store().fills(order.id(), DETAIL_FILLS).thenCombine(this.service.store().paidOut(order.id()), (fills, paid) -> {
             // Built after the reads, for the player who asked: amounts in their money format.
             this.services.scheduler().entity(player, () -> this.services.dialogs().show(player, () -> detailsView(order, fills, paid, back)), null);
             return null;
@@ -474,10 +509,10 @@ final class OrderDialogs {
         Order current = this.service.book().get(order.id());
         Order shown = current == null ? order : current;
         List<Component> lines = new ArrayList<>(lang.lines(OrdersMessages.DETAILS_BODY, Arg.text("id", Long.toString(shown.id())),
-            Arg.time("ago", Duration.ofMillis(Math.max(0, now - shown.created()))), Arg.money("paid", paid),
-            Arg.number("collected", shown.collected())));
+            accent("ago", Duration.ofMillis(Math.max(0, now - shown.created()))), Arg.money("paid", paid),
+            accent("collected", shown.collected())));
         lines.add(Component.empty());
-        lines.addAll(fillLines(fills, now));
+        lines.addAll(fillLines(fills, now, DETAIL_FILLS));
         return this.services.templates().list(lang.get(OrdersMessages.DETAILS_TITLE), lines, List.of(), 1, submission -> {
             Order fresh = this.service.book().get(order.id());
             if (fresh != null && fresh.owner().equals(submission.player().getUniqueId())) {
@@ -488,14 +523,15 @@ final class OrderDialogs {
         });
     }
 
-    private List<Component> fillLines(List<OrderStore.Fill> fills, long now) {
+    /** The latest deliveries, newest first; the header names the cap ({@code most}). */
+    private List<Component> fillLines(List<OrderStore.Fill> fills, long now, int most) {
         Lang lang = lang();
         List<Component> lines = new ArrayList<>();
         if (fills.isEmpty()) {
             lines.addAll(lang.lines(OrdersMessages.DETAILS_NONE));
             return lines;
         }
-        lines.addAll(lang.lines(OrdersMessages.DETAILS_HEADER));
+        lines.addAll(lang.lines(OrdersMessages.DETAILS_HEADER, Arg.number("count", most)));
         for (OrderStore.Fill fill : fills) {
             lines.addAll(lang.lines(OrdersMessages.DETAILS_LINE, Arg.text("name", this.service.name(fill.seller())),
                 Arg.number("amount", fill.quantity()), Arg.money("paid", fill.paid()),
@@ -515,9 +551,12 @@ final class OrderDialogs {
             Templates.text("add", lang.get(OrdersMessages.EDIT_ADD, Arg.number("max", room)), "0", OrderInput.MAX_INPUT));
         List<Component> lines = lang.lines(OrdersMessages.EDIT_BODY, Arg.number("quantity", order.quantity()), item(order.key()),
             Arg.money("price", order.priceEach()), Arg.number("filled", order.filled()));
-        return this.services.templates().form(lang.get(OrdersMessages.EDIT_TITLE), lines, inputs, label(OrdersMessages.CREATE_NEXT),
+        View form = this.services.templates().form(lang.get(OrdersMessages.EDIT_TITLE), lines, inputs, label(OrdersMessages.CREATE_NEXT),
             submission -> submitEdit(submission, order.id(), back),
             submission -> reshowOwn(submission, order.id(), back));
+        List<Button> buttons = new ArrayList<>(form.buttons());
+        buttons.set(0, buttons.getFirst().tooltip(lang.get(OrdersMessages.EDIT_NEXT_TOOLTIP)));
+        return new View(form.kind(), form.title(), form.body(), form.inputs(), buttons, form.exit(), form.columns(), form.escapable());
     }
 
     private void submitEdit(Submission submission, long id, Runnable back) {
@@ -574,13 +613,14 @@ final class OrderDialogs {
         Arg itemArg = Arg.component("item", item.name());
         List<Component> lines = new ArrayList<>();
         if (view.carried() > 0) {
-            lines.addAll(lang.lines(OrdersMessages.QUICK_CARRY, Arg.number("count", view.carried()), itemArg, Arg.number("inner", view.inner())));
+            lines.addAll(lang.lines(OrdersMessages.QUICK_CARRY, accent("count", view.carried()), itemArg, accent("inner", view.inner())));
         } else {
             lines.addAll(lang.lines(OrdersMessages.QUICK_NOTHING, itemArg));
         }
-        lines.addAll(lang.lines(OrdersMessages.QUICK_WANTED, Arg.number("remaining", view.remaining())));
-        if (view.units() > 0) {
-            lines.addAll(lang.lines(OrdersMessages.QUICK_PAYOUT, Arg.money("payout", view.payout()), Arg.money("tax", view.tax())));
+        lines.addAll(lang.lines(OrdersMessages.QUICK_WANTED, accent("remaining", view.remaining())));
+        // The button names what the player gets; only a tax needs a word more.
+        if (view.units() > 0 && view.tax() > 0) {
+            lines.addAll(lang.lines(OrdersMessages.QUICK_TAX, Arg.money("tax", view.tax())));
         }
         if (view.serverPaysMore() && view.serverEach() > 0) {
             lines.addAll(lang.lines(OrdersMessages.QUICK_SERVER_MORE, Arg.money("price", view.serverEach())));
@@ -595,7 +635,7 @@ final class OrderDialogs {
         if (view.units() > 0) {
             // Delivers at once: the amount agreed to, with every digit.
             buttons.add(Button.of(label(OrdersMessages.QUICK_BUTTON, Arg.number("units", view.units()),
-                Arg.exact("payout", view.payout())), s -> {
+                Arg.exact("payout", view.payout())), lang.get(OrdersMessages.QUICK_BUTTON_TOOLTIP), s -> {
                     OrderService.QuickOutcome outcome = this.service.quickDeliver(s.player(), view);
                     switch (outcome) {
                         case null -> finish(s, back);
@@ -607,7 +647,7 @@ final class OrderDialogs {
                     }
                 }).width(Templates.WIDE));
         }
-        buttons.add(Button.of(label(OrdersMessages.QUICK_MENU), s -> {
+        buttons.add(Button.of(label(OrdersMessages.QUICK_MENU), lang.get(OrdersMessages.QUICK_MENU_TOOLTIP), s -> {
             s.close();
             Order current = this.service.book().get(order.id());
             if (current == null) {
@@ -628,7 +668,7 @@ final class OrderDialogs {
             this.services.messenger().send(staff, CoreMessages.NO_PERMISSION);
             return;
         }
-        this.service.store().fills(order.id(), 5).whenComplete((fills, error) -> {
+        this.service.store().fills(order.id(), STAFF_FILLS).whenComplete((fills, error) -> {
             if (error != null) {
                 this.services.plugin().getLogger().log(Level.WARNING, "Loading the deliveries of order " + order.id() + " failed", error);
                 this.services.messenger().send(staff, CoreMessages.ACTION_FAILED);
@@ -652,7 +692,7 @@ final class OrderDialogs {
             Arg.time("time", Duration.ofMillis(order.millisLeft(now))),
             Arg.component("state", lang.get(this.service.stateLabel(order.state())))));
         lines.add(Component.empty());
-        lines.addAll(fillLines(fills, now));
+        lines.addAll(fillLines(fills, now, STAFF_FILLS));
         OrderItem item = this.service.items().of(order);
         List<Body> body = new ArrayList<>();
         if (item != null) {
@@ -661,7 +701,7 @@ final class OrderDialogs {
         body.add(text(lines));
         List<Button> buttons = new ArrayList<>();
         if (order.active()) {
-            buttons.add(Button.of(label(OrdersMessages.STAFF_CANCEL), s -> s.show(reasonView(order, "", back))));
+            buttons.add(button(OrdersMessages.STAFF_CANCEL, OrdersMessages.STAFF_CANCEL_TOOLTIP, s -> s.show(reasonView(order, "", back))));
         }
         UUID owner = order.owner();
         buttons.add(Button.of(label(OrdersMessages.STAFF_OPEN, Arg.text("name", ownerName)), s -> {

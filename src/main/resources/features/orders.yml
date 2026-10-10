@@ -27,8 +27,9 @@ limits:
   max-total: 100b
 
 # Percent of every delivery's value the player who delivers pays as tax (it leaves the economy). From 0 to 50,
-# decimals allowed (2.5).
-tax: 2
+# decimals allowed (2.5). 0 means no tax: sellers get the whole price, and no tax is mentioned anywhere (the order
+# list, the delivery menu, quick deliver, receipts).
+tax: 0
 
 # Whether players in combat are kept out of orders (they can't turn loot into money mid-fight): browsing,
 # delivering, quick deliver, placing, collecting and selling to orders are refused while tagged.
@@ -43,7 +44,7 @@ refuse-same-ip: false
 
 pricing:
   # The new-order form suggests a price each that leaves sellers this many percent more than the server pays for
-  # the item, after the tax. Items the server does not buy get no suggestion.
+  # the item (after the tax, when there is one). Items the server does not buy get no suggestion.
   suggest-margin: 10
   # The lowest price each as a percent of what the server pays for the item. 0 turns it off.
   min-vs-worth: 0

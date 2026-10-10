@@ -39,16 +39,13 @@ public final class BoostersMessages {
     public static final MessageKey FROM = MessageKey.ui("boosters.dialog.from", "name");
     public static final MessageKey FROM_SERVER = MessageKey.ui("boosters.dialog.from-server");
     public static final MessageKey NONE = MessageKey.ui("boosters.dialog.none");
-    public static final MessageKey EXPLAIN = MessageKey.ui("boosters.dialog.explain");
+    /** The booster bar switch's tooltip: what the bar and boosters are. */
+    public static final MessageKey BAR_TOOLTIP = MessageKey.ui("boosters.dialog.bar-tooltip");
     public static final MessageKey QUEUE_HEADER = MessageKey.ui("boosters.dialog.queue-header");
     public static final MessageKey QUEUE_LINE = MessageKey.ui("boosters.dialog.queue-line", "position", "percent", "time", "name");
     public static final MessageKey QUEUE_LINE_SERVER = MessageKey.ui("boosters.dialog.queue-line-server", "position", "percent", "time");
     public static final MessageKey QUEUE_MORE = MessageKey.ui("boosters.dialog.queue-more", "count");
     public static final MessageKey QUEUE_EMPTY = MessageKey.ui("boosters.dialog.queue-empty");
-    public static final MessageKey HIDE_BAR = MessageKey.ui("boosters.dialog.hide-bar");
-    public static final MessageKey SHOW_BAR = MessageKey.ui("boosters.dialog.show-bar");
-    public static final MessageKey BAR_HIDDEN = MessageKey.success("boosters.dialog.bar-hidden");
-    public static final MessageKey BAR_SHOWN = MessageKey.success("boosters.dialog.bar-shown");
 
     // ------------------------------------------------------------------ menu and settings
     public static final MessageKey HUB_LABEL = MessageKey.ui("boosters.hub.label");

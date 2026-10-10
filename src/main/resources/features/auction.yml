@@ -20,8 +20,9 @@ price:
   maximum-per-item: 0
 
 # The share of the price the seller pays as tax when a listing sells, in percent (up to two decimals, like 2.5).
-# It is rounded down and taken out of the economy. Changes apply to sales from then on.
-tax: 5
+# It is rounded down and taken out of the economy. Changes apply to sales from then on. 0 means no tax: sellers get
+# the whole price, and no tax is mentioned anywhere (the listing confirmation, the sale messages).
+tax: 0
 
 blacklist:
   # Items that can't be listed. Use item ids; * matches anything, so minecraft:*_spawn_egg is every spawn egg.

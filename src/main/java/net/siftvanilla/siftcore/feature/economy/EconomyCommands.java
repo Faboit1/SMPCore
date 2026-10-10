@@ -23,11 +23,13 @@ import net.siftvanilla.siftcore.core.command.SimpleCommand;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.economy.LedgerTx;
 import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
+import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -67,7 +69,7 @@ final class EconomyCommands {
                     if (player != null) {
                         this.services.messenger().chat(player, EconomyMessages.BALANCE_SELF,
                             Arg.money("amount", this.economy.balance(player.getUniqueId(), Currency.MONEY)),
-                            Arg.number("shards", this.economy.balance(player.getUniqueId(), Currency.SHARDS)));
+                            Arg.shards("shard-count", this.economy.balance(player.getUniqueId(), Currency.SHARDS)));
                     }
                     return CommandSupport.OK;
                 })
@@ -108,7 +110,7 @@ final class EconomyCommands {
         this.services.messenger().chat(sender, EconomyMessages.BALANCE_OTHER,
             Arg.text("name", this.services.directory().name(target)),
             Arg.money("amount", this.economy.balance(target, Currency.MONEY)),
-            Arg.number("shards", this.economy.balance(target, Currency.SHARDS)));
+            Arg.shards("shard-count", this.economy.balance(target, Currency.SHARDS)));
     }
 
     // ------------------------------------------------------------------ /pay
@@ -159,13 +161,17 @@ final class EconomyCommands {
      */
     void openPayForm(Player player, String name, String amount, Button.Handler back) {
         var lang = this.services.lang();
-        this.services.dialogs().show(player, this.services.templates().form(
+        View form = this.services.templates().form(
             lang.get(EconomyMessages.PAY_FORM_TITLE),
             List.of(),
             List.of(Templates.text("player", lang.get(EconomyMessages.PAY_FORM_PLAYER), name, 16),
                 Templates.text("amount", lang.get(EconomyMessages.PAY_FORM_AMOUNT), amount, 24)),
             this::submitPayForm,
-            back));
+            back);
+        List<Button> buttons = new ArrayList<>(form.buttons());
+        buttons.set(0, buttons.getFirst().tooltip(lang.get(EconomyMessages.PAY_FORM_SUBMIT_TOOLTIP)));
+        this.services.dialogs().show(player, new View(form.kind(), form.title(), form.body(), form.inputs(), buttons, form.exit(),
+            form.columns(), form.escapable()));
     }
 
     private void submitPayForm(Submission submission) {
@@ -207,16 +213,17 @@ final class EconomyCommands {
                     .executes(ctx -> showTop(ctx.getSource().getSender(), IntegerArgumentType.getInteger(ctx, "page")))));
     }
 
+    /** Players get the whole leaderboard in a dialog (the page is for the console's chat lines). */
     int showTop(CommandSender sender, int page) {
+        if (sender instanceof Player player) {
+            openTopDialog(player, null);
+            return CommandSupport.OK;
+        }
         int pageSize = this.settings.get().pageSize();
         List<EconomyApi.TopEntry> all = this.economy.top(Currency.MONEY, this.settings.get().topSize());
         int pages = Math.max(1, (all.size() + pageSize - 1) / pageSize);
         int current = Math.clamp(page, 1, pages);
         List<EconomyApi.TopEntry> slice = all.subList(Math.min(all.size(), (current - 1) * pageSize), Math.min(all.size(), current * pageSize));
-        if (sender instanceof Player player) {
-            openTopDialog(player, current, null);
-            return CommandSupport.OK;
-        }
         var messenger = this.services.messenger();
         messenger.chat(sender, EconomyMessages.TOP_HEADER, Arg.number("page", current), Arg.number("pages", pages));
         if (slice.isEmpty()) {
@@ -229,38 +236,34 @@ final class EconomyCommands {
         return CommandSupport.OK;
     }
 
-    /** The leaderboard dialog with page buttons; {@code back} (the Money page) adds Back, null a Close button. */
-    void openTopDialog(Player player, int page, Button.Handler back) {
+    /**
+     * The leaderboard dialog: the player's own place, then every place kept ({@code baltop.size}, said under a full
+     * list), with no pages (the dialog scrolls). {@code back} (the Money page) adds Back, null a Close button.
+     */
+    void openTopDialog(Player player, Button.Handler back) {
         var lang = this.services.lang();
-        int pageSize = this.settings.get().pageSize();
-        List<EconomyApi.TopEntry> all = this.economy.top(Currency.MONEY, this.settings.get().topSize());
-        int pages = Math.max(1, (all.size() + pageSize - 1) / pageSize);
-        int current = Math.clamp(page, 1, pages);
+        int size = this.settings.get().topSize();
+        List<EconomyApi.TopEntry> all = this.economy.top(Currency.MONEY, size);
         List<Component> lines = new ArrayList<>();
-        lines.add(lang.get(EconomyMessages.TOP_PAGE, Arg.number("page", current), Arg.number("pages", pages)));
-        List<EconomyApi.TopEntry> slice = all.subList(Math.min(all.size(), (current - 1) * pageSize), Math.min(all.size(), current * pageSize));
-        if (slice.isEmpty()) {
-            lines.add(lang.get(EconomyMessages.TOP_EMPTY));
-        }
-        for (EconomyApi.TopEntry entry : slice) {
-            lines.add(lang.get(EconomyMessages.TOP_LINE, Arg.number("rank", entry.rank()), Arg.text("name", entry.name()),
-                Arg.money("amount", entry.value())));
-        }
         long own = this.economy.balance(player.getUniqueId(), Currency.MONEY);
         int rank = this.economy.leaderboard().rankOf(Currency.MONEY, player.getUniqueId(), own);
         if (rank > 0) {
+            lines.add(lang.get(EconomyMessages.TOP_YOU, Arg.text("rank", Lang.number(rank)), Arg.money("amount", own)));
             lines.add(Component.empty());
-            lines.add(lang.get(EconomyMessages.TOP_YOU, Arg.number("rank", rank), Arg.money("amount", own)));
         }
-        List<Button> buttons = new ArrayList<>();
-        if (current > 1) {
-            buttons.add(Button.of(lang.get(EconomyMessages.TOP_PREVIOUS), s -> openTopDialog(s.player(), current - 1, back)).width(150));
+        if (all.isEmpty()) {
+            lines.add(lang.get(EconomyMessages.TOP_EMPTY));
         }
-        if (current < pages) {
-            buttons.add(Button.of(lang.get(EconomyMessages.TOP_NEXT), s -> openTopDialog(s.player(), current + 1, back)).width(150));
+        for (EconomyApi.TopEntry entry : all) {
+            lines.add(lang.get(EconomyMessages.TOP_LINE, Arg.number("rank", entry.rank()), Arg.text("name", entry.name()),
+                Arg.money("amount", entry.value())));
+        }
+        if (all.size() >= size) {
+            lines.add(Component.empty());
+            lines.add(lang.get(EconomyMessages.TOP_CAP, Arg.number("count", size)));
         }
         this.services.dialogs().show(player, this.services.templates().list(lang.get(EconomyMessages.TOP_TITLE), lines,
-            buttons, 2, back));
+            List.of(), 1, back));
     }
 
     // ------------------------------------------------------------------ /eco

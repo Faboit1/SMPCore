@@ -62,7 +62,9 @@ public final class SellMessages {
     public static final MessageKey CONFIRM_INNER = MessageKey.ui("sell.confirm.inner", "count");
     public static final MessageKey CONFIRM_KEPT = MessageKey.ui("sell.confirm.kept", "count");
     public static final MessageKey CONFIRM_SELL = MessageKey.ui("sell.confirm.sell", "total");
+    public static final MessageKey CONFIRM_SELL_TOOLTIP = MessageKey.ui("sell.confirm.sell-tooltip");
     public static final MessageKey CONFIRM_CHOOSE = MessageKey.ui("sell.confirm.choose");
+    public static final MessageKey CONFIRM_CHOOSE_TOOLTIP = MessageKey.ui("sell.confirm.choose-tooltip");
     public static final MessageKey CONFIRM_CHANGED = MessageKey.ui("sell.confirm.changed");
 
     public static final MessageKey MENU_TITLE = MessageKey.ui("sell.menu.title");
@@ -93,9 +95,12 @@ public final class SellMessages {
     public static final MessageKey MENU_MASTERY_LORE = MessageKey.ui("sell.menu.mastery-lore");
 
     public static final MessageKey MASTERY_TITLE = MessageKey.ui("sell.mastery.title");
-    public static final MessageKey MASTERY_LINE = MessageKey.ui("sell.mastery.line", "name", "level", "max", "multiplier",
-        "sold", "next", "next-level");
-    public static final MessageKey MASTERY_LINE_MAX = MessageKey.ui("sell.mastery.line-max", "name", "multiplier", "sold");
+    /** The value of a category's button in the mastery list: "level 2 of 5", or the max level. */
+    public static final MessageKey MASTERY_LEVEL = MessageKey.ui("sell.mastery.level", "level", "max");
+    public static final MessageKey MASTERY_LEVEL_MAX = MessageKey.ui("sell.mastery.level-max");
+    /** A category button's tooltip: its rate and what was sold (then the level ladder and the click hint). */
+    public static final MessageKey MASTERY_TOOLTIP_RATE = MessageKey.ui("sell.mastery.tooltip-rate", "name", "multiplier", "sold");
+    public static final MessageKey MASTERY_TOOLTIP_CLICK = MessageKey.ui("sell.mastery.tooltip-click");
     public static final MessageKey MASTERY_OFF = MessageKey.error("sell.mastery.disabled");
     public static final MessageKey MASTERY_DETAIL_TITLE = MessageKey.ui("sell.mastery.detail-title", "name");
     public static final MessageKey MASTERY_DETAIL_RATE = MessageKey.ui("sell.mastery.detail-rate", "name", "multiplier",
@@ -103,8 +108,13 @@ public final class SellMessages {
     public static final MessageKey MASTERY_LADDER_DONE = MessageKey.ui("sell.mastery.ladder-done", "level", "threshold");
     public static final MessageKey MASTERY_LADDER_NEXT = MessageKey.ui("sell.mastery.ladder-next", "level", "threshold", "left");
     public static final MessageKey MASTERY_LADDER_LATER = MessageKey.ui("sell.mastery.ladder-later", "level", "threshold");
+    /** The details page's progress: the level and what is left to the next one, or the max level. */
+    public static final MessageKey MASTERY_PROGRESS = MessageKey.ui("sell.mastery.detail-progress", "level", "max", "left", "next-level");
+    public static final MessageKey MASTERY_PROGRESS_MAX = MessageKey.ui("sell.mastery.detail-progress-max", "sold");
     public static final MessageKey MASTERY_SELL = MessageKey.ui("sell.mastery.sell", "name", "count", "total");
+    public static final MessageKey MASTERY_SELL_TOOLTIP = MessageKey.ui("sell.mastery.sell-tooltip", "name");
     public static final MessageKey MASTERY_PRICES = MessageKey.ui("sell.mastery.prices");
+    public static final MessageKey MASTERY_PRICES_TOOLTIP = MessageKey.ui("sell.mastery.prices-tooltip", "name");
 
     public static final MessageKey TOP_TITLE = MessageKey.ui("sell.top.title");
     public static final MessageKey TOP_LINE = MessageKey.ui("sell.top.line", "place", "name", "sold");
@@ -141,13 +151,15 @@ public final class SellMessages {
     public static final MessageKey DETAILS_BONUS = MessageKey.ui("sell.details.bonus", "multiplier", "price", "booster");
     public static final MessageKey DETAILS_BOOSTED = MessageKey.ui("sell.details.boosted", "percent", "price");
     public static final MessageKey DETAILS_MASTERY = MessageKey.ui("sell.details.mastery", "category", "level", "max");
-    public static final MessageKey DETAILS_SHOP = MessageKey.ui("sell.details.shop", "price");
+    /** The best buy order, in the Sell and Order it tooltips. */
     public static final MessageKey DETAILS_ORDER = MessageKey.ui("sell.details.order", "price");
-    public static final MessageKey DETAILS_CARRY = MessageKey.ui("sell.details.carry", "count");
     public static final MessageKey DETAILS_NOT_SOLD = MessageKey.ui("sell.details.not-sold");
     public static final MessageKey DETAILS_SELL = MessageKey.ui("sell.details.sell", "count", "total");
+    public static final MessageKey DETAILS_SELL_TOOLTIP = MessageKey.ui("sell.details.sell-tooltip");
     public static final MessageKey DETAILS_BUY = MessageKey.ui("sell.details.buy", "price");
+    public static final MessageKey DETAILS_BUY_TOOLTIP = MessageKey.ui("sell.details.buy-tooltip");
     public static final MessageKey DETAILS_ORDER_IT = MessageKey.ui("sell.details.order-it");
+    public static final MessageKey DETAILS_ORDER_IT_TOOLTIP = MessageKey.ui("sell.details.order-it-tooltip");
 
     public static final MessageKey WORTH_EACH = MessageKey.chat("sell.worth.each", "item", "price");
     public static final MessageKey WORTH_STACK = MessageKey.chat("sell.worth.stack", "item", "price", "amount", "total");

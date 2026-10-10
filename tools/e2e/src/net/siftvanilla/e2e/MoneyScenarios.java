@@ -34,6 +34,8 @@ import org.bukkit.plugin.Plugin;
  * pay (online, offline and ignored), the summary of payments received while away, who sees a balance, hiding from the
  * money leaderboard and the top sellers, when {@code /sell all} asks, the hotbar and shulker boxes on {@code /sell all},
  * selling on closing the sell menu, and mastery level-ups (a title, one pop-up for several, never over the receipt).
+ * Also the money dialogs in the dialog style: the Money page (balance and purple shards, the rest in tooltips), the pay
+ * confirmation and /baltop as one list without pages.
  */
 final class MoneyScenarios {
 
@@ -69,6 +71,7 @@ final class MoneyScenarios {
         list.add(of("sell-menu-close-setting", MoneyScenarios::sellMenuClose));
         list.add(of("sell-mastery-levelup-setting", MoneyScenarios::masteryLevelUp));
         list.add(of("sell-top-hidden", MoneyScenarios::sellTopHidden));
+        list.add(of("money-dialogs", MoneyScenarios::moneyDialogs));
         return list;
     }
 
@@ -550,6 +553,95 @@ final class MoneyScenarios {
         viewer.clearLogs();
         viewer.command("balance " + targetName);
         e2e.eventually(() -> viewer.chatContains(targetName + " has $12,345"), "shown again: " + viewer.chat());
+    }
+
+    // ------------------------------------------------------------------ the money dialogs
+
+    /**
+     * The money dialogs show buttons, not paragraphs: the Money page has the balance and the shards (purple), how much
+     * can still be sent and the leaderboard place are in the buttons' tooltips; the pay confirmation asks the question
+     * and says "can't be undone" in the Pay tooltip; /baltop lists every place in one dialog with the player's own place
+     * first and no page buttons; /balance colours the shards purple.
+     */
+    static void moneyDialogs(E2E e2e) throws Exception {
+        String name = e2e.name("MoneyDlg");
+        String other = e2e.name("MoneyTo");
+        Bot bot = e2e.bot(name);
+        e2e.bot(other);
+        e2e.console("eco set " + name + " 800m");
+        e2e.console("eco set " + name + " 1234 shards");
+        e2e.eventually(() -> e2e.money(name) == 800_000_000 && e2e.shards(name) == 1_234, "funded");
+        refreshLeaderboard(e2e);
+
+        e2e.step("/balance: money green, shards purple");
+        bot.clearLogs();
+        bot.command("balance");
+        e2e.eventually(() -> bot.chatContains("You have $800,000,000 and 1,234 shards.")
+            || bot.chatContains("You have $800m and 1,234 shards."), "the balance: " + bot.chat());
+        e2e.expect(purple(bot.chatComponents().getLast(), "1,234 shards"), "the shards are purple: " + bot.chatComponents().getLast());
+
+        e2e.step("the Money page: balance and shards, the rest in the buttons' tooltips");
+        bot.command("menu");
+        e2e.dialog(bot, "SiftVanilla");
+        e2e.click(bot, "Money");
+        Bot.SeenDialog page = e2e.dialog(bot, "Money");
+        e2e.expect(page.bodyText().contains("1,234 shards"), "the shards: " + page.body());
+        e2e.expect(!page.bodyText().contains("Leaderboard place") && !page.bodyText().contains("can still send"),
+            "no status lines beyond the balance: " + page.body());
+        String payTip = page.button("Pay a player").tooltip();
+        e2e.expect(payTip != null && payTip.contains("Send money to another player.") && payTip.contains("You can still send"),
+            "the limit left in the Pay tooltip: " + payTip);
+        String topTip = page.button("Richest players").tooltip();
+        e2e.expect(topTip != null && topTip.contains("The 100 richest players.") && topTip.contains("You are number"),
+            "the place in the Richest players tooltip: " + topTip);
+
+        e2e.step("/baltop: the player's place first, every place in one dialog, no pages");
+        bot.clearLogs();
+        bot.command("baltop");
+        Bot.SeenDialog top = e2e.dialog(bot, "Richest players");
+        e2e.expect(top.body().getFirst().startsWith("You are number"), "the own place first: " + top.body());
+        e2e.expect(top.bodyText().contains("1. "), "the list: " + top.body());
+        e2e.expect(!top.bodyText().contains("Page ") && top.button("Next page") == null && top.button("Previous page") == null,
+            "no paging: " + top.body() + " " + top.buttons());
+        e2e.expect(top.buttons().size() == 1 && top.button("Close") != null, "only Close: " + top.buttons());
+        bot.clickButton("Close", Map.of());
+
+        e2e.step("the pay confirmation: the question, and \"can't be undone\" in the Pay tooltip");
+        cooldown(e2e);
+        bot.clearLogs();
+        bot.command("pay " + other + " 150k");
+        Bot.SeenDialog confirm = e2e.dialog(bot, "Confirm payment");
+        e2e.expect(confirm.bodyText().contains("Send $150,000 to " + other + "?"), "the question: " + confirm.body());
+        e2e.expect(!confirm.bodyText().contains("can't be undone"), "not in the body: " + confirm.body());
+        e2e.expect("Payments can't be undone.".equals(confirm.button("Pay").tooltip()), "in the tooltip: " + confirm.button("Pay").tooltip());
+        e2e.click(bot, "Cancel");
+        e2e.eventually(() -> bot.anyFeedbackContains("Payment cancelled."), "cancelled: " + bot.actionBar());
+        e2e.console("eco set " + name + " 0");
+        e2e.console("eco set " + name + " 0 shards");
+        refreshLeaderboard(e2e);
+    }
+
+    /** Whether every visible piece of {@code text} in a chat line is drawn in the shard colour. */
+    private static boolean purple(net.minecraft.network.chat.Component line, String text) {
+        StringBuilder all = new StringBuilder();
+        List<Integer> colours = new ArrayList<>();
+        line.visit((style, piece) -> {
+            for (int i = 0; i < piece.length(); i++) {
+                colours.add(style.getColor() == null ? -1 : style.getColor().getValue());
+            }
+            all.append(piece);
+            return java.util.Optional.empty();
+        }, net.minecraft.network.chat.Style.EMPTY);
+        int start = all.indexOf(text);
+        if (start < 0) {
+            return false;
+        }
+        for (int i = start; i < start + text.length(); i++) {
+            if (all.charAt(i) != ' ' && colours.get(i) != 0x915DFF) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // ------------------------------------------------------------------ the money leaderboard

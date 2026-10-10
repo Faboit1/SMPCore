@@ -136,7 +136,8 @@ final class OrdersMenu extends PagedMenu<Order> implements OrdersView {
         int tax = this.service.settings().taxBasisPoints();
         List<Component> lore = new ArrayList<>();
         lore.addAll(lang.lines(OrdersMessages.ENTRY_PRICE, Arg.money("price", order.priceEach())));
-        if (!own) {
+        // Without a tax a seller gets the price each, so there is nothing more to say.
+        if (!own && tax > 0) {
             lore.addAll(lang.lines(OrdersMessages.ENTRY_NET, Arg.money("net", OrderMath.payout(order.priceEach(), tax)),
                 Arg.text("tax", OrderMath.percent(tax))));
         }

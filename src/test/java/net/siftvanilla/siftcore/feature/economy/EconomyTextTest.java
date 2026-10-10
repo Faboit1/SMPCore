@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -74,10 +75,68 @@ class EconomyTextTest {
     void noDailyLimitLineWithoutALimit() {
         String confirm = plain(lang.lines(EconomyMessages.PAY_CONFIRM_BODY_UNLIMITED, Arg.text("name", "Alex"),
             Arg.component("amount", Component.text("$1,500"))));
-        assertEquals("Send $1,500 to Alex?\nPayments can't be undone.", confirm);
-        String hub = plain(lang.lines(EconomyMessages.HUB_BODY_UNLIMITED, Arg.money("amount", 1_500), Arg.number("shards", 3),
-            Arg.number("rank", 2)));
-        assertFalse(hub.contains("send") || hub.contains(" - "), hub);
+        assertEquals("Send $1,500 to Alex?", confirm, "the question only; that it can't be undone is in the Pay tooltip");
+        assertEquals("Payments can't be undone.", plain(lang.get(EconomyMessages.PAY_CONFIRM_TOOLTIP)));
+        String limited = plain(lang.lines(EconomyMessages.PAY_CONFIRM_BODY, Arg.text("name", "Alex"),
+            Arg.component("amount", Component.text("$1,500")), Arg.money("left", 2_000)));
+        assertEquals("Send $1,500 to Alex?\nYou can send $2,000 more today after this.", limited);
+    }
+
+    @Test
+    void moneyPageShowsTheBalanceAndPurpleShardsOnly() {
+        Component hub = Component.join(net.kyori.adventure.text.JoinConfiguration.newlines(),
+            lang.lines(EconomyMessages.HUB_BODY, Arg.money("amount", 1_500), Arg.shards("shard-count", 3)));
+        String text = plain(hub);
+        assertTrue(text.contains("$1,500") && text.contains("3 shards"), text);
+        assertFalse(text.contains("send") || text.contains("Leaderboard"), "the limit and the place are in the tooltips: " + text);
+        assertEquals(List.of(Palette.defaults().shards()), colours(hub, "3 shards"), "the shard line is purple");
+        assertEquals("You can still send $2,000 today.", plain(lang.get(EconomyMessages.HUB_PAY_LEFT, Arg.money("left", 2_000))));
+        assertEquals("You are number 4.", plain(lang.get(EconomyMessages.HUB_TOP_RANK, Arg.text("rank", "4"))));
+        assertEquals("The 100 richest players.", plain(lang.get(EconomyMessages.HUB_TOP_TOOLTIP, Arg.number("count", 100))));
+    }
+
+    @Test
+    void balanceAndStaffRepliesColourShardsPurple() {
+        Component self = lang.get(EconomyMessages.BALANCE_SELF, Arg.money("amount", 2_500), Arg.shards("shard-count", 1_250));
+        assertEquals("You have $2,500 and 1,250 shards.", plain(self));
+        assertEquals(List.of(Palette.defaults().shards()), colours(self, "1,250 shards"), "the amount and the word are purple");
+        Component given = lang.get(EconomyMessages.ECO_GIVEN_SHARDS, Arg.text("name", "Alex"), Arg.shards("amount", 50),
+            Arg.shards("balance", 70));
+        assertEquals(List.of(Palette.defaults().shards()), colours(given, "50 shards"));
+        assertEquals("Only the top 100 are listed.", plain(lang.get(EconomyMessages.TOP_CAP, Arg.number("count", 100))));
+    }
+
+    /** The colours of the text pieces that overlap {@code text}, each once, in order. */
+    private static List<net.kyori.adventure.text.format.TextColor> colours(Component component, String text) {
+        StringBuilder all = new StringBuilder();
+        walk(component, null, (piece, colour) -> all.append(piece));
+        int start = all.indexOf(text);
+        assertTrue(start >= 0, all.toString());
+        List<net.kyori.adventure.text.format.TextColor> inside = new java.util.ArrayList<>();
+        int[] position = {0};
+        walk(component, null, (piece, colour) -> {
+            int from = position[0];
+            int to = from + piece.length();
+            if (to > start && from < start + text.length() && !piece.isBlank() && !inside.contains(colour)) {
+                inside.add(colour);
+            }
+            position[0] = to;
+        });
+        return inside;
+    }
+
+    private interface Visitor {
+        void piece(String text, net.kyori.adventure.text.format.TextColor colour);
+    }
+
+    private static void walk(Component component, net.kyori.adventure.text.format.TextColor inherited, Visitor visitor) {
+        net.kyori.adventure.text.format.TextColor colour = component.color() != null ? component.color() : inherited;
+        if (component instanceof net.kyori.adventure.text.TextComponent text) {
+            visitor.piece(text.content(), colour);
+        }
+        for (Component child : component.children()) {
+            walk(child, colour, visitor);
+        }
     }
 
     @Test

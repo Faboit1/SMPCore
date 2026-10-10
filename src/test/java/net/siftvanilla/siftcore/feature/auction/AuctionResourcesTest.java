@@ -51,7 +51,7 @@ class AuctionResourcesTest {
         assertEquals(Duration.ofHours(48), settings.duration());
         assertEquals(3, settings.defaultSlots());
         assertEquals(new AuctionMath.PriceRules(1, 10_000_000_000L, 1, 0), settings.price());
-        assertEquals(500, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "no tax unless the owner sets one");
         assertTrue(settings.blacklist().matches("minecraft:barrier"));
         assertTrue(settings.blacklist().matches("minecraft:command_block"));
         assertTrue(settings.blacklist().matches("minecraft:creeper_spawn_egg"));
@@ -104,7 +104,7 @@ class AuctionResourcesTest {
         assertEquals(Duration.ofHours(48), settings.duration());
         assertEquals(3, settings.defaultSlots());
         assertEquals(new AuctionMath.PriceRules(1, 10_000_000_000L, 1, 0), settings.price());
-        assertEquals(500, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "a broken tax falls back to none");
         assertEquals(AuctionSettings.DEFAULT_BLACKLIST, settings.blacklist().entries());
         assertEquals(SortOrder.NEWEST, settings.defaultSort());
     }
@@ -162,6 +162,34 @@ class AuctionResourcesTest {
             String raw = String.join("\n", file.isList(key.path()) ? file.getStringList(key.path()) : List.of(file.getString(key.path())));
             assertFalse(raw.matches("(?s).*[A-Z]{3,}.*"), key.path() + " uses capitals: " + raw);
         }
+    }
+
+    /** Loads the bundled lang file into {@link #lang()} for rendering. */
+    private static Lang loaded() throws Exception {
+        Lang lang = lang();
+        YamlConfiguration file = yaml("lang/auction.yml");
+        assertEquals(List.of(), lang.load(file, file, "lang/auction.yml"));
+        return lang;
+    }
+
+    @Test
+    void untaxedSalesSayNothingAboutTax() throws Exception {
+        Lang lang = loaded();
+        Arg[] sale = {Arg.text("buyer", "Alex"), Arg.text("name", "Alex"), Arg.number("amount", 10), Arg.text("item", "Diamond"),
+            Arg.money("price", 1_000), Arg.money("earned", 950), Arg.number("count", 3)};
+        // As shipped (no tax): the seller's line, the join summary of one sale and of several.
+        assertEquals("Alex bought your 10 Diamond for $1,000.", lang.plain(AuctionService.soldMessage(0), sale));
+        assertEquals("While you were away, Alex bought your 10 Diamond for $1,000.", lang.plain(AuctionFeature.awayOne(0), sale));
+        assertEquals("While you were away, 3 of your listings sold for $950:", lang.plain(AuctionFeature.awayMany(0), sale));
+        // A taxed sale names what the seller got after it.
+        assertEquals("Alex bought your 10 Diamond for $1,000. You got $950 after tax.", lang.plain(AuctionService.soldMessage(50), sale));
+        assertTrue(lang.plain(AuctionFeature.awayOne(50), sale).endsWith("You got $950 after tax."));
+        assertTrue(lang.plain(AuctionFeature.awayMany(1), sale).contains("You got $950 after tax"));
+        // The listing confirmation's body and its List it tooltip: no tax there, the tax line is separate.
+        String body = lang.plain(AuctionMessages.SELL_CONFIRM_BODY, sale);
+        assertEquals("List 10 Diamond for $1,000?", body);
+        assertEquals("Put it up for 2d.\nIf nobody buys it, it waits in your claim box.",
+            lang.plain(AuctionMessages.SELL_CONFIRM_TOOLTIP, Arg.text("time", "2d")));
     }
 
     @Test

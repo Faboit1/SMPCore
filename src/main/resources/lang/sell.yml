@@ -27,6 +27,7 @@ sell:
     bonus: "<secondary>Rank bonus <primary><multiplier>x"
     category-bonus: "<secondary><category> <primary><multiplier>x"
     order: "<secondary><amount> <item> to <owner>'s order <primary><value>"
+    # Only when the buy orders took a tax.
     tax: "<secondary>Order tax <tax>"
     rest: "<secondary>Rest to the server <primary><value>"
     boxes: "<secondary><count> of them came out of shulker boxes"
@@ -55,20 +56,23 @@ sell:
   balance-full: "<primary>You can't hold that much money. Your items are back."
   too-much: "<primary>That's too much to sell at once. Sell less at a time."
   claim-box: "<primary><count> items didn't fit in your inventory. <secondary>They're waiting in your claim box (/claims)."
-  # The confirmation before selling everything (sell-all.confirm in features/sell.yml).
+  # The confirmation before selling everything (sell-all.confirm in features/sell.yml): the total, and in the Sell
+  # button's tooltip what is in it.
   confirm:
     title: "Sell everything"
     title-type: "Sell all <item>"
     title-category: "Sell <category> items"
     body: "<primary>Sell <count> items for <total>?"
-    bonus: "<secondary>Includes your <multiplier>x bonus"
+    bonus: "<secondary>Includes your <accent><multiplier>x</accent> bonus"
     bonuses: "<secondary>Includes your rank and mastery bonuses"
-    booster: "<secondary>Includes the +<percent>% sell booster"
-    orders: "<secondary><orders> of it comes from <count> buy orders"
-    inner: "<secondary><count> of them are in shulker boxes"
-    kept: "<secondary>Kept: <count> items that can't be sold or don't stack"
+    booster: "<secondary>Includes the <accent>+<percent>%</accent> sell booster"
+    orders: "<secondary><orders> of it comes from <accent><count></accent> buy orders"
+    inner: "<secondary><accent><count></accent> of them are in shulker boxes"
+    kept: "<secondary>Kept: <accent><count></accent> items that can't be sold or don't stack"
     sell: "Sell for <total>"
+    sell-tooltip: "<primary>Sell them now."
     choose: "Choose items"
+    choose-tooltip: "<primary>Pick what to sell in the sell menu."
     changed: "<primary>Your inventory changed. Check the total, then sell."
   menu:
     title: "Sell items"
@@ -97,19 +101,26 @@ sell:
     give-back-lore: "<secondary>Puts everything above back in your inventory"
     mastery: "<primary>Mastery"
     mastery-lore: "<secondary>See your sell mastery levels"
-  # /sell mastery
+  # /sell mastery: one button per category, "Mining: level 2 of 5". Hovering it shows the rate and every level.
   mastery:
     title: "Sell mastery"
-    line: "<primary><name> <secondary>level <level> of <max>, <multiplier>x, <sold> of <next> to level <next-level>"
-    line-max: "<primary><name> <secondary>max level, <multiplier>x, <sold> sold"
-    disabled: "<primary>Sell mastery is turned off on this server."
-    detail-title: "<name> mastery"
-    detail-rate: "<secondary><name> items sell for <primary><multiplier>x <secondary>(rank <rank>x, mastery +<bonus>)"
+    level: "level <level> of <max>"
+    level-max: "max level"
+    tooltip-rate: "<primary><name> items sell for <accent><multiplier>x</accent><secondary>, <sold> sold"
+    tooltip-click: "<secondary>Click to sell them or see their prices."
     ladder-done: "<secondary>Level <level> <threshold> done"
     ladder-next: "<primary>Level <level> <threshold> <secondary><left> to go"
     ladder-later: "<secondary>Level <level> <threshold>"
+    disabled: "<primary>Sell mastery is turned off on this server."
+    # One category: its rate, its progress and two buttons.
+    detail-title: "<name> mastery"
+    detail-rate: "<secondary><name> items sell for <accent><multiplier>x</accent> (rank <rank>x, mastery +<bonus>)"
+    detail-progress: "<secondary>Level <accent><level></accent> of <accent><max></accent>, <left> to level <accent><next-level>"
+    detail-progress-max: "<secondary>Max level, <sold> sold"
     sell: "Sell your <name> items (<count> for <total>)"
+    sell-tooltip: "<primary>Sell every <name> item you carry now."
     prices: "Prices"
+    prices-tooltip: "<primary>What every <name> item sells for."
   # /sell top
   top:
     title: "Top sellers"
@@ -144,19 +155,21 @@ sell:
     sort-highest: "Highest price"
     sort-lowest: "Lowest price"
     filter-all: "All"
-  # The details of one item (click it in the price list)
+  # The details of one item (click it in the price list): what it sells for, and buttons to sell, buy or order it.
   details:
     price: "<secondary>Sells for <price> each"
-    bonus: "<secondary>With your <multiplier>x bonus <price><booster>"
-    boosted: "<secondary>With the +<percent>% booster <price>"
-    mastery: "<secondary><category> mastery level <level> of <max>"
-    shop: "<secondary>The shop sells it for <price>"
-    order: "<secondary>Best buy order <price> each"
-    carry: "<secondary>You carry <count>"
+    bonus: "<secondary>With your <accent><multiplier>x</accent> bonus <price><booster>"
+    boosted: "<secondary>With the <accent>+<percent>%</accent> booster <price>"
+    mastery: "<secondary><category> mastery level <accent><level></accent> of <accent><max>"
     not-sold: "<secondary>The server doesn't buy this."
+    # In the Sell and Order it tooltips.
+    order: "<secondary>Best buy order <price> each"
     sell: "Sell your <count> for <total>"
+    sell-tooltip: "<primary>Sell every plain one you carry now."
     buy: "Buy in the shop for <price>"
+    buy-tooltip: "<primary>Choose how many to buy."
     order-it: "Order it"
+    order-it-tooltip: "<primary>Ask other players for it with a buy order."
   worth:
     each: "<primary>One <item> sells for <price>."
     stack: "<primary>One <item> sells for <price>, your <amount> for <total>."
@@ -192,9 +205,9 @@ sell:
   # Settings (/settings, the Money & selling group). Option names like "Server default" are shared (lang/settings.yml).
   settings:
     confirm: "Confirm /sell all from"
-    confirm-description: "Ask before selling everything when the total is at least this much. The server's own always/never rule still wins."
+    confirm-description: "Ask before selling everything when the total is at least this much."
     hotbar: "Hotbar on /sell all"
-    hotbar-description: "Keep your hotbar items when selling everything, or sell them too. Server follows the server's setting."
+    hotbar-description: "Keep your hotbar items when selling everything, or sell them too."
     hotbar-keep: "Keep it"
     hotbar-sell: "Sell it too"
     orders: "Sell to buy orders first"

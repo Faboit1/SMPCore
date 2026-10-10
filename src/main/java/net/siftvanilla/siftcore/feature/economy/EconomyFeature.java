@@ -37,6 +37,7 @@ import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.integration.vault.VaultHook;
 import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.FormValues;
+import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
@@ -329,18 +330,25 @@ public final class EconomyFeature implements Feature, Listener {
         this.pay.limits().load(player.getUniqueId()).whenComplete((sent, error) -> this.services.scheduler().entity(player, () -> lang.viewing(player, () -> {
             HubLimit line = HubLimit.of(limit, sent, error);
             int rank = this.economy.leaderboard().rankOf(Currency.MONEY, player.getUniqueId(), balance);
-            Arg amount = Arg.money("amount", balance);
-            Arg shards = Arg.number("shards", this.economy.balance(player.getUniqueId(), Currency.SHARDS));
-            Arg place = rank == 0 ? Arg.text("rank", "-") : Arg.number("rank", rank);
-            // Without a limit there is no "you can still send" line rather than a dash.
-            var body = line == HubLimit.LEFT
-                ? lang.lines(EconomyMessages.HUB_BODY, amount, shards, place, Arg.money("left", Math.max(0, limit - sent)))
-                : lang.lines(EconomyMessages.HUB_BODY_UNLIMITED, amount, shards, place);
+            // The balance and shards; how much can still be sent and the leaderboard place are in the buttons' tooltips.
+            var body = lang.lines(EconomyMessages.HUB_BODY, Arg.money("amount", balance),
+                Arg.shards("shard-count", this.economy.balance(player.getUniqueId(), Currency.SHARDS)));
+            List<Component> payTooltip = new ArrayList<>(lang.lines(EconomyMessages.HUB_PAY_TOOLTIP));
+            if (line == HubLimit.LEFT) {
+                payTooltip.addAll(lang.lines(EconomyMessages.HUB_PAY_LEFT, Arg.money("left", Math.max(0, limit - sent))));
+            }
+            List<Component> topTooltip = new ArrayList<>(lang.lines(EconomyMessages.HUB_TOP_TOOLTIP,
+                Arg.number("count", this.settings.get().topSize())));
+            if (rank > 0) {
+                topTooltip.addAll(lang.lines(EconomyMessages.HUB_TOP_RANK, Arg.text("rank", Lang.number(rank))));
+            }
             Button.Handler back = s -> openHub(s.player());
             View page = this.services.templates().list(lang.get(EconomyMessages.HUB_TITLE), body,
                 List.of(
-                    Button.of(lang.get(EconomyMessages.HUB_PAY), s -> this.commands.openPayForm(s.player(), "", "", back)).width(150),
-                    Button.of(lang.get(EconomyMessages.HUB_TOP), s -> this.commands.openTopDialog(s.player(), 1, back)).width(150)),
+                    Button.of(lang.get(EconomyMessages.HUB_PAY), Templates.lines(payTooltip),
+                        s -> this.commands.openPayForm(s.player(), "", "", back)).width(150),
+                    Button.of(lang.get(EconomyMessages.HUB_TOP), Templates.lines(topTooltip),
+                        s -> this.commands.openTopDialog(s.player(), back)).width(150)),
                 2, s -> openMenu(s.player()));
             this.services.dialogs().show(player, line == HubLimit.UNKNOWN
                 ? page.withError(lang.get(EconomyMessages.HUB_LIMIT_FAILED), FormValues.EMPTY)
@@ -350,7 +358,7 @@ public final class EconomyFeature implements Feature, Listener {
 
     /** What the money page says about today's pay limit. */
     enum HubLimit {
-        /** "You can still send ... today". */
+        /** "You can still send ... today" (in the Pay button's tooltip). */
         LEFT,
         /** Nothing: this player has no daily limit. */
         NONE,

@@ -44,8 +44,9 @@ placeholder-currencies:
 currencies:
   Vault:
     register: true
-    # 5% of the price is taken from the seller when an item sells (a money sink).
-    tax: 5
+    # No tax: the seller gets the whole price (SiftVanilla takes no fee on trades between players). A number like 5
+    # takes 5% of the price from the seller when an item sells.
+    tax: 0
     min-price: -1
     max-price: -1
     display:

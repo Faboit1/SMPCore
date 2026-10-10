@@ -11,7 +11,7 @@ levels, the price list, top sellers, and the guard that keeps items from village
 | `/sell hand` | `siftcore.command.sell.hand` (everyone) | Sells the stack in the main hand. A shulker box in the hand sells what is inside it (an empty plain box sells as an item). |
 | `/sell hand all` | `siftcore.command.sell.hand` | Sells every plain stack of the held item's type from the hotbar, the storage slots and shulker boxes there (never armor or the off hand). Asks first like `/sell all`. |
 | `/sell all` | `siftcore.command.sell.all` (everyone) | Sells every sellable item in the hotbar and the 27 storage slots (never armor or the off hand), including what is inside shulker boxes but never the box itself. Asks first above `sell-all.confirm-above` (or from the player's own "Confirm /sell all from" amount). Players can keep the hotbar or leave shulker boxes shut (`/settings`). |
-| `/sell mastery` | `siftcore.command.sell` | The sell mastery dialog: every category's level, multiplier and progress; each opens its ladder, "Sell your <category> items" and its prices. Opened with the sell menu's Mastery button, that Sell first gives the menu's grid back, so it sells those items too. |
+| `/sell mastery` | `siftcore.command.sell` | The sell mastery dialog: one button per category, "Mining: level 2 of 5" (or "max level"), whose tooltip has the rate, what was sold and every level (done, the next with what is left, later); each opens the category's page (its rate and progress, "Sell your <category> items" and its prices). Opened with the sell menu's Mastery button, that Sell first gives the menu's grid back, so it sells those items too. |
 | `/sell top` | `siftcore.command.sell` | The ten players who sold the most (base value), and the viewer's own place. Players who hide from leaderboards are left out (a hidden viewer is told they have no place). |
 | `/sell history` | `siftcore.command.sell` | The player's last 200 sales (to the server and to buy orders), newest first, with what was sold in the tooltip. |
 | `/sell admin mastery <player> [category]` | `siftcore.admin.sell` (operators) | Shows a player's mastery (every category, or one). Works from the console and for offline players. |
@@ -94,9 +94,10 @@ Every sale goes through `SellService` and `SaleBuilder`, on the player's thread:
 2. **Confirm when needed** (`/sell all`, `/sell hand all`, category selling, "Sell your ..." buttons):
    `sell-all.confirm` is `always`, `above` (default) or `never`. With `above` each player's "Confirm /sell all
    from" (`sell_all_confirm`) decides: "Server default" asks from `confirm-above` ($10k), "Always", from $10k, $100k
-   or $1m, or "Never"; the server's `always` and `never` win over it. The dialog "Sell everything" shows `Sell 128 items for $51,200?`, the bonus, the buy-order
-   part, how many come out of shulker boxes and what is kept, with "Sell for $51,200", "Choose items" (opens the
-   sell menu filled with exactly what the request covers) and "Cancel". Confirming works the sale out again from the
+   or $1m, or "Never"; the server's `always` and `never` win over it. The dialog "Sell everything" asks
+   `Sell 128 items for $51,200?` (the dialog style: only the question in the body) with "Sell for $51,200", whose tooltip
+   lists the bonus, the booster, the buy-order part, how many come out of shulker boxes and what is kept, "Choose items"
+   (opens the sell menu filled with exactly what the request covers) and "Cancel". Confirming works the sale out again from the
    live inventory; if any slot, stack, box content, order take or the total differs it shows the dialog again with
    "Your inventory changed. Check the total, then sell." and the error sound. Nothing is sold that was not shown.
 3. **Fire `api.event.ItemSellEvent` once** (cancellable; source `MENU`, `HAND`, `HAND_ALL`, `ALL` or `CATEGORY`;
@@ -124,7 +125,8 @@ Every sale goes through `SellService` and `SaleBuilder`, on the player's thread:
 **Receipt.** `You sold 64 diamond for $25,600.` (or `... with your 1.5x bonus.`, `... with your bonuses.`,
 `You sold 150 items for $9,000, $2,400 of it from buy orders.`) in chat with the success sound and a hover card:
 one line per item (up to 12), the bonus per category, each order fill (`32 diamond to Steve's order $13,440`, net
-after tax), the order tax, the rest to the server and how many came from shulker boxes. With "Sale receipts" on
+after tax), the order tax (only when the orders took one; SiftVanilla's orders take none), the rest to the server and
+how many came from shulker boxes. With "Sale receipts" on
 "Above the hotbar" only `+$25,600` on the action bar and the sound remain (a chat line in combat with quiet in combat
 on), with "Off" nothing; `feedback.action-bar: true` adds the action bar line to chat receipts.
 
@@ -287,9 +289,11 @@ each category. Search: name and id; an exact name match comes first. The sort an
 the player picks one).
 
 Clicking an item opens its **details** dialog, the one place where selling, the shop and buy orders meet for one
-item: price each, with the player's bonus, the category mastery level, the shop price, the best order, how many the
-player carries, and the buttons "Sell your 64 for $25,600" (the `/sell hand all` rules and confirmation), "Buy in
-the shop for $1,000" (the shop's purchase dialog), "Order it" (the orders form, while the orders feature runs) and Back.
+item: the price each, with the player's bonus, and the category mastery level, then the buttons "Sell your 64 for
+$25,600" (the `/sell hand all` rules and confirmation; how many the player carries is in its label), "Buy in the shop
+for $1,000" (the shop's purchase dialog), "Order it" (the orders form, while the orders feature runs) and Back. Each
+button's tooltip says what it does, and the Sell and Order it tooltips name the best buy order ("Best buy order $500
+each").
 
 ## Placeholders
 

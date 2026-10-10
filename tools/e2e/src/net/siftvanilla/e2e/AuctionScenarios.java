@@ -28,8 +28,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * The auction house end to end: listing with /ah sell and through the menu's sell form, buying with money, tax and
- * item moving together, taking listings down, the claim box (auto-claim, full inventories, claim all, the join
+ * The auction house end to end: listing with /ah sell and through the menu's sell form, buying with money and item
+ * moving together (no tax as shipped, and a 5% tax set for one scenario), taking listings down, the claim box (auto-claim, full inventories, claim all, the join
  * reminder), refusals, a two-buyer race, sorting, filtering and searching, history, staff removal, the hub entry,
  * expiry through the real timer, and listings and claim box items surviving a restart.
  */
@@ -64,6 +64,7 @@ final class AuctionScenarios {
     static List<Scenario> all() {
         List<Scenario> list = new ArrayList<>();
         list.add(of("auction-sell-buy", AuctionScenarios::sellAndBuy));
+        list.add(of("auction-sell-buy-taxed", AuctionScenarios::sellAndBuyTaxed));
         list.add(of("auction-sell-form", AuctionScenarios::sellForm));
         list.add(of("auction-take-down", AuctionScenarios::takeDown));
         list.add(of("auction-claim-box", AuctionScenarios::claimBox));
@@ -261,23 +262,54 @@ final class AuctionScenarios {
 
     // ------------------------------------------------------------------ scenarios
 
+    /** Selling and buying as shipped: no tax, so nothing mentions one and the seller gets the whole price. */
     static void sellAndBuy(E2E e2e) throws Exception {
-        String sellerName = e2e.name("AhSeller");
-        String buyerName = e2e.name("AhBuyer");
+        sellAndBuy(e2e, false);
+    }
+
+    /** The same with a 5% tax set in features/auction.yml for the scenario: the tax is shown, taken and sunk. */
+    static void sellAndBuyTaxed(E2E e2e) throws Exception {
+        withConfig(e2e, "features/auction.yml", "tax: 0", "tax: 5", x -> sellAndBuy(x, true));
+    }
+
+    /** Runs {@code body} with one line of a config file changed (and reloaded), then puts it back. */
+    private static void withConfig(E2E e2e, String file, String from, String to, Body body) throws Exception {
+        Path path = e2e.services().plugin().getDataFolder().toPath().resolve(file);
+        String original = Files.readString(path, StandardCharsets.UTF_8);
+        e2e.expect(original.contains(from), file + " has '" + from + "'");
+        try {
+            Files.writeString(path, original.replace(from, to), StandardCharsets.UTF_8);
+            e2e.expect(String.join(" ", e2e.consoleOutput("sift reload")).contains("Reloaded"), "the changed " + file + " reloads");
+            body.run(e2e);
+        } finally {
+            Files.writeString(path, original, StandardCharsets.UTF_8);
+            e2e.console("sift reload");
+        }
+    }
+
+    private static void sellAndBuy(E2E e2e, boolean taxed) throws Exception {
+        String sellerName = e2e.name(taxed ? "AhTaxSell" : "AhSeller");
+        String buyerName = e2e.name(taxed ? "AhTaxBuy" : "AhBuyer");
         Bot seller = e2e.bot(sellerName);
         Bot buyer = e2e.bot(buyerName);
         fund(e2e, buyerName, 5_000);
         hold(e2e, sellerName, Material.DIAMOND, 16);
 
-        e2e.step("/ah sell shows the item, price, tax and duration before anything moves");
+        e2e.step("/ah sell shows the item and price" + (taxed ? " with the tax" : ", no tax") + "; the duration is in the tooltip");
         seller.clearLogs();
         command(e2e, seller, "ah sell 1000 10");
         Bot.SeenDialog confirm = e2e.dialog(seller, "List item");
         String body = confirm.bodyText();
         e2e.expect(body.contains("List 10 Diamond for $1,000?"), "the item and price: " + body);
-        e2e.expect(body.contains("Tax when it sells $50 (5%)"), "the tax: " + body);
-        e2e.expect(body.contains("You get $950"), "the proceeds: " + body);
-        e2e.expect(body.contains("It ends in 2d"), "the duration: " + body);
+        if (taxed) {
+            e2e.expect(body.contains("Tax when it sells $50 (5%), you get $950"), "the tax and proceeds: " + body);
+        } else {
+            e2e.expect(!body.toLowerCase().contains("tax"), "no tax anywhere: " + body);
+        }
+        String tooltip = confirm.button("List it").tooltip();
+        e2e.expect(tooltip != null && tooltip.contains("Put it up for 2d.") && tooltip.contains("waits in your claim box"),
+            "the duration in the List it tooltip: " + tooltip);
+        e2e.expect(tooltip.contains("Listing slots used 1 of 3"), "the slots in the tooltip: " + tooltip);
         e2e.expect(count(e2e, sellerName, Material.DIAMOND) == 16, "nothing taken before confirming");
 
         e2e.step("confirming takes the items and lists them");
@@ -295,31 +327,40 @@ final class AuctionScenarios {
         e2e.expect(lore.stream().anyMatch(line -> line.startsWith("Ends in 1d")), "time left lore: " + lore);
         e2e.expect(lore.contains("Click to buy"), "buy hint: " + lore);
 
-        e2e.step("buying asks first, then moves money, tax and the item together");
+        e2e.step("buying asks first, then moves money" + (taxed ? ", tax" : "") + " and the item together");
         buyer.clearLogs();
         seller.clearLogs();
         buyer.clickSlot(slot);
         Bot.SeenDialog purchase = e2e.dialog(buyer, "Buy item");
-        e2e.expect(purchase.bodyText().contains("Buy 10 Diamond for $1,000?") && purchase.bodyText().contains("Seller " + sellerName),
-            "purchase details: " + purchase.body());
+        e2e.expect(purchase.bodyText().contains("Buy 10 Diamond from " + sellerName + " for $1,000?")
+            && purchase.bodyText().contains("You have ") && purchase.bodyText().contains("$5,000"), "purchase details: " + purchase.body());
+        String buyTip = purchase.button("Buy").tooltip();
+        e2e.expect(buyTip != null && buyTip.contains("Pay the seller now.") && buyTip.contains("The listing ends in 1d"),
+            "the time left in the Buy tooltip: " + buyTip);
         e2e.expect(e2e.money(buyerName) == 5_000, "nothing paid before confirming");
         e2e.click(buyer, "Buy");
+        long earned = taxed ? 950 : 1_000;
         e2e.eventually(() -> e2e.money(buyerName) == 4_000, "the buyer paid $1,000: " + e2e.money(buyerName));
-        e2e.eventually(() -> e2e.money(sellerName) == 950, "the seller got $950 after tax: " + e2e.money(sellerName));
+        e2e.eventually(() -> e2e.money(sellerName) == earned, "the seller got $" + earned + ": " + e2e.money(sellerName));
         e2e.eventually(() -> count(e2e, buyerName, Material.DIAMOND) == 10, "the diamonds went straight into the buyer's inventory");
         e2e.eventually(() -> buyer.chatContains("You bought 10 Diamond from " + sellerName + " for $1,000."), "receipt: " + buyer.chat());
-        e2e.eventually(() -> seller.chatContains(buyerName + " bought your 10 Diamond for $1,000. You got $950 after tax."),
-            "seller notice: " + seller.chat());
+        if (taxed) {
+            e2e.eventually(() -> seller.chatContains(buyerName + " bought your 10 Diamond for $1,000. You got $950 after tax."),
+                "seller notice: " + seller.chat());
+        } else {
+            e2e.eventually(() -> seller.chatContains(buyerName + " bought your 10 Diamond for $1,000."), "seller notice: " + seller.chat());
+            e2e.expect(seller.chat().stream().noneMatch(line -> line.contains("tax")), "no word about tax: " + seller.chat());
+        }
         e2e.expect("SOLD".equals(state(e2e, id)), "the row is SOLD");
         String stored = query(e2e, true, "SELECT buyer, tax, closed_at FROM auction_listings WHERE id = ?",
             rs -> rs.next() ? rs.getString(1) + "/" + rs.getLong(2) + "/" + (rs.getLong(3) > 0) : "", id);
-        e2e.expect(stored.equals(e2e.uuid(buyerName) + "/50/true"), "buyer, tax and close time stored: " + stored);
+        e2e.expect(stored.equals(e2e.uuid(buyerName) + "/" + (taxed ? 50 : 0) + "/true"), "buyer, tax and close time stored: " + stored);
         e2e.expect(number(e2e, "SELECT COUNT(*) FROM deliveries WHERE ref = ? AND claimed IS NOT NULL", "listing:" + id) == 1,
             "the delivery was created and claimed");
         e2e.expect(number(e2e, "SELECT COUNT(*) FROM ledger WHERE ref = ? AND kind = 'ah_sale'", "listing:" + id) == 2,
             "the sale is one transfer");
-        e2e.expect(number(e2e, "SELECT -SUM(delta) FROM ledger WHERE ref = ? AND kind = 'ah_tax'", "listing:" + id) == 50,
-            "the tax was sunk");
+        e2e.expect(number(e2e, "SELECT COALESCE(-SUM(delta), 0) FROM ledger WHERE ref = ? AND kind = 'ah_tax'", "listing:" + id)
+            == (taxed ? 50 : 0), taxed ? "the tax was sunk" : "no tax row");
 
         e2e.step("the menu came back without the sold listing");
         e2e.eventually(() -> buyer.screen() != null && buyer.screen().title().contains(TITLE)
@@ -338,7 +379,8 @@ final class AuctionScenarios {
         seller.clickSlot(52);
         Bot.SeenDialog form = e2e.dialog(seller, "Sell an item");
         e2e.expect(form.inputs().containsKey("price") && "range".equals(form.inputs().get("amount")), "price and amount inputs: " + form.inputs());
-        e2e.expect(form.bodyText().contains("Selling up to 32 Iron Ingot"), "the held item: " + form.body());
+        e2e.expect(form.body().isEmpty(), "the held item and the inputs, no text above them: " + form.body());
+        e2e.expect(form.button("Next").tooltip() != null, "Next says what it does in its tooltip");
 
         e2e.step("an invalid price shows an error and keeps the form");
         e2e.click(seller, "Next", Map.of("price", "abc", "amount", "16"));
@@ -375,7 +417,9 @@ final class AuctionScenarios {
         openMenu(e2e, seller, "ah listings", "Your listings");
         seller.clickSlot(slotWith(e2e, seller, "Click to take it down"));
         Bot.SeenDialog keep = e2e.dialog(seller, "Take down listing");
-        e2e.expect(keep.bodyText().contains("Take down your 1 Diamond Sword listed for $500?"), "the confirmation: " + keep.body());
+        e2e.expect(keep.bodyText().equals("Take down your 1 Diamond Sword listed for $500?"), "the question only: " + keep.body());
+        e2e.expect("The item comes back to you.".equals(keep.button("Take it down").tooltip()), "what happens, in the tooltip: "
+            + keep.button("Take it down").tooltip());
         Bot.Screen before = seller.screen();
         e2e.click(seller, "Keep it up");
         awaitScreen(e2e, seller, before, "Your listings");
@@ -635,7 +679,7 @@ final class AuctionScenarios {
         e2e.sleep(1_000);
         e2e.expect(e2e.money(buyerName) == 900, "paid exactly once: " + e2e.money(buyerName));
         e2e.expect(count(e2e, buyerName, Material.DIAMOND) == 1, "received exactly one diamond");
-        e2e.expect(e2e.money(sellerName) == 95, "the seller was paid once: " + e2e.money(sellerName));
+        e2e.expect(e2e.money(sellerName) == 100, "the seller was paid once, in full (no tax): " + e2e.money(sellerName));
     }
 
     static void buyRace(E2E e2e) throws Exception {
@@ -670,7 +714,7 @@ final class AuctionScenarios {
             "exactly one ingot exists");
         e2e.expect(e2e.money(winnerName) == 900 && e2e.money(loserName) == 1_000, "only the winner paid: "
             + e2e.money(winnerName) + " / " + e2e.money(loserName));
-        e2e.expect(e2e.money(sellerName) == 95, "the seller was paid once: " + e2e.money(sellerName));
+        e2e.expect(e2e.money(sellerName) == 100, "the seller was paid once, in full (no tax): " + e2e.money(sellerName));
         e2e.eventually(() -> loser.actionBarContains("That listing is gone."), "the other buyer is told: " + loser.actionBar());
         e2e.expect("SOLD".equals(state(e2e, id)), "the row is SOLD once");
         ledgerHealthy(e2e);
@@ -806,7 +850,7 @@ final class AuctionScenarios {
         seller.clearLogs();
         command(e2e, seller, "ah history");
         Bot.SeenDialog sold = e2e.dialog(seller, "Auction history");
-        e2e.expect(sold.bodyText().contains("Your latest sales and purchases"), "header: " + sold.body());
+        e2e.expect(sold.bodyText().contains("Your last 20 sales and purchases"), "the header names the cap: " + sold.body());
         e2e.expect(sold.bodyText().contains("Sold 1 Emerald to " + buyerName + " for $400"), "the sale: " + sold.body());
         e2e.click(seller, "Close");
         buyer.closeScreen();
@@ -855,6 +899,8 @@ final class AuctionScenarios {
             staff.clickSlot(slot, 1, ContainerInput.QUICK_MOVE);
             Bot.SeenDialog confirm = e2e.dialog(staff, "Remove listing");
             e2e.expect(confirm.bodyText().contains("Remove " + sellerName + "'s 1 Diamond listed for $100?"), "the confirmation: " + confirm.body());
+            e2e.expect("The item goes to their claim box.".equals(confirm.button("Remove").tooltip()),
+                "where it goes, in the tooltip: " + confirm.button("Remove").tooltip());
             e2e.click(staff, "Remove");
             e2e.eventually(() -> "CANCELLED".equals(state(e2e, second)), "removed by staff");
             e2e.eventually(() -> claimBox(e2e, sellerId) == 2, "the item went to the seller's claim box");
@@ -999,7 +1045,8 @@ final class AuctionScenarios {
         int slot = slotWith(e2e, buyer, "Seller " + sellerName);
         buyer.clickSlot(slot);
         Bot.SeenDialog confirm = e2e.dialog(buyer, "Buy item");
-        e2e.expect(confirm.bodyText().contains("Buy 2 Persist marker for $777?"), "the persisted item and price: " + confirm.body());
+        e2e.expect(confirm.bodyText().contains("Buy 2 Persist marker from " + sellerName + " for $777?"), "the persisted item, seller and price: "
+            + confirm.body());
         e2e.click(buyer, "Buy");
         e2e.eventually(() -> count(e2e, buyerName, Material.GOLDEN_APPLE) == 2, "the golden apples arrived");
         e2e.expect("SOLD".equals(state(e2e, id)), "sold");

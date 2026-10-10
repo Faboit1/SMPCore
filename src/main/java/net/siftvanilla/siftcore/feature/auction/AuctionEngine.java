@@ -90,16 +90,17 @@ public final class AuctionEngine<T> {
      *
      * @param count  how many listings sold
      * @param earned what they got for them after tax
+     * @param taxed  the tax taken from them (0 when the server takes none, so the summary says nothing about tax)
      * @param latest the newest of them, newest first, at most the asked number (unreadable items left out)
      */
-    public record SalesSince<T>(long count, long earned, List<HistoryEntry<T>> latest) {
+    public record SalesSince<T>(long count, long earned, long taxed, List<HistoryEntry<T>> latest) {
 
         public SalesSince {
             latest = List.copyOf(latest);
         }
 
         public static <T> SalesSince<T> none() {
-            return new SalesSince<>(0, 0, List.of());
+            return new SalesSince<>(0, 0, 0, List.of());
         }
     }
 
@@ -398,8 +399,9 @@ public final class AuctionEngine<T> {
         return this.database.write(c -> {
             long count;
             long earned;
-            try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*), COALESCE(SUM(price - tax), 0) FROM auction_listings "
-                + "WHERE seller = ? AND state = 'SOLD' AND closed_at > ? AND closed_at <= ?")) {
+            long taxed;
+            try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*), COALESCE(SUM(price - tax), 0), COALESCE(SUM(tax), 0) "
+                + "FROM auction_listings WHERE seller = ? AND state = 'SOLD' AND closed_at > ? AND closed_at <= ?")) {
                 ps.setString(1, uuid);
                 ps.setLong(2, since);
                 ps.setLong(3, until);
@@ -407,6 +409,7 @@ public final class AuctionEngine<T> {
                     rs.next();
                     count = rs.getLong(1);
                     earned = rs.getLong(2);
+                    taxed = rs.getLong(3);
                 }
             }
             List<HistoryRow> rows = new ArrayList<>();
@@ -425,7 +428,7 @@ public final class AuctionEngine<T> {
                     }
                 }
             }
-            return new SalesRows(count, earned, rows);
+            return new SalesRows(count, earned, taxed, rows);
         }).thenApply(result -> {
             List<HistoryEntry<T>> latest = new ArrayList<>();
             for (HistoryRow row : result.rows()) {
@@ -437,11 +440,11 @@ public final class AuctionEngine<T> {
                     this.logger.log(Level.WARNING, "Auction listing " + row.id() + " has an unreadable item; it is left out of the join summary", e);
                 }
             }
-            return new SalesSince<>(result.count(), result.earned(), latest);
+            return new SalesSince<>(result.count(), result.earned(), result.taxed(), latest);
         });
     }
 
-    private record SalesRows(long count, long earned, List<HistoryRow> rows) {
+    private record SalesRows(long count, long earned, long taxed, List<HistoryRow> rows) {
     }
 
     private static void readHistory(Connection c, String sql, String uuid, int limit, boolean sale, List<HistoryRow> into)

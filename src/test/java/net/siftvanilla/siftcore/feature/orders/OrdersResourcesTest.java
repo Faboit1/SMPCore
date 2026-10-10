@@ -49,7 +49,7 @@ class OrdersResourcesTest {
         assertEquals(1, settings.minPrice());
         assertEquals(100_000, settings.maxQuantity());
         assertEquals(100_000_000_000L, settings.maxTotal());
-        assertEquals(200, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "no tax unless the owner sets one");
         assertTrue(settings.blockInCombat());
         assertTrue(settings.joinReminder());
         assertFalse(settings.refuseSameIp());
@@ -101,7 +101,7 @@ class OrdersResourcesTest {
         assertEquals(Duration.ofSeconds(30), settings.expiryCheck());
         assertEquals(3, settings.defaultLimit());
         assertEquals(100_000, settings.maxQuantity());
-        assertEquals(200, settings.taxBasisPoints());
+        assertEquals(0, settings.taxBasisPoints(), "a broken tax falls back to none");
         assertEquals(0.0, settings.maxVsWorth(), "a ceiling under the worth is turned off");
         assertEquals(Duration.ZERO, settings.historyKeep());
         assertTrue(settings.booksEnabled());
@@ -160,6 +160,20 @@ class OrdersResourcesTest {
             assertFalse(raw.matches("(?s).*[A-Z]{3,}.*"), key.path() + " uses capitals: " + raw);
             assertFalse(raw.contains("<bold>") || raw.contains("<b>") || raw.contains("<gradient"), key.path() + " is styled: " + raw);
         }
+    }
+
+    @Test
+    void untaxedDeliveriesSayNothingAboutTax() throws Exception {
+        Lang lang = lang();
+        YamlConfiguration file = yaml("lang/orders.yml");
+        assertEquals(List.of(), lang.load(file, file, "lang/orders.yml"));
+        Arg[] delivery = {Arg.number("amount", 61), Arg.text("item", "Diamond"), Arg.money("payout", 30_500), Arg.money("tax", 0),
+            Arg.number("remaining", 100), Arg.number("inner", 20)};
+        assertEquals("You delivered 61 Diamond and got $30,500.", lang.plain(OrderService.deliveredMessage(0), delivery));
+        assertFalse(String.join(" ", lang.lines(OrdersMessages.DELIVER_BUTTON_LORE, delivery).stream().map(TextStyle::plain).toList())
+            .contains("tax"), "the deliver button without a tax");
+        Arg[] taxed = {Arg.number("amount", 61), Arg.text("item", "Diamond"), Arg.money("payout", 29_890), Arg.money("tax", 610)};
+        assertEquals("You delivered 61 Diamond and got $29,890 after $610 tax.", lang.plain(OrderService.deliveredMessage(610), taxed));
     }
 
     @Test

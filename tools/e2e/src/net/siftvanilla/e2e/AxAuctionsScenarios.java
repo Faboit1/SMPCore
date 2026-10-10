@@ -152,6 +152,15 @@ final class AxAuctionsScenarios {
         return Bukkit.getPluginManager().getPlugin("AxAuctions");
     }
 
+    /**
+     * The share of the price AxAuctions takes from the seller, from the installed {@code currencies.yml} (SiftVanilla
+     * ships {@code tax: 0}; the money checks follow whatever is set).
+     */
+    private static double taxRate() {
+        YamlConfiguration currencies = YamlConfiguration.loadConfiguration(new File(plugin().getDataFolder(), "currencies.yml"));
+        return currencies.getDouble("currencies.Vault.tax", 0) / 100.0;
+    }
+
     static boolean installed(E2E e2e) {
         if (!running()) {
             e2e.log("AxAuctions is not installed or did not start; skipped");
@@ -632,7 +641,7 @@ final class AxAuctionsScenarios {
         e2e.expect(used.equals("0"), "%axauctions_sell_count% is 0: '" + used + "'");
     }
 
-    /** List with /ah sell, buy through the menus, money (with 5% tax) and the item move once. */
+    /** List with /ah sell, buy through the menus, money (less the tax, none as shipped) and the item move once. */
     static void sellBuy(E2E e2e) {
         defaultLimit(e2e);
         Money money = Money.find(e2e);
@@ -672,19 +681,22 @@ final class AxAuctionsScenarios {
         buyer.clickSlot(SLOT_CONFIRM);
         e2e.eventually(() -> count(e2e, buyer.name, Material.DIAMOND) == 16, "the buyer has the 16 diamonds");
         e2e.eventually(() -> near(money.balance(buyerPlayer), 900), "the buyer paid $100 (" + money.balance(buyerPlayer) + ")");
-        e2e.eventually(() -> near(money.balance(sellerPlayer), 95), "the seller got $95, the price minus 5% tax (" + money.balance(sellerPlayer) + ")");
+        double tax = 100 * taxRate();
+        e2e.eventually(() -> near(money.balance(sellerPlayer), 100 - tax), "the seller got $100 less the tax of $" + tax + " ("
+            + money.balance(sellerPlayer) + ")");
         e2e.eventually(() -> buyer.chatContains("You bought"), "the buyer's receipt (chat " + buyer.chat() + ")");
         e2e.eventually(() -> seller.chatContains("bought your"), "the seller is told (chat " + seller.chat() + ")");
         e2e.log("buyer chat: " + buyer.chat() + " seller chat: " + seller.chat());
         lintChat(buyer, "buyer");
         lintChat(seller, "seller");
 
-        e2e.step("money is conserved: the only change is the tax");
+        e2e.step("money is conserved: the only change is the tax (none as shipped)");
         double totalAfter = testEcoTotal(e2e);
         if (!Double.isNaN(totalBefore)) {
-            e2e.expect(near(totalBefore - totalAfter, 5), "all balances fell by exactly the $5 tax: " + totalBefore + " -> " + totalAfter);
+            e2e.expect(near(totalBefore - totalAfter, tax), "all balances fell by exactly the tax of $" + tax + ": " + totalBefore + " -> "
+                + totalAfter);
         }
-        e2e.expect(near(money.balance(buyerPlayer) + money.balance(sellerPlayer), 1_000 - 5), "buyer + seller = 1000 - tax");
+        e2e.expect(near(money.balance(buyerPlayer) + money.balance(sellerPlayer), 1_000 - tax), "buyer + seller = 1000 - tax");
 
         e2e.step("the listing is gone");
         e2e.sleep(1_000);
@@ -813,8 +825,8 @@ final class AxAuctionsScenarios {
     }
 
     /**
-     * Fractional money: a whole-dollar price that is not a multiple of $20 leaves the seller a fraction after the 5%
-     * tax, and AxAuctions accepts decimal prices. Records exactly what the Vault economy is asked to move.
+     * Fractional money: with a tax, a whole-dollar price that is not a multiple of $20 leaves the seller a fraction
+     * (at 5%), and AxAuctions accepts decimal prices. Records exactly what the Vault economy is asked to move.
      */
     static void fractions(E2E e2e) {
         defaultLimit(e2e);
@@ -836,7 +848,7 @@ final class AxAuctionsScenarios {
             double after = testEcoTotal(e2e);
             e2e.log("price " + price + ": buyer paid " + paid + ", seller got " + got + ", tax " + (paid - got)
                 + ", total " + before + " -> " + after + "; seller chat " + seller.chat() + " buyer chat " + buyer.chat());
-            e2e.expect(near(paid - got, paid * 0.05), "the tax is 5% of what the buyer paid");
+            e2e.expect(near(paid - got, paid * taxRate()), "the tax is " + (100 * taxRate()) + "% of what the buyer paid");
             if (!Double.isNaN(before)) {
                 e2e.expect(near(before - after, paid - got), "money changed by exactly the tax");
             }
@@ -1351,10 +1363,11 @@ final class AxAuctionsScenarios {
         e2e.log("race: ingots=" + got + " paid=" + paid + " seller=" + earned + " a=" + a.chat() + " b=" + b.chat());
         e2e.expect(got == 1, "exactly one buyer got the ingot (" + got + ")");
         e2e.expect(near(paid, 400), "exactly one buyer paid $400 (" + paid + ")");
-        e2e.expect(near(earned, 380), "the seller was paid once, $380 after tax (" + earned + ")");
+        double tax = 400 * taxRate();
+        e2e.expect(near(earned, 400 - tax), "the seller was paid once, $400 less the tax of $" + tax + " (" + earned + ")");
         double totalAfter = testEcoTotal(e2e);
         if (!Double.isNaN(totalBefore)) {
-            e2e.expect(near(totalBefore - totalAfter, 20), "money fell by exactly the $20 tax: " + totalBefore + " -> " + totalAfter);
+            e2e.expect(near(totalBefore - totalAfter, tax), "money fell by exactly the tax: " + totalBefore + " -> " + totalAfter);
         }
         lintChat(a, "race a");
         lintChat(b, "race b");

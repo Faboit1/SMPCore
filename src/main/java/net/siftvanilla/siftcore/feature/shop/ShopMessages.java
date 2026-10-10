@@ -31,11 +31,15 @@ public final class ShopMessages {
     public static final MessageKey SORT_NAME = MessageKey.ui("shop.sort.name");
 
     public static final MessageKey BUY_TITLE = MessageKey.ui("shop.buy.title", "item");
-    public static final MessageKey BUY_BODY = MessageKey.ui("shop.buy.body", "price", "balance", "max");
+    public static final MessageKey BUY_BODY = MessageKey.ui("shop.buy.body", "price", "balance");
+    /** The Buy button's tooltip (then what the item sells back for and how many the player has). */
+    public static final MessageKey BUY_TOOLTIP = MessageKey.ui("shop.buy.button-tooltip", "max");
     public static final MessageKey BUY_SELLS_BACK = MessageKey.ui("shop.buy.sells-back", "price");
     public static final MessageKey BUY_YOU_HAVE = MessageKey.ui("shop.buy.you-have", "count");
     public static final MessageKey BUY_MAX = MessageKey.ui("shop.buy.max-button");
+    public static final MessageKey BUY_MAX_TOOLTIP = MessageKey.ui("shop.buy.max-tooltip");
     public static final MessageKey BUY_FILL = MessageKey.ui("shop.buy.fill-button");
+    public static final MessageKey BUY_FILL_TOOLTIP = MessageKey.ui("shop.buy.fill-tooltip");
     public static final MessageKey BUY_CANT_AFFORD = MessageKey.ui("shop.buy.cant-afford", "price");
     public static final MessageKey BUY_NO_ROOM = MessageKey.ui("shop.buy.no-room");
     public static final MessageKey BUY_AMOUNT = MessageKey.ui("shop.buy.amount");

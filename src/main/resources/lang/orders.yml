@@ -20,6 +20,7 @@ orders:
     sort-ending: "Ending soon"
     filter-all: "All"
     entry-price: "<secondary>Price each <price>"
+    # Only while deliveries are taxed (tax in features/orders.yml above 0).
     entry-net: "<secondary>You get <net> each after <tax>% tax"
     entry-delivered: "<secondary>Delivered <filled> of <quantity>"
     entry-owner: "<secondary>Ordered by <primary><owner>"
@@ -91,7 +92,7 @@ orders:
     title-other: "<name>'s deliveries"
     entry:
       - "<secondary>Delivered <amount>"
-      - "<secondary>Earned <earned> after tax"
+      - "<secondary>Earned <earned>"
       - "<secondary>To <primary><buyer>"
       - "<secondary><ago> ago"
     header: "Deliveries"
@@ -121,6 +122,12 @@ orders:
     button: "Deliver"
     button-lore:
       - "<secondary>Accepted <amount> of <remaining> still wanted (<inner> from shulker boxes)"
+      - "<secondary>You get <payout>"
+      - ""
+      - "<secondary>Click to deliver"
+    # The same while deliveries are taxed.
+    button-lore-taxed:
+      - "<secondary>Accepted <amount> of <remaining> still wanted (<inner> from shulker boxes)"
       - "<secondary>You get <payout> after <tax> tax"
       - ""
       - "<secondary>Click to deliver"
@@ -134,7 +141,8 @@ orders:
       - "<secondary>Shulker boxes with them move whole"
     fill-nothing: "<primary>You carry no <item> for this order."
     restored: "<primary>The items you left in a delivery menu when the server stopped are back in your inventory."
-    done: "<primary>You delivered <amount> <item> and got <payout> after <tax> tax."
+    done: "<primary>You delivered <amount> <item> and got <payout>."
+    done-taxed: "<primary>You delivered <amount> <item> and got <payout> after <tax> tax."
     nothing: "<primary>Put <item> in the empty slots first."
     gone: "<primary>That order is no longer open."
     own: "<primary>You can't deliver to your own order."
@@ -147,15 +155,19 @@ orders:
     failed: "<primary>The delivery could not be saved. Your items were given back."
   items-in-claim-box: "<primary><amount> items didn't fit in your inventory and wait in your claim box (/claims)."
 
+  # Quick deliver (right click an order): what you carry for it and one button that delivers.
   quick:
     title: "Deliver <item>"
-    carry: "<secondary>You carry <count> plain <item> (<inner> in shulker boxes)"
-    wanted: "<secondary>Still wanted <remaining>"
-    payout: "<primary>You get <payout> after <tax> tax"
-    server-more: "<secondary>The server pays more: <price> each with /sell."
+    carry: "<secondary>You carry <accent><count></accent> plain <item> (<accent><inner></accent> in shulker boxes)"
+    wanted: "<secondary>Still wanted <accent><remaining>"
+    # Only while deliveries are taxed: the button's amount is after this tax.
+    tax: "<secondary>After <tax> tax"
+    server-more: "<error>The server pays more: <price> each with /sell."
     nothing: "<secondary>You carry no plain <item>."
     button: "Deliver <units> for <payout>"
+    button-tooltip: "<primary>Hand them over now and get paid.<newline><secondary>Shulker boxes are opened for them."
     menu: "Open delivery menu"
+    menu-tooltip: "<primary>Put the items in yourself."
     changed: "<primary>That order or your inventory changed. Check, then deliver."
 
   notify:
@@ -201,12 +213,16 @@ orders:
 
   create:
     title: "New order"
-    body:
-      - "<secondary>Ask for items at a price each. The money is held until the order fills, ends or you cancel it."
-      - "<secondary>You have <count> of <limit> active orders."
-    body-unlimited:
-      - "<secondary>Ask for items at a price each. The money is held until the order fills, ends or you cancel it."
-      - "<secondary>You have <count> active orders."
+    # The tooltip of Next on the new-order form.
+    next-tooltip:
+      - "<primary>See the order before any money is held."
+      - "<secondary>The money is held until the order fills, ends or you cancel it."
+      - "<secondary>Active orders <accent><count></accent> of <accent><limit>"
+    next-tooltip-unlimited:
+      - "<primary>See the order before any money is held."
+      - "<secondary>The money is held until the order fills, ends or you cancel it."
+      - "<secondary>Active orders <accent><count>"
+    choose-tooltip: "<primary>Pick the item from a list."
     chosen: "<primary><item>"
     item: "Item, like diamond or oak log"
     quantity: "How many, like 64, 3 stacks or 1 shulker (up to <max>)"
@@ -216,11 +232,14 @@ orders:
     confirm-title: "Place order"
     confirm-body:
       - "<primary><icon:order> <quantity> <item> at <price> each"
-      - "<secondary><total> is held now and paid out as items arrive."
-      - "<secondary>The order ends in <time>. What is left then comes back to you."
+      - "<secondary><total> is held now."
+    # In the Place order tooltip.
     confirm-worth: "<secondary>The server pays <worth> each for <item>."
-    confirm-sell-more: "<secondary>Players get more from /sell, so few will deliver and /sell won't send items here."
+    confirm-sell-more: "<error>Players get more from /sell, so few will deliver and /sell won't send items here."
     confirm-button: "Place order"
+    confirm-button-tooltip:
+      - "<primary>Players deliver and are paid from the money held."
+      - "<secondary>The order ends in <accent><time></accent>. What is left then comes back to you."
     done: "<primary>Your order for <quantity> <item> is up. <total> is held for it."
     unknown-item: "<primary>There is no item called <secondary><input></secondary>."
     no-item: "<primary>Type the item you want, like diamond, or choose one."
@@ -243,46 +262,54 @@ orders:
     open: "<secondary><count> open orders, best <price> each"
     family: "<secondary>Choose which one next"
     hint: "<secondary>Click to choose"
+    # The lists of exact kinds; each button's tooltip says what an order for it takes.
     enchant-title: "Choose an enchantment"
-    enchant-body: "<secondary>Book orders take books with exactly this one enchantment and nothing else."
+    enchant-tooltip: "<primary>Only books with just this enchantment count."
     level-title: "Choose a level"
-    level-body: "<secondary>Which level of <item>?"
+    level-tooltip: "<primary>Only books with just this enchantment at this level count."
     potion-title: "Choose a potion"
-    potion-body: "<secondary>Potion orders take potions of exactly this kind."
+    potion-tooltip: "<primary>Only potions of exactly this kind count."
     spawner-title: "Choose a spawner"
-    spawner-body: "<secondary>Spawner orders take spawners of exactly this mob."
+    spawner-tooltip: "<primary>Only spawners of exactly this mob count."
 
+  # One of your orders. The buttons' tooltips say what they do.
   own:
     title: "Your order"
     body:
       - "<primary><icon:order> <quantity> <item> at <price> each"
-      - "<secondary>Delivered <filled> of <quantity>"
-      - "<secondary>Waiting for you <waiting>"
-      - "<secondary>Money held <held>"
-      - "<secondary>Ends in <time>"
+      - "<secondary>Delivered <accent><filled></accent> of <accent><quantity></accent>, waiting for you <accent><waiting>"
+      - "<secondary>Money held <held>, ends in <accent><time>"
     body-ended:
       - "<primary><icon:order> <quantity> <item> at <price> each"
-      - "<secondary>Delivered <filled> of <quantity>"
-      - "<secondary>Waiting for you <waiting>"
+      - "<secondary>Delivered <accent><filled></accent> of <accent><quantity></accent>, waiting for you <accent><waiting>"
       - "<primary><state>"
     unavailable: "<secondary>This item can't be handled right now. You can still cancel the order."
     collect: "Collect items"
+    collect-tooltip: "<primary>Take what fits in your inventory."
     collect-stack: "Collect one stack"
+    collect-stack-tooltip: "<primary>Take one stack."
     to-claim-box: "Send the rest to my claim box"
+    to-claim-box-tooltip: "<primary>Take what fits and send the rest to your claim box (/claims)."
     raise: "Raise price"
+    raise-tooltip: "<primary>Pay more for each item so players deliver sooner."
     add: "Add more"
+    add-tooltip: "<primary>Ask for more items."
     extend: "Extend"
+    extend-tooltip: "<primary>Keep the order open for <accent><time></accent> from now."
     cancel: "Cancel order"
+    cancel-tooltip: "<primary>End the order. The money held comes back to you."
     again: "Order again"
+    again-tooltip: "<primary>Place the same order again."
     details: "Details"
+    details-tooltip: "<primary>When it was placed and who delivered."
 
   cancel:
     title: "Cancel order"
     body:
       - "<primary>Cancel your order for <quantity> <item>?"
       - "<secondary><refund> comes back to you."
-      - "<secondary>Delivered items stay here to collect."
     "yes": "Cancel order"
+    yes-tooltip: "<primary>Delivered items stay here to collect."
     "no": "Keep it"
     done: "<primary>You cancelled your order for <quantity> <item> and <refund> came back to you."
     gone: "<primary>That order is no longer open."
@@ -300,19 +327,17 @@ orders:
   details:
     title: "Order details"
     body:
-      - "<secondary>Order <primary>#<id>"
-      - "<secondary>Placed <ago> ago"
-      - "<secondary>Paid out so far <paid>"
-      - "<secondary>Collected <collected>"
-    header: "<secondary>Latest deliveries"
+      - "<secondary>Order <accent>#<id></accent>, placed <accent><ago></accent> ago"
+      - "<secondary>Paid out <paid>, collected <accent><collected>"
+    # <count> is how many are listed at most (the latest).
+    header: "<secondary>Latest deliveries, up to <count>"
     line: "<primary><name> <secondary><amount> for <paid>, <ago> ago"
     none: "<secondary>Nothing delivered yet."
 
   edit:
     title: "Change order"
-    body:
-      - "<secondary>Now <quantity> <item> at <price> each, <filled> delivered."
-      - "<secondary>Prices can only go up."
+    body: "<secondary>Now <quantity> <item> at <price> each, <filled> delivered."
+    next-tooltip: "<primary>See what changes before any money is held.<newline><secondary>Prices can only go up."
     price: "New price each"
     add: "Items to add, up to <max>"
     confirm-body:
@@ -339,6 +364,7 @@ orders:
       - "<secondary>Placed <ago> ago, ends in <time>"
       - "<secondary><state>"
     cancel: "Cancel and refund"
+    cancel-tooltip: "<primary>The money held goes back to the owner, who is told your reason."
     open: "Open <name>'s orders"
     reason-title: "Cancel order #<id>"
     reason: "Reason, shown to the owner"
@@ -379,11 +405,11 @@ orders:
   # Labels and descriptions of the order settings (/settings): Shop, auction & orders, Server announcements and Privacy.
   settings:
     notifications: "Order delivery alerts"
-    notifications-description: "Every delivery in chat, every delivery above the hotbar, only when an order is complete, or never. Expiries and staff cancellations always show."
+    notifications-description: "How you are told about deliveries to your orders. Ended and cancelled orders are always told."
     # The option of Order delivery alerts that only tells completed orders.
     notifications-complete: "Only when complete"
     announce: "Big order announcements"
-    announce-description: "New big buy orders in chat: everything the server announces, only above an amount, or none."
+    announce-description: "Big new buy orders announced in chat."
     ending-alerts: "Order ending warnings"
     ending-alerts-description: "Warn you before one of your orders runs out of time."
     join-summary: "Order summary on join"

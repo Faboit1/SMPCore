@@ -257,20 +257,27 @@ final class BoostersScenarios {
             e2e.eventually(() -> watcher.chatContains("With the +10% sell booster you get " + money(boosted) + "."), "/worth: " + watcher.chat());
             hold(e2e, watcherName, null);
 
-            e2e.step("/booster shows it, and its button hides and shows the bar");
+            e2e.step("/booster shows it, and its Booster bar switch hides and shows the bar in place");
             watcher.clearLogs();
             watcher.command("booster");
             Bot.SeenDialog dialog = e2e.dialog(watcher, "Sell booster");
             e2e.expect(dialog.bodyText().contains("+10% on everything sold to the server") && dialog.bodyText().contains("From the server")
                 && dialog.bodyText().contains("Nothing is waiting in line."), "the dialog: " + dialog.body());
-            e2e.click(watcher, "Hide the booster bar");
+            Bot.Button on = dialog.button("Booster bar: ON");
+            e2e.expect(on != null && "#55FF55".equals(on.valueColor()), "the switch shows ON in green: " + dialog.buttons());
+            e2e.expect(on.tooltip() != null && on.tooltip().contains("raises what the server pays"), "boosters explained in its tooltip: "
+                + on.tooltip());
+            e2e.click(watcher, "Booster bar: ON");
             e2e.eventually(() -> watcher.bossBar("sell booster") == null, "the bar is hidden: " + watcher.bossBars());
-            e2e.eventually(() -> watcher.anyFeedbackContains("The booster bar is hidden."), "told: " + watcher.chat() + watcher.actionBar());
-            e2e.dialog(watcher, "Sell booster");
+            e2e.eventually(() -> watcher.dialog() != null && watcher.dialog().button("Booster bar: OFF") != null,
+                "the same dialog again with the switch OFF: " + (watcher.dialog() == null ? "none" : watcher.dialog().buttons()));
+            e2e.expect("#FF5555".equals(watcher.dialog().button("Booster bar: OFF").valueColor()), "OFF in red");
             e2e.sleep(2_500);
             e2e.expect(watcher.bossBar("sell booster") == null, "it stays hidden while the bar refreshes");
-            e2e.click(watcher, "Show the booster bar");
+            e2e.expect(!watcher.anyFeedbackContains("booster bar"), "no chat or action bar line per click: " + watcher.chat() + watcher.actionBar());
+            e2e.click(watcher, "Booster bar: OFF");
             e2e.eventually(() -> watcher.bossBar("+10% sell booster") != null, "the bar is back: " + watcher.bossBars());
+            e2e.eventually(() -> watcher.dialog() != null && watcher.dialog().button("Booster bar: ON") != null, "ON again");
 
             e2e.step("stopping it ends it for everyone");
             watcher.clearLogs();
@@ -544,9 +551,10 @@ final class BoostersScenarios {
             e2e.sleep(700);
             seller.command("sell hand");
             e2e.eventually(() -> row(e2e, id).equals("ACTIVE/20/12/0/100/800"), "the order took all 12: " + row(e2e, id));
-            e2e.eventually(() -> e2e.money(sellerName) == 12 * 100 - 24, "the seller got $1,176 after tax (" + money(e2e.money(sellerName)) + ")");
+            e2e.eventually(() -> e2e.money(sellerName) == 12 * 100, "the seller got $1,200, the order's price (no tax) ("
+                + money(e2e.money(sellerName)) + ")");
             e2e.sleep(500);
-            e2e.expect(e2e.money(sellerName) == 12 * 100 - 24, "nothing on top of the order's price: " + money(e2e.money(sellerName)));
+            e2e.expect(e2e.money(sellerName) == 12 * 100, "nothing on top of the order's price: " + money(e2e.money(sellerName)));
             e2e.eventually(() -> seller.chatContains("You sold"), "a receipt: " + seller.chat());
             e2e.expect(!seller.chatContains("booster"), "an order sale names no booster: " + seller.chat());
 
@@ -560,8 +568,8 @@ final class BoostersScenarios {
             e2e.sleep(700);
             seller.command("sell hand");
             e2e.eventually(() -> row(e2e, id).equals("FILLED/20/20/0/100/0"), "the last 8 filled the order: " + row(e2e, id));
-            e2e.eventually(() -> e2e.money(sellerName) - paid == 8 * 100 - 16 + serverFor24,
-                "8 to the order ($784) and 24 to the server (" + money(serverFor24) + "): got " + money(e2e.money(sellerName) - paid));
+            e2e.eventually(() -> e2e.money(sellerName) - paid == 8 * 100 + serverFor24,
+                "8 to the order ($800) and 24 to the server (" + money(serverFor24) + "): got " + money(e2e.money(sellerName) - paid));
             e2e.eventually(() -> seller.chatContains("incl. +25% booster"), "the receipt names the booster for the server's part: " + seller.chat());
         } finally {
             if (order > 0 && row(e2e, order).startsWith("ACTIVE/")) {

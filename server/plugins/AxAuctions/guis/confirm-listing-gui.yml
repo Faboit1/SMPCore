@@ -25,7 +25,6 @@ confirm:
   name: "&fList it"
   lore:
     - "&7Put it on the auction house"
-    - "&75% tax is taken when it sells"
   actions:
     - "[SOUND] ui.button.click|0.25|1"
 

@@ -23,7 +23,8 @@ else online gets, and the announcement thanks them by name. Paid ranks never get
 - **Boss bar** while a booster runs, for everyone online: "+10% sell booster from Alex - 29m 41s left" (or without
   "from" for the server), counting down every second, green progress by default (`bar.*`). Players hide it with the
   "Booster bar" switch in `/settings` (Display, id `booster-bar`, on by default; flipping it shows or hides the bar at
-  once) or the button in `/booster` (not shown while the server locks or hides the setting).
+  once) or the same "Booster bar: ON/OFF" switch in `/booster` (not shown while the server locks or hides the
+  setting).
   The bar is the booster's line on the shared per-player status bar (`services.statusBars()`, owner `boosters`, the
   lowest priority `StatusBars.PRIORITY_SERVER`): the combat timer and the AFK zone countdown take the bar while they
   last and the booster comes back after, so a player never sees two bars. The status bar shows, changes and hides each
@@ -139,8 +140,10 @@ shared announcement words of `lang/settings.yml`).
 | Display, 6 | `booster-bar` "Booster bar" | switch, on | `bar.enabled` | `BoosterBar.sync` (every second, and at once through the setting's change hook and the `/booster` button) | Show the boss bar while a booster runs. |
 | Server announcements, 8 | `booster-announcements` "Sell booster announcements" | choice all/starts/off, all | any `announce.*` is on; "Only new boosters" only while starts and something else are announced (otherwise it reads as all) | `BoosterAnnouncer.announce` (`BoosterNews.shows`) | Which announcements the player sees in chat; their own booster's always show. |
 
-The `/booster` button flips `booster-bar` through `PlayerSettings.set(player, ...)` and says "The booster bar is set by
-the server." when the server locked or hid it meanwhile; the button is not shown while it is locked or hidden.
+The `/booster` dialog's switch ("Booster bar: ON" in green, "OFF" in red; its tooltip says what the bar and boosters
+are) flips `booster-bar` through `PlayerSettings.set(player, ...)` and shows the dialog again with the new state, with no
+chat line; when the server locked or hid the setting meanwhile, the dialog comes back with "The booster bar is set by the
+server." in red. The switch is not shown while the setting is locked or hidden.
 
 ## Storage
 
@@ -194,7 +197,8 @@ values, the announcement text), `economy.LedgerTest#afterCommitRunsOnlyForAStore
 the limit is delivered, revokes).
 
 End to end (`tools/e2e`, `BoostersScenarios`): `boosters-sell` (exact +10% payout and receipt, the boss bar arrives
-and counts down, `/worth`, `/booster`, hiding and showing the bar, stopping), `boosters-queue` (+10% then +20% back to
+and counts down, `/worth`, `/booster` with its Booster bar switch: ON in green, a click hides the bar and shows the
+dialog again with OFF in red and no chat line, a second click brings the bar back, stopping), `boosters-queue` (+10% then +20% back to
 back, never +30%, the second starts by itself), `boosters-store-revoke`, `boosters-spawner` (storage "Sell all" pays
 exactly worth x 1.1), `boosters-orders` (order part unboosted, server part boosted), `boosters-shop-guard`,
 `boosters-capped` (with `max-percent: 10` a +15% store booster is delivered, staff are told, the announcement, the
