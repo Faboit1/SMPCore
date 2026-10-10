@@ -218,8 +218,20 @@ public final class Ledger {
                 AtomicLongArray values = this.balances.computeIfAbsent(posting.account(), k -> new AtomicLongArray(CURRENCIES));
                 balancesAfter[i] = values.addAndGet(posting.currency().ordinal(), posting.delta());
             }
-            for (Runnable apply : tx.applies()) {
-                apply.run();
+            List<Runnable> applies = tx.applies();
+            int applied = 0;
+            try {
+                for (Runnable apply : applies) {
+                    apply.run();
+                    applied++;
+                }
+            } catch (RuntimeException | Error e) {
+                // Applies must not fail; one that does would leave money moved with nothing stored. Undo the postings and
+                // the applies that ran (the failing one may have changed something half-way: logged for staff).
+                undo(tx, applied);
+                this.logger.log(Level.SEVERE, "Transaction " + tx.id() + " (" + tx.kind() + ") failed while applying and was "
+                    + "undone; check the state of what it changes", e);
+                return TransactionResult.failed(tx.id(), TransactionStatus.REJECTED, "apply_failed");
             }
             this.executed.incrementAndGet();
             CompletableFuture<Void> committed = store(tx, balancesAfter);
@@ -297,25 +309,33 @@ public final class Ledger {
         }
     }
 
+    /**
+     * Takes a transaction's postings back out of memory and undoes its first {@code applied} applies, newest first.
+     * Caller holds the lock.
+     */
+    private void undo(LedgerTx tx, int applied) {
+        List<Posting> postings = tx.postings();
+        for (int i = postings.size() - 1; i >= 0; i--) {
+            Posting posting = postings.get(i);
+            AtomicLongArray values = this.balances.get(posting.account());
+            if (values != null) {
+                values.addAndGet(posting.currency().ordinal(), -posting.delta());
+            }
+        }
+        List<Runnable> reverts = tx.reverts();
+        for (int i = Math.min(applied, reverts.size()) - 1; i >= 0; i--) {
+            try {
+                reverts.get(i).run();
+            } catch (Throwable t) {
+                this.logger.log(Level.SEVERE, "Reverting transaction " + tx.id() + " failed", t);
+            }
+        }
+    }
+
     private void revert(LedgerTx tx, Throwable error) {
         this.lock.lock();
         try {
-            List<Posting> postings = tx.postings();
-            for (int i = postings.size() - 1; i >= 0; i--) {
-                Posting posting = postings.get(i);
-                AtomicLongArray values = this.balances.get(posting.account());
-                if (values != null) {
-                    values.addAndGet(posting.currency().ordinal(), -posting.delta());
-                }
-            }
-            List<Runnable> reverts = tx.reverts();
-            for (int i = reverts.size() - 1; i >= 0; i--) {
-                try {
-                    reverts.get(i).run();
-                } catch (Throwable t) {
-                    this.logger.log(Level.SEVERE, "Reverting transaction " + tx.id() + " failed", t);
-                }
-            }
+            undo(tx, tx.reverts().size());
         } finally {
             this.lock.unlock();
         }

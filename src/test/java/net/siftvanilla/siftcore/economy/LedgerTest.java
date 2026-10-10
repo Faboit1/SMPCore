@@ -241,6 +241,36 @@ class LedgerTest {
         assertEquals(40, this.ledger.dependentReverts(), "two links taken back per round");
     }
 
+    /** An apply that throws (they must not) leaves nothing moved: postings and the applies before it are undone. */
+    @Test
+    void anApplyThatThrowsUndoesTheWholeTransaction() throws Exception {
+        UUID a = player();
+        UUID b = player();
+        mint(a, 100).committed().get(10, TimeUnit.SECONDS);
+        AtomicInteger first = new AtomicInteger();
+        AtomicInteger third = new AtomicInteger();
+        TransactionResult result = this.ledger.execute(LedgerTx.builder()
+            .transfer(a, b, Currency.MONEY, 40, "ah_sale", "1")
+            .apply(first::incrementAndGet, first::decrementAndGet)
+            .apply(() -> {
+                throw new IllegalStateException("a bug in a domain change");
+            }, () -> {
+            })
+            .apply(third::incrementAndGet, third::decrementAndGet)
+            .build());
+        assertFalse(result.success());
+        assertEquals(TransactionStatus.REJECTED, result.status());
+        assertEquals("apply_failed", result.reason());
+        assertEquals(100, this.ledger.balance(a, Currency.MONEY));
+        assertEquals(0, this.ledger.balance(b, Currency.MONEY));
+        assertEquals(0, first.get(), "the apply before it was undone");
+        assertEquals(0, third.get(), "the apply after it never ran");
+        Ledger.AuditReport report = this.ledger.audit().get(10, TimeUnit.SECONDS);
+        assertTrue(report.healthy(), report.problems().toString());
+        assertTrue(this.ledger.execute(LedgerTx.builder().transfer(a, b, Currency.MONEY, 40, "pay", null).build()).success(),
+            "the ledger goes on working");
+    }
+
     @Test
     void afterCommitRunsOnlyForAStoredTransactionAndBeforeCommittedCompletes() throws Exception {
         UUID a = player();

@@ -17,7 +17,8 @@ import net.siftvanilla.siftcore.storage.SqlWork;
  * that must commit together with the ledger rows. Built once, executed once by {@link Ledger#execute(LedgerTx)}.
  * <p>
  * Rules for domain code: {@code checks} only read state and return a failure reason or null; {@code applies}
- * mutate in-memory state and must not fail; each apply has a matching revert used only if storing fails;
+ * mutate in-memory state and must not fail (one that throws is logged and the transaction is undone and refused as
+ * {@code REJECTED apply_failed}); each apply has a matching revert used only if storing fails;
  * {@code writes} run on the database writer inside the same transaction as the ledger rows; {@code afterCommit}
  * callbacks run once that transaction is stored (never when it was reverted).
  */
