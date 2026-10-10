@@ -88,7 +88,7 @@ final class CrateDialogs {
         if (this.keyall.enabled()) {
             Component reward = this.keyall.reward();
             if (reward != null) {
-                lines.add(lang.get(CratesMessages.LIST_KEYALL, Arg.time("time", this.keyall.remaining()), Arg.component("keys", reward)));
+                lines.add(lang.get(CratesMessages.LIST_KEYALL, Arg.value("time", this.keyall.remaining()), Arg.component("keys", reward)));
             }
         }
         Runnable self = () -> list(player, back);
@@ -115,7 +115,7 @@ final class CrateDialogs {
         if (owned <= 0) {
             return lang.get(CratesMessages.LIST_KEYS_NONE);
         }
-        return owned == 1 ? lang.get(CratesMessages.LIST_KEYS_ONE) : lang.get(CratesMessages.LIST_KEYS_MANY, Arg.number("count", owned));
+        return owned == 1 ? lang.get(CratesMessages.LIST_KEYS_ONE) : lang.get(CratesMessages.LIST_KEYS_MANY, Arg.value("count", owned));
     }
 
     /** A crate button's tooltip: how many rewards it has and the rarest of them, then what a click does. */

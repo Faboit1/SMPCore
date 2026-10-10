@@ -28,6 +28,7 @@ import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -381,7 +382,7 @@ final class CrateCommands {
         }
         ExpectedValue value = ExpectedValue.of(available, reward -> this.items.build(reward).map(this.worth::price).orElse(0L));
         messenger().chat(sender, CratesMessages.INFO_VALUE, Arg.money("money", Math.round(value.money())),
-            Arg.decimal("shards", value.shards()), Arg.money("items", Math.round(value.itemWorth())));
+            Arg.text("shard-count", Lang.decimal(value.shards())), Arg.money("items", Math.round(value.itemWorth())));
         value.keys().forEach((id, amount) -> {
             Crate target = settings.crate(id);
             messenger().chat(sender, CratesMessages.INFO_KEYS, Arg.decimal("amount", amount), Arg.text("name", target == null ? id : target.name()));

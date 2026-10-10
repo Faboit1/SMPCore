@@ -278,7 +278,8 @@ final class SettingsDialogs {
             total += count;
             changedTotal += changed;
             Component label = icon(category).append(Component.text(this.lang.plain(category.label()), color(category)));
-            Component tooltip = this.lang.get(SettingsMessages.GROUP_TOOLTIP, Arg.text("description", this.lang.plain(category.description())),
+            // The description keeps its lang colours (a shard mention stays purple); search reads it as plain text.
+            Component tooltip = this.lang.get(SettingsMessages.GROUP_TOOLTIP, Arg.component("description", this.lang.get(category.description())),
                 Arg.number("count", count), Arg.number("changed", changed));
             buttons.add(Button.of(label, tooltip, s -> showPage(s.player(), new Nav(new Group(category.id()), up(back), back), null)));
         }
@@ -392,13 +393,14 @@ final class SettingsDialogs {
     /** One setting's button: its value, what a click does, and a tooltip saying what it is. */
     private <T> Button button(Viewer viewer, Registry.Entry<T> entry, Nav nav) {
         PlayerSetting<T> setting = entry.setting();
-        Component label = Component.text(this.lang.plain(setting.label()));
+        // Lang colours survive in labels too ("Confirm <shards>shard</shards> buys from"); plain labels stay white.
+        Component label = this.lang.get(setting.label());
         T shown = viewer.value(setting);
         boolean locked = this.settings.locked(setting);
         Component tooltip = Templates.lines(tooltip(viewer, entry, shown, nav.scope(), locked));
         if (locked) {
             // Greyed: the value's own colours (ON green) would make it look like a switch that works.
-            return Button.of(this.lang.get(SettingsMessages.BUTTON_LOCKED, Arg.component("label", label),
+            return Button.of(this.lang.get(SettingsMessages.BUTTON_LOCKED, Arg.text("label", TextStyle.plain(label)),
                 Arg.text("value", TextStyle.plain(SettingValues.value(this.lang, setting, shown)))), tooltip,
                 s -> showPage(s.player(), nav, null));
         }
@@ -420,7 +422,7 @@ final class SettingsDialogs {
             lines.add(this.lang.get(SettingsMessages.TOOLTIP_GROUP, Arg.component("group",
                 Component.text(this.lang.plain(entry.category().label()), color(entry.category())))));
         }
-        lines.add(this.lang.get(SettingsMessages.TOOLTIP_DESCRIPTION, Arg.text("description", this.lang.plain(setting.description()))));
+        lines.add(this.lang.get(SettingsMessages.TOOLTIP_DESCRIPTION, Arg.component("description", this.lang.get(setting.description()))));
         if (locked) {
             lines.add(this.lang.get(SettingsMessages.TOOLTIP_LOCKED));
             return lines;

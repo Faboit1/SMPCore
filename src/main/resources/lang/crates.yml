@@ -57,7 +57,7 @@ crates:
     tooltip:
       - "<secondary>Click to open it or see every reward"
     empty: "<secondary>There are no crates yet."
-    keyall: "<icon:key> <secondary>Next keyall in <primary><time><secondary>: <keys>"
+    keyall: "<icon:key> <secondary>Next keyall in <accent><time><secondary>: <keys>"
 
   view:
     title: "<name> crate"
@@ -84,7 +84,7 @@ crates:
   preview:
     title: "<name> crate rewards"
     name: "<reward>"
-    chance: "<secondary>Chance <primary><chance>"
+    chance: "<secondary>Chance <accent><chance>"
     rarity: "<secondary>Rarity <rarity>"
     worth: "<secondary>Sells for <worth>"
     opens: "<secondary>Opens the <name> <secondary>crate"
@@ -100,7 +100,7 @@ crates:
     no-keys: "<primary>No keys"
     no-keys-lore:
       - "<secondary>Keys come from the keyall"
-      - "<secondary>and the shard shop"
+      - "<secondary>and the <shards>shard</shards> shop"
 
   # The floating name above a crate block: the title in the crate's colour (bold), then the lines.
   hologram:
@@ -137,7 +137,7 @@ crates:
     log-empty: "<primary><player> hasn't opened a crate yet."
     info-header: "<primary><name> crate <secondary>with <count> rewards"
     info-line: "<secondary><chance> <primary><reward> <secondary><rarity>"
-    info-value: "<secondary>Average per key: money <money><secondary>, shards <primary><shards><secondary>, items that sell for <items>"
+    info-value: "<secondary>Average per key: money <money><secondary>, <shards><shard-count> shards</shards><secondary>, items that sell for <items>"
     info-keys: "<secondary>Average <name> keys per key: <primary><amount>"
     info-commands: "<secondary>A command reward runs <primary><chance> <secondary>of the time"
     info-left-out: "<secondary>Spawner rewards left out until spawner items are available: <primary><count>"

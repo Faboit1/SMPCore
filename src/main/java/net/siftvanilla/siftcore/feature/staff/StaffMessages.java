@@ -193,7 +193,7 @@ public final class StaffMessages {
     public static final MessageKey WHOIS_HEADER = MessageKey.chat("staff.whois.header", "name");
     public static final MessageKey WHOIS_IDENTITY = MessageKey.ui("staff.whois.identity", "uuid", "first", "seen");
     public static final MessageKey WHOIS_ONLINE = MessageKey.ui("staff.whois.online", "world", "x", "y", "z", "ping", "mode");
-    public static final MessageKey WHOIS_MONEY = MessageKey.ui("staff.whois.money", "balance", "shards");
+    public static final MessageKey WHOIS_MONEY = MessageKey.ui("staff.whois.money", "balance", "shard-count");
     public static final MessageKey WHOIS_ALTS = MessageKey.ui("staff.whois.alts", "count");
     public static final MessageKey WHOIS_NOW = MessageKey.ui("staff.whois.now", "list");
     public static final MessageKey WHOIS_CLEAN = MessageKey.ui("staff.whois.clean");

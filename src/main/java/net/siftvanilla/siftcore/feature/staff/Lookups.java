@@ -166,7 +166,7 @@ final class Lookups {
                 Arg.component("mode", StaffText.gameMode(where.mode()))));
         }
         lines.add(lang.get(StaffMessages.WHOIS_MONEY, Arg.money("balance", this.services.ledger().balance(target, Currency.MONEY)),
-            Arg.number("shards", this.services.ledger().balance(target, Currency.SHARDS))));
+            Arg.shards("shard-count", this.services.ledger().balance(target, Currency.SHARDS))));
         lines.add(lang.get(StaffMessages.WHOIS_ALTS, Arg.number("count", alts)));
         lines.add(lang.get(StaffMessages.WHOIS_NOW, Arg.component("list", now(target, now))));
         return lines;

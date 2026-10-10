@@ -153,7 +153,7 @@ public final class ShardsFeature implements Feature {
         boolean inside = this.zone.open() && this.zone.inside(player.getUniqueId());
         if (inside) {
             lines.add(lang.get(ShardsMessages.HUB_ZONE_INSIDE, Arg.shards("amount", this.zone.shardsPerInterval(player)),
-                Arg.time("time", this.zone.interval())));
+                Arg.value("time", this.zone.interval())));
             lines.add(today(player));
         } else if (!this.zone.open()) {
             lines.add(lang.get(ShardsMessages.HUB_ZONE_CLOSED));
@@ -178,7 +178,7 @@ public final class ShardsFeature implements Feature {
         Lang lang = this.services.lang();
         return Templates.lines(List.of(
             lang.get(ShardsMessages.HUB_ZONE_RATE, Arg.shards("amount", this.zone.shardsPerInterval(player)),
-                Arg.time("time", this.zone.interval())),
+                Arg.value("time", this.zone.interval())),
             today(player)));
     }
 

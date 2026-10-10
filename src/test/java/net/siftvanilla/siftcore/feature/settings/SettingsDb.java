@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.settings;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -31,23 +32,37 @@ final class SettingsDb implements AutoCloseable {
     final Lang lang;
 
     SettingsDb(Path dir) throws Exception {
+        this(dir, List.of(), List.of());
+    }
+
+    /** Also loads features' text: {@code types} their messages classes, {@code files} their lang files. */
+    SettingsDb(Path dir, List<Class<?>> types, List<String> files) throws Exception {
         this.database = new JdbcDatabase(new SqliteSource(dir.resolve("test.db"), 2), LOGGER);
         ClassLoader loader = SettingsDb.class.getClassLoader();
         new Migrations(this.database, LOGGER, loader::getResourceAsStream, Migrations.discover(loader::getResourceAsStream)).migrate();
         this.settings = new PlayerSettings(this.database, null, LOGGER);
         SharedSettings.register(this.settings, new Relations());
-        this.lang = lang();
+        this.lang = lang(types, files);
     }
 
     /** The settings text and the shared settings' text (lang/settings.yml and lang/core.yml, merged like the server does). */
     static Lang lang() {
-        Lang lang = Fakes.lang();
-        for (Class<?> type : List.of(SettingsMessages.class, SettingCategories.class, SettingTexts.class, OptionTexts.class,
-            SharedSettings.class, CoreMessages.class)) {
+        return lang(List.of(), List.of());
+    }
+
+    private static Lang lang(List<Class<?>> extraTypes, List<String> extraFiles) {
+        // Features' text uses icons; the shared text is read without them, so group labels start with their name.
+        Lang lang = extraFiles.isEmpty() ? Fakes.lang() : Fakes.lang(List.of());
+        List<Class<?>> types = new ArrayList<>(List.of(SettingsMessages.class, SettingCategories.class, SettingTexts.class,
+            OptionTexts.class, SharedSettings.class, CoreMessages.class));
+        types.addAll(extraTypes);
+        for (Class<?> type : types) {
             lang.register(type);
         }
+        List<String> files = new ArrayList<>(List.of("lang/settings.yml", "lang/core.yml"));
+        files.addAll(extraFiles);
         YamlConfiguration merged = new YamlConfiguration();
-        for (String file : List.of("lang/settings.yml", "lang/core.yml")) {
+        for (String file : files) {
             YamlConfiguration yaml = Fakes.yaml(file);
             for (String key : yaml.getKeys(true)) {
                 if (!yaml.isConfigurationSection(key)) {

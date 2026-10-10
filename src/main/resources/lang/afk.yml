@@ -28,11 +28,11 @@ afk:
     empty: "<secondary>Nobody is AFK."
   zone:
     # <amount> is how many shards one wait pays, <time> how long the wait is.
-    entered: "<primary>AFK zone. <secondary>Stay here to earn <shards>shards</shards>: <amount> every <time>."
+    entered: "<primary>AFK zone. <secondary>Stay here to earn <shards>shards</shards>: <amount> every <accent><time></accent>."
     left: "<secondary>You left the AFK zone."
     # The countdown on the action bar (or the boss bar), shown again every second.
-    status: "<secondary>AFK zone: next <shards>shard</shards> in <primary><time>"
-    status-many: "<secondary>AFK zone: next <shards><amount> shards</shards> in <primary><time>"
+    status: "<secondary>AFK zone: next <shards>shard</shards> in <accent><time>"
+    status-many: "<secondary>AFK zone: next <shards><amount> shards</shards> in <accent><time>"
     waiting-alt: "<secondary>AFK zone: another account on your connection is earning"
     combat: "<secondary>AFK zone: no <shards>shards</shards> while in combat"
     capped: "<secondary>AFK zone: today's limit of <shards><cap> shards</shards> reached"

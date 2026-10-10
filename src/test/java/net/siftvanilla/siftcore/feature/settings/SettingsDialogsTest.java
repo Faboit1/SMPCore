@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,8 +19,14 @@ import net.siftvanilla.siftcore.core.player.Change;
 import net.siftvanilla.siftcore.core.player.Overrides;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.SettingCategories;
+import net.siftvanilla.siftcore.core.player.SettingOptions;
 import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
+import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
+import net.siftvanilla.siftcore.feature.afk.AfkFeature;
+import net.siftvanilla.siftcore.feature.afk.AfkMessages;
+import net.siftvanilla.siftcore.feature.shards.ShardsFeature;
+import net.siftvanilla.siftcore.feature.shards.ShardsMessages;
 import net.siftvanilla.siftcore.core.player.options.PingSound;
 import net.siftvanilla.siftcore.core.text.Messenger;
 import net.siftvanilla.siftcore.core.text.Palette;
@@ -255,6 +262,39 @@ class SettingsDialogsTest {
             && volume.endsWith("Click to change it."), volume);
         String pings = plain(button(last(), "Notification pings").tooltip());
         assertTrue(pings.contains("Default: ON") && pings.endsWith("Click to switch it."), pings);
+    }
+
+    @Test
+    void shardMentionsStayPurpleInLabelsAndTooltips() throws Exception {
+        try (SettingsDb afk = new SettingsDb(this.dir.resolve("afk"), List.of(AfkMessages.class, ShardsMessages.class),
+            List.of("lang/afk.yml", "lang/shards.yml"))) {
+            afk.settings.register(SettingCategories.AFK, AfkFeature.PAYOUTS, SettingOptions.<AlertStyle>builder().order(1).build());
+            afk.settings.register(SettingCategories.AFK, ShardsFeature.CONFIRM_ABOVE, SettingOptions.<ConfirmAbove>builder().order(2).build());
+            SettingsDialogs dialogs = new SettingsDialogs(afk.settings, afk.lang, new Templates(afk.lang),
+                new Messenger(afk.lang, new Sounds()), (player, view) -> this.shown.add(view), () -> SettingsConfig.DEFAULTS);
+            afk.join(this.alex.id);
+            dialogs.open(this.alex.player, null);
+            // With icons loaded the group's label starts with its sprite.
+            Button group = last().allButtons().stream().filter(b -> plain(b.label()).endsWith("AFK & shards")).findFirst().orElseThrow();
+            assertTrue(colours(group.tooltip()).contains(this.palette.shards()), "the group's description keeps 'shard shop' purple");
+            assertTrue(dialogs.openGroup(this.alex.player, "afk", null));
+            Button payouts = button(last(), "AFK zone payout messages");
+            assertTrue(plain(payouts.tooltip()).startsWith("How you are told about shards you earn"), plain(payouts.tooltip()));
+            assertTrue(colours(payouts.tooltip()).contains(this.palette.shards()), "'shards' in the description is purple");
+            Button confirm = button(last(), "Confirm shard buys from");
+            assertTrue(colours(confirm.label()).contains(this.palette.shards()), "'shard' in the label is purple");
+        }
+    }
+
+    /** Every colour used in a text. */
+    private static Set<TextColor> colours(Component text) {
+        Set<TextColor> colours = new HashSet<>();
+        for (Component part : flatten(text)) {
+            if (part.color() != null) {
+                colours.add(part.color());
+            }
+        }
+        return colours;
     }
 
     @Test

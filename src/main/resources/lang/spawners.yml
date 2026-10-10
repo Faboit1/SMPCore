@@ -135,9 +135,9 @@ spawners:
   # /spawners: one line with the totals, then a button per spawner ("Zombie x12: 28% full").
   list:
     title: "Your spawners"
-    summary: "<icon:spawner> <secondary>Placed <primary><count><secondary>, stacked <primary><stacked><secondary>, storing <primary><stored> <secondary>items and <primary><xp> <secondary>XP"
+    summary: "<icon:spawner> <secondary>Placed <accent><count><secondary>, stacked <accent><stacked><secondary>, storing <accent><stored> <secondary>items and <accent><xp> <secondary>XP"
     # Only when there are more spawners than features/spawners.yml list-limit.
-    limit: "<secondary>Showing the first <limit> of <count>"
+    limit: "<secondary>Showing the first <accent><limit></accent> of <accent><count></accent>"
     empty:
       - "<primary>You don't have any spawners yet."
       - "<secondary>Buy one in the shop and place it near your base."
@@ -149,7 +149,7 @@ spawners:
     tooltip-owner: "<secondary>Owner <primary><owner>"
     tooltip:
       - "<secondary>At <primary><location> <secondary>in <world>"
-      - "<secondary>Storage <primary><used> <secondary>of <capacity> items, <primary><xp> <secondary>XP"
+      - "<secondary>Storage <accent><used> <secondary>of <capacity> items, <accent><xp> <secondary>XP"
       - "<secondary>Click for its storage and status"
     # Switches between your spawners and your teammates' (shown while you're in a team).
     show-team: "Team spawners"
@@ -160,7 +160,7 @@ spawners:
   # Your teammates' spawners, which you may use too.
   team-list:
     title: "Team spawners"
-    summary: "<icon:spawner> <secondary>Your teammates' <primary><count><secondary>, stacked <primary><stacked><secondary>, storing <primary><stored> <secondary>items and <primary><xp> <secondary>XP"
+    summary: "<icon:spawner> <secondary>Your teammates' <accent><count><secondary>, stacked <accent><stacked><secondary>, storing <accent><stored> <secondary>items and <accent><xp> <secondary>XP"
     empty:
       - "<primary>Your teammates don't have any spawners yet."
       - "<secondary>Spawners your teammates place show up here, and you can use them too."
@@ -169,22 +169,22 @@ spawners:
   details:
     title: "<name> spawner"
     body:
-      - "<icon:spawner> <primary><name> spawner<secondary>, <primary><stack> <secondary>of <cap> stacked"
-      - "<secondary>Storage <primary><used> <secondary>of <capacity> items, sells for <value>"
-      - "<icon:experience> <secondary>XP <primary><xp> <secondary>of <xp-cap>"
+      - "<icon:spawner> <primary><name> spawner<secondary>, <accent><stack> <secondary>of <cap> stacked"
+      - "<secondary>Storage <accent><used> <secondary>of <capacity> items, sells for <value>"
+      - "<icon:experience> <secondary>XP <accent><xp> <secondary>of <xp-cap>"
     # Open storage's tooltip.
     open-tooltip:
       - "<secondary>Owner <primary><owner>"
       - "<secondary>At <primary><location> <secondary>in <world>"
-      - "<secondary>Makes about <primary><rate> <secondary>items an hour while you're near"
-      - "<secondary>Opens when you're within <range> blocks"
+      - "<secondary>Makes about <accent><rate> <secondary>items an hour while you're near"
+      - "<secondary>Opens when you're within <accent><range></accent> blocks"
     status:
       active: "<primary>Making loot right now."
       full: "<primary>The storage is full, so new loot is lost. <secondary>Sell or take some."
-      idle: "<secondary>Waiting for a player within <radius> blocks."
+      idle: "<secondary>Waiting for a player within <accent><radius></accent> blocks."
       disabled: "<secondary>This spawner type is turned off and makes no loot."
     open: "Open storage"
-    too-far: "<primary>Stand within <range> blocks of the spawner to open it."
+    too-far: "<primary>Stand within <accent><range></accent> blocks of the spawner to open it."
 
   # Full storage alert: a spawner's storage just filled up, so new loot is lost until it is emptied or sold.
   full:

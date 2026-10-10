@@ -68,6 +68,16 @@ class MenuButtonsTest {
     }
 
     @Test
+    void pauseMenuTooltipsKeepTheShardPurpleAndShowNoTags() {
+        Component tooltip = MenuButtons.text("Spend <shards>shards</shards> earned while AFK", new Icons(java.util.Set.of()));
+        assertEquals("Spend shards earned while AFK", TextStyle.plain(tooltip));
+        assertEquals(NamedTextColor.GRAY, tooltip.color());
+        assertTrue(tooltip.children().stream().flatMap(c -> java.util.stream.Stream.concat(java.util.stream.Stream.of(c), c.children().stream()))
+            .anyMatch(c -> net.siftvanilla.siftcore.core.text.Palette.DEFAULT_SHARDS.equals(c.color())), tooltip.toString());
+        assertNull(MenuButtons.text("  ", new Icons(java.util.Set.of())), "a blank text shows nothing");
+    }
+
+    @Test
     void anInvalidColourIsAProblemAndLeftOut() throws Exception {
         ConfigReader reader = new ConfigReader("features/hub.yml", yaml("buttons:\n  money:\n    icon: Money\n    color: green\n"));
         HubSettings settings = HubSettings.parse(reader);

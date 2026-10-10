@@ -18,7 +18,7 @@ core:
   amount-too-large: "<primary>The most you can use is <max>."
   invalid-number: "<primary><secondary><input></secondary> must be a number from <min> to <max>."
   not-enough-money: "<primary>You need <amount> for that."
-  not-enough-shards: "<primary>You need <amount> shards for that."
+  not-enough-shards: "<primary>You need <shards><amount> shards</shards> for that."
   balance-limit: "<primary>That would go over the balance limit."
   economy-unavailable: "<primary>Trading is paused for a moment. Try again soon."
   action-failed: "<primary>Something went wrong. Nothing was changed."

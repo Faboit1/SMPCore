@@ -254,7 +254,7 @@ staff:
       - "<secondary>At <primary><world> <x>, <y>, <z>"
       - "<icon:ping> <secondary>Ping <primary><ping> ms"
       - "<secondary>Game mode <primary><mode>"
-    money: "<icon:money> <balance> <secondary>and <primary><shards> <secondary>shards"
+    money: "<icon:money> <balance> <secondary>and <shards><shard-count> shards"
     alts: "<secondary>Accounts on the same address <primary><count>"
     now: "<secondary>Right now <primary><list>"
     clean: "no punishments"

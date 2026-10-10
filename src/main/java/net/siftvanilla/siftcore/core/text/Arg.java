@@ -101,4 +101,17 @@ public sealed interface Arg {
     static Arg time(String name, Duration value) {
         return new Time(name, value);
     }
+
+    /**
+     * A whole number with grouping ({@code 1,500}) that takes the colour its text gives it: a value in the dialog style,
+     * written {@code <accent><name>} in lang ({@link #number} is always in the primary colour).
+     */
+    static Arg value(String name, long value) {
+        return new Text(name, Lang.number(value));
+    }
+
+    /** A duration ({@code 1h 5m}) that takes the colour its text gives it, written {@code <accent><name>} in lang. */
+    static Arg value(String name, Duration value) {
+        return new Text(name, net.siftvanilla.siftcore.core.config.Durations.format(value));
+    }
 }

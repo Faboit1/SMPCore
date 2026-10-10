@@ -170,7 +170,7 @@ settings:
       description: "Coordinates, last-seen time, balance and what the server announces about you"
     afk:
       label: "AFK & shards"
-      description: "AFK zone countdown and payouts, AFK messages and the shard shop"
+      description: "AFK zone countdown and payouts, AFK messages and the <shards>shard</shards> shop"
     crates:
       label: "Crates & kits"
       description: "Crate results and keys, keyall, kit reminders and the trash bin"

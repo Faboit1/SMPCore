@@ -223,7 +223,7 @@ final class ShardShop {
         List<Component> lines = new ArrayList<>(lang.lines(ShardsMessages.BUY_BODY, Arg.shards("price", offer.price()),
             Arg.shards("balance", shards)));
         if (offer.kind() == ShardOffer.Kind.KEY) {
-            lines.add(lang.get(ShardsMessages.BUY_OWNED, Arg.number("keys", this.crates.keys(player.getUniqueId(), offer.target()))));
+            lines.add(lang.get(ShardsMessages.BUY_OWNED, Arg.value("keys", this.crates.keys(player.getUniqueId(), offer.target()))));
         }
         body.add(Body.text(Component.join(JoinConfiguration.newlines(), lines)));
         if (note != null) {
@@ -241,8 +241,8 @@ final class ShardShop {
         }
         if (offer.amount() > 1) {
             tooltip.add(offer.kind() == ShardOffer.Kind.KEY
-                ? lang.get(ShardsMessages.BUY_GIVES_KEYS, Arg.number("keys", offer.amount()))
-                : lang.get(ShardsMessages.BUY_GIVES_ITEMS, Arg.number("items", offer.amount())));
+                ? lang.get(ShardsMessages.BUY_GIVES_KEYS, Arg.value("keys", offer.amount()))
+                : lang.get(ShardsMessages.BUY_GIVES_ITEMS, Arg.value("items", offer.amount())));
         }
         Button buy = Button.of(lang.get(ShardsMessages.BUY_BUTTON, Arg.number("amount", amount), Arg.shards("total", total)),
             Templates.lines(tooltip), s -> onBuy(s, id, price, amount, back)).width(150);

@@ -66,10 +66,10 @@ final class SpawnerDialogs {
                 xp += spawner.xp();
             }
             lines.add(lang.get(showTeam ? SpawnersMessages.TEAM_LIST_SUMMARY : SpawnersMessages.LIST_SUMMARY,
-                Arg.number("count", shown.size()), Arg.number("stacked", stacked), Arg.number("stored", stored), Arg.number("xp", xp)));
+                Arg.value("count", shown.size()), Arg.value("stacked", stacked), Arg.value("stored", stored), Arg.value("xp", xp)));
             int limit = this.service.settings().listLimit();
             if (shown.size() > limit) {
-                lines.add(lang.get(SpawnersMessages.LIST_LIMIT, Arg.number("limit", limit), Arg.number("count", shown.size())));
+                lines.add(lang.get(SpawnersMessages.LIST_LIMIT, Arg.value("limit", limit), Arg.value("count", shown.size())));
             }
             Button.Handler self = sub -> sub.show(list(sub.player(), showTeam, back));
             for (ManagedSpawner spawner : shown.subList(0, Math.min(shown.size(), limit))) {
@@ -94,14 +94,14 @@ final class SpawnerDialogs {
         Component label = lang.get(SpawnersMessages.LIST_BUTTON, Arg.text("name", name), Arg.text("stack", Lang.number(spawner.stack())));
         Component fullness = used >= capacity && capacity > 0
             ? lang.get(SpawnersMessages.LIST_FULL)
-            : lang.get(SpawnersMessages.LIST_FULLNESS, Arg.number("percent", percent(used, capacity)));
+            : lang.get(SpawnersMessages.LIST_FULLNESS, Arg.value("percent", percent(used, capacity)));
         List<Component> tooltip = new ArrayList<>();
         if (team) {
             tooltip.add(lang.get(SpawnersMessages.LIST_TOOLTIP_OWNER, Arg.text("owner", this.service.ownerName(spawner.owner))));
         }
         tooltip.addAll(lang.lines(SpawnersMessages.LIST_TOOLTIP, Arg.text("location", spawner.pos.coordinates()),
-            Arg.text("world", spawner.pos.world()), Arg.number("used", used), Arg.number("capacity", capacity),
-            Arg.number("xp", spawner.xp())));
+            Arg.text("world", spawner.pos.world()), Arg.value("used", used), Arg.value("capacity", capacity),
+            Arg.value("xp", spawner.xp())));
         return this.services.templates().choiceButton(label, fullness, Templates.lines(tooltip), sub -> showDetails(sub, id, back));
     }
 
@@ -141,20 +141,20 @@ final class SpawnerDialogs {
         String name = this.service.name(spawner.mob);
         List<Component> lines = new ArrayList<>(lang.lines(SpawnersMessages.DETAILS_BODY,
             Arg.text("name", name),
-            Arg.number("stack", state.stack()),
-            Arg.number("cap", this.service.stackCap(player, spawner.mob)),
-            Arg.number("used", state.used()),
-            Arg.number("capacity", this.service.capacity(spawner, state.stack())),
-            Arg.number("xp", state.xp()),
-            Arg.number("xp-cap", this.service.xpCapacity(state.stack())),
+            Arg.value("stack", state.stack()),
+            Arg.value("cap", this.service.stackCap(player, spawner.mob)),
+            Arg.value("used", state.used()),
+            Arg.value("capacity", this.service.capacity(spawner, state.stack())),
+            Arg.value("xp", state.xp()),
+            Arg.value("xp-cap", this.service.xpCapacity(state.stack())),
             Arg.money("value", value)));
         lines.add(status(spawner, def, s));
         Component tooltip = Templates.lines(lang.lines(SpawnersMessages.DETAILS_OPEN_TOOLTIP,
             Arg.text("owner", this.service.ownerName(spawner.owner)),
             Arg.text("location", spawner.pos.coordinates()),
             Arg.text("world", spawner.pos.world()),
-            Arg.number("rate", Math.round(rate)),
-            Arg.number("range", Math.max(s.remoteRange(), 6))));
+            Arg.value("rate", Math.round(rate)),
+            Arg.value("range", Math.max(s.remoteRange(), 6))));
         Button open = Button.of(lang.get(SpawnersMessages.DETAILS_OPEN), tooltip, sub -> openStorage(sub, spawner, back));
         return this.services.templates().column(lang.get(SpawnersMessages.DETAILS_TITLE, Arg.text("name", name)), lines, List.of(open),
             back);
@@ -169,7 +169,7 @@ final class SpawnerDialogs {
         if (System.currentTimeMillis() - spawner.lastActive() <= recent) {
             return lang.get(spawner.lastFull() ? SpawnersMessages.STATUS_FULL : SpawnersMessages.STATUS_ACTIVE);
         }
-        return lang.get(SpawnersMessages.STATUS_IDLE, Arg.number("radius", s.radius()));
+        return lang.get(SpawnersMessages.STATUS_IDLE, Arg.value("radius", s.radius()));
     }
 
     /** Opens the storage from the dialog: staff anywhere, others within the configured range in the same world. */
@@ -194,7 +194,7 @@ final class SpawnerDialogs {
             boolean near = at.getWorld().getName().equals(spawner.pos.world())
                 && spawner.pos.distanceSquared(at.getX(), at.getY(), at.getZ()) <= (double) Math.max(range, 6) * Math.max(range, 6);
             if (!near) {
-                this.service.tell(player, SpawnersMessages.TOO_FAR, Arg.number("range", Math.max(range, 6)));
+                this.service.tell(player, SpawnersMessages.TOO_FAR, Arg.value("range", Math.max(range, 6)));
                 submission.show(details(player, spawner, back));
                 return;
             }

@@ -132,7 +132,7 @@ public final class CratesMessages {
     public static final MessageKey LOG_EMPTY = MessageKey.chat("crates.admin.log-empty", "player");
     public static final MessageKey INFO_HEADER = MessageKey.chat("crates.admin.info-header", "name", "count");
     public static final MessageKey INFO_LINE = MessageKey.chat("crates.admin.info-line", "chance", "reward", "rarity");
-    public static final MessageKey INFO_VALUE = MessageKey.chat("crates.admin.info-value", "money", "shards", "items");
+    public static final MessageKey INFO_VALUE = MessageKey.chat("crates.admin.info-value", "money", "shard-count", "items");
     public static final MessageKey INFO_KEYS = MessageKey.chat("crates.admin.info-keys", "amount", "name");
     public static final MessageKey INFO_COMMANDS = MessageKey.chat("crates.admin.info-commands", "chance");
     public static final MessageKey INFO_LEFT_OUT = MessageKey.chat("crates.admin.info-left-out", "count");

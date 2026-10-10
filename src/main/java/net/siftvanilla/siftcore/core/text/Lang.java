@@ -392,7 +392,7 @@ public final class Lang {
         return builder.build();
     }
 
-    static String decimal(double value) {
+    public static String decimal(double value) {
         if (!Double.isFinite(value)) {
             return "0";
         }

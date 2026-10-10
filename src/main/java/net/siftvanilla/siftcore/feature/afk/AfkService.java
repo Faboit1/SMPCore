@@ -263,7 +263,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
             this.sessions.enter(id, connection(id), now);
             AfkSettings s = this.settings.get();
             this.services.messenger().send(player, AfkMessages.ZONE_ENTERED, Arg.shards("amount", shardsPerInterval(player)),
-                Arg.time("time", s.interval()));
+                Arg.value("time", s.interval()));
             state.holdStatus(now, MESSAGE_HOLD_MILLIS);
         } else {
             this.sessions.leave(id, now);
@@ -348,10 +348,10 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
                 long shards = shardsPerInterval(player);
                 Duration next = Duration.ofSeconds(seconds(status.nextInMillis()));
                 if (shards == 1) {
-                    this.services.messenger().send(player, AfkMessages.ZONE_STATUS, Arg.time("time", next));
+                    this.services.messenger().send(player, AfkMessages.ZONE_STATUS, Arg.value("time", next));
                 } else {
                     this.services.messenger().send(player, AfkMessages.ZONE_STATUS_MANY, Arg.shards("amount", shards),
-                        Arg.time("time", next));
+                        Arg.value("time", next));
                 }
             }
             case WAITING_ALT -> this.services.messenger().send(player, AfkMessages.ZONE_WAITING_ALT);
@@ -380,7 +380,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
         switch (status.state()) {
             case EARNING -> {
                 long shards = shardsPerInterval(player);
-                Arg time = Arg.time("time", Duration.ofSeconds(seconds(status.nextInMillis())));
+                Arg time = Arg.value("time", Duration.ofSeconds(seconds(status.nextInMillis())));
                 text = shards == 1 ? this.services.lang().get(AfkMessages.ZONE_STATUS, time)
                     : this.services.lang().get(AfkMessages.ZONE_STATUS_MANY, Arg.shards("amount", shards), time);
                 progress = barProgress(status.nextInMillis(), intervalMillis);

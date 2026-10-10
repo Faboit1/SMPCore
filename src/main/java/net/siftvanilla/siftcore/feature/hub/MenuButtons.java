@@ -8,8 +8,11 @@ import java.util.Set;
 import java.util.function.Function;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.text.Icons;
+import net.siftvanilla.siftcore.core.text.Palette;
+import net.siftvanilla.siftcore.core.text.TextStyle;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -35,6 +38,17 @@ public final class MenuButtons {
             return name;
         }
         return Component.text().append(icon).append(Component.space()).append(name).build();
+    }
+
+    /**
+     * Pause-menu text from a lang entry (a tooltip or the body): gray, with the palette tags in their default colours
+     * (a shard mention stays purple), or null when the text is blank.
+     */
+    public static Component text(String text, Icons icons) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        return Component.text().color(NamedTextColor.GRAY).append(new TextStyle(Palette.defaults(), icons).parse(text)).build();
     }
 
     /**

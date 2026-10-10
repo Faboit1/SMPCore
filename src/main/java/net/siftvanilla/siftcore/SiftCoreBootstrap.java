@@ -79,10 +79,8 @@ public final class SiftCoreBootstrap implements PluginBootstrap {
             Icons icons = icons(dataDirectory, context);
             boolean enabled = config.getBoolean("pause-menu.enabled", true);
             Component title = Component.text(lang.getString("hub.pause-menu.title", "SiftVanilla"));
-            String bodyText = lang.getString("hub.pause-menu.body", "");
-            TextColor gray = NamedTextColor.GRAY;
             // Buttons, not paragraphs: a line shows above them only when the owner writes one.
-            Component body = bodyText.isBlank() ? null : Component.text(bodyText, gray);
+            Component body = MenuButtons.text(lang.getString("hub.pause-menu.body", ""), icons);
             Map<String, HubSettings.Look> looks = MenuButtons.looks(config.getConfigurationSection("buttons"));
             List<ActionButton> buttons = new ArrayList<>();
             for (String id : config.getStringList("pause-menu.entries")) {
@@ -95,7 +93,7 @@ public final class SiftCoreBootstrap implements PluginBootstrap {
                 Component shown = MenuButtons.label(label, looks.getOrDefault(id, HubSettings.Look.PLAIN), icons::component,
                     NamedTextColor.WHITE);
                 buttons.add(ActionButton.builder(shown)
-                    .tooltip(tooltip.isBlank() ? null : Component.text(tooltip, gray))
+                    .tooltip(MenuButtons.text(tooltip, icons))
                     .width(150)
                     .action(DialogAction.customClick(Key.key("siftcore", "hub/" + id), null))
                     .build());

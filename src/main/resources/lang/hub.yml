@@ -81,7 +81,7 @@ hub:
       description: "Put a price on a player"
     shards:
       label: "Shards"
-      description: "Spend shards earned while AFK"
+      description: "Spend <shards>shards</shards> earned while AFK"
     prices:
       label: "Prices"
       description: "What items sell for"
