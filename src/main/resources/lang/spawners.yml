@@ -132,47 +132,52 @@ spawners:
     waiting: "<primary>You got <xp> XP that your spawners kept for you while you were away."
     none: "<primary>There's no XP to collect."
 
+  # /spawners: one line with the totals, then a button per spawner ("Zombie x12: 28% full").
   list:
     title: "Your spawners"
-    summary:
-      - "<icon:spawner> <secondary>Spawners placed <primary><count><secondary>, stacked <primary><stacked>"
-      - "<secondary>Items stored <primary><stored><secondary>, XP stored <primary><xp>"
-    page: "<secondary>Page <page> of <pages>"
+    summary: "<icon:spawner> <secondary>Placed <primary><count><secondary>, stacked <primary><stacked><secondary>, storing <primary><stored> <secondary>items and <primary><xp> <secondary>XP"
+    # Only when there are more spawners than features/spawners.yml list-limit.
+    limit: "<secondary>Showing the first <limit> of <count>"
     empty:
       - "<primary>You don't have any spawners yet."
       - "<secondary>Buy one in the shop and place it near your base."
-    # One row per spawner, next to its item.
-    entry: "<primary><name> x<stack><newline><secondary>At <location> in <world><newline><secondary><used> of <capacity> items stored"
-    # A spawner's button (plain label) and its hover text.
+    # A spawner's button: its name and stack, then how full its storage is.
     button: "<name> x<stack>"
-    tooltip: "<secondary>At <location> in <world><newline><secondary><used> of <capacity> items stored"
-    previous: "Previous page"
-    next: "Next page"
+    fullness: "<accent><percent>% full"
+    full: "<off>full"
+    # Shown when pointing at a spawner's button. The owner line is only in the team list.
+    tooltip-owner: "<secondary>Owner <primary><owner>"
+    tooltip:
+      - "<secondary>At <primary><location> <secondary>in <world>"
+      - "<secondary>Storage <primary><used> <secondary>of <capacity> items, <primary><xp> <secondary>XP"
+      - "<secondary>Click for its storage and status"
     # Switches between your spawners and your teammates' (shown while you're in a team).
     show-team: "Team spawners"
+    show-team-tooltip: "<secondary>Your teammates' spawners, which you can use too"
     show-own: "Your spawners"
+    show-own-tooltip: "<secondary>Back to your own spawners"
 
   # Your teammates' spawners, which you may use too.
   team-list:
     title: "Team spawners"
-    summary:
-      - "<icon:spawner> <secondary>Teammates' spawners <primary><count><secondary>, stacked <primary><stacked>"
-      - "<secondary>Items stored <primary><stored><secondary>, XP stored <primary><xp>"
+    summary: "<icon:spawner> <secondary>Your teammates' <primary><count><secondary>, stacked <primary><stacked><secondary>, storing <primary><stored> <secondary>items and <primary><xp> <secondary>XP"
     empty:
       - "<primary>Your teammates don't have any spawners yet."
       - "<secondary>Spawners your teammates place show up here, and you can use them too."
-    entry: "<primary><name> x<stack> <secondary>of <primary><owner><newline><secondary>At <location> in <world><newline><secondary><used> of <capacity> items stored"
 
+  # A spawner's page: what it holds and whether it works, then Open storage.
   details:
     title: "<name> spawner"
     body:
       - "<icon:spawner> <primary><name> spawner<secondary>, <primary><stack> <secondary>of <cap> stacked"
+      - "<secondary>Storage <primary><used> <secondary>of <capacity> items, sells for <value>"
+      - "<icon:experience> <secondary>XP <primary><xp> <secondary>of <xp-cap>"
+    # Open storage's tooltip.
+    open-tooltip:
       - "<secondary>Owner <primary><owner>"
       - "<secondary>At <primary><location> <secondary>in <world>"
-      - "<secondary>Storage <primary><used> <secondary>of <capacity> items"
-      - "<icon:experience> <secondary>XP <primary><xp> <secondary>of <xp-cap>"
-      - "<icon:money> <secondary>The storage sells for <value>"
       - "<secondary>Makes about <primary><rate> <secondary>items an hour while you're near"
+      - "<secondary>Opens when you're within <range> blocks"
     status:
       active: "<primary>Making loot right now."
       full: "<primary>The storage is full, so new loot is lost. <secondary>Sell or take some."

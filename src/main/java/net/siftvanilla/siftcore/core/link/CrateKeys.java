@@ -47,7 +47,20 @@ public interface CrateKeys {
             public Component keysText(String crate, long amount) {
                 return keys.get().keysText(crate, amount);
             }
+
+            @Override
+            public Component crateName(String crate) {
+                return keys.get().crateName(crate);
+            }
         };
+    }
+
+    /**
+     * A crate's name as players know it ({@code Common}), in the crate's colour. The crates feature answers with the
+     * configured name; this default is the id, for when it is missing.
+     */
+    default Component crateName(String crate) {
+        return Component.text(crate);
     }
 
     /**

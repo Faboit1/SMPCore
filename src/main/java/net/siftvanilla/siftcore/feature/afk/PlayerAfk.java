@@ -240,14 +240,20 @@ final class PlayerAfk {
 
     // ------------------------------------------------------------------ pacing of action-bar text
 
-    /** True (and remembers now) when the zone status line is due again. */
+    /**
+     * True (and remembers now) when the zone status line is due again. The checks run once a second a few
+     * milliseconds apart, so a line is due a quarter of a second early: every second means every check.
+     */
     synchronized boolean statusDue(long now, long everyMillis) {
-        if (everyMillis <= 0 || now < this.holdStatusUntil || now - this.lastStatus < everyMillis) {
+        if (everyMillis <= 0 || now < this.holdStatusUntil || now - this.lastStatus < everyMillis - STATUS_SLACK_MILLIS) {
             return false;
         }
         this.lastStatus = now;
         return true;
     }
+
+    /** How early a status line may come (the once-a-second checks are not exactly a second apart). */
+    static final long STATUS_SLACK_MILLIS = 250;
 
     /** Holds the zone status line back for a moment, so a one-off message on the action bar stays readable. */
     synchronized void holdStatus(long now, long millis) {

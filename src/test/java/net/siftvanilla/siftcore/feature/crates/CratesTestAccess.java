@@ -10,6 +10,11 @@ public final class CratesTestAccess {
     private CratesTestAccess() {
     }
 
+    /** The items, enchantments, mobs and worlds the shipped crates.yml may name (for parsing it in other packages). */
+    public static CratesSettings.Catalog catalog() {
+        return CratesSettingsTest.CATALOG;
+    }
+
     /** Registers the crate settings as the shipped crates.yml offers them. */
     public static void registerShipped(PlayerSettings settings) {
         CratesSettings config = CratePlayerSettingsTest.config(10, true, true,

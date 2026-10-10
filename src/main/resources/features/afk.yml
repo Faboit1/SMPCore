@@ -64,6 +64,14 @@ rewards:
   ranks: {}
   # The most shards one account can earn in the zone per day, resetting at midnight server time. 0 = no limit.
   daily-cap: 0
-  # How often the action bar shows "AFK zone: next shard in 42s" while in the zone (0s = never, else at least 1s).
-  # Players can also turn it off in their settings.
-  status-every: 2s
+  # How often the action bar shows "AFK zone: next shard in 42s" again while in the zone (0s = never, else at
+  # least 1s). At 1s the countdown goes down by one every second. Players can also turn it off in their settings.
+  status-every: 1s
+  # Played to a player the moment the zone pays them shards. Each player's sound settings apply (their volume,
+  # success sounds and quiet during combat). sound is any sound id, like block.amethyst_block.chime or
+  # entity.experience_orb.pickup; volume 0 to 2, pitch 0.5 to 2.
+  sound:
+    enabled: true
+    sound: block.amethyst_block.chime
+    volume: 0.8
+    pitch: 1.2

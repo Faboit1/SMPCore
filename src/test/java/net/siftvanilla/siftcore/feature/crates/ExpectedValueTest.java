@@ -1,6 +1,7 @@
 package net.siftvanilla.siftcore.feature.crates;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -38,19 +39,55 @@ class ExpectedValueTest {
         assertEquals(Map.of(), value.keys());
     }
 
-    /** The shipped crates keep money a small extra; these are the numbers docs/features/crates.md gives. */
+    /** The shipped crates' money and shards per key; these are the numbers docs/features/crates.md gives. */
     @Test
     void shippedMoneyAndShardsPerKey() throws Exception {
-        YamlConfiguration yaml = CratesSettingsTest.bundled();
-        ConfigReader reader = new ConfigReader("features/crates.yml", yaml);
-        CratesSettings settings = CratesSettings.parse(reader, CratesSettingsTest.CATALOG, MoneyFormat.defaults());
-        assertEquals(List.of(), reader.problems());
-        double[][] expected = {{175, 0.6}, {810, 3.2}, {3_800, 12}, {20_750, 40}};
-        String[] crates = {"basic", "rare", "epic", "legendary"};
+        CratesSettings settings = shipped();
+        double[][] expected = {{320, 1.05}, {860, 1.8}, {2_210, 3.6}, {7_000, 12}, {25_000, 52.5}, {64_000, 120}, {190_000, 360}};
+        String[] crates = {"basic", "uncommon", "rare", "epic", "legendary", "mythic", "celestial"};
         for (int i = 0; i < crates.length; i++) {
             ExpectedValue value = ExpectedValue.of(settings.crate(crates[i]).rewards(), r -> 0);
             assertEquals(expected[i][0], value.money(), 1e-6, crates[i] + " money per key");
             assertEquals(expected[i][1], value.shards(), 1e-6, crates[i] + " shards per key");
         }
+    }
+
+    /** Each tier pays more than the one below it, in money and shards. */
+    @Test
+    void everyTierPaysMoreThanTheOneBelow() throws Exception {
+        CratesSettings settings = shipped();
+        ExpectedValue previous = null;
+        for (Crate crate : settings.crates()) {
+            ExpectedValue value = ExpectedValue.of(crate.rewards(), r -> 0);
+            if (previous != null) {
+                assertTrue(value.money() > previous.money(), crate.id() + " pays more money than the tier below");
+                assertTrue(value.shards() > previous.shards(), crate.id() + " pays more shards than the tier below");
+            }
+            previous = value;
+        }
+    }
+
+    /**
+     * Keys players already own keep their worth: the crates that existed before the seven tiers (basic, rare, epic and
+     * legendary) pay at least the money and shards per key they paid then.
+     */
+    @Test
+    void existingKeysAreWorthAtLeastWhatTheyWere() throws Exception {
+        CratesSettings settings = shipped();
+        String[] crates = {"basic", "rare", "epic", "legendary"};
+        double[][] before = {{175, 0.6}, {810, 3.2}, {3_800, 12}, {20_750, 40}};
+        for (int i = 0; i < crates.length; i++) {
+            ExpectedValue value = ExpectedValue.of(settings.crate(crates[i]).rewards(), r -> 0);
+            assertTrue(value.money() >= before[i][0], crates[i] + " pays at least the money it did");
+            assertTrue(value.shards() >= before[i][1], crates[i] + " pays at least the shards it did");
+        }
+    }
+
+    private static CratesSettings shipped() throws Exception {
+        YamlConfiguration yaml = CratesSettingsTest.bundled();
+        ConfigReader reader = new ConfigReader("features/crates.yml", yaml);
+        CratesSettings settings = CratesSettings.parse(reader, CratesSettingsTest.CATALOG, MoneyFormat.defaults());
+        assertEquals(List.of(), reader.problems());
+        return settings;
     }
 }

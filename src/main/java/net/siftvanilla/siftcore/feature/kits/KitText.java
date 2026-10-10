@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.siftvanilla.siftcore.core.config.Durations;
@@ -14,9 +15,20 @@ import net.siftvanilla.siftcore.core.text.Lang;
 final class KitText {
 
     private final Lang lang;
+    private final Function<String, Component> crateName;
 
+    /** Crate keys are named after the capitalized crate id. */
     KitText(Lang lang) {
+        this(lang, null);
+    }
+
+    /**
+     * @param crateName a crate's name as players know it, in its colour ({@code CrateKeys#crateName}); the capitalized
+     *                  id when it is null or only knows the id
+     */
+    KitText(Lang lang, Function<String, Component> crateName) {
         this.lang = lang;
+        this.crateName = crateName;
     }
 
     Lang lang() {
@@ -40,13 +52,22 @@ final class KitText {
         return net.siftvanilla.siftcore.core.text.TextStyle.plain(status(status, permitted));
     }
 
-    /** Crate keys: "1 Basic key, 2 Rare keys". Crate ids are shown capitalized. */
+    /** Crate keys: "1 Common key, 2 Rare keys", each crate by the name players know it by (in its colour). */
     Component keys(Map<String, Integer> keys) {
         List<Component> parts = new ArrayList<>(keys.size());
         keys.forEach((crate, amount) -> parts.add(amount == 1
-            ? this.lang.get(KitsMessages.KEYS_ONE, Arg.text("crate", PlainText.capitalize(crate)))
-            : this.lang.get(KitsMessages.KEYS_MANY, Arg.number("count", amount), Arg.text("crate", PlainText.capitalize(crate)))));
+            ? this.lang.get(KitsMessages.KEYS_ONE, Arg.component("crate", crateName(crate)))
+            : this.lang.get(KitsMessages.KEYS_MANY, Arg.number("count", amount), Arg.component("crate", crateName(crate)))));
         return join(parts);
+    }
+
+    /** The crate's configured name (the shipped {@code basic} crate is called Common), or the capitalized id. */
+    private Component crateName(String crate) {
+        Component name = this.crateName == null ? null : this.crateName.apply(crate);
+        if (name == null || net.siftvanilla.siftcore.core.text.TextStyle.plain(name).equals(crate)) {
+            return Component.text(PlainText.capitalize(crate));
+        }
+        return name;
     }
 
     /** Kit names: "Daily, Supporter". */

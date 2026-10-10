@@ -83,7 +83,7 @@ Audit log actions: `kits.claim` (every claim, with the kit and the claim referen
 - **Perks dialog**: a button per perk the player has (its command in the tooltip); it opens the perk (or wears the
   hat). Kits and perks cost nothing.
 - **Messages**: a claim says "You claimed the Daily kit." on the action bar; items that didn't fit add a chat line
-  with a click to `/kits`; a kit with crate keys adds "The Event kit gave you 1 Basic key." with a click to `/crates`.
+  with a click to `/kits`; a kit with crate keys adds "The Event kit gave you 1 Common key." (crates by their names) with a click to `/crates`.
 - **Reminders** (`reminders: true`, and each player's Kit reminders and When to remind about kits settings): on join
   "Kits ready to claim: Starter, Daily." and "Kit items are waiting for room in your inventory." when that is so;
   while playing "Your Daily kit is ready." the moment a cooldown ends. In chat they are clickable; above the hotbar or

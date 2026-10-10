@@ -32,6 +32,7 @@ import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.text.Arg;
+import net.siftvanilla.siftcore.core.text.Feedback;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.core.text.StatusBars;
 import net.siftvanilla.siftcore.economy.LedgerTx;
@@ -261,7 +262,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
         if (inside) {
             this.sessions.enter(id, connection(id), now);
             AfkSettings s = this.settings.get();
-            this.services.messenger().send(player, AfkMessages.ZONE_ENTERED, Arg.number("shards", shardsPerInterval(player)),
+            this.services.messenger().send(player, AfkMessages.ZONE_ENTERED, Arg.shards("amount", shardsPerInterval(player)),
                 Arg.time("time", s.interval()));
             state.holdStatus(now, MESSAGE_HOLD_MILLIS);
         } else {
@@ -349,20 +350,24 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
                 if (shards == 1) {
                     this.services.messenger().send(player, AfkMessages.ZONE_STATUS, Arg.time("time", next));
                 } else {
-                    this.services.messenger().send(player, AfkMessages.ZONE_STATUS_MANY, Arg.number("shards", shards),
+                    this.services.messenger().send(player, AfkMessages.ZONE_STATUS_MANY, Arg.shards("amount", shards),
                         Arg.time("time", next));
                 }
             }
             case WAITING_ALT -> this.services.messenger().send(player, AfkMessages.ZONE_WAITING_ALT);
-            case CAPPED -> this.services.messenger().send(player, AfkMessages.ZONE_CAPPED, Arg.number("cap", cap));
+            case CAPPED -> this.services.messenger().send(player, AfkMessages.ZONE_CAPPED, Arg.shards("cap", cap));
             // The combat timer owns the action bar while tagged; nothing to show while loading.
             case COMBAT, LOADING -> {
             }
         }
     }
 
-    private static int seconds(long millis) {
-        return (int) Math.max(0, (millis + 999) / 1000);
+    /**
+     * Whole seconds of a countdown, rounded to the nearest: the zone clock runs on the rhythm of the once-a-second
+     * check, so the countdown goes down by exactly one each second.
+     */
+    static int seconds(long millis) {
+        return (int) Math.max(0, (millis + 500) / 1000);
     }
 
     /**
@@ -377,7 +382,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
                 long shards = shardsPerInterval(player);
                 Arg time = Arg.time("time", Duration.ofSeconds(seconds(status.nextInMillis())));
                 text = shards == 1 ? this.services.lang().get(AfkMessages.ZONE_STATUS, time)
-                    : this.services.lang().get(AfkMessages.ZONE_STATUS_MANY, Arg.number("shards", shards), time);
+                    : this.services.lang().get(AfkMessages.ZONE_STATUS_MANY, Arg.shards("amount", shards), time);
                 progress = barProgress(status.nextInMillis(), intervalMillis);
             }
             case WAITING_ALT -> {
@@ -385,7 +390,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
                 progress = 0f;
             }
             case CAPPED -> {
-                text = this.services.lang().get(AfkMessages.ZONE_CAPPED, Arg.number("cap", cap));
+                text = this.services.lang().get(AfkMessages.ZONE_CAPPED, Arg.shards("cap", cap));
                 progress = 1f;
             }
             // In combat the combat timer speaks for itself; nothing to show while today's earnings load.
@@ -438,20 +443,23 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
         }
         state.daily().add(today, amount);
         state.earned(amount, now);
+        // The moment a shard is reached: a chime, under the player's sound settings (volume, success sounds, quiet in
+        // combat).
+        this.services.messenger().sounds().play(player, s.shardSound(), Feedback.SUCCESS);
         long balance = this.services.ledger().balance(id, Currency.SHARDS);
         AlertStyle payouts = this.services.settings().get(id, AfkFeature.PAYOUTS);
         if (amount == 1) {
-            this.services.messenger().alert(player, payouts, AfkMessages.ZONE_EARNED_ONE, Arg.number("balance", balance));
+            this.services.messenger().alert(player, payouts, AfkMessages.ZONE_EARNED_ONE, Arg.shards("balance", balance));
         } else {
-            this.services.messenger().alert(player, payouts, AfkMessages.ZONE_EARNED_MANY, Arg.number("shards", amount),
-                Arg.number("balance", balance));
+            this.services.messenger().alert(player, payouts, AfkMessages.ZONE_EARNED_MANY, Arg.shards("amount", amount),
+                Arg.shards("balance", balance));
         }
         if (payouts == AlertStyle.ACTIONBAR) {
             // Keep the countdown from replacing the payout line at once.
             state.holdStatus(now, MESSAGE_HOLD_MILLIS);
         }
         if (cap > 0 && state.daily().earned(today) >= cap) {
-            this.services.messenger().send(player, AfkMessages.ZONE_CAPPED_NOW, Arg.number("cap", cap));
+            this.services.messenger().send(player, AfkMessages.ZONE_CAPPED_NOW, Arg.shards("cap", cap));
         }
     }
 
@@ -477,7 +485,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
                     if (spell.shards() == 1) {
                         this.services.messenger().chat(player, AfkMessages.RETURN_SUMMARY_SHARD, time);
                     } else if (spell.shards() > 1) {
-                        this.services.messenger().chat(player, AfkMessages.RETURN_SUMMARY_SHARDS, time, Arg.number("shards", spell.shards()));
+                        this.services.messenger().chat(player, AfkMessages.RETURN_SUMMARY_SHARDS, time, Arg.shards("amount", spell.shards()));
                     } else {
                         this.services.messenger().chat(player, AfkMessages.RETURN_SUMMARY, time);
                     }

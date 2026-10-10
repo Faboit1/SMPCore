@@ -28,6 +28,7 @@ import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.feature.afk.AfkZoneInfo;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.Templates;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -140,40 +141,55 @@ public final class ShardsFeature implements Feature {
         });
     }
 
-    /** The shards page: balance, what the AFK zone pays and today's progress, the shop and the way to the zone. */
+    /**
+     * The shards page: the balance (and, in the AFK zone, what it pays), then the shard shop and the way to the zone,
+     * whose tooltip says what the zone pays this player and what they earned there today.
+     */
     public void openHub(Player player) {
         Lang lang = this.services.lang();
         long shards = this.services.ledger().balance(player.getUniqueId(), Currency.SHARDS);
         List<Component> lines = new ArrayList<>();
-        lines.add(lang.get(ShardsMessages.HUB_BALANCE, Arg.number("shards", shards)));
-        if (this.zone.open()) {
-            lines.add(lang.get(ShardsMessages.HUB_ZONE_RATE, Arg.number("shards", this.zone.shardsPerInterval(player)),
+        lines.add(lang.get(ShardsMessages.HUB_BALANCE, Arg.shards("amount", shards)));
+        boolean inside = this.zone.open() && this.zone.inside(player.getUniqueId());
+        if (inside) {
+            lines.add(lang.get(ShardsMessages.HUB_ZONE_INSIDE, Arg.shards("amount", this.zone.shardsPerInterval(player)),
                 Arg.time("time", this.zone.interval())));
-            long today = this.zone.earnedToday(player.getUniqueId());
-            long cap = this.zone.dailyCap();
-            lines.add(cap > 0
-                ? lang.get(ShardsMessages.HUB_ZONE_TODAY_CAP, Arg.number("today", today), Arg.number("cap", cap))
-                : lang.get(ShardsMessages.HUB_ZONE_TODAY, Arg.number("today", today)));
-            if (this.zone.inside(player.getUniqueId())) {
-                lines.add(lang.get(ShardsMessages.HUB_ZONE_INSIDE));
-            }
-        } else {
+            lines.add(today(player));
+        } else if (!this.zone.open()) {
             lines.add(lang.get(ShardsMessages.HUB_ZONE_CLOSED));
         }
-        lines.add(lang.get(ShardsMessages.HUB_SPEND));
         List<Button> buttons = new ArrayList<>();
         if (player.hasPermission(ShardsCommands.SHOP)) {
             buttons.add(Button.of(lang.get(ShardsMessages.HUB_SHOP), lang.get(ShardsMessages.HUB_SHOP_TOOLTIP),
-                s -> this.shop.open(s.player(), () -> openHub(s.player()))).width(150));
+                s -> this.shop.open(s.player(), () -> openHub(s.player()))));
         }
-        if (this.zone.open() && this.zone.mayTeleport(player) && !this.zone.inside(player.getUniqueId())) {
-            buttons.add(Button.of(lang.get(ShardsMessages.HUB_ZONE), lang.get(ShardsMessages.HUB_ZONE_TOOLTIP), s -> {
+        if (this.zone.open() && this.zone.mayTeleport(player) && !inside) {
+            buttons.add(Button.of(lang.get(ShardsMessages.HUB_ZONE), zoneTooltip(player), s -> {
                 s.close();
                 this.zone.teleport(s.player());
-            }).width(150));
+            }).closes());
         }
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(ShardsMessages.HUB_TITLE), lines, buttons, 2,
+        this.services.dialogs().show(player, this.services.templates().grid(lang.get(ShardsMessages.HUB_TITLE), lines, buttons,
             s -> openMenu(s.player())));
+    }
+
+    /** What the AFK zone pays this player and what they earned there today (of the daily limit, if any). */
+    private Component zoneTooltip(Player player) {
+        Lang lang = this.services.lang();
+        return Templates.lines(List.of(
+            lang.get(ShardsMessages.HUB_ZONE_RATE, Arg.shards("amount", this.zone.shardsPerInterval(player)),
+                Arg.time("time", this.zone.interval())),
+            today(player)));
+    }
+
+    /** What the player earned in the AFK zone today, of the daily limit when there is one. */
+    private Component today(Player player) {
+        Lang lang = this.services.lang();
+        long today = this.zone.earnedToday(player.getUniqueId());
+        long cap = this.zone.dailyCap();
+        return cap > 0
+            ? lang.get(ShardsMessages.HUB_ZONE_TODAY_CAP, Arg.shards("today", today), Arg.shards("cap", cap))
+            : lang.get(ShardsMessages.HUB_ZONE_TODAY, Arg.shards("today", today));
     }
 
     private void openMenu(Player player) {

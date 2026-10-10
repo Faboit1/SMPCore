@@ -91,6 +91,10 @@ final class CratesScenarios {
         list.add(of("crates-persist-setup", CratesScenarios::persistSetup));
         list.add(of("crates-persist-check", CratesScenarios::persistCheck));
         list.add(of("crates-settings", CratesScenarios::settings));
+        list.add(of("crates-tiers", CratesScenarios::tiers));
+        list.add(of("crates-animation", CratesScenarios::animation));
+        list.add(of("crates-animation-leave", CratesScenarios::animationLeave));
+        list.add(of("crates-block-effects", CratesScenarios::blockEffects));
         return list;
     }
 
@@ -107,7 +111,7 @@ final class CratesScenarios {
                 item: diamond
                 amount: 5
                 weight: 1
-                rarity: rare
+                rarity: epic
                 display: "5 diamonds"
           e2ecash:
             name: "Cash"
@@ -116,7 +120,7 @@ final class CratesScenarios {
               cash:
                 money: 1234
                 weight: 1
-                rarity: epic
+                rarity: legendary
           e2ekeys:
             name: "Keyring"
             icon: tripwire_hook
@@ -141,47 +145,58 @@ final class CratesScenarios {
         return e2e.services().plugin().getDataFolder().toPath().resolve("features/crates.yml");
     }
 
-    /** Adds the test crates and reloads; returns the original file to put back. */
+    /**
+     * Adds the test crates and reloads, with the opening animation off (the scenarios about the screens and rewards
+     * get their result at once); returns the original file to put back.
+     */
     private static String install(E2E e2e) throws Exception {
+        return install(e2e, false);
+    }
+
+    /** Adds the test crates and reloads, with the opening animation on or off; returns the original file to put back. */
+    static String install(E2E e2e, boolean animated) throws Exception {
         Path file = config(e2e);
         String original = Files.readString(file, StandardCharsets.UTF_8);
-        e2e.expect(original.stripTrailing().endsWith("display: \"a blaze spawner\""), "crates.yml ends with the shipped crates section");
-        Files.writeString(file, original.stripTrailing() + "\n" + TEST_CRATES, StandardCharsets.UTF_8);
+        e2e.expect(original.stripTrailing().endsWith("display: \"an iron golem spawner\""), "crates.yml ends with the shipped crates section");
+        String animation = "  animation:\n    enabled: true";
+        e2e.expect(original.contains(animation), "crates.yml has the opening animation on");
+        String text = animated ? original : original.replace(animation, "  animation:\n    enabled: false");
+        Files.writeString(file, text.stripTrailing() + "\n" + TEST_CRATES, StandardCharsets.UTF_8);
         List<String> output = e2e.consoleOutput("sift reload");
         e2e.expect(output.stream().anyMatch(line -> line.contains("Reloaded")), "the reload with the test crates worked: " + output);
         e2e.expect(crates(e2e).settings().crate("e2etest") != null, "the test crate is live");
         return original;
     }
 
-    private static void restore(E2E e2e, String original) throws Exception {
+    static void restore(E2E e2e, String original) throws Exception {
         Files.writeString(config(e2e), original, StandardCharsets.UTF_8);
         e2e.console("sift reload");
     }
 
     // ------------------------------------------------------------------ helpers
 
-    private static CratesFeature crates(E2E e2e) {
+    static CratesFeature crates(E2E e2e) {
         return e2e.feature(CratesFeature.class);
     }
 
-    private static int keys(E2E e2e, String name, String crate) {
+    static int keys(E2E e2e, String name, String crate) {
         return crates(e2e).keys().keys(e2e.uuid(name), crate);
     }
 
     /** Sends a command the way a player types one: paced, so the server's chat spam protection never kicks in. */
-    private static void command(E2E e2e, Bot bot, String command) {
+    static void command(E2E e2e, Bot bot, String command) {
         e2e.sleep(700);
         bot.command(command);
     }
 
-    private static void clear(E2E e2e, String name) {
+    static void clear(E2E e2e, String name) {
         e2e.onPlayer(name, () -> {
             e2e.player(name).getInventory().clear();
             return null;
         });
     }
 
-    private static int count(E2E e2e, String name, Material material) {
+    static int count(E2E e2e, String name, Material material) {
         return e2e.onPlayer(name, () -> {
             int total = 0;
             for (ItemStack stack : e2e.player(name).getInventory().getStorageContents()) {
@@ -217,11 +232,11 @@ final class CratesScenarios {
         }
     }
 
-    private static long number(E2E e2e, String sql, Object... params) {
+    static long number(E2E e2e, String sql, Object... params) {
         return query(e2e, sql, rs -> rs.next() ? rs.getLong(1) : 0L, params);
     }
 
-    private static long logRows(E2E e2e, UUID player) {
+    static long logRows(E2E e2e, UUID player) {
         return number(e2e, "SELECT COUNT(*) FROM crate_log WHERE uuid = ?", player.toString());
     }
 
@@ -229,13 +244,13 @@ final class CratesScenarios {
         return number(e2e, "SELECT COUNT(*) FROM audit_log WHERE action = ? AND target = ?", action, target.toString());
     }
 
-    private static void ledgerHealthy(E2E e2e) throws Exception {
+    static void ledgerHealthy(E2E e2e) throws Exception {
         Ledger.AuditReport report = e2e.services().ledger().audit().get(20, TimeUnit.SECONDS);
         e2e.expect(report.healthy(), "the ledger invariants hold: " + report.problems());
     }
 
     /** The keys of these players in memory equal the stored rows. */
-    private static void keysMatchStorage(E2E e2e, UUID... players) {
+    static void keysMatchStorage(E2E e2e, UUID... players) {
         for (UUID uuid : players) {
             Map<String, Integer> memory = new HashMap<>();
             for (String crate : crates(e2e).keys().crates()) {
@@ -259,7 +274,7 @@ final class CratesScenarios {
      * Runs a console command with a capturing sender and waits until one of its answers contains {@code expected}
      * (staff commands answer once their change is stored, a moment after the command returns).
      */
-    private static List<String> answer(E2E e2e, String command, String expected) {
+    static List<String> answer(E2E e2e, String command, String expected) {
         List<String> lines = new CopyOnWriteArrayList<>();
         CompletableFuture<Void> done = new CompletableFuture<>();
         Bukkit.getGlobalRegionScheduler().execute(Bukkit.getPluginManager().getPlugin("SiftE2E"), () -> {
@@ -281,11 +296,11 @@ final class CratesScenarios {
         return List.copyOf(lines);
     }
 
-    private static String plain(Component component) {
+    static String plain(Component component) {
         return PlainTextComponentSerializer.plainText().serialize(component);
     }
 
-    private static List<String> lore(net.minecraft.world.item.ItemStack stack) {
+    static List<String> lore(net.minecraft.world.item.ItemStack stack) {
         List<String> lines = new ArrayList<>();
         if (stack == null) {
             return lines;
@@ -299,7 +314,7 @@ final class CratesScenarios {
         return lines;
     }
 
-    private static String name(net.minecraft.world.item.ItemStack stack) {
+    static String name(net.minecraft.world.item.ItemStack stack) {
         return stack == null ? "" : stack.getHoverName().getString();
     }
 
@@ -317,11 +332,49 @@ final class CratesScenarios {
         return -1;
     }
 
-    private static void awaitScreen(E2E e2e, Bot bot, Bot.Screen before, String title) {
-        e2e.eventually(() -> bot.screen() != null && bot.screen() != before && bot.screen().title().equals(title)
-            && !bot.screenItems().isEmpty(), bot.name + " sees the screen '" + title + "' (now "
-            + (bot.screen() == null ? "none" : bot.screen().title()) + ")");
+    static void awaitScreen(E2E e2e, Bot bot, Bot.Screen before, String title) {
+        List<String> seen = new CopyOnWriteArrayList<>();
+        boolean shown = Bot.await(() -> {
+            Bot.Screen now = bot.screen();
+            String state = (now == null ? "none" : now.title() + "/" + now.type()) + " dialog="
+                + (bot.dialog() == null ? "none" : bot.dialog().title());
+            if (seen.isEmpty() || !seen.getLast().equals(state)) {
+                seen.add(state);
+            }
+            return now != null && now != before && now.title().equals(title) && !bot.screenItems().isEmpty();
+        }, 10_000);
+        e2e.expect(shown, bot.name + " sees the screen '" + title + "' (seen " + seen + ")");
         e2e.sleep(300);
+    }
+
+    /** Opens /crates and then a crate's page from its button. */
+    static Bot.SeenDialog openView(E2E e2e, Bot bot, String crate) {
+        command(e2e, bot, "crates");
+        e2e.dialog(bot, "Crates");
+        e2e.click(bot, crate + " crate");
+        return e2e.dialog(bot, crate + " crate");
+    }
+
+    /** The colour (#RRGGBB) of the part of a component that contains {@code text}, or null. */
+    static String colorOf(net.minecraft.network.chat.Component component, String text) {
+        if (component == null) {
+            return null;
+        }
+        String[] found = new String[1];
+        component.visit((style, part) -> {
+            if (found[0] == null && !part.isBlank() && part.contains(text) && style.getColor() != null) {
+                found[0] = String.format("#%06X", style.getColor().getValue());
+            }
+            return java.util.Optional.empty();
+        }, net.minecraft.network.chat.Style.EMPTY);
+        return found[0];
+    }
+
+    /** The colour (#RRGGBB) of an item's custom name, or null. */
+    static String itemNameColor(net.minecraft.world.item.ItemStack stack) {
+        net.minecraft.network.chat.Component custom = stack == null ? null
+            : stack.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME);
+        return custom == null ? null : colorOf(custom, "");
     }
 
     private static Bot.SeenDialog awaitBody(E2E e2e, Bot bot, String text) {
@@ -344,25 +397,42 @@ final class CratesScenarios {
             e2e.eventually(() -> keys(e2e, name, "e2etest") == 2, "two Test keys");
             e2e.eventually(() -> bot.chatContains("You got 2 Test keys."), "the player is told: " + bot.chat());
 
-            e2e.step("/crates lists every crate with the player's keys");
+            e2e.step("/crates is a button per crate from the lowest tier up, with the player's keys, and nothing above but the keyall");
             bot.clearLogs();
             command(e2e, bot, "crates");
             Bot.SeenDialog list = e2e.dialog(bot, "Crates");
-            String body = list.bodyText();
-            e2e.expect(body.contains("Test crate") && body.contains("You have 2 keys"), "the test crate with 2 keys: " + body);
-            e2e.expect(body.contains("Basic crate") && body.contains("You have no keys"), "the basic crate without keys: " + body);
-            e2e.expect(body.contains("Next keyall in") && body.contains("Everyone online gets 1 Basic key"), "the keyall line: " + body);
-            e2e.expect(list.button("Open Test") != null && list.button("Preview Test") != null && list.button("Open Legendary") != null,
-                "Open and Preview for every crate: " + list.buttons());
-            e2e.expect("wait_for_response".equals(list.after()), "Open keeps the client on its waiting screen until the result: "
-                + list.after());
+            e2e.expect(list.button("Test crate: 2 keys") != null, "the test crate with 2 keys: " + list.buttons());
+            e2e.expect(list.button("Common crate: no keys") != null, "the Common crate without keys: " + list.buttons());
+            List<String> tiers = list.buttons().stream().map(Bot.Button::label).filter(label -> label.contains(" crate: "))
+                .map(label -> label.substring(0, label.indexOf(" crate: "))).toList();
+            e2e.expect(tiers.size() >= 7 && tiers.subList(0, 7).equals(List.of("Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic",
+                "Celestial")), "the seven tiers in order: " + tiers);
+            e2e.expect(list.body().size() == 1 && list.bodyText().contains("Next keyall in") && list.bodyText().contains("1 Uncommon key"),
+                "only the keyall line above the buttons: " + list.body());
+            String tip = list.button("Common crate").tooltip();
+            e2e.expect(tip != null && tip.contains("14 rewards, the best of them Epic"), "the crate's rewards in its tooltip: " + tip);
+            e2e.expect(list.button("Celestial crate").tooltip().contains("the best of them Celestial"), "the top tier's best is Celestial");
+            e2e.expect("#C8C8C8".equals(colorOf(list.button("Common crate").labelComponent(), "Common")),
+                "the Common crate's name in its colour: " + colorOf(list.button("Common crate").labelComponent(), "Common"));
+            e2e.expect("#6FF3FF".equals(colorOf(list.button("Celestial crate").labelComponent(), "Celestial")), "Celestial in cyan");
+            e2e.expect("#FFD866".equals(list.button("Test crate: 2 keys").valueColor()), "the key count in the accent colour: "
+                + list.button("Test crate: 2 keys").valueColor());
+
+            e2e.step("a crate's page: the keys, Open (waiting for the result) and Preview, explained in their tooltips");
+            e2e.click(bot, "Test crate");
+            Bot.SeenDialog view = e2e.dialog(bot, "Test crate");
+            e2e.expect(view.bodyText().contains("You have 2 keys"), "the keys: " + view.bodyText());
+            e2e.expect(view.button("Open").tooltip() != null && view.button("Preview").tooltip().contains("Every reward with its chance"),
+                "what the buttons do is in their tooltips: " + view.buttons());
+            e2e.expect("wait_for_response".equals(view.after()), "Open keeps the client on its waiting screen until the result: "
+                + view.after());
 
             e2e.step("Open spends one key and shows the reward once it is stored and handed over");
-            e2e.click(bot, "Open Test");
+            e2e.click(bot, "Open");
             Bot.SeenDialog result = awaitBody(e2e, bot, "You won 5 diamonds");
             e2e.expect(result.title().equals("Test crate"), "the result is titled after the crate: " + result.title());
             e2e.expect("wait_for_response".equals(result.after()), "Open another waits for its result too: " + result.after());
-            e2e.expect(result.bodyText().contains("Rare") && result.bodyText().contains("You have 1 key left."), "rarity and keys left: "
+            e2e.expect(result.bodyText().contains("Epic") && result.bodyText().contains("You have 1 key left."), "rarity and keys left: "
                 + result.bodyText());
             e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 5, "5 diamonds in the inventory");
             e2e.expect(keys(e2e, name, "e2etest") == 1, "one key left");
@@ -370,7 +440,7 @@ final class CratesScenarios {
             e2e.expect(logRows(e2e, uuid) == 1, "one crate log row");
             e2e.expect(query(e2e, "SELECT reward FROM crate_log WHERE uuid = ?", rs -> rs.next() ? rs.getString(1) : null,
                 uuid.toString()).equals("diamonds"), "the log names the reward");
-            e2e.eventually(() -> audits(e2e, "crates.reward", uuid) == 1, "a rare win is in the audit log");
+            e2e.eventually(() -> audits(e2e, "crates.reward", uuid) == 1, "an epic win is in the audit log");
             e2e.expect(e2e.services().deliveries().count(uuid) == 0, "nothing was left in the claim box");
 
             e2e.step("Open another uses the last key; then there is no Open another");
@@ -380,12 +450,14 @@ final class CratesScenarios {
             e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 10, "10 diamonds");
             e2e.expect(keys(e2e, name, "e2etest") == 0 && logRows(e2e, uuid) == 2, "no keys left, two log rows");
 
-            e2e.step("Back returns to the list; opening without a key says so there and changes nothing");
+            e2e.step("Back returns to the crate; opening without a key says so there and changes nothing; Back again is the list");
             e2e.click(bot, "Back");
-            e2e.dialog(bot, "Crates");
-            e2e.click(bot, "Open Test");
+            e2e.dialog(bot, "Test crate");
+            e2e.click(bot, "Open");
             awaitBody(e2e, bot, "You have no Test keys.");
             e2e.expect(count(e2e, name, Material.DIAMOND) == 10 && logRows(e2e, uuid) == 2, "nothing changed");
+            e2e.click(bot, "Back");
+            e2e.dialog(bot, "Crates");
 
             e2e.step("the main menu has a Crates button that opens the same list, with Back to the menu");
             bot.clearLogs();
@@ -415,7 +487,7 @@ final class CratesScenarios {
             e2e.console("keys give " + name + " e2ekeys 1");
             e2e.console("keys give " + name + " e2ecmd 1");
 
-            e2e.step("money is paid as a crate_reward source and an epic win is announced to everyone else");
+            e2e.step("money is paid as a crate_reward source and a legendary win is announced to everyone else");
             bot.clearLogs();
             watcher.clearLogs();
             command(e2e, bot, "crates open e2ecash");
@@ -426,7 +498,7 @@ final class CratesScenarios {
             var rows = e2e.services().ledger().history(uuid, 5, 0).get(10, TimeUnit.SECONDS);
             e2e.expect(!rows.isEmpty() && rows.getFirst().kind().equals("crate_reward") && rows.getFirst().delta() == 1_234
                 && rows.getFirst().currency() == Currency.MONEY, "a crate_reward ledger row: " + rows);
-            e2e.eventually(() -> audits(e2e, "crates.reward", uuid) == 1, "the epic win is audited");
+            e2e.eventually(() -> audits(e2e, "crates.reward", uuid) == 1, "the legendary win is audited");
 
             e2e.step("a keys reward adds keys of another crate");
             e2e.sleep(600);
@@ -546,10 +618,9 @@ final class CratesScenarios {
             e2e.console("keys give " + name + " e2etest 1");
 
             e2e.step("two clicks on Open in the same dialog open one crate");
-            command(e2e, bot, "crates");
-            e2e.dialog(bot, "Crates");
-            e2e.expect(bot.clickButton("Open Test", Map.of()), "first click");
-            e2e.expect(bot.clickButton("Open Test", Map.of()), "second click with the same dialog");
+            openView(e2e, bot, "Test");
+            e2e.expect(bot.clickButton("Open", Map.of()), "first click");
+            e2e.expect(bot.clickButton("Open", Map.of()), "second click with the same dialog");
             e2e.eventually(() -> logRows(e2e, uuid) == 1, "the first click opened the crate");
             e2e.sleep(1_500);
             e2e.expect(count(e2e, name, Material.DIAMOND) == 5, "exactly 5 diamonds: " + count(e2e, name, Material.DIAMOND));
@@ -557,8 +628,9 @@ final class CratesScenarios {
             e2e.expect(keys(e2e, name, "e2etest") == 0, "the key was spent once");
 
             e2e.step("a replayed Open click from an old dialog does nothing");
-            Bot.SeenDialog old = bot.dialogs().stream().filter(d -> d.title().equals("Crates")).findFirst().orElseThrow();
-            bot.rawClick(old.button("Open Test").actionId(), old.button("Open Test").additions());
+            Bot.SeenDialog old = bot.dialogs().stream().filter(d -> d.title().equals("Test crate") && d.button("Open") != null)
+                .findFirst().orElseThrow();
+            bot.rawClick(old.button("Open").actionId(), old.button("Open").additions());
             e2e.sleep(1_000);
             e2e.expect(logRows(e2e, uuid) == 1, "still one opening");
 
@@ -587,56 +659,63 @@ final class CratesScenarios {
             Bot bot = e2e.bot(name);
             UUID uuid = e2e.uuid(name);
 
-            e2e.step("the preview lists every reward with its chance, rarity and sell value");
+            e2e.step("the preview lists every reward by rarity with its chance, rarity and sell value, named in its rarity's colour");
             Bot.Screen before = bot.screen();
             command(e2e, bot, "crates preview basic");
-            awaitScreen(e2e, bot, before, "Basic crate rewards");
+            awaitScreen(e2e, bot, before, "Common crate rewards");
             int entries = (int) bot.screenItems().keySet().stream().filter(slot -> slot < 45).count();
-            e2e.expect(entries == 12, "12 rewards: " + entries);
-            int iron = slotWith(e2e, bot, "Chance 18%");
-            e2e.expect(lore(bot.screenItems().get(iron)).contains("Rarity Common"), "rarity line: " + lore(bot.screenItems().get(iron)));
-            e2e.expect(lore(bot.screenItems().get(iron)).contains("Sells for $400"), "16 iron ingots sell for $400: "
+            e2e.expect(entries == 14, "14 rewards: " + entries);
+            e2e.expect(lore(bot.screenItems().get(0)).contains("Rarity Common"), "the most common first: " + lore(bot.screenItems().get(0)));
+            int iron = slotWith(e2e, bot, "Sells for $600");
+            e2e.expect(name(bot.screenItems().get(iron)).equals("24 iron ingots"), "24 iron ingots sell for $600: "
+                + name(bot.screenItems().get(iron)));
+            e2e.expect(lore(bot.screenItems().get(iron)).containsAll(List.of("Chance 12%", "Rarity Common")), "chance and rarity: "
                 + lore(bot.screenItems().get(iron)));
-            int key = slotWith(e2e, bot, "Opens the Rare crate");
-            e2e.expect(name(bot.screenItems().get(key)).equals("1 Rare key"), "the key reward is named: " + name(bot.screenItems().get(key)));
-            e2e.expect(lore(bot.screenItems().get(key)).contains("Chance 2%"), "2%: " + lore(bot.screenItems().get(key)));
+            e2e.expect("#C8C8C8".equals(itemNameColor(bot.screenItems().get(iron))), "a common reward in gray: "
+                + itemNameColor(bot.screenItems().get(iron)));
+            int key = slotWith(e2e, bot, "Opens the Uncommon crate");
+            e2e.expect(name(bot.screenItems().get(key)).equals("1 Uncommon key"), "the key reward is named: " + name(bot.screenItems().get(key)));
+            e2e.expect(lore(bot.screenItems().get(key)).containsAll(List.of("Chance 5%", "Rarity Rare")), "5%, rare: "
+                + lore(bot.screenItems().get(key)));
+            e2e.expect("#4DA6FF".equals(itemNameColor(bot.screenItems().get(key))), "a rare reward in blue: "
+                + itemNameColor(bot.screenItems().get(key)));
             e2e.expect(name(bot.screenItems().get(50)).equals("No keys"), "no keys yet: " + name(bot.screenItems().get(50)));
 
             e2e.step("sorting: most likely first, then rarest first");
             bot.clickSlot(47);
             e2e.eventually(() -> lore(bot.screenItems().get(47)).contains("• Most likely first"), "sorted by likelihood");
-            e2e.eventually(() -> lore(bot.screenItems().get(0)).contains("Chance 18%"), "the likeliest first");
+            e2e.eventually(() -> lore(bot.screenItems().get(0)).contains("Chance 12%"), "the likeliest first");
             // Clicks closer together than the configured GUI click interval are dropped on purpose.
             e2e.sleep(400);
             bot.clickSlot(47);
-            e2e.eventually(() -> lore(bot.screenItems().get(0)).contains("Chance 2%"), "the rarest first: " + lore(bot.screenItems().get(0)));
+            e2e.eventually(() -> lore(bot.screenItems().get(0)).contains("Chance 1%") && name(bot.screenItems().get(0)).equals("1 Rare key"),
+                "the rarest first: " + name(bot.screenItems().get(0)) + " " + lore(bot.screenItems().get(0)));
 
             e2e.step("with a key, the preview opens one");
             e2e.console("keys give " + name + " basic 1");
             bot.closeScreen();
             before = bot.screen();
             command(e2e, bot, "crates preview basic");
-            awaitScreen(e2e, bot, before, "Basic crate rewards");
+            awaitScreen(e2e, bot, before, "Common crate rewards");
             e2e.eventually(() -> name(bot.screenItems().get(50)).equals("Open one")
-                && lore(bot.screenItems().get(50)).contains("You have 1 Basic key"), "the open button: " + lore(bot.screenItems().get(50)));
+                && lore(bot.screenItems().get(50)).contains("You have 1 Common key"), "the open button: " + lore(bot.screenItems().get(50)));
             bot.clearLogs();
             bot.clickSlot(50);
             e2e.eventually(() -> logRows(e2e, uuid) == 1, "one opening logged");
-            e2e.eventually(() -> bot.chatContains("from the Basic crate."), "the receipt: " + bot.chat());
+            e2e.eventually(() -> bot.chatContains("from the Common crate."), "the receipt: " + bot.chat());
             e2e.expect(keys(e2e, name, "basic") == 0, "the key was spent");
             e2e.eventually(() -> name(bot.screenItems().get(50)).equals("No keys"), "the button shows no keys after the redraw");
 
-            e2e.step("Preview from the crates dialog has a back button to it");
+            e2e.step("Preview from a crate's page has a back button to it");
             bot.closeScreen();
-            command(e2e, bot, "crates");
-            e2e.dialog(bot, "Crates");
+            openView(e2e, bot, "Test");
             before = bot.screen();
-            bot.clickButton("Preview Test", Map.of());
+            bot.clickButton("Preview", Map.of());
             awaitScreen(e2e, bot, before, "Test crate rewards");
             e2e.expect(lore(bot.screenItems().get(0)).contains("Chance 100%"), "a single reward has 100%: " + lore(bot.screenItems().get(0)));
             bot.clearLogs();
             bot.clickSlot(46);
-            e2e.dialog(bot, "Crates");
+            e2e.dialog(bot, "Test crate");
         } finally {
             restore(e2e, original);
         }
@@ -668,7 +747,7 @@ final class CratesScenarios {
             command(e2e, bot, "crates open e2etest");
             e2e.eventually(() -> logRows(e2e, uuid) == 1, "opened");
             answer(e2e, "crates log " + name, "Test 5 diamonds");
-            List<String> info = answer(e2e, "crates info e2etest", "100% 5 diamonds Rare");
+            List<String> info = answer(e2e, "crates info e2etest", "100% 5 diamonds Epic");
             e2e.expect(info.stream().anyMatch(line -> line.contains("items that sell for $2,000")), "info values the items: " + info);
 
             e2e.step("placeholders");
@@ -680,7 +759,7 @@ final class CratesScenarios {
                 "keys_basic and keys_total are 4");
             String countdown = placeholders.resolve(player, "keyall_countdown");
             e2e.expect(countdown != null && countdown.matches("\\d+h( \\d+m)?|\\d+m( \\d+s)?|\\d+s"), "keyall_countdown: " + countdown);
-            e2e.expect("1 Basic key".equals(placeholders.resolve(player, "keyall_reward")), "keyall_reward");
+            e2e.expect("1 Uncommon key".equals(placeholders.resolve(player, "keyall_reward")), "keyall_reward");
 
             e2e.step("the CrateKeys contract other features use");
             TransactionResult first = crates(e2e).keys().give(uuid, "rare", 2, "e2e", "shardshop-" + name);
@@ -688,12 +767,14 @@ final class CratesScenarios {
             TransactionResult second = crates(e2e).keys().give(uuid, "rare", 2, "e2e", "shardshop-" + name);
             e2e.expect(first.success() && !second.success() && "duplicate".equals(second.reason()), "a reference applies once");
             e2e.expect(crates(e2e).keys().keys(uuid, "rare") == 2, "two rare keys");
-            e2e.expect(crates(e2e).keys().crates().containsAll(List.of("basic", "rare", "epic", "legendary")), "every crate id");
-            e2e.expect("unknown_crate".equals(crates(e2e).keys().give(uuid, "mythic", 1, "e2e", null).reason()), "unknown crate refused");
+            e2e.expect(crates(e2e).keys().crates().containsAll(List.of("basic", "uncommon", "rare", "epic", "legendary", "mythic", "celestial")),
+                "every crate id");
+            e2e.expect("unknown_crate".equals(crates(e2e).keys().give(uuid, "nosuch", 1, "e2e", null).reason()), "unknown crate refused");
+            e2e.expect("Mythic".equals(plain(crates(e2e).keys().crateName("mythic"))), "a crate's name for other features");
 
             e2e.step("refusals from the console");
             answer(e2e, "crates give NobodyHere basic 1", "Nobody called NobodyHere");
-            answer(e2e, "crates give " + name + " mythic 1", "There is no crate called mythic.");
+            answer(e2e, "crates give " + name + " nosuch 1", "There is no crate called nosuch.");
             keysMatchStorage(e2e, uuid);
 
             e2e.step("a player with unopened keys is reminded when they join");
@@ -714,7 +795,7 @@ final class CratesScenarios {
         e2e.console("vanish " + hiddenName);
         e2e.eventually(() -> e2e.feature(net.siftvanilla.siftcore.feature.staff.StaffFeature.class).vanish().vanished(e2e.uuid(hiddenName)),
             "the second bot is vanished");
-        int basicBefore = keys(e2e, name, "basic");
+        int uncommonBefore = keys(e2e, name, "uncommon");
 
         e2e.step("a keyall started by staff gives everyone online keys, but not vanished staff");
         bot.clearLogs();
@@ -730,17 +811,18 @@ final class CratesScenarios {
         e2e.step("players can see when the next keyall is");
         bot.clearLogs();
         command(e2e, bot, "keyall");
-        e2e.eventually(() -> bot.chatContains("The next keyall is in") && bot.chatContains("Everyone online gets 1 Basic key."),
+        e2e.eventually(() -> bot.chatContains("The next keyall is in") && bot.chatContains("Everyone online gets 1 Uncommon key."),
             "the next keyall: " + bot.chat());
 
         e2e.step("staff move the scheduled keyall close: the countdown speaks in chat, then the action bar, then everyone gets keys");
         bot.clearLogs();
         answer(e2e, "keyall in 65s", "The next keyall is in 1m 5s.");
-        e2e.eventually(() -> bot.chatContains("Keyall in 1m. Everyone online gets 1 Basic key."), 15_000, "the 1m announcement: " + bot.chat());
+        e2e.eventually(() -> bot.chatContains("Keyall in 1m. Everyone online gets 1 Uncommon key."), 15_000, "the 1m announcement: "
+            + bot.chat());
         e2e.eventually(() -> bot.actionBarContains("Keyall in 10s"), 65_000, "the action bar countdown: " + bot.actionBar());
-        e2e.eventually(() -> keys(e2e, name, "basic") == basicBefore + 1, 20_000, "the scheduled keyall gave a basic key");
-        e2e.expect(keys(e2e, hiddenName, "basic") == 0, "not to the vanished bot");
-        e2e.eventually(() -> bot.chatContains("Keyall: everyone online got 1 Basic key."), "the broadcast: " + bot.chat());
+        e2e.eventually(() -> keys(e2e, name, "uncommon") == uncommonBefore + 1, 20_000, "the scheduled keyall gave an Uncommon key");
+        e2e.expect(keys(e2e, hiddenName, "uncommon") == 0, "not to the vanished bot");
+        e2e.eventually(() -> bot.chatContains("Keyall: everyone online got 1 Uncommon key."), "the broadcast: " + bot.chat());
         long next = number(e2e, "SELECT next_run FROM crate_schedule WHERE id = 'keyall'");
         long ahead = next - System.currentTimeMillis();
         e2e.expect(ahead > 3 * 3_600_000L + 3_500_000L && ahead <= 4 * 3_600_000L, "the next keyall is stored 4h ahead: " + ahead);
@@ -751,7 +833,7 @@ final class CratesScenarios {
     }
 
     /** A block position next to the player that this thread owns, with stone below and air above. */
-    private static int[] spot(E2E e2e, String name) {
+    static int[] spot(E2E e2e, String name) {
         return spot(e2e, name, new int[][] {{2, 0}, {-2, 0}, {0, 2}, {0, -2}});
     }
 
@@ -914,15 +996,14 @@ final class CratesScenarios {
             e2e.expect(keys(e2e, name, "e2etest") == 2 && logRows(e2e, uuid) == 0, "no key spent, nothing logged");
 
             e2e.step("nor from the crates dialog, which says why");
-            command(e2e, bot, "crates");
-            e2e.dialog(bot, "Crates");
-            e2e.click(bot, "Open Test");
+            openView(e2e, bot, "Test");
+            e2e.click(bot, "Open");
             awaitBody(e2e, bot, "You can't open crates in combat.");
             e2e.expect(keys(e2e, name, "e2etest") == 2 && count(e2e, name, Material.DIAMOND) == 0, "still two keys and no diamonds");
 
             e2e.step("looking at the rewards still works in combat");
             Bot.Screen before = bot.screen();
-            bot.clickButton("Preview Test", Map.of());
+            bot.clickButton("Preview", Map.of());
             awaitScreen(e2e, bot, before, "Test crate rewards");
             bot.closeScreen();
 
@@ -968,9 +1049,8 @@ final class CratesScenarios {
             e2e.eventually(() -> keys(e2e, name, "e2etest") == 13, "13 Test keys");
 
             e2e.step("after one opening the result offers Open 10 more (bulk-open caps it)");
-            command(e2e, bot, "crates");
-            e2e.dialog(bot, "Crates");
-            e2e.click(bot, "Open Test");
+            openView(e2e, bot, "Test");
+            e2e.click(bot, "Open");
             Bot.SeenDialog first = awaitBody(e2e, bot, "You won 5 diamonds");
             e2e.expect(first.button("Open 10 more") != null && first.button("Open another") != null, "both open buttons: " + first.buttons());
 
@@ -1212,9 +1292,8 @@ final class CratesScenarios {
 
             e2e.step("the crate result offers Open 3 more, which opens three keys with one short receipt");
             bot.clearLogs();
-            command(e2e, bot, "crates");
-            e2e.dialog(bot, "Crates");
-            e2e.click(bot, "Open Test");
+            openView(e2e, bot, "Test");
+            e2e.click(bot, "Open");
             Bot.SeenDialog first = awaitBody(e2e, bot, "You won 5 diamonds");
             e2e.expect(first.button("Open 3 more") != null && first.button("Open 10 more") == null, "three per bulk open: " + first.buttons());
             bot.clearMessages();
@@ -1242,7 +1321,7 @@ final class CratesScenarios {
             e2e.console("keys give " + name + " e2etest 2");
             e2e.eventually(() -> keys(e2e, name, "e2etest") == 3, "three keys again");
 
-            e2e.step("a player who wants only the rarest wins is not told about an epic win (set through the API)");
+            e2e.step("a player who wants only the rarest wins is not told about a legendary win (set through the API)");
             e2e.console("eco set " + name + " 0");
             e2e.eventually(() -> e2e.money(name) == 0, "no money");
             ItemSettingsSteps.set(e2e, watcherId, CratesFeature.WIN_ANNOUNCEMENTS, CratePlayerSettings.WinFilter.RAREST);
@@ -1254,7 +1333,7 @@ final class CratesScenarios {
             command(e2e, bot, "crates open e2ecash");
             e2e.eventually(() -> e2e.money(name) == 1_234, "paid (has " + e2e.money(name) + ")");
             e2e.sleep(1_000);
-            e2e.expect(!watcher.chatContains("won $1,234"), "the epic win is not the rarest: " + watcher.chat());
+            e2e.expect(!watcher.chatContains("won $1,234"), "the legendary win is not the rarest (Celestial is): " + watcher.chat());
             ItemSettingsSteps.set(e2e, watcherId, CratesFeature.WIN_ANNOUNCEMENTS, CratePlayerSettings.WinFilter.ALL);
             ItemSettingsSteps.expectStored(e2e, watcherId, "crate-wins", null);
             e2e.sleep(1_200);
@@ -1292,17 +1371,17 @@ final class CratesScenarios {
 
             e2e.step("the keyall countdown in chat only (set through the API): the chat line comes, the hotbar count doesn't");
             ItemSettingsSteps.set(e2e, uuid, CratePlayerSettings.KEYALL_COUNTDOWN, AlertStyle.CHAT);
-            int basic = keys(e2e, name, "basic");
+            int uncommon = keys(e2e, name, "uncommon");
             bot.clearLogs();
             watcher.clearLogs();
             answer(e2e, "keyall in 65s", "The next keyall is in 1m 5s.");
-            e2e.eventually(() -> bot.chatContains("Keyall in 1m. Everyone online gets 1 Basic key."), 15_000, "the 1m line: " + bot.chat());
+            e2e.eventually(() -> bot.chatContains("Keyall in 1m. Everyone online gets 1 Uncommon key."), 15_000, "the 1m line: " + bot.chat());
             e2e.eventually(() -> watcher.actionBarContains("Keyall in 10s"), 65_000, "the watcher (both) counts down: " + watcher.actionBar());
             e2e.expect(watcher.chatContains("Keyall in 1m."), "the watcher got the chat line too: " + watcher.chat());
-            e2e.eventually(() -> keys(e2e, name, "basic") == basic + 1, 20_000, "the keyall gave a basic key");
+            e2e.eventually(() -> keys(e2e, name, "uncommon") == uncommon + 1, 20_000, "the keyall gave an Uncommon key");
             e2e.expect(bot.actionBar().stream().noneMatch(line -> line.contains("Keyall in")), "no hotbar count for chat only: "
                 + bot.actionBar());
-            e2e.eventually(() -> bot.chatContains("Keyall: everyone online got 1 Basic key."), "the keyall line always shows: " + bot.chat());
+            e2e.eventually(() -> bot.chatContains("Keyall: everyone online got 1 Uncommon key."), "the keyall line always shows: " + bot.chat());
 
             e2e.step("the unopened key reminder off (set through the API): no reminder on join, while the watcher gets one");
             ItemSettingsSteps.set(e2e, uuid, CratePlayerSettings.KEY_REMINDER, false);
@@ -1322,6 +1401,384 @@ final class CratesScenarios {
                 e2e.console("crates block remove " + position);
             }
             answer(e2e, "keyall in 4h", "The next keyall is in 4h.");
+            restore(e2e, original);
+        }
+    }
+
+    // ------------------------------------------------------------------ tiers
+
+    private static final List<String> TIERS = List.of("basic", "uncommon", "rare", "epic", "legendary", "mythic", "celestial");
+    private static final List<String> TIER_NAMES = List.of("Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Celestial");
+
+    /**
+     * The seven shipped tiers in game: each crate's preview has its rewards in their rarity colours and a chance at a
+     * key of the next tier (none above Celestial), and a key of each opens with one reward stored, logged and handed
+     * over.
+     */
+    static void tiers(E2E e2e) throws Exception {
+        String name = e2e.name("CrTiers");
+        Bot bot = e2e.bot(name);
+        UUID uuid = e2e.uuid(name);
+        clear(e2e, name);
+        for (int i = 0; i < TIERS.size(); i++) {
+            String crate = TIERS.get(i);
+            String title = TIER_NAMES.get(i) + " crate rewards";
+            e2e.step("the " + TIER_NAMES.get(i) + " crate's preview");
+            bot.closeScreen();
+            Bot.Screen before = bot.screen();
+            command(e2e, bot, "crates preview " + crate);
+            awaitScreen(e2e, bot, before, title);
+            int entries = (int) bot.screenItems().keySet().stream().filter(slot -> slot < 45).count();
+            e2e.expect(entries >= 10 && entries <= 20, "10 to 20 rewards: " + entries);
+            if (i + 1 < TIERS.size()) {
+                int next = slotWith(e2e, bot, "Opens the " + TIER_NAMES.get(i + 1) + " crate");
+                e2e.expect(name(bot.screenItems().get(next)).equals("1 " + TIER_NAMES.get(i + 1) + " key"), "a key of the next tier: "
+                    + name(bot.screenItems().get(next)));
+            } else {
+                e2e.expect(slotsWith(bot, "Opens the Celestial crate") < 0, "nothing above Celestial");
+            }
+            for (var entry : bot.screenItems().entrySet()) {
+                if (entry.getKey() < 45) {
+                    e2e.expect(itemNameColor(entry.getValue()) != null, "every reward is named in a colour: " + name(entry.getValue()));
+                }
+            }
+        }
+        bot.closeScreen();
+
+        e2e.step("a key of every tier opens: one reward each, stored and logged, the key spent");
+        for (int i = 0; i < TIERS.size(); i++) {
+            String crate = TIERS.get(i);
+            clear(e2e, name);
+            e2e.console("keys give " + name + " " + crate + " 1");
+            e2e.eventually(() -> keys(e2e, name, crate) >= 1, "a " + crate + " key");
+            long rows = logRows(e2e, uuid);
+            int held = keys(e2e, name, crate);
+            bot.clearMessages();
+            e2e.sleep(1_200);
+            command(e2e, bot, "crates open " + crate);
+            String receipt = "from the " + TIER_NAMES.get(i) + " crate.";
+            e2e.eventually(() -> bot.chatContains(receipt), "the receipt '" + receipt + "': " + bot.chat());
+            e2e.eventually(() -> logRows(e2e, uuid) == rows + 1, "one opening logged");
+            e2e.expect(keys(e2e, name, crate) == held - 1 || crate.equals(lastWonKeys(e2e, uuid, crate)), "the key was spent");
+        }
+        e2e.eventually(() -> number(e2e, "SELECT COUNT(*) FROM crate_commands WHERE uuid = ?", uuid.toString()) == 0,
+            "no command reward left waiting");
+        keysMatchStorage(e2e, uuid);
+        ledgerHealthy(e2e);
+    }
+
+    /** The crate whose keys the player's last opening of {@code crate} won, or null when it won no keys. */
+    private static String lastWonKeys(E2E e2e, UUID player, String crate) {
+        String reward = query(e2e, "SELECT reward FROM crate_log WHERE uuid = ? AND crate = ? ORDER BY id DESC LIMIT 1",
+            rs -> rs.next() ? rs.getString(1) : "", player.toString(), crate);
+        return crates(e2e).settings().crate(crate).rewards().stream()
+            .filter(r -> r.id().equals(reward) && r.kind() instanceof net.siftvanilla.siftcore.feature.crates.Reward.Keys)
+            .map(r -> ((net.siftvanilla.siftcore.feature.crates.Reward.Keys) r.kind()).crate()).findFirst().orElse(null);
+    }
+
+    // ------------------------------------------------------------------ the opening animation
+
+    private static final String TICK = "minecraft:block.note_block.hat";
+    private static final String REVEAL = "minecraft:entity.player.levelup";
+    private static final String BIG_REVEAL = "minecraft:ui.toast.challenge_complete";
+
+    /**
+     * Clicks an Open button whose opening is animated, without waiting for a new dialog: the client leaves its
+     * waiting screen for the crate window, and the next dialog (the result) only comes once the window is gone.
+     */
+    private static void roll(E2E e2e, Bot bot, String label) {
+        e2e.expect(bot.clickButton(label, Map.of()), bot.name + " can click '" + label + "': "
+            + (bot.dialog() == null ? "no dialog" : bot.dialog().buttons()));
+    }
+
+    private static boolean heard(Bot bot, String sound) {
+        return bot.sounds().stream().anyMatch(seen -> seen.sound().equals(sound));
+    }
+
+    private static String itemId(net.minecraft.world.item.ItemStack stack) {
+        return stack == null ? "" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+    }
+
+    private static long claimBox(E2E e2e, UUID player) {
+        return e2e.services().deliveries().count(player);
+    }
+
+    /**
+     * The opening animation: Open from a crate's page rolls a row of rewards in a chest window with a tick per step,
+     * slowing down (the pitch rises), then shows the reward in its rarity's colour with a fanfare. The key is spent
+     * and the win stored before it rolls; the reward reaches the inventory at the reveal. A click skips to the reward,
+     * a second click closes; closing the window mid-roll hands it over at once; no other crate opens while one rolls;
+     * an announced win is announced at the reveal, with the big fanfare.
+     */
+    static void animation(E2E e2e) throws Exception {
+        String original = install(e2e, true);
+        try {
+            String name = e2e.name("CrRoll");
+            String watcherName = e2e.name("CrRollW");
+            Bot bot = e2e.bot(name);
+            Bot watcher = e2e.bot(watcherName);
+            UUID uuid = e2e.uuid(name);
+            clear(e2e, name);
+            e2e.console("keys give " + name + " e2etest 5");
+            e2e.console("keys give " + name + " e2ecash 1");
+            e2e.eventually(() -> keys(e2e, name, "e2etest") == 5 && keys(e2e, name, "e2ecash") == 1, "the keys");
+
+            e2e.step("Open says the roll can be skipped; the key is spent and the win stored before the window rolls");
+            Bot.SeenDialog view = openView(e2e, bot, "Test");
+            e2e.expect(view.button("Open").tooltip() != null && view.button("Open").tooltip().contains("Click the window to skip"),
+                "the tooltip: " + view.button("Open").tooltip());
+            bot.clearSounds();
+            Bot.Screen before = bot.screen();
+            roll(e2e, bot, "Open");
+            awaitScreen(e2e, bot, before, "Test crate");
+            e2e.expect("minecraft:generic_9x3".equals(bot.screen().type()), "a chest window: " + bot.screen().type());
+            e2e.expect(keys(e2e, name, "e2etest") == 4 && logRows(e2e, uuid) == 1, "the key was spent and the opening logged first");
+            e2e.expect(count(e2e, name, Material.DIAMOND) == 0 && claimBox(e2e, uuid) == 1,
+                "while it rolls the diamonds wait in the claim box, stored with the opening");
+            e2e.expect(name(bot.screenItems().get(13)).equals("5 diamonds"), "the reel in the middle row: " + name(bot.screenItems().get(13)));
+            e2e.expect(itemId(bot.screenItems().get(0)).endsWith("stained_glass_pane"), "glass around it: " + itemId(bot.screenItems().get(0)));
+
+            e2e.step("every step ticks, higher as the roll slows down");
+            e2e.eventually(() -> bot.sounds().stream().filter(seen -> seen.sound().equals(TICK)).count() >= 6, "the ticks: " + bot.sounds());
+
+            e2e.step("the reward shows in its rarity's colour with the reveal sound, and reaches the inventory");
+            e2e.eventually(() -> lore(bot.screenItems().get(13)).contains("Rarity Epic"), 8_000, "the reward under the pointer: "
+                + lore(bot.screenItems().get(13)));
+            e2e.expect(itemId(bot.screenItems().get(0)).equals("purple_stained_glass_pane"), "the window turns epic purple: "
+                + itemId(bot.screenItems().get(0)));
+            List<Float> pitches = bot.sounds().stream().filter(seen -> seen.sound().equals(TICK)).map(Bot.SeenSound::pitch).toList();
+            e2e.expect(pitches.size() >= 6 && pitches.getLast() > pitches.getFirst(), "the ticks rise in pitch: " + pitches);
+            e2e.eventually(() -> heard(bot, REVEAL), 2_000, "the reveal sound: " + bot.sounds());
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 5, "the diamonds are handed over at the reveal");
+            e2e.expect(claimBox(e2e, uuid) == 0, "the claim box is empty again");
+            e2e.eventually(() -> bot.chatContains("You won 5 diamonds from the Test crate."), "the receipt: " + bot.chat());
+
+            e2e.step("the window closes by itself and the result follows");
+            Bot.SeenDialog result = awaitBody(e2e, bot, "You won 5 diamonds");
+            e2e.eventually(() -> bot.screen() == null, "the window closed");
+            e2e.expect(result.button("Open another") != null && result.bodyText().contains("You have 4 keys left."), "the result: "
+                + result.bodyText() + " " + result.buttons());
+
+            e2e.step("a click skips the roll to the reward; a second click closes the window");
+            bot.clearMessages();
+            bot.clearSounds();
+            before = bot.screen();
+            roll(e2e, bot, "Open another");
+            awaitScreen(e2e, bot, before, "Test crate");
+            long clicked = System.currentTimeMillis();
+            bot.clickSlot(13);
+            e2e.eventually(() -> lore(bot.screenItems().get(13)).contains("Rarity Epic"), 1_500, "skipped to the reward");
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 10, 1_500, "handed over at once");
+            e2e.expect(System.currentTimeMillis() - clicked < 2_500, "well before the roll would have ended");
+            e2e.sleep(400);
+            bot.clickSlot(13);
+            awaitBody(e2e, bot, "You have 3 keys left.");
+            e2e.eventually(() -> bot.screen() == null, "the window closed on the second click");
+
+            e2e.step("closing the window mid-roll hands the reward over at once");
+            bot.clearMessages();
+            before = bot.screen();
+            roll(e2e, bot, "Open another");
+            awaitScreen(e2e, bot, before, "Test crate");
+            bot.closeScreen();
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 15, 1_500, "handed over when the window closed");
+            awaitBody(e2e, bot, "You have 2 keys left.");
+            e2e.eventually(() -> bot.chatContains("You won 5 diamonds from the Test crate."), "the receipt: " + bot.chat());
+
+            e2e.step("while a crate rolls, no other crate opens");
+            bot.clearMessages();
+            before = bot.screen();
+            roll(e2e, bot, "Open another");
+            awaitScreen(e2e, bot, before, "Test crate");
+            bot.command("crates open e2etest");
+            e2e.eventually(() -> bot.actionBarContains("Your last crate is still opening."), "refused: " + bot.actionBar());
+            e2e.expect(keys(e2e, name, "e2etest") == 1 && logRows(e2e, uuid) == 4, "only the rolling one was spent");
+            bot.closeScreen();
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 20, "20 diamonds");
+
+            e2e.step("an announced win: the others hear of it at the reveal, the winner gets the big fanfare");
+            e2e.console("eco set " + name + " 0");
+            e2e.eventually(() -> e2e.money(name) == 0, "no money");
+            openView(e2e, bot, "Cash");
+            bot.clearSounds();
+            watcher.clearLogs();
+            before = bot.screen();
+            roll(e2e, bot, "Open");
+            awaitScreen(e2e, bot, before, "Cash crate");
+            e2e.expect(e2e.money(name) == 1_234, "the money was paid with the opening (has " + e2e.money(name) + ")");
+            e2e.sleep(500);
+            e2e.expect(!watcher.chatContains("won $1,234"), "not announced while it rolls: " + watcher.chat());
+            e2e.eventually(() -> watcher.chatContains(name + " won $1,234 from the Cash crate."), 8_000, "announced at the reveal: "
+                + watcher.chat());
+            e2e.eventually(() -> heard(bot, BIG_REVEAL), 2_000, "the big fanfare: " + bot.sounds());
+            e2e.expect(itemId(bot.screenItems().get(0)).equals("orange_stained_glass_pane"), "legendary orange: "
+                + itemId(bot.screenItems().get(0)));
+            bot.closeScreen();
+            e2e.eventually(() -> logRows(e2e, uuid) == 5, "five openings logged");
+            keysMatchStorage(e2e, uuid);
+            ledgerHealthy(e2e);
+        } finally {
+            restore(e2e, original);
+        }
+    }
+
+    /**
+     * Leaving or dying while the crate rolls never loses the reward: it was stored before the roll, and what did not
+     * reach the inventory waits in the claim box (a dead player's never drops). After either, crates open again.
+     */
+    static void animationLeave(E2E e2e) throws Exception {
+        String original = install(e2e, true);
+        try {
+            String name = e2e.name("CrRollQ");
+            Bot bot = e2e.bot(name);
+            UUID uuid = e2e.uuid(name);
+            clear(e2e, name);
+            e2e.console("keys give " + name + " e2etest 3");
+            e2e.eventually(() -> keys(e2e, name, "e2etest") == 3, "three Test keys");
+
+            e2e.step("leaving mid-roll: the reward waits in the claim box");
+            openView(e2e, bot, "Test");
+            Bot.Screen before = bot.screen();
+            roll(e2e, bot, "Open");
+            awaitScreen(e2e, bot, before, "Test crate");
+            bot.quit();
+            e2e.eventually(() -> Bukkit.getPlayerExact(name) == null, "left");
+            e2e.sleep(1_000);
+            e2e.expect(claimBox(e2e, uuid) == 1 && logRows(e2e, uuid) == 1 && crates(e2e).keys().keys(uuid, "e2etest") == 2,
+                "one key spent, one opening logged, its diamonds in the claim box");
+
+            e2e.step("back online, the claim box hands them out and crates open again");
+            Bot back = e2e.bot(name);
+            clear(e2e, name);
+            Bot.Screen none = back.screen();
+            command(e2e, back, "ah claims");
+            awaitScreen(e2e, back, none, "Claim box");
+            back.clickSlot(slotWith(e2e, back, "From crate"));
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 5 && claimBox(e2e, uuid) == 0, "claimed the 5 diamonds");
+            back.closeScreen();
+
+            e2e.step("dying mid-roll: the reward stays in the claim box and nothing drops");
+            clear(e2e, name);
+            openView(e2e, back, "Test");
+            before = back.screen();
+            roll(e2e, back, "Open");
+            awaitScreen(e2e, back, before, "Test crate");
+            e2e.onPlayer(name, () -> {
+                e2e.player(name).setHealth(0);
+                return null;
+            });
+            e2e.eventually(() -> back.deaths() >= 1, "died");
+            e2e.eventually(() -> back.chatContains("waiting in your claim box"), "told where the reward is: " + back.chat());
+            e2e.expect(claimBox(e2e, uuid) == 1 && logRows(e2e, uuid) == 2, "the diamonds wait in the claim box");
+            e2e.eventually(() -> e2e.onPlayer(name, () -> !e2e.player(name).isDead()), "respawned");
+            e2e.expect(count(e2e, name, Material.DIAMOND) == 0, "none in the inventory");
+            long dropped = e2e.onPlayer(name, () -> e2e.player(name).getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).stream()
+                .filter(item -> item.getItemStack().getType() == Material.DIAMOND
+                    && item.getLocation().distanceSquared(e2e.player(name).getLocation()) < 64 * 64).count());
+            e2e.expect(dropped == 0, "no diamonds dropped: " + dropped);
+
+            e2e.step("the next opening works");
+            e2e.sleep(1_000);
+            openView(e2e, back, "Test");
+            before = back.screen();
+            roll(e2e, back, "Open");
+            awaitScreen(e2e, back, before, "Test crate");
+            back.closeScreen();
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 5 && logRows(e2e, uuid) == 3, "opened and handed over");
+            e2e.expect(keys(e2e, name, "e2etest") == 0, "every key used once");
+            keysMatchStorage(e2e, uuid);
+            ledgerHealthy(e2e);
+        } finally {
+            restore(e2e, original);
+        }
+    }
+
+    // ------------------------------------------------------------------ crate block effects
+
+    /** The display entities the bot sees within two blocks (sideways) of a block, of a type. */
+    private static List<Bot.SeenEntity> displays(Bot bot, String type, int[] at) {
+        return bot.entities().stream().filter(entity -> entity.type().equals(type)
+            && Math.abs(entity.x() - (at[0] + 0.5)) < 1.5 && Math.abs(entity.z() - (at[2] + 0.5)) < 1.5
+            && entity.y() > at[1] && entity.y() < at[1] + 4).toList();
+    }
+
+    /** The text a text display shows, as the client got it, or "". */
+    private static String displayText(Bot.SeenEntity entity) {
+        for (Object value : entity.data().values()) {
+            if (value instanceof net.minecraft.network.chat.Component component) {
+                return component.getString();
+            }
+        }
+        return "";
+    }
+
+    /**
+     * A crate block shows its name floating above it and particles circling it in its colour while a player is near;
+     * opened there (with the animation), the reward spins up out of it and the spin is gone afterwards; the name goes
+     * when the block stops being a crate. Every display is non-persistent.
+     */
+    static void blockEffects(E2E e2e) throws Exception {
+        String original = install(e2e, true);
+        String position = null;
+        String name = e2e.name("CrDecor");
+        try {
+            Bot bot = e2e.bot(name);
+            UUID uuid = e2e.uuid(name);
+            clear(e2e, name);
+            int[] at = spot(e2e, name);
+            String world = e2e.onPlayer(name, () -> e2e.player(name).getWorld().getName());
+            position = world + " " + at[0] + " " + at[1] + " " + at[2];
+            bot.clearParticles();
+            answer(e2e, "crates block add e2etest " + position, position + " is now the Test crate.");
+
+            e2e.step("a floating name above the block: the crate's name and how to use it");
+            e2e.eventually(() -> displays(bot, "minecraft:text_display", at).size() == 1, 5_000, "one text display above it: "
+                + bot.entities());
+            e2e.eventually(() -> displayText(displays(bot, "minecraft:text_display", at).getFirst()).contains("Test crate"), "the name: "
+                + displayText(displays(bot, "minecraft:text_display", at).getFirst()));
+            String text = displayText(displays(bot, "minecraft:text_display", at).getFirst());
+            e2e.expect(text.contains("Right-click to open") && text.contains("Left-click to see the rewards"), "how to use it: " + text);
+            boolean persistent = e2e.onPlayer(name, () -> e2e.player(name).getWorld()
+                .getNearbyEntitiesByType(org.bukkit.entity.TextDisplay.class, new Location(e2e.player(name).getWorld(), at[0] + 0.5,
+                    at[1] + 1.5, at[2] + 0.5), 1.5).stream().anyMatch(org.bukkit.entity.Entity::isPersistent));
+            e2e.expect(!persistent, "the name is never saved with the chunk");
+            e2e.sleep(1_500);
+            e2e.expect(displays(bot, "minecraft:text_display", at).size() == 1, "still one: " + displays(bot, "minecraft:text_display", at));
+
+            e2e.step("particles circle the block while a player is near");
+            e2e.eventually(() -> bot.particles("minecraft:dust") >= 4, "dust in the crate's colour: " + bot.particleTypes());
+
+            e2e.step("opened at the block, the reward spins up out of it, then the spin is gone");
+            e2e.console("keys give " + name + " e2etest 1");
+            e2e.eventually(() -> keys(e2e, name, "e2etest") == 1, "a key");
+            e2e.sleep(1_200);
+            bot.useItemOnTop(at[0], at[1], at[2]);
+            e2e.dialog(bot, "Test crate");
+            Bot.Screen before = bot.screen();
+            bot.clearParticles();
+            roll(e2e, bot, "Open");
+            awaitScreen(e2e, bot, before, "Test crate");
+            e2e.eventually(() -> displays(bot, "minecraft:item_display", at).size() == 1, 3_000, "the spin above the block: "
+                + bot.entities());
+            bot.clickSlot(13);
+            e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 5, "skipped and handed over");
+            e2e.eventually(() -> bot.particles("minecraft:happy_villager") > 0, 3_000, "the reveal burst: " + bot.particleTypes());
+            bot.closeScreen();
+            e2e.eventually(() -> displays(bot, "minecraft:item_display", at).isEmpty(), 6_000, "the spin is gone: " + bot.entities());
+            e2e.expect(displays(bot, "minecraft:text_display", at).size() == 1, "the name stays");
+            e2e.expect(logRows(e2e, uuid) == 1, "one opening");
+
+            e2e.step("the block stops being a crate: its name goes");
+            answer(e2e, "crates block remove " + position, position + " is no longer a crate.");
+            position = null;
+            e2e.eventually(() -> displays(bot, "minecraft:text_display", at).isEmpty(), 5_000, "the name is gone: " + bot.entities());
+            bot.clearParticles();
+            e2e.sleep(1_500);
+            e2e.expect(bot.particles("minecraft:dust") == 0, "no more particles: " + bot.particleTypes());
+        } finally {
+            if (position != null) {
+                e2e.console("crates block remove " + position);
+            }
             restore(e2e, original);
         }
     }

@@ -34,7 +34,7 @@ import net.siftvanilla.siftcore.core.config.ConfigReader;
  * @param disabledWorlds    worlds where spawners can't be placed (lowercase names)
  * @param naturalPickup     whether natural spawners drop a spawner item when mined with silk touch
  * @param applyMending      whether collected XP repairs mending gear first
- * @param pageSize          spawners per page in /spawners
+ * @param listLimit         the most spawners /spawners lists (all on one page; the dialog scrolls)
  * @param mobs              configured spawner types by id, in file order
  */
 public record SpawnersSettings(
@@ -56,7 +56,7 @@ public record SpawnersSettings(
     Set<String> disabledWorlds,
     boolean naturalPickup,
     boolean applyMending,
-    int pageSize,
+    int listLimit,
     Map<String, MobDef> mobs) {
 
     /** Where stored items go when a spawner is picked up. */
@@ -156,7 +156,7 @@ public record SpawnersSettings(
             new LinkedHashSet<>(worlds),
             r.section("natural-spawners").bool("silk-touch-pickup", false),
             r.section("xp").bool("apply-mending", true),
-            r.integer("page-size", 4, 20, 10),
+            r.integer("list-limit", 10, 1000, 100),
             mobs);
     }
 

@@ -48,11 +48,11 @@ final class CrateBlocks implements Listener {
     record Entry(String crate, boolean fromFile) {
     }
 
-    /** Opens the crate screens; implemented by the feature. */
+    /** Opens the crate screens; implemented by the feature. {@code block} is the crate block clicked. */
     interface Actions {
-        void view(Player player, String crate);
+        void view(Player player, String crate, BlockKey block);
 
-        void preview(Player player, String crate);
+        void preview(Player player, String crate, BlockKey block);
 
         void quickOpen(Player player, String crate);
     }
@@ -251,13 +251,14 @@ final class CrateBlocks implements Listener {
         if (!this.services.cooldowns().tryUse(player.getUniqueId(), "crates:block", CLICK_GAP).isZero()) {
             return;
         }
+        BlockKey clicked = key(event.getClickedBlock());
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            this.actions.preview(player, entry.crate());
+            this.actions.preview(player, entry.crate(), clicked);
         } else if (CratePlayerSettings.quickOpens(this.services.settings().get(player, CratePlayerSettings.QUICK_OPEN),
             this.settings.get().quickOpen(), player.isSneaking())) {
             this.actions.quickOpen(player, entry.crate());
         } else {
-            this.actions.view(player, entry.crate());
+            this.actions.view(player, entry.crate(), clicked);
         }
     }
 

@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
@@ -37,6 +38,11 @@ import org.bukkit.inventory.ItemStack;
  * <p>
  * Everything is checked again inside the transaction (the player still has a key, the crate still exists), so
  * double clicks, two menus at once or a reload in between can never spend a key twice or pay a reward without one.
+ * <p>
+ * An opening that is shown with the animation ({@link Show}) is stored exactly the same way first; the animation only
+ * shows what was stored. The items are handed over, the receipt sent and the win announced when it reveals the reward
+ * (at its end, or at once when the player skips or closes it). A player who leaves meanwhile finds the items in their
+ * claim box; one who died has them kept there. Until the animation ends the player can't open another crate.
  */
 final class CrateOpener {
 
@@ -81,6 +87,28 @@ final class CrateOpener {
         }
     }
 
+    /**
+     * How a single opening is shown.
+     *
+     * @param animate with the opening animation (when the server has it on)
+     * @param block   the crate block it was opened at, for the spin above it, or null
+     */
+    record Show(boolean animate, BlockKey block) {
+        /** No animation: the result comes as soon as the reward is handed over. */
+        static final Show PLAIN = new Show(false, null);
+    }
+
+    /** Shows an opening's animation. Implemented by the feature (the chest window and the spin above the block). */
+    interface Animator {
+        /**
+         * Shows the opening of {@code reward} (already stored). Player's thread. Runs {@code reveal} exactly once, at the
+         * reveal or at once when the player skips or closes the animation, then {@code finished} once it is gone; or
+         * {@code gone} instead when the player leaves before it ended.
+         */
+        void play(Player player, Crate crate, Reward reward, Rarity rarity, BlockKey block, Runnable reveal, Runnable finished,
+                  Runnable gone);
+    }
+
     /** Nothing happened (no key was spent), for this reason. */
     record Refused(MessageKey key, List<Arg> args) implements Result {
         Refused(MessageKey key, Arg... args) {
@@ -103,6 +131,7 @@ final class CrateOpener {
     private final VanishStatus vanish;
     private final CombatStatus combat;
     private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
+    private volatile Animator animator;
 
     /**
      * @param vanish        vanished winners are never announced
@@ -139,7 +168,7 @@ final class CrateOpener {
         AlertStyle shown = AlertStyle.OFF;
         if (batch.wins().size() > 1) {
             Arg count = Arg.number("count", batch.wins().size());
-            Arg name = Arg.text("name", batch.crate().name());
+            Arg name = CrateText.nameArg(batch.crate());
             AlertStyle style = this.services.settings().get(player, CratePlayerSettings.RECEIPT);
             if (batch.inClaimBox() > 0 || style == AlertStyle.CHAT) {
                 Component rewards = Component.join(JoinConfiguration.newlines(), this.text.wins(batch.wins()));
@@ -183,14 +212,19 @@ final class CrateOpener {
      */
     private AlertStyle wonLine(Player player, Crate crate, Reward reward, int inClaimBox) {
         Arg rewardArg = this.text.rewardArg("reward", reward);
-        Arg name = Arg.text("name", crate.name());
+        Arg name = CrateText.nameArg(crate);
         if (inClaimBox > 0) {
-            this.services.messenger().send(player, CratesMessages.WON_CLAIM_BOX, rewardArg, name);
+            this.services.messenger().send(player, player.isDead() ? CratesMessages.WON_KEPT : CratesMessages.WON_CLAIM_BOX, rewardArg, name);
             return AlertStyle.CHAT;
         }
         AlertStyle style = this.services.settings().get(player, CratePlayerSettings.RECEIPT);
         this.services.messenger().alert(player, style, CratesMessages.WON, rewardArg, name);
         return style;
+    }
+
+    /** Sets what shows animated openings (the feature, once the screens exist). */
+    void animator(Animator animator) {
+        this.animator = animator;
     }
 
     /** Sends a refusal to the player on the action bar. */
@@ -206,7 +240,15 @@ final class CrateOpener {
      *              at will; dialogs and the preview menu wait for each opening to finish anyway
      */
     void open(Player player, String crateId, boolean paced, Consumer<Result> done) {
-        open(player, crateId, paced, true, done);
+        open(player, crateId, paced, true, Show.PLAIN, done);
+    }
+
+    /**
+     * {@link #open(Player, String, boolean, Consumer)} shown the way {@code show} says: with the animation, {@code done}
+     * runs once the animation is over (the reward was handed over at its reveal).
+     */
+    void open(Player player, String crateId, boolean paced, Show show, Consumer<Result> done) {
+        open(player, crateId, paced, true, show, done);
     }
 
     /**
@@ -223,7 +265,7 @@ final class CrateOpener {
     }
 
     private void next(Player player, String crateId, int left, boolean paced, List<Won> wins, Consumer<Batch> done) {
-        open(player, crateId, paced, false, result -> {
+        open(player, crateId, paced, false, Show.PLAIN, result -> {
             switch (result) {
                 case Won won -> {
                     wins.add(won);
@@ -247,7 +289,7 @@ final class CrateOpener {
      * @param receipt whether the player gets the "You won ..." line in chat (several openings in a row send one
      *                summary instead)
      */
-    private void open(Player player, String crateId, boolean paced, boolean receipt, Consumer<Result> done) {
+    private void open(Player player, String crateId, boolean paced, boolean receipt, Show show, Consumer<Result> done) {
         CratesSettings settings = this.settings.get();
         Crate crate = settings.crate(crateId);
         UUID uuid = player.getUniqueId();
@@ -255,7 +297,7 @@ final class CrateOpener {
             done.accept(new Refused(CratesMessages.UNKNOWN_CRATE, Arg.text("input", crateId)));
             return;
         }
-        Arg name = Arg.text("name", crate.name());
+        Arg name = CrateText.nameArg(crate);
         if (this.keys.keys(uuid, crate.id()) < 1) {
             done.accept(new Refused(CratesMessages.NO_KEYS, name));
             return;
@@ -288,7 +330,7 @@ final class CrateOpener {
         }
         boolean started = false;
         try {
-            started = start(player, crate, rewards, settings, receipt, done);
+            started = start(player, crate, rewards, settings, receipt, show, done);
         } finally {
             if (!started) {
                 this.opening.remove(uuid);
@@ -297,10 +339,10 @@ final class CrateOpener {
     }
 
     /** Draws the reward and runs the transaction; returns false when it ended right away (done was called). */
-    private boolean start(Player player, Crate crate, List<Reward> rewards, CratesSettings settings, boolean receipt,
+    private boolean start(Player player, Crate crate, List<Reward> rewards, CratesSettings settings, boolean receipt, Show show,
                           Consumer<Result> done) {
         UUID uuid = player.getUniqueId();
-        Arg name = Arg.text("name", crate.name());
+        Arg name = CrateText.nameArg(crate);
         Reward reward = WeightedTable.of(rewards, Reward::weight).pick(ThreadLocalRandom.current());
         Rarity rarity = settings.rarity(reward.rarity());
         Optional<ItemStack> item = this.items.build(reward);
@@ -357,7 +399,7 @@ final class CrateOpener {
                         this.services.scheduler().entity(player, () -> done.accept(new Refused(CratesMessages.OPEN_FAILED)), null);
                         return;
                     }
-                    committed(player, crate, reward, rarity, ref, item.isPresent(), commands, receipt, done);
+                    committed(player, crate, reward, rarity, ref, item.isPresent(), commands, receipt, show, done);
                 });
                 return true;
             }
@@ -384,43 +426,114 @@ final class CrateOpener {
         return "";
     }
 
-    /** After the transaction is stored (on a storage thread): log, announce, run commands, hand the items over. */
+    /**
+     * After the transaction is stored (on a storage thread): audit, run commands, then on the player's thread show the
+     * animation (when asked for) and, at its reveal or at once, announce the win and hand the items over.
+     */
     private void committed(Player player, Crate crate, Reward reward, Rarity rarity, String ref, boolean hasItems,
-                           List<String> commands, boolean receipt, Consumer<Result> done) {
+                           List<String> commands, boolean receipt, Show show, Consumer<Result> done) {
         UUID uuid = player.getUniqueId();
         if (rarity.audit()) {
             this.services.audit().record(uuid.toString(), "crates.reward", uuid.toString(),
                 "crate=" + crate.id() + " reward=" + reward.id() + " rarity=" + rarity.id() + " display=" + reward.display() + " ref=" + ref);
         }
-        if (rarity.announce() && !this.vanish.vanished(uuid)) {
-            announce(player, crate, reward, rarity);
-        }
         this.commands.run(ref, commands);
-        // The player left (or the server is stopping) before this can run: the items stay in the claim box for them.
+        AtomicBoolean told = new AtomicBoolean();
+        Runnable announce = () -> {
+            if (told.compareAndSet(false, true) && rarity.announce() && !this.vanish.vanished(uuid)) {
+                announce(player, crate, reward, rarity);
+            }
+        };
+        // The player left (or the server is stopping) before the reward was handed over: the items stay in the claim
+        // box for them, and the win is still announced.
+        Runnable gone = () -> {
+            announce.run();
+            this.opening.remove(uuid);
+        };
         Handoffs.onEntity(this.services.scheduler(), player, () -> {
-            if (!hasItems) {
-                finish(player, crate, reward, rarity, 0, receipt, done);
+            Animator shows = this.animator;
+            if (show.animate() && shows != null && !player.isDead()) {
+                Outcome outcome = new Outcome(uuid, done);
+                shows.play(player, crate, reward, rarity, show.block(), () -> {
+                    announce.run();
+                    handOver(player, crate, reward, rarity, ref, hasItems, receipt, outcome::handed);
+                }, outcome::closed, gone);
                 return;
             }
-            this.handouts.claim(player, ref, waiting -> finish(player, crate, reward, rarity, waiting, receipt, done));
-        }, () -> this.opening.remove(uuid));
+            announce.run();
+            handOver(player, crate, reward, rarity, ref, hasItems, receipt, won -> {
+                this.opening.remove(uuid);
+                done.accept(won);
+            });
+        }, gone);
+    }
+
+    /**
+     * Hands the reward's items over when they all fit (a dead player keeps them in the claim box), sends the receipt
+     * and reports the win. Player's thread.
+     */
+    private void handOver(Player player, Crate crate, Reward reward, Rarity rarity, String ref, boolean hasItems, boolean receipt,
+                          Consumer<Won> handed) {
+        if (!hasItems) {
+            finish(player, crate, reward, rarity, 0, receipt, handed);
+            return;
+        }
+        if (player.isDead()) {
+            finish(player, crate, reward, rarity, this.handouts.waiting(player.getUniqueId(), ref).size(), receipt, handed);
+            return;
+        }
+        this.handouts.claim(player, ref, waiting -> finish(player, crate, reward, rarity, waiting, receipt, handed));
     }
 
     private void finish(Player player, Crate crate, Reward reward, Rarity rarity, int inClaimBox, boolean receipt,
-                        Consumer<Result> done) {
-        UUID uuid = player.getUniqueId();
-        this.opening.remove(uuid);
+                        Consumer<Won> handed) {
         if (receipt) {
             wonLine(player, crate, reward, inClaimBox);
         }
-        done.accept(new Won(crate, reward, rarity, inClaimBox, this.keys.keys(uuid, crate.id())));
+        handed.accept(new Won(crate, reward, rarity, inClaimBox, this.keys.keys(player.getUniqueId(), crate.id())));
+    }
+
+    /**
+     * Joins the two ends of an animated opening, both on the player's thread: the reward handed over (at the reveal)
+     * and the animation gone. The opening is over, and reported, only when both happened.
+     */
+    private final class Outcome {
+        private final UUID player;
+        private final Consumer<Result> done;
+        private Won won;
+        private boolean closed;
+        private boolean reported;
+
+        Outcome(UUID player, Consumer<Result> done) {
+            this.player = player;
+            this.done = done;
+        }
+
+        synchronized void handed(Won won) {
+            this.won = won;
+            report();
+        }
+
+        synchronized void closed() {
+            this.closed = true;
+            report();
+        }
+
+        private void report() {
+            if (this.reported || this.won == null || !this.closed) {
+                return;
+            }
+            this.reported = true;
+            CrateOpener.this.opening.remove(this.player);
+            this.done.accept(this.won);
+        }
     }
 
     /** Tells everyone else whose Crate win announcements let this win through (every win, or only the rarest rarity). */
     private void announce(Player winner, Crate crate, Reward reward, Rarity rarity) {
         Arg player = Arg.text("player", winner.getName());
         Arg rewardArg = this.text.rewardArg("reward", reward);
-        Arg name = Arg.text("name", crate.name());
+        Arg name = CrateText.nameArg(crate);
         List<Rarity> rarities = this.settings.get().rarities();
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!online.getUniqueId().equals(winner.getUniqueId()) && CratePlayerSettings.showsWin(

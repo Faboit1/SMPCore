@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.config.ConfigProblem;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.money.MoneyFormat;
@@ -83,9 +84,28 @@ class CratesResourcesTest {
         Lang lang = lang();
         YamlConfiguration file = yaml("lang/crates.yml");
         lang.load(file, file, "lang/crates.yml");
-        CrateText text = new CrateText(lang);
-        assertEquals("1 Basic key", TextStyle.plain(text.keys(1, "Basic")));
-        assertEquals("3 Rare keys", TextStyle.plain(text.keys(3, "Rare")));
+        TextColor gray = TextColor.color(0xC8C8C8);
+        TextColor gold = TextColor.color(0xFFB12E);
+        Crate common = new Crate("basic", "Common", "minecraft:chest", List.of(new Reward("cash", 1, "common", "$750", false, null,
+            new Reward.Money(750))), List.of(), 1, gray);
+        Crate rare = new Crate("rare", "Rare", "minecraft:ender_chest", common.rewards(), List.of(), 3, TextColor.color(0x4DA6FF));
+        CratesSettings settings = new CratesSettings(java.time.Duration.ofSeconds(1), true, 10, true, true, java.time.Duration.ofDays(90),
+            new CratesSettings.Keyall(false, java.time.Duration.ofHours(4), "basic", 1, java.time.Duration.ZERO, false, true, List.of(),
+                java.time.Duration.ZERO),
+            List.of(new Rarity("common", "Common", false, false, gray), new Rarity("legendary", "Legendary", true, true, gold)),
+            List.of(common, rare));
+        CrateText text = new CrateText(lang, () -> settings);
+        assertEquals("1 Common key", TextStyle.plain(text.keys(1, "basic")));
+        assertEquals("3 Rare keys", TextStyle.plain(text.keys(3, rare)));
+        assertEquals("2 gone keys", TextStyle.plain(text.keys(2, "gone")), "a crate that is gone reads as its id");
+        assertEquals(gray, CrateText.name(common).color(), "a crate's name is in its colour");
+        Reward elytra = new Reward("elytra", 1, "legendary", "an elytra", true, null,
+            new Reward.Item("minecraft:elytra", 1, null, List.of(), java.util.Map.of()));
+        assertEquals(gold, text.reward(elytra).color(), "a reward is in its rarity's colour");
+        assertEquals(Palette.DEFAULT_SHARDS, text.reward(new Reward("s", 1, "common", "50 shards", false, null, new Reward.Shards(50))).color(),
+            "shards are always in the shards colour");
+        assertEquals("Legendary", TextStyle.plain(CrateText.rarity(settings.rarity("legendary"))));
+        assertEquals(gold, CrateText.rarity(settings.rarity("legendary")).color());
         assertEquals("no keys", TextStyle.plain(text.count(0)));
         assertEquals("1 key", TextStyle.plain(text.count(1)));
         assertEquals("1,200 keys", TextStyle.plain(text.count(1200)));

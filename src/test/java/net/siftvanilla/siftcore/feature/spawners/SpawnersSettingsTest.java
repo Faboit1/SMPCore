@@ -92,7 +92,7 @@ class SpawnersSettingsTest {
             placement: {max-per-chunk: 4, disabled-worlds: [World_Nether]}
             natural-spawners: {silk-touch-pickup: true}
             xp: {apply-mending: false}
-            page-size: 6
+            list-limit: 20
             mobs:
               minecraft:pig:
                 name: "Piggy"
@@ -121,7 +121,7 @@ class SpawnersSettingsTest {
         assertFalse(settings.blockInCombat());
         assertEquals(0, settings.remoteRange());
         assertFalse(settings.applyMending());
-        assertEquals(6, settings.pageSize());
+        assertEquals(20, settings.listLimit());
         assertEquals(4, settings.maxPerChunk());
         assertEquals(20, settings.cap("pig"));
         assertEquals(50, settings.cap("cow"));

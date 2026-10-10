@@ -663,18 +663,19 @@ final class SpawnerScenarios {
         e2e.expect(own.button("Team spawners") != null, "a Team spawners button: " + own.buttons());
         e2e.click(other, "Team spawners");
         Bot.SeenDialog shared = e2e.dialog(other, "Team spawners");
-        e2e.expect(shared.bodyText().contains("Teammates' spawners 1, stacked 2"), "the team summary: " + shared.body());
-        e2e.expect(shared.bodyText().contains("Pig x2 of " + ownerName), "the owner's pig spawner: " + shared.body());
+        e2e.expect(shared.bodyText().contains("Your teammates' 1, stacked 2"), "the team summary: " + shared.body());
+        e2e.expect(shared.button("Pig x2") != null && shared.button("Pig x2").tooltip().contains("Owner " + ownerName),
+            "the owner's pig spawner, whose it is in its tooltip: " + shared.buttons());
         e2e.click(other, "Pig x2");
         Bot.SeenDialog details = e2e.dialog(other, "Pig spawner");
-        e2e.expect(details.bodyText().contains("Owner " + ownerName), "its details: " + details.body());
+        e2e.expect(details.button("Open storage").tooltip().contains("Owner " + ownerName), "its details: " + details.buttons());
         other.clearLogs();
 
         e2e.step("the owner sees the switch too, and their own spawner first");
         owner.clearLogs();
         owner.command("spawners");
         Bot.SeenDialog ownerList = e2e.dialog(owner, "Your spawners");
-        e2e.expect(ownerList.bodyText().contains("Pig x2") && ownerList.button("Team spawners") != null, "the owner's list: "
+        e2e.expect(ownerList.button("Pig x2") != null && ownerList.button("Team spawners") != null, "the owner's list: "
             + ownerList.body() + " " + ownerList.buttons());
         e2e.click(owner, "Team spawners");
         Bot.SeenDialog none = e2e.dialog(owner, "Team spawners");
@@ -736,15 +737,22 @@ final class SpawnerScenarios {
         bot.clearLogs();
         bot.command("spawners");
         Bot.SeenDialog list = e2e.dialog(bot, "Your spawners");
-        e2e.expect(list.bodyText().contains("Spawners placed 2, stacked 4"), "the summary: " + list.body());
+        e2e.expect(list.body().size() == 1 && list.bodyText().contains("Placed 2, stacked 4"), "one summary line: " + list.body());
         e2e.expect(list.button("Blaze x1") != null && list.button("Cow x3") != null, "a button per spawner: " + list.buttons());
+        e2e.expect(list.button("Cow x3").label().equals("Cow x3: 0% full"), "how full it is: " + list.button("Cow x3").label());
+        e2e.expect("#FFD866".equals(list.button("Cow x3").valueColor()), "in the accent colour: " + list.button("Cow x3").valueColor());
+        String tip = list.button("Cow x3").tooltip();
+        e2e.expect(tip != null && tip.contains("At " + second[0] + ", " + second[1] + ", " + second[2]) && tip.contains("of 5,184 items"),
+            "where it is and its storage in the tooltip: " + tip);
+        e2e.expect(list.buttons().stream().noneMatch(button -> button.label().contains("page")), "no pages: " + list.buttons());
         e2e.click(bot, "Cow x3");
         Bot.SeenDialog details = e2e.dialog(bot, "Cow spawner");
         String body = details.bodyText();
-        e2e.expect(body.contains("Owner " + name), "the owner: " + body);
-        e2e.expect(body.contains("At " + second[0] + ", " + second[1] + ", " + second[2]), "the location: " + body);
         e2e.expect(body.contains("of 5,184 items"), "the capacity of 3 cows (3 x 27 slots x 64): " + body);
         e2e.expect(body.contains("Waiting for a player within 32 blocks") || body.contains("Making loot"), "a status line: " + body);
+        String openTip = details.button("Open storage").tooltip();
+        e2e.expect(openTip.contains("Owner " + name) && openTip.contains("At " + second[0] + ", " + second[1] + ", " + second[2]),
+            "the owner and the location in Open storage's tooltip: " + openTip);
 
         e2e.step("open storage from the dialog, and back again");
         e2e.expect(bot.clickButton("Open storage", Map.of()), "the details have an Open storage button: " + details.buttons());
@@ -1063,6 +1071,8 @@ final class SpawnerScenarios {
         }
         e2e.expect(names.contains("Blaze spawner"), "a Blaze spawner reward: " + names);
         e2e.expect(names.contains("Skeleton spawner"), "a Skeleton spawner reward: " + names);
+        String blaze = CratesScenarios.itemNameColor(bot.screenItems().get(names.indexOf("Blaze spawner")));
+        e2e.expect("#FF4D6A".equals(blaze), "the Blaze spawner in its rarity's colour (mythic red): " + blaze);
         bot.closeScreen();
     }
 

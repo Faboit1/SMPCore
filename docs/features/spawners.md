@@ -9,7 +9,7 @@ owner's team, and picked up with silk touch.
 
 | Command | Permission (default) | What it does |
 |---|---|---|
-| `/spawners` (`/spawner`) | `siftcore.command.spawners` (everyone) | A dialog listing your spawners, one row each with its item, stack, place and how full, and a button per spawner that opens its details (status, storage, XP, worth, loot rate) with an Open storage button. While you're in a team, Team spawners switches to your teammates' spawners, which you may use too. |
+| `/spawners` (`/spawner`) | `siftcore.command.spawners` (everyone) | A dialog with one line of totals (placed, stacked, items and XP stored), then a button per spawner, "Zombie x12: 28% full" ("full" in red when it is), with where it is and what it stores in its tooltip. All on one page (the dialog scrolls; at most `list-limit`, with a line saying how many more there are). A button opens the spawner's page (stack, storage and what it sells for, XP, status) with Open storage, whose tooltip says who owns it, where it is and how much it makes. While you're in a team, Team spawners switches to your teammates' spawners (the owner in each tooltip), which you may use too. |
 | `/spawners give <player> <mob> [amount]` | `siftcore.admin.spawners` (op) | Gives spawner items (1 to 6400). Online players get them in their inventory (the rest in the claim box), offline players in their claim box. Console friendly, written to the audit log (`spawners.give`). |
 | `/spawners list <player>` | `siftcore.admin.spawners` | Every spawner of a player in chat: id, mob, stack, location, storage and XP. Console friendly. |
 | `/spawners cycle` | `siftcore.admin.spawners` | Runs a loot cycle now in every loaded chunk with spawners (for checking balance or after a config change). |
@@ -204,7 +204,7 @@ then refunds it (see Virtual loot).
 | `placement.disabled-worlds` | [] | Worlds where spawners can't be placed. |
 | `natural-spawners.silk-touch-pickup` | false | Mining a natural spawner with silk touch (not in creative) gives a spawner item of its mob. A block SiftCore once set up (spawn count 0, e.g. a picked-up spawner brought back by a crash rollback) never counts as natural. |
 | `xp.apply-mending` | true | Collected XP repairs Mending gear first (players may pick otherwise: `spawner-xp-mending`). |
-| `page-size` | 10 | Spawners per page in `/spawners`. |
+| `list-limit` | 100 | The most spawners `/spawners` lists, all on one page (10 to 1000). Replaces `page-size`, which is ignored now. |
 | `mobs.<id>` | 16 mobs | `name`, `enabled`, `kills-per-cycle`, `xp-per-kill`, optional `stack-cap` and `slots`, and `drops.<item>` with `min`, `max`, `chance`. |
 
 Default mobs: zombie, zombified piglin, chicken, skeleton, spider, cave spider, pig, creeper, slime, magma cube, cow,
@@ -290,10 +290,10 @@ transaction takes its XP back in memory and storage, memory and storage agree un
 
 End to end (`tools/e2e`, `SpawnerScenarios`): placing and stacking up to the cap with refusals, loot cycles, the
 storage menu (take, collect XP, sell all, ledger rows), silk touch pickup with claim box and XP, access for strangers
-and team members, `/spawners` with its details, Open storage and the team list, activation (a vanished player and a
+and team members, `/spawners` (a button per spawner with how full it is, its place in the tooltip, no pages) with its details, Open storage and the team list, activation (a vanished player and a
 player 40 blocks away keep nothing going, the status says so), storages closed in combat from the block and the
 dialog while stacking still works, buying from the shop, TNT next to a spawner, a spawner removed by `/setblock ...
-destroy` refunded (stack and stored loot) to the owner's claim box by the next cycle, spawner rewards in the legendary
+destroy` refunded (stack and stored loot) to the owner's claim box by the next cycle, spawner rewards (in their rarity's colour) in the legendary
 crate preview, loot kept across a restart, and `spawners-left-before-commit` (taking and picking up while storage is
 held up, then leaving: the items wait in the claim box and the stored XP is paid out once on the next join), and
 `spawners-settings` (the settings and their options; whole-hand stacking and every teammate notice saved in the

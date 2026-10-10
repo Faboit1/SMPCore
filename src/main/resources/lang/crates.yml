@@ -3,11 +3,12 @@
 # <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
 # (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 # Money amounts are coloured automatically. Crate names, reward lines and rarity labels come from
-# features/crates.yml and are inserted as plain text.
+# features/crates.yml and are inserted in their colours there: a crate's name in the crate's colour, a reward in its
+# rarity's colour (money in the money colour, shards in the shards colour).
 
 crates:
   keys:
-    # Used inside other messages: "You got 3 Basic keys."
+    # Used inside other messages: "You got 3 Common keys."
     one: "1 <name> key"
     many: "<count> <name> keys"
     received: "<primary>You got <keys>. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
@@ -31,6 +32,8 @@ crates:
     # The receipt in chat after every opening.
     won: "<primary>You won <reward> from the <name> crate."
     won-claim-box: "<primary>You won <reward> from the <name> crate. <secondary>It didn't fit, so it's waiting in your claim box (/claims)."
+    # A win revealed while the player was dead (the crate was still rolling): nothing dropped, it was kept for them.
+    won-kept: "<primary>You won <reward> from the <name> crate. <secondary>It's waiting in your claim box (/claims)."
     # The receipt after several openings in a row: one line per reward, with how often it was won.
     batch: "<primary>You opened <count> <name> crates.<newline><rewards>"
     batch-claim-box: "<primary>You opened <count> <name> crates.<newline><rewards><newline><secondary>Some of it didn't fit, so it's waiting in your claim box (/claims)."
@@ -40,33 +43,37 @@ crates:
     batch-line-once: "<primary><reward>"
     bulk-limit: "<primary>You can open at most <max> crates at once."
     # Sent to everyone else for rarities with announce: true.
-    announce: "<secondary><player> won <primary><reward> <secondary>from the <name> crate."
+    announce: "<secondary><player> won <reward> <secondary>from the <name> <secondary>crate."
 
+  # /crates: a button per crate ("Common crate: 3 keys"), from the lowest tier up.
   list:
     title: "Crates"
-    entry:
-      - "<primary><name> crate"
-      - "<secondary>You have <keys>"
+    crate: "<name> crate"
+    keys-none: "<secondary>no keys"
+    keys-one: "<accent>1 key"
+    keys-many: "<accent><count> keys"
+    # A crate button's tooltip: how many rewards it has and the rarest of them, then what a click does.
+    tooltip-rewards: "<secondary><rewards> rewards, the best of them <rarity>"
+    tooltip:
+      - "<secondary>Click to open it or see every reward"
     empty: "<secondary>There are no crates yet."
-    keyall:
-      - "<secondary><icon:key> Next keyall in <primary><time>"
-      - "<secondary>Everyone online gets <keys>"
-    open: "Open <name>"
-    preview: "Preview <name>"
+    keyall: "<icon:key> <secondary>Next keyall in <primary><time><secondary>: <keys>"
 
   view:
     title: "<name> crate"
-    body:
-      - "<secondary>You have <keys>"
-      - "<secondary>Rewards to win <primary><rewards>"
+    body: "<secondary>You have <keys>"
     open: "Open"
+    open-tooltip: "<secondary>Open one key"
+    open-tooltip-animated: "<secondary>Open one key. Click the window to skip to the reward."
     open-many: "Open <count>"
+    open-many-tooltip: "<secondary>Open <count> keys at once, with one summary"
     preview: "Preview"
+    preview-tooltip: "<secondary>Every reward with its chance"
 
   result:
     won:
       - "<primary>You won <reward>"
-      - "<secondary><rarity>"
+      - "<rarity>"
     left: "<secondary>You have <keys> left."
     last: "<secondary>That was your last key."
     claim-box: "<secondary>It didn't fit in your inventory, so it's waiting in your claim box (/claims)."
@@ -76,12 +83,12 @@ crates:
 
   preview:
     title: "<name> crate rewards"
-    name: "<primary><reward>"
+    name: "<reward>"
     chance: "<secondary>Chance <primary><chance>"
-    rarity: "<secondary>Rarity <primary><rarity>"
+    rarity: "<secondary>Rarity <rarity>"
     worth: "<secondary>Sells for <worth>"
-    opens: "<secondary>Opens the <name> crate"
-    sort-order: "Crate order"
+    opens: "<secondary>Opens the <name> <secondary>crate"
+    sort-order: "By rarity"
     sort-likely: "Most likely first"
     sort-rarest: "Rarest first"
     open: "<primary>Open one"
@@ -94,6 +101,13 @@ crates:
     no-keys-lore:
       - "<secondary>Keys come from the keyall"
       - "<secondary>and the shard shop"
+
+  # The floating name above a crate block: the title in the crate's colour (bold), then the lines.
+  hologram:
+    title: "<name> crate"
+    lines:
+      - "<secondary>Right-click to open"
+      - "<secondary>Left-click to see the rewards"
 
   keyall:
     countdown: "<primary>Keyall in <time>. <secondary>Everyone online gets <keys>."

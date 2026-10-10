@@ -12,8 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.siftvanilla.siftcore.core.link.SpawnerItems;
 import net.siftvanilla.siftcore.core.text.Palette;
@@ -27,16 +29,24 @@ import org.bukkit.inventory.ItemStack;
 
 /**
  * Turns rewards into items: the item a reward gives (built from the config, or a spawner item made by the spawners
- * feature) and the icon that shows it in the preview. Names are white and lore gray, with italics off.
+ * feature) and the icon that shows it in the preview. A reward item's own name is in its rarity's colour (the
+ * Celestial blade is cyan) and its lore gray, with italics off.
  */
 final class RewardItems {
 
     private final SpawnerItems spawners;
     private final java.util.function.Supplier<Palette> palette;
+    private final Function<String, TextColor> rarityColor;
 
-    RewardItems(SpawnerItems spawners, java.util.function.Supplier<Palette> palette) {
+    /** @param rarityColor the colour of a rarity id (a named reward item's name is in it) */
+    RewardItems(SpawnerItems spawners, java.util.function.Supplier<Palette> palette, Function<String, TextColor> rarityColor) {
         this.spawners = spawners;
         this.palette = palette;
+        this.rarityColor = rarityColor;
+    }
+
+    RewardItems(SpawnerItems spawners, java.util.function.Supplier<Palette> palette) {
+        this(spawners, palette, rarity -> null);
     }
 
     /** What this server's Minecraft version and worlds offer, for validating {@code features/crates.yml}. */
@@ -84,7 +94,7 @@ final class RewardItems {
     /** The items a reward gives (empty for money, shards, keys and commands, or when it can't be made now). */
     Optional<ItemStack> build(Reward reward) {
         return switch (reward.kind()) {
-            case Reward.Item item -> Optional.of(item(item));
+            case Reward.Item item -> Optional.of(item(item, nameColor(reward)));
             case Reward.Spawner spawner -> this.spawners.mobs().contains(spawner.mobId())
                 ? this.spawners.create(spawner.mobId(), spawner.amount()).filter(stack -> !stack.isEmpty())
                 : Optional.empty();
@@ -92,12 +102,18 @@ final class RewardItems {
         };
     }
 
-    private ItemStack item(Reward.Item item) {
+    /** The colour of a reward item's own name: its rarity's, else the primary text colour. */
+    private TextColor nameColor(Reward reward) {
+        TextColor color = this.rarityColor.apply(reward.rarity());
+        return color != null ? color : this.palette.get().primary();
+    }
+
+    private ItemStack item(Reward.Item item, TextColor nameColor) {
         Material material = material(item.item(), Material.STONE);
         ItemStack stack = ItemStack.of(material, item.amount());
         Palette colors = this.palette.get();
         if (item.name() != null) {
-            stack.setData(DataComponentTypes.CUSTOM_NAME, Component.text(item.name(), colors.primary())
+            stack.setData(DataComponentTypes.CUSTOM_NAME, Component.text(item.name(), nameColor)
                 .decoration(TextDecoration.ITALIC, false));
         }
         if (!item.lore().isEmpty()) {
@@ -134,7 +150,7 @@ final class RewardItems {
             icon = ItemStack.of(material(reward.icon(), Material.PAPER));
         } else {
             icon = switch (reward.kind()) {
-                case Reward.Item item -> item(item);
+                case Reward.Item item -> item(item, nameColor(reward));
                 case Reward.Spawner spawner -> build(reward).orElseGet(() -> ItemStack.of(Material.SPAWNER, spawner.amount()));
                 case Reward.Money money -> ItemStack.of(Material.GOLD_INGOT);
                 case Reward.Shards shards -> ItemStack.of(Material.AMETHYST_SHARD);

@@ -14,6 +14,11 @@ import java.util.UUID;
  * address). The first of a group to enter holds the group's slot; the others wait. When the holder leaves, the
  * group member who entered next takes over and starts a fresh interval. Leaving the zone, or a combat tag, throws
  * away the progress towards the next reward: only continuous, peaceful presence pays.
+ * <p>
+ * The clock runs in whole seconds of the once-a-second check: an interval that starts between two checks (entering
+ * the zone on a step, a takeover) is lined up with the next check, so the countdown the player sees goes down by
+ * exactly one every second, and a reward that falls a few milliseconds after a check is paid at that check instead
+ * of a second later ({@link #SLACK_MILLIS}).
  */
 final class ZoneSessions {
 
@@ -48,11 +53,19 @@ final class ZoneSessions {
     record Status(State state, boolean due, long nextInMillis) {
     }
 
+    /**
+     * How early a reward may fall due: the checks run once a second but a few milliseconds apart, so a reward due
+     * within half a second after a check is paid at that check.
+     */
+    static final long SLACK_MILLIS = 500;
+
     private static final class Session {
         private final UUID player;
         private final String connection;
         private final long entered;
         private long since = -1;
+        /** Whether {@link #since} lies on the rhythm of the checks (set by an update, not by an entry or takeover). */
+        private boolean aligned;
 
         private Session(UUID player, String connection, long entered) {
             this.player = player;
@@ -94,6 +107,7 @@ final class ZoneSessions {
             if (next != null) {
                 this.holders.put(next.connection, next.player);
                 next.since = now;
+                next.aligned = false;
             }
         }
     }
@@ -128,25 +142,29 @@ final class ZoneSessions {
         }
         switch (block) {
             case COMBAT -> {
-                session.since = now;
+                restart(session, now);
                 return new Status(State.COMBAT, false, intervalMillis);
             }
             case CAPPED -> {
-                session.since = now;
+                restart(session, now);
                 return new Status(State.CAPPED, false, intervalMillis);
             }
             case LOADING -> {
-                session.since = now;
+                restart(session, now);
                 return new Status(State.LOADING, false, intervalMillis);
             }
             case NONE -> {
             }
         }
         if (session.since < 0 || session.since > now) {
-            session.since = now;
+            restart(session, now);
+        } else if (!session.aligned) {
+            // Started between two checks: count the time so far in whole seconds from this check on.
+            session.since = now - Math.round((now - session.since) / 1000.0) * 1000;
+            session.aligned = true;
         }
         long elapsed = now - session.since;
-        boolean due = elapsed >= intervalMillis;
+        boolean due = elapsed >= intervalMillis - Math.min(SLACK_MILLIS, intervalMillis / 2);
         if (due) {
             // One reward per update; after a long stall (lag, a paused clock) restart the interval instead of paying
             // a burst for time that was not observed.
@@ -154,6 +172,11 @@ final class ZoneSessions {
         }
         long next = Math.max(0, intervalMillis - (now - session.since));
         return new Status(State.EARNING, due, next);
+    }
+
+    private static void restart(Session session, long now) {
+        session.since = now;
+        session.aligned = true;
     }
 
     /** Everyone inside, in no particular order. */

@@ -1,6 +1,7 @@
 package net.siftvanilla.siftcore.feature.shards;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -77,6 +78,7 @@ record ShardsSettings(long confirmAbove, boolean blockInCombat, List<ShardOffer>
             }
             long price = o.longValue("price", 1, MAX_PRICE, 1);
             int max = o.has("max") ? o.integer("max", 1, MAX_UNITS, 1) : 1;
+            int order = o.has("order") ? o.integer("order", -1_000_000, 1_000_000, ShardOffer.DEFAULT_ORDER) : ShardOffer.DEFAULT_ORDER;
             String permission = o.optionalString("permission", "").strip();
             if (!permission.isEmpty() && !permission.matches("[a-z0-9_.-]{1,128}")) {
                 o.problem("permission", "is not a permission node: '" + permission + "'");
@@ -86,8 +88,10 @@ record ShardsSettings(long confirmAbove, boolean blockInCombat, List<ShardOffer>
                 // A broken offer is left out rather than sold with fallback values.
                 continue;
             }
-            offers.add(new ShardOffer(id, kind, name, description, target, amount, price, max, permission));
+            offers.add(new ShardOffer(id, kind, name, description, target, amount, price, max, permission, order));
         }
+        // Listed by order; offers with the same order keep their file order (new offers land at the end of an older file).
+        offers.sort(Comparator.comparingInt(ShardOffer::order));
         return new ShardsSettings(confirmAbove, blockInCombat, offers);
     }
 }

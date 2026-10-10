@@ -82,7 +82,7 @@ public final class KitsFeature implements Feature, Listener {
         }
         this.claims = new KitClaims(services.ledger(), services.database(), System::currentTimeMillis);
         this.handouts = new KitHandouts(services);
-        KitText text = new KitText(services.lang());
+        KitText text = new KitText(services.lang(), crateKeys::crateName);
         this.kits = new KitService(services, this.settings, this.claims, new KitItems(() -> services.lang().style().palette()),
             this.handouts, combat, crateKeys, text);
         this.perks = new PerkService(services, this.settings, combat, worth);

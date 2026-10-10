@@ -49,7 +49,7 @@ Money placeholders (`balance`, `balance_number`, `baltop_value_<rank>`, `bounty_
 | `%siftcore_homes_limit%` | How many homes you may set (unlimited for no limit) |
 | `%siftcore_join_message%` | Your custom join message as it shows now (with {name}), empty without one |
 | `%siftcore_keyall_countdown%` | Time until the next keyall (1h 5m), - when it is off |
-| `%siftcore_keyall_reward%` | What the next keyall gives (1 Basic key), - when it is off |
+| `%siftcore_keyall_reward%` | What the next keyall gives (1 Uncommon key), - when it is off |
 | `%siftcore_keys_<crate>%` | Your keys of a crate (keys_basic) |
 | `%siftcore_keys_total%` | Your keys of every crate together |
 | `%siftcore_kill_effect%` | Your kill effect (hearts, flames...), empty without one |

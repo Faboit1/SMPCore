@@ -48,7 +48,8 @@ kits:
     item-many: "<primary><name> <secondary>x<accent><amount>"
     keys: "<secondary><icon:key> Also gives <primary><keys>"
     claim: "<on>Claim"
-  # Crate keys a kit gives: "1 Basic key", "2 Rare keys".
+
+  # Crate keys a kit gives: "1 Common key", "2 Rare keys" (<crate> is the crate's name in its colour).
   keys:
     one: "1 <crate> key"
     many: "<count> <crate> keys"

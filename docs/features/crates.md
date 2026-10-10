@@ -1,9 +1,12 @@
 # Crates (`crates`)
 
 Players open crates with virtual keys. Each opening spends one key and pays one reward, drawn by weight: items,
-money, shards, keys of another crate, spawners or a console command. Keys come from the keyall (every player online,
-every few hours), the shard shop and staff. Keys are never sold ([monetization](../monetization.md)); `/sift store keys`
-is a staff and event tool. Crates can also be blocks in the world. Package
+money, shards, keys of another crate, spawners or a console command. The shipped file has seven tiers, from Common to
+Celestial, each in its own colour and each better than the one below; every crate has a small chance of a key of the
+next tier. Keys come from the keyall (every player online, every few hours), the shard shop, kits and staff. Keys
+are never sold ([monetization](../monetization.md)); `/sift store keys` is a staff and event tool. Crates can also be
+blocks in the world, with a floating name, particles in their colour and the reward spinning up out of them. Opening
+one key from a screen plays an opening animation (a rolling chest window with ticks and a fanfare). Package
 `feature/crates`, config `features/crates.yml`, text `lang/crates.yml`, tables `crate_keys` and `crate_log` (V008)
 plus `crate_grants`, `crate_blocks` and `crate_schedule` (V055).
 
@@ -16,7 +19,8 @@ reference):
   (at most 64 characters) the grant is applied once: the same `ref` again is refused with reason `duplicate`, even
   after a restart, for as long as `grants.remember` (90 days). Other refusals: `unknown_crate`, `bad_amount`,
   `bad_ref`, `limit` (1,000,000 keys of one crate);
-- `keys(player, crate)`: the count, from memory.
+- `keys(player, crate)`: the count, from memory;
+- `crateName(crate)`: the crate's name in its colour ("Common" in gray), for the shard shop's key offers.
 
 It consumes five contracts, all wired in `FeatureCatalog`:
 
@@ -67,35 +71,76 @@ purchase id), so a retried delivery is never paid twice. Crate blocks at spawn n
 
 Audit log actions: `crates.give`, `crates.take`, `crates.keyall` (one row per keyall with the player count),
 `crates.keyall.schedule`, `crates.block.add`, `crates.block.remove`, and `crates.reward` for every win of a rarity
-with `audit: true` (rare and up in the shipped file).
+with `audit: true` (epic and up in the shipped file).
 
 ## Screens
 
-- **Crates dialog** (`/crates`, the main menu's Crates button with order 45): every crate with its icon and your key
-  count, an Open and a Preview button for each, and the next keyall. From the main menu the footer goes back to it.
-- **Opening from a dialog** keeps the client on its waiting screen until the reward is stored and handed over, then
-  shows the result: the reward's item with "You won ..." and its rarity, the keys left (or "That was your last key"),
-  a line when it went to the claim box, and Open another (while keys are left), "Open 10 more" (with 2 or more keys,
-  at most `bulk-open`), Preview and Back. A refusal (no keys, in combat, economy paused, a plugin cancelled it) shows
-  the screen again with the reason.
+- **Crates dialog** (`/crates`, the main menu's Crates button with order 45): one line with the next keyall and what
+  it gives, then a button per crate from the lowest tier up, "Common crate: 3 keys" (the name in the crate's colour,
+  the key count in the accent colour, "no keys" in gray). Its tooltip says how many rewards the crate has and the
+  rarest of them ("14 rewards, the best of them Epic"). Nothing else is written on the screen; there are no pages
+  (the dialog scrolls). From the main menu the footer goes back to it.
+- **A crate's page** (a crate button, or right-click a crate block): the crate's icon and your keys, then Open, "Open
+  10" (with 2 or more keys, the player's Keys per bulk open, at most `bulk-open`) and Preview; what each does is in its
+  tooltip ("Open one key. Click the window to skip to the reward." while the animation is on). Back returns to the
+  list (or Close, from a block).
+- **Opening one key from a screen** (Open, Open another, the preview's Open one) keeps the client on its waiting
+  screen until the reward is stored, then plays the opening animation (below) when it is on, and shows the result:
+  the reward's item with "You won ..." (in its rarity's colour) and its rarity, the keys left (or "That was your last
+  key"), a line when it went to the claim box, and Open another (while keys are left), "Open 10 more", Preview and
+  Back. A refusal (no keys, in combat, economy paused, a plugin cancelled it) shows the screen again with the reason.
 - **Several in a row** ("Open 10", "Open 10 more", `/crates open <crate> <amount>`, right-click on the preview's open
   button): that many single openings one after another, each with every check, its own transaction, log row,
   announcement and hand-over, the next starting only when the last is stored. The player gets one result: the
   rarest win's item, "You opened 10 crates" and a line per reward ("5 diamonds, 10 times"), the keys left, and one
   summary in chat instead of a receipt per key. Running out of keys just ends it; anything else that stops a key
   (combat, a cancelled event, storage) stops the rest and says why. More than `bulk-open` at once is refused.
-- **Crate view** (right-click a crate block): the crate's icon, your keys, the number of rewards, Open, "Open 10"
-  (with 2 or more keys) and Preview.
-- **Preview menu** (left-click a crate block, Preview, `/crates preview`): every reward that can be won now, with
-  "Chance 12.5%", "Rarity Rare", "Sells for $1,200" for plain items and "Opens the Rare crate" for keys. The shown
-  chances are rounded with the largest remainder method so they always add up to exactly 100% (a chance below
-  0.01% reads "<0.01%"). Sort (slot 47): crate order, most likely first, rarest first. Slot 50: "Open one" with your
-  keys (the menu is locked while the opening is stored; right-click opens up to `bulk-open` in a row), or "No keys". Back (slot 46) when opened from a dialog.
-- **Chat**: the receipt "You won 5 diamonds from the Test crate." after every opening ("It didn't fit, so it's
-  waiting in your claim box." when it went there; where the receipt shows is the player's Crate win receipt); the
-  announcement "Name won $200,000 from the Legendary crate." to everyone else for rarities with `announce: true`
-  (filtered by each player's Crate win announcements); "You got 3 Rare keys." when staff give keys; a join reminder
-  "You have 3 keys to open." (clickable) when `join-reminder` is on and the player's Unopened key reminder is.
+- **Preview menu** (left-click a crate block, Preview, `/crates preview`): every reward that can be won now, named in
+  its rarity's colour (money in the money colour, shards in purple, a spawner keeps its name "Blaze spawner" in its
+  rarity's colour), with "Chance 12%", "Rarity Rare" (in its colour), "Sells for $1,200" for plain items and "Opens
+  the Uncommon crate" for keys. The shown chances are rounded with the largest remainder method so they always add up
+  to exactly 100% (a chance below 0.01% reads "<0.01%"). Sort (slot 47): by rarity (most common first, the default),
+  most likely first, rarest first. Slot 50: "Open one" with your keys (animated like Open; right-click opens up to
+  `bulk-open` in a row without the animation), or "No keys". Back (slot 46) when opened from a dialog.
+- **Chat**: the receipt "You won 5 diamonds from the Common crate." after every opening, the reward in its rarity's
+  colour and the crate's name in the crate's colour ("It didn't fit, so it's waiting in your claim box." when it went
+  there; where the receipt shows is the player's Crate win receipt); the announcement "Name won $250,000 from the
+  Legendary crate." to everyone else for rarities with `announce: true` (legendary, mythic and celestial in the
+  shipped file; filtered by each player's Crate win announcements, never for vanished winners); "You got 3 Rare keys."
+  when staff give keys; a join reminder "You have 3 keys to open." (clickable) when `join-reminder` is on and the
+  player's Unopened key reminder is.
+
+## The opening animation
+
+`effects.animation` (shipped on). Opening one key from a screen (Open, Open another, the preview's Open one) opens a
+three-row chest window titled after the crate:
+
+- The middle row is a reel of the crate's rewards (each named in its rarity's colour) rolling right to left past the
+  pointer (the glass above and below the middle slot, in the crate's colour), while the other glass flashes. Each
+  step plays a tick (`sounds.tick`, a hi-hat) whose pitch rises as the roll slows down; the steps slow down on an
+  ease-out curve over `length` (shipped 4s). The reel is drawn by the rewards' weights, so common rewards pass by
+  more often; the rarest reward of the crate always passes right after the pointer for a near miss.
+- At the end the window turns the colour of the won reward's rarity (its `glass`, or the stained glass pane closest
+  to its colour), the reward glows under the pointer with its rarity below its name, and the reveal sound plays
+  (`sounds.reveal`, or `sounds.big-reveal` for a rarity that is announced). That is when the reward reaches the
+  inventory, the receipt is sent and an announced win is announced. The window closes by itself after `reveal`
+  (shipped 2s), then the result dialog shows.
+- Clicking the window during the roll skips to the reward; clicking it while the reward shows closes it. Closing the
+  window (Esc) during the roll hands the reward over at once. The sounds follow each player's sound settings (ticks
+  are click sounds, the reveals success sounds).
+- Opened at a crate block (from its page), the reward also spins up out of the block (below), and the block's lid
+  opens while it spins (chests, ender chests, barrels, shulker boxes).
+
+The animation only shows what was already decided and stored: the key was spent and the reward stored in the same
+transaction as every opening, before the window opens (the items wait in the claim box meanwhile). A player who
+leaves during the roll finds the reward in the claim box (`/ah claims`); one who dies keeps it there (nothing
+drops); the win is announced either way. A player can't open another crate while one rolls ("Your last crate is
+still opening."). Sneak + right-click on a crate block (quick open), `/crates open` and opening several keys at once
+never animate, so a player who wants it fast has those.
+
+The window is a SiftCore menu on the player's own thread (an entity timer that follows them across regions and
+stops when they leave); it never touches other players or blocks. Players see nothing different with the animation
+off, except that the result comes at once.
 
 ## Player settings
 
@@ -105,7 +150,7 @@ Registered by `CratePlayerSettings` (text in `lang/crates.yml` under `crates.set
 | Id | Group | Kind, default | What it does | Offered while |
 |---|---|---|---|---|
 | `crate-wins` | Server announcements (3) | choice all/rarest/off, all | Other players' announced wins in chat: every one, only the rarest rarity the server announces (the last rarity with `announce: true`), or none. Was a switch: stored `true` reads as all, `false` as off | a rarity announces; rarest only while two or more do (otherwise it reads as all) |
-| `crate-receipt` | Crates & kits (1) | choice chat/actionbar/off, chat | Where the player's own "You won ..." line shows (`Messenger.alert`). Several openings in a row: the whole list in chat, or "You opened 10 Basic crates. Best: ..." above the hotbar. Rewards sent to the claim box are always told in chat; refusals are unaffected, except that the reason a bulk opening stopped early goes to chat when its receipt took the action bar (it would replace the receipt there at once); the result dialog always shows | always |
+| `crate-receipt` | Crates & kits (1) | choice chat/actionbar/off, chat | Where the player's own "You won ..." line shows (`Messenger.alert`). Several openings in a row: the whole list in chat, or "You opened 10 Common crates. Best: ..." above the hotbar. Rewards sent to the claim box are always told in chat; refusals are unaffected, except that the reason a bulk opening stopped early goes to chat when its receipt took the action bar (it would replace the receipt there at once); the result dialog always shows | always |
 | `crate-key-reminder` | Crates & kits (3) | toggle, on | The join reminder about unopened keys | `join-reminder` |
 | `keyall-countdown` | Crates & kits (4) | choice both/chat/actionbar/off, both | The keyall's chat announcements and/or its action bar count. The console always gets the announcements; "Keyall: everyone online got ..." always shows. Only what the server shows is offered: chat while `keyall.countdown.chat` has times, actionbar while `countdown.action-bar` is above 0s, both while both are. On a server with only one, both and the missing one read as the one there is (except both on a server with only the action bar count and a configured default of off, which reads as off) | the keyall is on and announces or counts down |
 | `crate-quick-open` | Crates & kits (5) | choice one/bulk/off, one | Sneak + right-click a crate block: open one key, open the player's Keys per bulk open in a row (one receipt), or show the crate window like a plain right-click | `quick-open`; bulk while `bulk-open` is 2 or more (otherwise it reads as one) |
@@ -125,13 +170,14 @@ player last picked (`crate-preview-sort`, a remembered value, not a setting).
    keys - 1 (and the keys reward, if any); write the `crate_keys` deltas, the `crate_log` row and, for money and
    shards, the `crate_reward` source postings; reward items go into the claim box (`deliveries().add`) in the same
    transaction. Either all of it is stored or none of it (a storage failure rolls the key back).
-5. After `committed()`: the audit row (rare and up), the announcement (epic and up, not for vanished players),
-   command rewards (stored in the opening's transaction in `crate_commands`, migration V056, then run from the console
+5. After `committed()`: the audit row (epic and up), command rewards (stored in the opening's transaction in `crate_commands`, migration V056, then run from the console
    on the global thread and deleted; a reward whose commands had not run when the server stopped runs at the next
    start, logged, and a crash right after a command ran makes it run again at the next start, also logged; each
    command in try/catch, a failing command is logged with what to give by
-   hand), then on the player's thread the items are claimed out of the claim box into the inventory when they all
-   fit (marked claimed in storage first, `saveData()` after), and the receipt is sent.
+   hand), then on the player's thread the opening animation plays (when asked for and on), and at its reveal, or at
+   once without it: the announcement (legendary and up, not for vanished players), the items claimed out of the claim
+   box into the inventory when they all fit (marked claimed in storage first, `saveData()` after; a dead player's
+   stay in the claim box), and the receipt.
 
 Double clicks, two menus, replayed dialog clicks or a reload in between can never spend a key twice or pay without
 one: everything is checked again inside the transaction and dialog clicks are one-shot. Items never touch the ground:
@@ -142,14 +188,15 @@ storage closes.
 ## Keyall
 
 A global-thread timer ticks once a second. At the configured moments (`countdown.chat`, shipped 5m and 1m) it
-announces "Keyall in 5m. Everyone online gets 1 Basic key." in chat; for the last `countdown.action-bar` seconds
+announces "Keyall in 5m. Everyone online gets 1 Uncommon key." in chat; for the last `countdown.action-bar` seconds
 (shipped 10s) everyone's action bar counts down. Each player's Keyall countdown picks both, only the chat lines, only
 the action bar, or neither (the console always gets the chat lines). At zero `KeyallEvent` (cancellable) is fired with the crate, amount
 and recipients, then every online player (vanished staff left out unless `include-vanished`, AFK players left out
 when `include-afk` is false) gets the keys through
 `CrateKeys.give` with the reference `keyall:<run>:<uuid>`, so a player can never get one keyall twice. Everyone
-gets "Keyall: everyone online got 1 Basic key." with a click to open their crates; with `include-afk: false`, AFK
-players who were left out are told "You were away, so you didn't get 1 Basic key from this keyall."
+gets "Keyall: everyone online got 1 Uncommon key." with a click to open their crates; with `include-afk: false`, AFK
+players who were left out are told "You were away, so you didn't get 1 Uncommon key from this keyall." The shipped
+keyall gives 1 Uncommon key every 4 hours (it gave a Basic key, now called Common, before the tiers).
 
 The next time is stored in `crate_schedule`, so restarts keep the schedule. When the server was offline at keyall
 time, the keyall runs `missed-delay` (shipped 10m) after the next startup. A reload never moves it further away than
@@ -162,8 +209,8 @@ entry wins when both name the same block; a placed block of a crate that no long
 loaded) stays stored but does nothing, and the self-test points it out. The blocks don't need to be anything special
 (a chest, an ender chest, a beacon...); interacting never opens or uses the block itself.
 
-- Right-click: the crate view. Sneak + right-click (`quick-open`): open a key straight away, several in a row, or the
-  crate view, as the player's Sneak + right-click a crate setting says.
+- Right-click: the crate's page. Sneak + right-click (`quick-open`): open a key straight away (no animation), several
+  in a row, or the crate's page, as the player's Sneak + right-click a crate setting says.
 - Left-click: the preview menu.
 - Protection: breaking is cancelled for everyone (staff are told how to remove it), explosions skip the block,
   pistons can't move it, fire can't burn it and mobs can't change it. No physics, hopper or move events are used.
@@ -174,17 +221,37 @@ loaded) stays stored but does nothing, and the self-test points it out. The bloc
   crate acts, unless another plugin refused the player in between by denying the item use as well (a frozen player
   gets the freeze's "You can't do that while frozen." and no crate screen).
 
-To label a crate block, place a display board above it with `/displays` (the displays feature): its templates can
-show `{keyall_countdown}` and `{keyall_reward}`, and its click command can be `crates preview <crate>`.
+### What a crate block shows (`effects`)
+
+- **A floating name** (`holograms`, shipped on): a text display `hologram-height` (shipped 0.5) blocks above the
+  block, "Common crate" in the crate's colour (bold), then "Right-click to open" and "Left-click to see the rewards"
+  (`lang/crates.yml` `crates.hologram`). It faces every player, has no background and is lit fully.
+- **Particles** (`particle-range`, shipped 16 blocks; 0 turns them off): two motes in the crate's colour circle the
+  block, rising and falling, every quarter second while a player is within range; Legendary and up also sparkle
+  (end rods). Nothing is sent while nobody is near.
+- **The spin**: opened from the block's page with the animation on, the reward appears above the block, spins and
+  rises as the reel steps (showing the item under the pointer), then shows the won reward bigger, glowing in its
+  rarity's colour, with a burst of that colour (a totem burst for announced rarities). It goes away about two seconds
+  after the reveal. One spin per block at a time: a second player opening there meanwhile gets only their window.
+
+Threads: one global timer (every 5 ticks) hops to each crate block's region, only for blocks whose chunk is loaded;
+everything that touches an entity or the block happens on that region's thread. Nothing scans the world. Every
+display entity is non-persistent (never saved; gone when its chunk unloads or the server stops) and tagged, and
+whenever a chunk's entities load, tagged crate displays that are not the current ones (after a crash or a reload)
+are removed, so a name is never doubled. A block that stops being a crate loses its name within a quarter second.
+
+A display board from `/displays` above a crate block still works (its templates can show `{keyall_countdown}` and
+`{keyall_reward}`, its click command can be `crates preview <crate>`); raise `effects.hologram-height` or turn
+`holograms` off so the two don't overlap.
 
 ## Placeholders
 
 | Placeholder | Value |
 |---|---|
-| `keys_<crate>` | The player's keys of that crate (`keys_basic`) |
+| `keys_<crate>` | The player's keys of that crate, by id (`keys_basic` is the Common crate) |
 | `keys_total` | All of the player's keys together |
 | `keyall_countdown` | Time until the next keyall (`3h 59m`), `-` when it is off |
-| `keyall_reward` | What the next keyall gives (`1 Basic key`), `-` when it is off |
+| `keyall_reward` | What the next keyall gives (`1 Uncommon key`), `-` when it is off |
 
 ## Config (`features/crates.yml`)
 
@@ -194,12 +261,21 @@ show `{keyall_countdown}` and `{keyall_reward}`, and its click command can be `c
   left."); the combat feature sets how long a tag lasts.
 - `bulk-open` (shipped 10, 0 to 64; below 2 turns it off): the most keys one click or command opens in a row.
 - `quick-open`, `join-reminder`, `grants.remember` (1d to 3650d).
-- `rarities`: id to `label` (plain text), `audit` and `announce`, from most common to rarest.
+- `rarities`: id to `label` (plain text), `color` (hex), `glass` (the animation's glass for a win of that rarity;
+  the closest stained glass pane by default), `audit` and `announce`, from most common to rarest. Shipped: common
+  (gray), uncommon (green), rare (blue), epic (purple), legendary (orange), mythic (red) and celestial (cyan); epic
+  and up are audited, legendary and up announced.
+- `effects`: `holograms`, `hologram-height` (0 to 3), `particle-range` (0 to 64), and `animation` with `enabled`,
+  `length` (1s to 10s), `reveal` (0s to 10s) and the `sounds` `tick`, `reveal` and `big-reveal` (each a sound id,
+  `volume` 0 to 2 and `pitch` 0.5 to 2).
 - `keyall`: `enabled`, `interval` (5m to 7d), `crate`, `amount` (1 to 64), `missed-delay` (0s to 1h),
   `include-vanished`, `include-afk`, `countdown.chat` (each at least 10s and shorter than the interval), `countdown.action-bar`
   (0s to 1m).
 - `crates`: id (1 to 32 lowercase letters, digits, `-`, `_`; `total` and `in` are reserved) to `name` (plain short
-  name; text says "Basic crate", "Basic key"), `icon`, `blocks`, `rewards`.
+  name; text says "Common crate", "Common key"), `tier` (1 to 100, its place in the ladder: crates are listed by tier,
+  and "the next tier" is the lowest tier above; the crate's place in the file when missing), `color` (hex: its name
+  everywhere, its hologram, its particles and the animation's pointer), `icon`, `blocks`, `rewards`. The id is what
+  players' keys are stored under, so the shipped `basic` crate keeps its id and is called Common.
 - A reward: id to `weight`, `rarity`, optional `display` (plain text, generated otherwise: "16 iron ingot", "$750",
   "10 shards", "2 Rare keys", "zombie spawner"), optional `icon`, and exactly one of `item` (with `amount`, `name`,
   `lore`, `enchants`, `unsafe-enchants`), `money`, `shards`, `keys` (with `amount`), `spawner` (with `amount`) or
@@ -211,33 +287,93 @@ unknown keys (typos), tags or colour codes in plain text, duplicate crate blocks
 broken reward is left out, a crate without a working reward is left out, and a keyall with an unknown crate is off;
 `/sift reload` refuses the whole change.
 
-## Shipped crates and what a key is worth
+## The seven tiers and what a key is worth
 
-The shipped weights of every crate add up to 100, so each weight is its chance in percent. Money is kept a small
-extra: the economy's real money comes from selling, and a keyall gives one basic key every 4 hours. Measured with
-`/crates info` against the shipped worth table (items count at what the server pays for them; enchanted gear,
-totems, elytras and books can't be sold, so they count as $0 here):
+The shipped weights of every crate add up to 100, so each weight is its chance in percent. Each tier is worth two to
+four times the one below, every crate has 14 to 18 rewards from common to its own top rarity, and every crate but the
+last has a 1 to 2% chance of a key of the next tier (most also give a few keys of lower tiers). Measured with
+`/crates info` and the shipped price tables: items at what the server pays for them (enchanted gear can't be sold and
+counts as $0), spawners at the shop's price, a shard at $20 and keys at their own tier's value:
 
-| Crate | Where keys come from | Money per key | Shards per key | Items (sell value) per key | Keys per key |
-|---|---|---|---|---|---|
-| Basic | keyall, staff | $175 | 0.6 | $284 | 0.02 Rare |
-| Rare | 2% of basic, store, shard shop | $810 | 3.2 | $1,064 | 0.18 Basic, 0.03 Epic |
-| Epic | 3% of rare, store, shard shop | $3,800 ($3,958 without spawners) | 12 (12.5) | $1,953 without spawners | 0.19 Rare, 0.02 Legendary |
-| Legendary | 2% of epic, store | $20,750 ($22,554 without spawners) | 40 (43) | $8,101 without spawners | 0.17 Epic |
+| Tier | Crate (id), colour | Where keys come from | Money | Items | Spawners | Shards | Keys of other tiers | Worth per key |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Common (`basic`), gray | shard shop (50), Uncommon and Rare crates | $320 | $381 | | 1.1 | 0.05 Uncommon, 0.01 Rare | $880 |
+| 2 | Uncommon (`uncommon`), green | keyall (1 every 4h), shard shop (110), 5% of Common | $860 | $1,169 | | 1.8 | 0.06 Common, 0.02 Rare | $2,212 |
+| 3 | Rare (`rare`), blue | shard shop (200), 1 to 2% of Common and Uncommon | $2,210 | $1,847 | | 3.6 | 0.12 Common, 0.08 Uncommon, 0.02 Epic | $4,721 |
+| 4 | Epic (`epic`), purple | shard shop (600), 2% of Rare | $7,000 | $3,943 | $2,400 | 12 | 0.15 Rare, 0.02 Legendary | $15,497 |
+| 5 | Legendary (`legendary`), orange | shard shop (1,500), 2% of Epic | $25,000 | $9,655 | $19,500 | 52.5 | 0.14 Epic, 0.02 Mythic | $60,321 |
+| 6 | Mythic (`mythic`), red | shard shop (4,000), 2% of Legendary | $64,000 | $30,700 | $36,000 | 120 | 0.10 Legendary, 0.02 Celestial | $147,326 |
+| 7 | Celestial (`celestial`), cyan | shard shop (11,000), 2% of Mythic | $190,000 | $84,795 | $110,000 | 360 | 0.12 Mythic | $409,674 |
 
-The figures in brackets apply while spawner items are not available (the spawner rewards are left out and the other
-chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diamond sells for $400.
+Money stays under half of what a key pays at every tier. Keys that existed before the tiers are worth more than they
+were (Common $880, was $540 as Basic; Rare $4,721, was $2,373; Epic $15,497, was $10,479; Legendary $60,321, was
+$58,207), so nobody's stored keys lost value (`ExpectedValueTest` keeps it that way).
 
-- Basic: iron and gold ingots, steak, experience bottles, an enchanted iron pickaxe and chestplate, 3 diamonds,
-  3 golden apples, $750, $2,500, 10 shards, and a 2% Rare key.
-- Rare: 8 diamonds, 16 emeralds, 8 golden apples, enchanted diamond pickaxe, sword and chestplate, a Mending book,
-  a totem, $3,000, $7,500, 40 shards, 3 Basic keys, and a 3% Epic key.
-- Epic: 4 diamond blocks, 2 netherite scrap, Protection IV diamond armor pieces, Sharpness V sword, Efficiency V
-  pickaxe, an enchanted golden apple, an elytra (2%), a zombie spawner (4%), $15,000, $40,000, 150 shards, 3 Rare
-  keys, and a 2% Legendary key.
-- Legendary: netherite ingots, maxed netherite sword, pickaxe and chestplate with Mending, 3 enchanted golden
-  apples, a Mending elytra, a beacon, skeleton (5%) and blaze (3%) spawners, $75,000, $200,000 (4%), 500 shards and
-  2 Epic keys.
+**Against how keys are earned** (keys are never sold for real money, see [monetization](../monetization.md)):
+
+- The keyall gives everyone online 1 Uncommon key every 4 hours: $2,212 every 4 hours, about $550 an hour online.
+- The AFK zone pays 1 shard a minute (60 an hour, no daily limit in the shipped file). Spent in the shard shop, an
+  hour of AFK buys about $1,060 (Common keys) to $2,400 (Legendary keys) of crate value; the higher tiers give more
+  per shard, as a reward for saving up: a Celestial key takes about 183 hours of AFK. The price of each key is in
+  `features/shards.yml`; raising one lowers what an AFK hour is worth.
+- Buying keys never makes shards: a key pays back 8 to 17% of its shard price in shards and other keys (at their
+  shard prices), see [shards](shards.md#why-shards-never-become-money).
+- For scale: a diamond sells for $400, the shop's zombie spawner costs $60,000 and its blaze spawner $600,000.
+
+What each crate holds (the full list, with chances, is in `/crates preview <crate>` and `features/crates.yml`):
+
+- **Common**: iron and gold ingots, steak, experience bottles, ender pearls, an Efficiency IV iron pickaxe, a
+  Protection III iron chestplate, 4 diamonds, 4 golden apples, $1,000, $4,000, 15 shards, an Uncommon key (5%) and a
+  Rare key (1%).
+- **Uncommon**: iron and gold blocks, 64 experience bottles, 10 diamonds, 12 emeralds, 6 golden apples, enchanted
+  diamond pickaxe, sword and boots, $3,000, $10,000, 30 shards, 2 Common keys and a Rare key (2%).
+- **Rare**: 16 diamonds, 24 emeralds, 12 golden apples, 16 ender pearls, 2 diamond blocks, netherite scrap,
+  enchanted diamond pickaxe, sword and chestplate, a totem, a Mending book, $8,000, $25,000, 60 shards, Common and
+  Uncommon keys and an Epic key (2%).
+- **Epic**: 8 diamond blocks, 3 netherite scrap, 128 experience bottles, 3 totems, Protection IV diamond armour,
+  Sharpness V sword, Efficiency V pickaxe, an enchanted golden apple, a shulker box, an elytra (3%), a zombie spawner
+  (4%), $25,000, $80,000, 200 shards, 3 Rare keys and a Legendary key (2%).
+- **Legendary**: netherite ingots, maxed netherite sword, pickaxe and chestplate, 3 enchanted golden apples, 5 totems,
+  2 shulker boxes, a Mending elytra, a beacon, skeleton (5%) and blaze (2%) spawners, $100,000, $250,000, 750 shards,
+  2 Epic keys and a Mythic key (2%).
+- **Mythic**: 8 netherite ingots, 2 netherite blocks, a full maxed netherite set and sword, a Mending elytra, 8
+  enchanted golden apples, 4 shulker boxes, a beacon, blaze (4%) and enderman (3%) spawners, $200,000, $600,000,
+  2,000 shards, 2 Legendary keys and a Celestial key (2%).
+- **Celestial**: the named Celestial armour, blade, pickaxe and wings (maxed, with Mending), 6
+  netherite blocks, 3 beacons, 32 enchanted golden apples, 16 totems, 8 shulker boxes, 2 blaze spawners, an iron
+  golem spawner (2%), $500,000, $2,000,000 (5%), 6,000 shards and 2 Mythic keys.
+
+While spawner items are not available (the spawners feature is off) the spawner rewards are left out and the other
+chances grow to fill in.
+
+### Upgrading a server that ran the old four crates
+
+`features/crates.yml` is upgraded in place like every shipped file: crates, rewards, rarities and settings the server
+never edited take the new values, new ones are added, and nothing is ever removed. Every old crate id (`basic`,
+`rare`, `epic`, `legendary`) and every old reward id is kept with the same kind of reward, so stored keys, the crate
+log, crate blocks, `keys_<crate>` placeholders, kits and store commands that name a crate keep working. A crate or
+reward the server edited keeps the server's version (`TierUpgradeTest` checks both). The keyall moves from 1 Basic to
+1 Uncommon key unless it was changed.
+
+### Placing the crates at spawn
+
+Crate blocks are placed in game and stored in the database (or listed under `blocks:` in the file). A shulker box,
+chest, ender chest or barrel opens its lid while a reward spins above it. A layout that matches the colours:
+
+| Crate | Block | Command (look at the block) |
+|---|---|---|
+| Common | chest | `/crates block add basic` |
+| Uncommon | lime shulker box | `/crates block add uncommon` |
+| Rare | light blue shulker box | `/crates block add rare` |
+| Epic | purple shulker box | `/crates block add epic` |
+| Legendary | orange shulker box | `/crates block add legendary` |
+| Mythic | red shulker box | `/crates block add mythic` |
+| Celestial | cyan shulker box | `/crates block add celestial` |
+
+Put them in a row or an arc inside the protected spawn, at least 3 blocks apart (each has a name 1.5 blocks above it
+and particles circling it), with open sky or 3 blocks of air above. Crate blocks at spawn need no change to
+`spawn.yml`. `/crates block list` shows them all; `/crates block remove` while looking at one undoes it. Each block
+shows its floating name within a second; nothing else is needed (no reload).
 
 ## Storage
 
@@ -257,6 +393,7 @@ chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diam
 - the weighted draw splits evenly spread draws exactly by weight;
 - every crate's shown chances add up to 100%;
 - every item and spawner reward can be made and survives a storage round trip;
+- the opening animation's reel ends on the reward won, and a roll lasts the configured length;
 - keys in memory equal storage exactly (the memory snapshot and the storage read are taken in the same moment under
   the economy lock and the ordered writer), and the remembered references match;
 - no placed crate block points at a missing crate or an unloaded world;
@@ -264,7 +401,12 @@ chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diam
 
 ## Tests
 
-- Unit (`src/test/java/.../feature/crates`): the weighted draw against the shipped basic crate with a chi-square
+- Unit (`src/test/java/.../feature/crates`): the seven shipped tiers (order, colours, 10 to 20 rewards each, a key of
+  the next tier in every crate but the last, each tier worth more than the one below, old keys worth at least what
+  they were: `CratesSettingsTest`, `ExpectedValueTest`); the opening animation's plan (`AnimationPlanTest`: the reel
+  lands on the reward won for every length, the rarest passes right after it, the steps slow down and add up to the
+  length); the upgrade of a server's old four-crate `crates.yml` and `shards.yml` (`TierUpgradeTest`: unedited files
+  become the shipped ones, edits and old ids are kept); the weighted draw against the shipped basic crate with a chi-square
   test over 200,000 draws per seed, boundaries and bad weights; shown chances adding up to exactly 100% for 2,000
   random tables; keys against a real SQLite database and ledger (give and take, persistence across a restart,
   references applied once even across a restart and under 16 racing threads, forgotten references, refusals, an
@@ -274,11 +416,21 @@ chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diam
   `include-vanished` and `include-afk`); inventory fitting; expected values; the lang file against the design system;
   command rewards stored with the opening, run once it is stored and deleted, kept for the next start when the
   scheduler stopped or refused them (`RewardCommandsTest`).
-- End-to-end (`tools/e2e`, `CratesScenarios`): `crates-open` (dialog, result, Open another, Back, refusal, main
-  menu entry), `crates-rewards` (money with the announcement and the ledger row, keys, a command, the Crate wins
+- End-to-end (`tools/e2e`, `CratesScenarios`; the test crates are added with the animation off, except in the
+  animation and block effect scenarios): `crates-open` (the list of buttons in tier order with their colours and
+  tooltips, a crate's page, result, Open another, Back, refusal, main menu entry), `crates-tiers` (every tier's
+  preview with 10 to 20 rewards in colour and the next tier's key, and a key of every tier opened),
+  `crates-animation` (the chest window with the reel, the rising ticks, the reveal in the rarity's colour and its
+  sound, the reward reaching the inventory only at the reveal, a click skipping and a second closing, closing the
+  window mid-roll, no second crate while one rolls, an announced win announced at the reveal with the big fanfare),
+  `crates-animation-leave` (quitting mid-roll keeps the reward in the claim box until it is claimed; dying mid-roll
+  keeps it there and drops nothing; the next opening works), `crates-block-effects` (the floating name with its
+  text, non-persistent, never doubled; dust particles near the block; the spin above the block during an opening and
+  gone after it; the name gone when the block stops being a crate), `crates-rewards` (money with the announcement and the ledger row, keys, a command, the Crate wins
   setting), `crates-claim-box`
   (full inventory, then claimed from `/ah claims`), `crates-double-submit` (a double click, a replayed click, command
-  spam), `crates-preview` (chances, rarity, sell value, sorting, opening from the menu, back to the dialog),
+  spam), `crates-preview` (chances, rarity, sell value, names in their rarity's colour, sorting, opening from the menu, back
+  to the crate's page),
   `crates-admin` (give with a reference twice, take, check, log, info, placeholders, the `CrateKeys` contract,
   refusals), `crates-keyall` (staff keyall without vanished staff, the 1m chat countdown, the action bar and the
   scheduled run with its references), `crates-block` (right-click, left-click, sneak quick open, breaking, an
@@ -301,5 +453,6 @@ chances grow). For scale: the shop sells a zombie spawner for $60,000 and a diam
   count the server shows, the win filter, the bulk amount, quick open, countdown and stop-reason deciders)
   and the setting texts in `CratesResourcesTest`.
 
-Not verifiable without a real client: how the dialogs and the preview menu look, the waiting screen between Open and
-the result, and icons in the keyall line.
+Not verifiable without a real client: how the dialogs, the preview menu and the opening window look, the waiting
+screen between Open and the window, how the floating names, particles and the spin look (the bot sees the entities,
+their text and the particle packets, not the picture), the lid moving, and icons in the keyall line.

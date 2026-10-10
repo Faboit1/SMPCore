@@ -912,7 +912,7 @@ final class KitsScenarios {
             bot.clearLogs();
             command(e2e, bot, "kit e2ekeys");
             e2e.eventually(() -> keys(e2e, uuid, "basic") == basic + 2, "two basic keys");
-            waitFor(e2e, () -> bot.chatContains("The Keyring kit gave you 2 Basic keys."), () -> "told: " + bot.chat() + " / " + bot.actionBar() + " / " + bot.chat());
+            waitFor(e2e, () -> bot.chatContains("The Keyring kit gave you 2 Common keys."), () -> "told: " + bot.chat() + " / " + bot.actionBar() + " / " + bot.chat());
             e2e.expect(claimRows(e2e, uuid, "e2ekeys") == 1, "the claim is stored");
 
             e2e.step("a broken change is refused and the old kits stay");

@@ -26,7 +26,7 @@ enabled together; `FeatureCatalog` wires them to each other.
 | [chat](docs/features/chat.md) | Public chat with hover cards and mentions, `/msg` and `/r`, ignore lists, word filter, link check, anti-spam, `/chat` staff tools |
 | [combat](docs/features/combat.md) | The combat tag, combat logging, kill credit with anti-farm rules, death messages, kill streaks |
 | [cosmetics](docs/features/cosmetics.md) | Rank cosmetics: chat colours, nicknames, chat tags, join and leave lines, kill effects |
-| [crates](docs/features/crates.md) | Crates opened with virtual keys, the keyall, crate blocks and the preview |
+| [crates](docs/features/crates.md) | Seven crate tiers opened with virtual keys and an opening animation, the keyall, crate blocks with floating names, and the preview |
 | [displays](docs/features/displays.md) | Floating leaderboards and info boards at spawn, made of text displays |
 | [economy](docs/features/economy.md) | `/balance`, `/pay`, `/baltop`, the `/eco` staff tools and the Vault economy |
 | [extras](docs/features/extras.md) | `/rules`, `/help`, `/ping`, `/seen`, `/links`, and join and leave messages |

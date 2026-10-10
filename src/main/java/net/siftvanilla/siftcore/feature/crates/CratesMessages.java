@@ -31,6 +31,8 @@ public final class CratesMessages {
     public static final MessageKey WON = MessageKey.chat("crates.open.won", "reward", "name").withFeedback(Feedback.SUCCESS);
     public static final MessageKey WON_CLAIM_BOX = MessageKey.chat("crates.open.won-claim-box", "reward", "name")
         .withFeedback(Feedback.SUCCESS);
+    /** The receipt of a win revealed while the player was dead: the reward was kept in the claim box. */
+    public static final MessageKey WON_KEPT = MessageKey.chat("crates.open.won-kept", "reward", "name");
     public static final MessageKey ANNOUNCE = MessageKey.chat("crates.open.announce", "player", "reward", "name");
     /** The receipt of several openings in a row: a line per reward won, with how often. */
     public static final MessageKey BATCH_WON = MessageKey.chat("crates.open.batch", "count", "name", "rewards")
@@ -49,16 +51,24 @@ public final class CratesMessages {
     // ------------------------------------------------------------------ dialogs
 
     public static final MessageKey LIST_TITLE = MessageKey.ui("crates.list.title");
-    public static final MessageKey LIST_ENTRY = MessageKey.ui("crates.list.entry", "name", "keys");
+    /** A crate button's label, before its key count: "Common crate". */
+    public static final MessageKey LIST_CRATE = MessageKey.ui("crates.list.crate", "name");
+    public static final MessageKey LIST_KEYS_NONE = MessageKey.ui("crates.list.keys-none");
+    public static final MessageKey LIST_KEYS_ONE = MessageKey.ui("crates.list.keys-one");
+    public static final MessageKey LIST_KEYS_MANY = MessageKey.ui("crates.list.keys-many", "count");
+    public static final MessageKey LIST_TOOLTIP_REWARDS = MessageKey.ui("crates.list.tooltip-rewards", "rewards", "rarity");
+    public static final MessageKey LIST_TOOLTIP = MessageKey.ui("crates.list.tooltip");
     public static final MessageKey LIST_EMPTY = MessageKey.ui("crates.list.empty");
     public static final MessageKey LIST_KEYALL = MessageKey.ui("crates.list.keyall", "time", "keys");
-    public static final MessageKey LIST_OPEN = MessageKey.ui("crates.list.open", "name");
-    public static final MessageKey LIST_PREVIEW = MessageKey.ui("crates.list.preview", "name");
 
     public static final MessageKey VIEW_TITLE = MessageKey.ui("crates.view.title", "name");
-    public static final MessageKey VIEW_BODY = MessageKey.ui("crates.view.body", "keys", "rewards");
+    public static final MessageKey VIEW_BODY = MessageKey.ui("crates.view.body", "keys");
     public static final MessageKey VIEW_OPEN = MessageKey.ui("crates.view.open");
+    public static final MessageKey VIEW_OPEN_TOOLTIP = MessageKey.ui("crates.view.open-tooltip");
+    public static final MessageKey VIEW_OPEN_TOOLTIP_ANIMATED = MessageKey.ui("crates.view.open-tooltip-animated");
+    public static final MessageKey VIEW_OPEN_MANY_TOOLTIP = MessageKey.ui("crates.view.open-many-tooltip", "count");
     public static final MessageKey VIEW_PREVIEW = MessageKey.ui("crates.view.preview");
+    public static final MessageKey VIEW_PREVIEW_TOOLTIP = MessageKey.ui("crates.view.preview-tooltip");
 
     public static final MessageKey RESULT_WON = MessageKey.ui("crates.result.won", "reward", "rarity");
     public static final MessageKey RESULT_LEFT = MessageKey.ui("crates.result.left", "keys");
@@ -85,6 +95,13 @@ public final class CratesMessages {
     public static final MessageKey PREVIEW_OPEN_MANY_LORE = MessageKey.ui("crates.preview.open-many-lore", "count");
     public static final MessageKey PREVIEW_NO_KEYS = MessageKey.ui("crates.preview.no-keys");
     public static final MessageKey PREVIEW_NO_KEYS_LORE = MessageKey.ui("crates.preview.no-keys-lore");
+
+    // ------------------------------------------------------------------ crate blocks
+
+    /** The floating name above a crate block (in the crate's colour, bold). */
+    public static final MessageKey HOLOGRAM_TITLE = MessageKey.ui("crates.hologram.title", "name");
+    /** The lines under it: how to use the crate. */
+    public static final MessageKey HOLOGRAM_LINES = MessageKey.ui("crates.hologram.lines");
 
     // ------------------------------------------------------------------ keyall
 

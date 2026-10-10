@@ -55,14 +55,26 @@ class ShardsResourcesTest {
         ShardsSettings settings = parse(yaml("features/shards.yml"), problems);
         assertEquals(List.of(), problems);
         assertEquals(500, settings.confirmAbove());
-        assertEquals(List.of("basic-key", "rare-key", "epic-key", "legendary-key", "experience", "golden-apples", "totem", "shulker-box"),
-            settings.offers().stream().map(ShardOffer::id).toList(), "in file order");
+        assertEquals(List.of("basic-key", "uncommon-key", "rare-key", "epic-key", "legendary-key", "mythic-key", "celestial-key",
+                "experience", "golden-apples", "totem", "shulker-box"),
+            settings.offers().stream().map(ShardOffer::id).toList(), "keys from the lowest tier up, then items, by their order");
         ShardOffer basic = settings.offer("basic-key");
-        assertEquals(new ShardOffer("basic-key", ShardOffer.Kind.KEY, "Basic key", "Opens a basic crate at spawn", "basic", 1, 50, 16, ""),
-            basic);
-        assertEquals(200, settings.offer("rare-key").price());
+        assertEquals(new ShardOffer("basic-key", ShardOffer.Kind.KEY, "", "Opens the Common crate at spawn", "basic", 1, 50, 16, "", 1),
+            basic, "an empty name: the crate's own name, in its colour");
+        assertEquals(110, settings.offer("uncommon-key").price());
+        assertEquals(200, settings.offer("rare-key").price(), "the keys that were sold before keep their price");
         assertEquals(600, settings.offer("epic-key").price());
         assertEquals(1500, settings.offer("legendary-key").price());
+        assertEquals(4000, settings.offer("mythic-key").price());
+        assertEquals(11000, settings.offer("celestial-key").price());
+        assertEquals(1, settings.offer("celestial-key").max(), "one Celestial key at a time");
+        long previous = 0;
+        for (ShardOffer offer : settings.offers()) {
+            if (offer.kind() == ShardOffer.Kind.KEY) {
+                assertTrue(offer.price() > previous, offer.id() + " costs more than the tier below");
+                previous = offer.price();
+            }
+        }
         ShardOffer bottles = settings.offer("experience");
         assertEquals(ShardOffer.Kind.ITEM, bottles.kind());
         assertEquals("minecraft:experience_bottle", bottles.target());
@@ -122,7 +134,7 @@ class ShardsResourcesTest {
         ShardOffer diamonds = settings.offer("diamonds");
         assertNotNull(diamonds, "the valid offer is sold");
         assertEquals("siftcore.shards.vip", diamonds.permission());
-        assertEquals(8 + 1, settings.offers().size());
+        assertEquals(11 + 1, settings.offers().size());
     }
 
     @Test
