@@ -12,7 +12,6 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.object.ObjectContents;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
@@ -47,33 +46,26 @@ import org.bukkit.entity.Player;
 final class FriendViews {
 
     /**
-     * Where the list was opened from and where it was, so every Back returns to the same place.
+     * Where the list was opened from and what it showed, so every Back returns to the same place.
      *
      * @param fromMenu whether the list was opened from the main menu or the pause menu (its Back goes to the menu)
-     * @param page     the list page (1-based)
      * @param filter   the name prefix of a Find, or empty
      */
-    record Nav(boolean fromMenu, int page, String filter) {
+    record Nav(boolean fromMenu, String filter) {
 
         static Nav command() {
-            return new Nav(false, 1, "");
+            return new Nav(false, "");
         }
 
         static Nav menu() {
-            return new Nav(true, 1, "");
-        }
-
-        Nav page(int page) {
-            return new Nav(this.fromMenu, Math.max(1, page), this.filter);
+            return new Nav(true, "");
         }
 
         Nav filter(String filter) {
-            return new Nav(this.fromMenu, 1, filter == null ? "" : filter);
+            return new Nav(this.fromMenu, filter == null ? "" : filter);
         }
     }
 
-    /** Requests per page in the requests dialog (each section). */
-    static final int REQUESTS_PAGE = 10;
     /** "Deny all" is offered from this many visible requests. */
     static final int DENY_ALL_FROM = 5;
     /** Mutual friend names shown before "and N more". */
@@ -82,8 +74,6 @@ final class FriendViews {
     static final int MESSAGE_LENGTH = 256;
     /** Longest name prefix in the Find form. */
     static final int FIND_LENGTH = 16;
-
-    private static final int ROW_WIDTH = 150;
 
     private final Services services;
     private final Setting<FriendsSettings> settings;
@@ -198,7 +188,7 @@ final class FriendViews {
     }
 
     private static Component lines(List<Component> lines) {
-        return Component.join(JoinConfiguration.newlines(), lines);
+        return Templates.lines(lines);
     }
 
     /** The head of a player as an inline object, on its own body line (Bedrock forms drop it). */
@@ -233,8 +223,9 @@ final class FriendViews {
     }
 
     /**
-     * The status word of a row ("online", "AFK", "seen 3d ago"); "seen" comes from the same place as /seen. An offline
-     * row without a last-seen time (unknown, or kept from the viewer by {@code seen-privacy}) says "offline".
+     * The status word of a row of {@code /friend list} in chat ("online", "AFK", "seen 3d ago"); "seen" comes from the
+     * same place as /seen. An offline row without a last-seen time (unknown, or kept from the viewer by
+     * {@code seen-privacy}) says "offline".
      */
     String statusWord(ListOrder.Status status, long lastSeen, long now) {
         return switch (status) {
@@ -243,6 +234,22 @@ final class FriendViews {
             case OFFLINE -> lastSeen <= 0 ? this.lang.plain(FriendsMessages.STATUS_OFFLINE)
                 : this.lang.plain(FriendsMessages.STATUS_SEEN, Arg.text("ago", TimeText.ago(lastSeen, now)));
         };
+    }
+
+    /** A friend's button in the list: the name and the status in its colour ("Alex, online"). */
+    Component rowLabel(ListOrder.Row row, long now) {
+        Arg name = Arg.text("name", row.name());
+        return switch (row.status()) {
+            case ONLINE -> ui(FriendsMessages.LIST_ROW_ONLINE, name);
+            case AFK -> ui(FriendsMessages.LIST_ROW_AFK, name);
+            case OFFLINE -> row.lastSeen() <= 0 ? ui(FriendsMessages.LIST_ROW_OFFLINE, name)
+                : ui(FriendsMessages.LIST_ROW_SEEN, name, Arg.text("ago", TimeText.ago(row.lastSeen(), now)));
+        };
+    }
+
+    /** A number for a value the lang line colours itself ({@code <accent>}). */
+    private static Arg count(String name, long value) {
+        return Arg.text(name, Lang.number(value));
     }
 
     private long lastSeen(UUID player) {
@@ -288,32 +295,24 @@ final class FriendViews {
             read -> show(player, listView(player, nav, read.getValue(), read.getKey(), incoming, limit, now), notice));
     }
 
+    /**
+     * The list: one status line (online, friends of the limit), a button per friend (the filter of a Find applied), then
+     * Add a friend, Requests, Settings and Find (from {@code list.find-from} friends) or Show all. Nothing is paged.
+     */
     private View listView(Player player, Nav nav, List<ListOrder.Row> all, Map<UUID, String> notes, int incoming, int limit,
                           long now) {
         FriendsSettings s = this.settings.get();
         List<ListOrder.Row> shown = ListOrder.filter(all, nav.filter());
-        int pages = ListOrder.pages(shown.size(), s.pageSize());
-        int page = Math.clamp(nav.page(), 1, pages);
-        Nav here = nav.page(page);
         List<Component> body = new ArrayList<>();
-        body.add(ui(FriendsMessages.LIST_SUMMARY, Arg.number("online", ListOrder.online(all)), Arg.number("total", all.size()),
-            Arg.number("limit", limit)));
-        if (all.size() >= limit && this.service.rankCanRaise(limit)) {
-            body.add(ui(FriendsMessages.LIST_FULL));
-        }
+        body.add(ui(FriendsMessages.LIST_SUMMARY, count("online", ListOrder.online(all)), count("total", all.size()), count("limit", limit)));
         if (all.isEmpty()) {
             body.add(ui(FriendsMessages.LIST_EMPTY));
         }
         if (!nav.filter().isEmpty()) {
-            body.add(ui(FriendsMessages.LIST_FILTERED, Arg.text("query", nav.filter()), Arg.number("count", shown.size())));
-        }
-        if (pages > 1) {
-            body.add(ui(FriendsMessages.PAGE, Arg.number("page", page), Arg.number("pages", pages)));
+            body.add(ui(FriendsMessages.LIST_FILTERED, Arg.text("query", nav.filter()), count("count", shown.size())));
         }
         List<Button> list = new ArrayList<>();
-        for (ListOrder.Row row : ListOrder.page(shown, page, s.pageSize())) {
-            Component label = ui(FriendsMessages.LIST_ROW, Arg.text("name", row.name()),
-                Arg.text("status", statusWord(row.status(), row.lastSeen(), now)));
+        for (ListOrder.Row row : shown) {
             List<Component> tooltip = new ArrayList<>();
             if (row.favourite()) {
                 tooltip.add(ui(FriendsMessages.LIST_TOOLTIP_FAVOURITE));
@@ -323,29 +322,28 @@ final class FriendViews {
             if (note != null && !note.isEmpty()) {
                 tooltip.add(ui(FriendsMessages.LIST_TOOLTIP_NOTE, Arg.text("note", note)));
             }
+            tooltip.add(ui(FriendsMessages.LIST_TOOLTIP_OPEN));
             UUID friend = row.id();
-            list.add(Button.of(label, lines(tooltip), submission -> openProfile(submission.player(), friend, here, null)).width(ROW_WIDTH));
+            list.add(Button.of(rowLabel(row, now), lines(tooltip), submission -> openProfile(submission.player(), friend, nav, null)));
         }
-        list.add(Button.of(ui(FriendsMessages.LIST_ADD), submission -> openAdd(submission.player(), here, null)).width(ROW_WIDTH));
-        list.add(Button.of(ui(FriendsMessages.LIST_REQUESTS, Arg.number("count", incoming)),
-            submission -> openRequests(submission.player(), 1, here, null)).width(ROW_WIDTH));
-        list.add(Button.of(ui(FriendsMessages.LIST_SETTINGS), submission -> openSettings(submission.player(), here, true))
-            .width(ROW_WIDTH));
+        List<Component> addTooltip = new ArrayList<>();
+        addTooltip.add(ui(FriendsMessages.LIST_ADD_TOOLTIP));
+        if (all.size() >= limit && this.service.rankCanRaise(limit)) {
+            addTooltip.add(ui(FriendsMessages.LIST_ADD_FULL_TOOLTIP));
+        }
+        list.add(Button.of(ui(FriendsMessages.LIST_ADD), lines(addTooltip), submission -> openAdd(submission.player(), nav, null)));
+        list.add(this.templates.choiceButton(ui(FriendsMessages.LIST_REQUESTS), Component.text(Lang.number(incoming)),
+            ui(FriendsMessages.LIST_REQUESTS_TOOLTIP), submission -> openRequests(submission.player(), nav, null)));
+        list.add(Button.of(ui(FriendsMessages.LIST_SETTINGS), ui(FriendsMessages.LIST_SETTINGS_TOOLTIP),
+            submission -> openSettings(submission.player(), nav, true)));
         if (!nav.filter().isEmpty()) {
-            list.add(Button.of(ui(FriendsMessages.LIST_SHOW_ALL), submission -> openList(submission.player(), here.filter(""), null))
-                .width(ROW_WIDTH));
-        } else if (all.size() > s.pageSize()) {
-            list.add(Button.of(ui(FriendsMessages.LIST_FIND), submission -> openFind(submission.player(), here)).width(ROW_WIDTH));
+            list.add(Button.of(ui(FriendsMessages.LIST_SHOW_ALL), ui(FriendsMessages.LIST_SHOW_ALL_TOOLTIP),
+                submission -> openList(submission.player(), nav.filter(""), null)));
+        } else if (all.size() >= s.findFrom()) {
+            list.add(Button.of(ui(FriendsMessages.LIST_FIND), ui(FriendsMessages.LIST_FIND_TOOLTIP),
+                submission -> openFind(submission.player(), nav)));
         }
-        if (page > 1) {
-            list.add(Button.of(ui(FriendsMessages.LIST_PREVIOUS), submission -> openList(submission.player(), here.page(page - 1), null))
-                .width(ROW_WIDTH));
-        }
-        if (page < pages) {
-            list.add(Button.of(ui(FriendsMessages.LIST_NEXT), submission -> openList(submission.player(), here.page(page + 1), null))
-                .width(ROW_WIDTH));
-        }
-        return this.templates.list(ui(FriendsMessages.LIST_TITLE), body, list, 2, listBack(nav));
+        return this.templates.grid(ui(FriendsMessages.LIST_TITLE), body, list, listBack(nav));
     }
 
     /** The Find form: a name prefix that filters the list. */
@@ -359,65 +357,53 @@ final class FriendViews {
 
     // ------------------------------------------------------------------ requests
 
-    /** The requests dialog: incoming and sent, each paged. Call on the player's thread. */
-    void openRequests(Player player, int page, Nav nav, Component notice) {
+    /**
+     * The requests dialog: one status line (incoming and sent), a button per request waiting for the player (it opens
+     * the request), then one per request they sent (it asks whether to withdraw it), and Deny all from
+     * {@link #DENY_ALL_FROM} requests. Both lists are bounded by {@code requests.max-incoming} and {@code max-outgoing},
+     * so nothing is paged. Call on the player's thread.
+     */
+    void openRequests(Player player, Nav nav, Component notice) {
         if (!ready(player)) {
             return;
         }
         UUID self = player.getUniqueId();
         Map<UUID, Long> incoming = this.service.incoming(self);
         Map<UUID, Long> outgoing = this.service.outgoing(self);
-        int pages = Math.max(ListOrder.pages(incoming.size(), REQUESTS_PAGE), ListOrder.pages(outgoing.size(), REQUESTS_PAGE));
-        int current = Math.clamp(page, 1, pages);
-        List<UUID> pageIncoming = ListOrder.page(new ArrayList<>(incoming.keySet()), current, REQUESTS_PAGE);
-        List<UUID> pageOutgoing = ListOrder.page(new ArrayList<>(outgoing.keySet()), current, REQUESTS_PAGE);
+        List<UUID> senders = new ArrayList<>(incoming.keySet());
         long now = this.service.now();
-        whenRead(player, this.service.store().mutual(self, pageIncoming), mutual -> {
+        whenRead(player, this.service.store().mutual(self, senders), mutual -> {
             List<Button> list = new ArrayList<>();
-            for (UUID sender : pageIncoming) {
+            for (UUID sender : senders) {
                 String name = this.service.name(sender);
                 List<Component> tooltip = new ArrayList<>();
-                tooltip.add(ui(FriendsMessages.REQUESTS_TOOLTIP_MUTUAL, Arg.number("count", mutual.getOrDefault(sender, List.of()).size())));
+                tooltip.add(ui(FriendsMessages.REQUESTS_TOOLTIP_MUTUAL, count("count", mutual.getOrDefault(sender, List.of()).size())));
                 this.links.teams().teamName(sender).ifPresent(team ->
                     tooltip.add(ui(FriendsMessages.REQUESTS_TOOLTIP_TEAM, Arg.text("team", team))));
+                tooltip.add(ui(FriendsMessages.REQUESTS_TOOLTIP_OPEN));
                 list.add(Button.of(ui(FriendsMessages.REQUESTS_INCOMING_ROW, Arg.text("name", name),
                         Arg.text("ago", TimeText.ago(incoming.get(sender), now))), lines(tooltip),
-                    submission -> openRequest(submission.player(), sender, current, nav)).width(ROW_WIDTH));
+                    submission -> openRequest(submission.player(), sender, nav)));
             }
-            for (UUID target : pageOutgoing) {
-                String name = this.service.name(target);
-                list.add(Button.of(ui(FriendsMessages.REQUESTS_OUTGOING_ROW, Arg.text("name", name),
-                        Arg.text("ago", TimeText.ago(outgoing.get(target), now))), ui(FriendsMessages.REQUESTS_TOOLTIP_CANCEL),
-                    submission -> confirmCancel(submission.player(), target, current, nav)).width(ROW_WIDTH));
+            for (Map.Entry<UUID, Long> sent : outgoing.entrySet()) {
+                UUID target = sent.getKey();
+                list.add(Button.of(ui(FriendsMessages.REQUESTS_OUTGOING_ROW, Arg.text("name", this.service.name(target)),
+                        Arg.text("ago", TimeText.ago(sent.getValue(), now))), ui(FriendsMessages.REQUESTS_TOOLTIP_CANCEL),
+                    submission -> confirmCancel(submission.player(), target, nav)));
             }
             if (incoming.size() >= DENY_ALL_FROM) {
-                list.add(Button.of(ui(FriendsMessages.REQUESTS_DENY_ALL),
-                    submission -> confirmDenyAll(submission.player(), incoming.size(), nav)).width(ROW_WIDTH));
+                list.add(Button.of(ui(FriendsMessages.REQUESTS_DENY_ALL), ui(FriendsMessages.REQUESTS_DENY_ALL_TOOLTIP),
+                    submission -> confirmDenyAll(submission.player(), incoming.size(), nav)));
             }
-            if (current > 1) {
-                list.add(Button.of(ui(FriendsMessages.REQUESTS_PREVIOUS),
-                    submission -> openRequests(submission.player(), current - 1, nav, null)).width(ROW_WIDTH));
-            }
-            if (current < pages) {
-                list.add(Button.of(ui(FriendsMessages.REQUESTS_NEXT),
-                    submission -> openRequests(submission.player(), current + 1, nav, null)).width(ROW_WIDTH));
-            }
-            List<Component> body = new ArrayList<>();
-            body.add(ui(FriendsMessages.REQUESTS_BODY, Arg.number("incoming", incoming.size()), Arg.number("sent", outgoing.size())));
-            if (!pageOutgoing.isEmpty()) {
-                // Sent rows follow the incoming ones in the same grid: say which is which.
-                body.add(ui(FriendsMessages.REQUESTS_SENT_HINT));
-            }
-            if (pages > 1) {
-                body.add(ui(FriendsMessages.PAGE, Arg.number("page", current), Arg.number("pages", pages)));
-            }
-            show(player, this.templates.list(ui(FriendsMessages.REQUESTS_TITLE), body, list, 2,
+            List<Component> body = List.of(ui(FriendsMessages.REQUESTS_BODY, count("incoming", incoming.size()),
+                count("sent", outgoing.size())));
+            show(player, this.templates.grid(ui(FriendsMessages.REQUESTS_TITLE), body, list,
                 submission -> openList(submission.player(), nav, null)), notice);
         });
     }
 
     /** One incoming request: who, shared friends, team, and Accept / Deny / Deny and ignore. */
-    void openRequest(Player player, UUID sender, int page, Nav nav) {
+    void openRequest(Player player, UUID sender, Nav nav) {
         if (!ready(player)) {
             return;
         }
@@ -425,7 +411,7 @@ final class FriendViews {
         Long created = this.service.incoming(self).get(sender);
         String name = this.service.name(sender);
         if (created == null) {
-            openRequests(player, page, nav, ui(FriendsMessages.REQUEST_GONE, Arg.text("name", name)));
+            openRequests(player, nav, ui(FriendsMessages.REQUEST_GONE, Arg.text("name", name)));
             return;
         }
         boolean canIgnore = ProfileButtons.registered("ignore") && player.hasPermission("siftcore.command.ignore");
@@ -439,57 +425,57 @@ final class FriendViews {
             this.links.teams().teamName(sender).ifPresent(team -> body.add(ui(FriendsMessages.REQUEST_VIEW_TEAM, Arg.text("team", team))));
             body.add(ui(FriendsMessages.REQUEST_VIEW_SENT, Arg.text("ago", TimeText.ago(created, now))));
             List<Button> list = new ArrayList<>();
-            list.add(Button.of(ui(FriendsMessages.REQUEST_VIEW_ACCEPT), submission -> after(submission.player(),
-                this.service.accept(submission.player(), sender, FriendService.Via.DIALOG),
-                refused -> openRequests(submission.player(), page, nav, refused))).width(ROW_WIDTH));
-            list.add(Button.of(ui(FriendsMessages.REQUEST_VIEW_DENY), submission -> after(submission.player(),
-                this.service.deny(submission.player(), sender, FriendService.Via.DIALOG),
-                refused -> openRequests(submission.player(), page, nav, refused))).width(ROW_WIDTH));
+            list.add(button(FriendsMessages.REQUEST_VIEW_ACCEPT, FriendsMessages.REQUEST_VIEW_ACCEPT_TOOLTIP,
+                submission -> after(submission.player(), this.service.accept(submission.player(), sender, FriendService.Via.DIALOG),
+                    refused -> openRequests(submission.player(), nav, refused))));
+            list.add(button(FriendsMessages.REQUEST_VIEW_DENY, FriendsMessages.REQUEST_VIEW_DENY_TOOLTIP,
+                submission -> after(submission.player(), this.service.deny(submission.player(), sender, FriendService.Via.DIALOG),
+                    refused -> openRequests(submission.player(), nav, refused))));
             if (canIgnore) {
-                list.add(Button.of(ui(FriendsMessages.REQUEST_VIEW_DENY_IGNORE), submission -> {
+                list.add(button(FriendsMessages.REQUEST_VIEW_DENY_IGNORE, FriendsMessages.REQUEST_VIEW_DENY_IGNORE_TOOLTIP, submission -> {
                     Player clicker = submission.player();
                     after(clicker, this.service.deny(clicker, sender, FriendService.Via.DIALOG), refused -> {
                         this.buttons.perform(clicker, "ignore " + name);
-                        openRequests(clicker, page, nav, refused);
+                        openRequests(clicker, nav, refused);
                     });
-                }).width(ROW_WIDTH));
+                }));
             }
-            show(player, this.templates.listWithBody(ui(FriendsMessages.REQUEST_VIEW_TITLE), textBody(body), list, 2,
-                submission -> openRequests(submission.player(), page, nav, null)), null);
+            show(player, this.templates.listWithBody(ui(FriendsMessages.REQUEST_VIEW_TITLE), textBody(body), half(list), 2,
+                submission -> openRequests(submission.player(), nav, null)), null);
         });
     }
 
     /** "Cancel your request to Cara?": a sent row asks first, so a click meant for an incoming row costs nothing. */
-    private void confirmCancel(Player player, UUID target, int page, Nav nav) {
+    private void confirmCancel(Player player, UUID target, Nav nav) {
         String name = this.service.name(target);
         show(player, this.templates.confirm(ui(FriendsMessages.REQUESTS_CANCEL_TITLE),
             List.of(ui(FriendsMessages.REQUESTS_CANCEL_BODY, Arg.text("name", name))),
             ui(FriendsMessages.REQUESTS_CANCEL_YES), this.lang.get(CoreMessages.UI_BACK),
             submission -> after(submission.player(), this.service.cancel(submission.player(), target, FriendService.Via.DIALOG),
-                refused -> openRequests(submission.player(), page, nav, refused)),
-            submission -> openRequests(submission.player(), page, nav, null)), null);
+                refused -> openRequests(submission.player(), nav, refused)),
+            submission -> openRequests(submission.player(), nav, null)), null);
     }
 
     private void confirmDenyAll(Player player, int count, Nav nav) {
         show(player, this.templates.confirm(ui(FriendsMessages.REQUESTS_DENY_ALL_TITLE),
-            this.lang.lines(FriendsMessages.REQUESTS_DENY_ALL_BODY, Arg.number("count", count)),
+            this.lang.lines(FriendsMessages.REQUESTS_DENY_ALL_BODY, count("count", count)),
             ui(FriendsMessages.REQUESTS_DENY_ALL_YES), this.lang.get(CoreMessages.UI_CANCEL),
             submission -> after(submission.player(), this.service.denyAll(submission.player(), FriendService.Via.DIALOG),
-                refused -> openRequests(submission.player(), 1, nav, refused)),
-            submission -> openRequests(submission.player(), 1, nav, null)), null);
+                refused -> openRequests(submission.player(), nav, refused)),
+            submission -> openRequests(submission.player(), nav, null)), null);
     }
 
     /** "Mutual friends: 2 (Bob, Cara)": at most two names, then "and N more". */
     private Component mutualLine(List<UUID> mutual, MessageKey countOnly, MessageKey withNames) {
         if (mutual.isEmpty()) {
-            return ui(countOnly, Arg.number("count", 0));
+            return ui(countOnly, count("count", 0));
         }
         List<String> names = new ArrayList<>();
         for (UUID friend : mutual) {
             names.add(this.service.name(friend));
         }
         names.sort(String.CASE_INSENSITIVE_ORDER);
-        return ui(withNames, Arg.number("count", mutual.size()), Arg.text("names", this.presence.plainNames(names, MUTUAL_NAMES)));
+        return ui(withNames, count("count", mutual.size()), Arg.text("names", this.presence.plainNames(names, MUTUAL_NAMES)));
     }
 
     private static List<Body> textBody(List<Component> lines) {
@@ -553,29 +539,27 @@ final class FriendViews {
         this.services.scheduler().async(() -> ranked.complete(Suggestions.rank(self, viewerFriends, candidates, max)));
         whenRead(player, ranked, suggestions -> {
             List<Button> list = new ArrayList<>();
-            list.add(Button.of(ui(FriendsMessages.ADD_ENTER), submission -> openAddForm(submission.player(), nav, "", null))
-                .width(ROW_WIDTH));
+            list.add(button(FriendsMessages.ADD_ENTER, FriendsMessages.ADD_ENTER_TOOLTIP,
+                submission -> openAddForm(submission.player(), nav, "", null)));
             for (Suggestions.Suggestion suggestion : suggestions) {
                 Component label = suggestion.mutual() == 0
                     ? ui(FriendsMessages.ADD_SUGGESTION_TEAM, Arg.text("name", suggestion.name()))
                     : suggestion.mutual() == 1
                         ? ui(FriendsMessages.ADD_SUGGESTION_ONE, Arg.text("name", suggestion.name()))
-                        : ui(FriendsMessages.ADD_SUGGESTION, Arg.text("name", suggestion.name()), Arg.number("count", suggestion.mutual()));
+                        : ui(FriendsMessages.ADD_SUGGESTION, Arg.text("name", suggestion.name()), count("count", suggestion.mutual()));
                 UUID target = suggestion.id();
                 list.add(Button.of(label, ui(FriendsMessages.ADD_SUGGESTION_TOOLTIP, Arg.text("name", suggestion.name())),
                     submission -> smartAdd(submission.player(), target, nav, FriendService.Via.DIALOG, reply ->
-                        onThread(submission.player(), () -> openAdd(submission.player(), nav, reply.ok() ? null : reply.message()))))
-                    .width(ROW_WIDTH));
+                        onThread(submission.player(), () -> openAdd(submission.player(), nav, reply.ok() ? null : reply.message())))));
             }
-            List<Component> body = List.of(ui(suggestions.isEmpty() ? FriendsMessages.ADD_BODY_EMPTY : FriendsMessages.ADD_BODY));
-            show(player, this.templates.list(ui(FriendsMessages.ADD_TITLE), body, list, 2,
+            show(player, this.templates.grid(ui(FriendsMessages.ADD_TITLE), list,
                 submission -> openList(submission.player(), nav, null)), notice);
         });
     }
 
     /** The name form of the add dialog. */
     void openAddForm(Player player, Nav nav, String typed, Component notice) {
-        View form = this.templates.form(ui(FriendsMessages.ADD_FORM_TITLE), List.of(ui(FriendsMessages.ADD_FORM_BODY)),
+        View form = this.templates.form(ui(FriendsMessages.ADD_FORM_TITLE), List.of(),
             List.of(Templates.text("name", ui(FriendsMessages.ADD_FORM_INPUT), typed, PlayerNames.MAX_LENGTH)),
             ui(FriendsMessages.ADD_FORM_SUBMIT),
             submission -> {
@@ -599,7 +583,7 @@ final class FriendViews {
                 }));
             },
             submission -> openAdd(submission.player(), nav, null));
-        show(player, form, notice);
+        show(player, tooltips(form, ui(FriendsMessages.ADD_FORM_SUBMIT_TOOLTIP)), notice);
     }
 
     /** A typed name to a player who has joined before (exact online name first, then the directory), or null. */
@@ -669,15 +653,17 @@ final class FriendViews {
             String name = this.service.name(target);
             List<Button> list = new ArrayList<>();
             switch (card) {
-                case ADD -> list.add(button(FriendsMessages.PROFILE_ADD_FRIEND, submission -> {
+                case ADD -> list.add(button(FriendsMessages.PROFILE_ADD_FRIEND, FriendsMessages.PROFILE_ADD_FRIEND_TOOLTIP, submission -> {
                     Player clicker = submission.player();
                     smartAdd(clicker, target, nav, FriendService.Via.DIALOG,
                         reply -> onThread(clicker, () -> openProfile(clicker, target, nav, reply.ok() ? null : reply.message())));
                 }));
-                case ACCEPT -> list.add(button(FriendsMessages.PROFILE_ACCEPT_REQUEST, submission -> after(submission.player(),
+                case ACCEPT -> list.add(button(FriendsMessages.PROFILE_ACCEPT_REQUEST, FriendsMessages.PROFILE_ACCEPT_REQUEST_TOOLTIP,
+                    submission -> after(submission.player(),
                     this.service.accept(submission.player(), target, FriendService.Via.DIALOG),
                     refused -> openProfile(submission.player(), target, nav, refused))));
-                case CANCEL -> list.add(button(FriendsMessages.PROFILE_CANCEL_REQUEST, submission -> after(submission.player(),
+                case CANCEL -> list.add(button(FriendsMessages.PROFILE_CANCEL_REQUEST, FriendsMessages.PROFILE_CANCEL_REQUEST_TOOLTIP,
+                    submission -> after(submission.player(),
                     this.service.cancel(submission.player(), target, FriendService.Via.DIALOG),
                     refused -> openProfile(submission.player(), target, nav, refused))));
                 case NONE -> {
@@ -689,18 +675,19 @@ final class FriendViews {
             if (friend) {
                 if (favouritesOn) {
                     boolean favourite = edge != null && edge.favourite();
-                    list.add(button(favourite ? FriendsMessages.PROFILE_UNFAVOURITE : FriendsMessages.PROFILE_FAVOURITE,
-                        submission -> after(submission.player(),
+                    list.add(this.templates.switchButton(ui(FriendsMessages.PROFILE_FAVOURITE), favourite,
+                        ui(FriendsMessages.PROFILE_FAVOURITE_TOOLTIP), submission -> after(submission.player(),
                             this.service.favourite(submission.player(), target, !favourite, FriendService.Via.DIALOG),
                             refused -> openProfile(submission.player(), target, nav, refused))));
                 }
-                list.add(button(FriendsMessages.PROFILE_EDIT_NOTE, submission -> openNoteForm(submission.player(), target, nav,
-                    data.note() == null ? "" : data.note())));
-                list.add(button(FriendsMessages.PROFILE_REMOVE, submission -> confirmRemove(submission.player(), target, nav)));
+                list.add(button(FriendsMessages.PROFILE_EDIT_NOTE, FriendsMessages.PROFILE_EDIT_NOTE_TOOLTIP,
+                    submission -> openNoteForm(submission.player(), target, nav, data.note() == null ? "" : data.note())));
+                list.add(button(FriendsMessages.PROFILE_REMOVE, FriendsMessages.PROFILE_REMOVE_TOOLTIP,
+                    submission -> confirmRemove(submission.player(), target, nav)));
             }
             Button.Handler back = friend ? submission -> openList(submission.player(), nav, null) : null;
             show(viewer, this.templates.listWithBody(ui(FriendsMessages.PROFILE_TITLE, Arg.text("name", name)), textBody(body),
-                list, 2, back), notice);
+                half(list), 2, back), notice);
         });
     }
 
@@ -752,8 +739,28 @@ final class FriendViews {
         };
     }
 
-    private Button button(MessageKey label, Button.Handler handler) {
-        return Button.of(ui(label), handler).width(ROW_WIDTH);
+    private Button button(MessageKey label, MessageKey tooltip, Button.Handler handler) {
+        return Button.of(ui(label), ui(tooltip), handler);
+    }
+
+    /** Buttons two to a row, as a grid lays them out. */
+    private static List<Button> half(List<Button> buttons) {
+        List<Button> sized = new ArrayList<>(buttons.size());
+        for (Button button : buttons) {
+            sized.add(button.width(Templates.HALF));
+        }
+        return sized;
+    }
+
+    /** A copy of a dialog whose first buttons get these tooltips, in order (null keeps a button as it is). */
+    static View tooltips(View view, Component... tooltips) {
+        List<Button> buttons = new ArrayList<>(view.buttons());
+        for (int i = 0; i < tooltips.length && i < buttons.size(); i++) {
+            if (tooltips[i] != null) {
+                buttons.set(i, buttons.get(i).tooltip(tooltips[i]));
+            }
+        }
+        return new View(view.kind(), view.title(), view.body(), view.inputs(), buttons, view.exit(), view.columns(), view.escapable());
     }
 
     private Button actionButton(ProfileButtons.Action action, UUID target, String name, Nav nav) {
@@ -764,10 +771,17 @@ final class FriendViews {
             case PAY -> FriendsMessages.PROFILE_PAY;
             case STATS -> FriendsMessages.PROFILE_STATS;
         };
+        MessageKey tooltip = switch (action) {
+            case MESSAGE -> FriendsMessages.PROFILE_MESSAGE_TOOLTIP;
+            case TELEPORT -> FriendsMessages.PROFILE_TELEPORT_TOOLTIP;
+            case INVITE -> FriendsMessages.PROFILE_INVITE_TOOLTIP;
+            case PAY -> FriendsMessages.PROFILE_PAY_TOOLTIP;
+            case STATS -> FriendsMessages.PROFILE_STATS_TOOLTIP;
+        };
         if (action == ProfileButtons.Action.MESSAGE) {
-            return button(label, submission -> openMessageForm(submission.player(), target, name, nav));
+            return button(label, tooltip, submission -> openMessageForm(submission.player(), target, name, nav));
         }
-        Button run = button(label, submission -> this.buttons.run(submission.player(), action, target, name));
+        Button run = button(label, tooltip, submission -> this.buttons.run(submission.player(), action, target, name));
         // Teleport and Invite send a request and show nothing next, so the profile closes at once; Pay and Stats open
         // their own screens in its place.
         return action == ProfileButtons.Action.TELEPORT || action == ProfileButtons.Action.INVITE ? run.closes() : run;
@@ -798,14 +812,14 @@ final class FriendViews {
     /** The note form: private text on a friend, prefilled with the current note. */
     private void openNoteForm(Player player, UUID friend, Nav nav, String current) {
         String name = this.service.name(friend);
-        show(player, this.templates.form(ui(FriendsMessages.PROFILE_NOTE_TITLE, Arg.text("name", name)),
-            List.of(ui(FriendsMessages.PROFILE_NOTE_BODY)),
+        View form = this.templates.form(ui(FriendsMessages.PROFILE_NOTE_TITLE, Arg.text("name", name)), List.of(),
             List.of(Templates.text("note", ui(FriendsMessages.PROFILE_NOTE_INPUT), current, NoteText.MAX_LENGTH)),
             ui(FriendsMessages.PROFILE_NOTE_SUBMIT),
             submission -> after(submission.player(),
                 this.service.note(submission.player(), friend, submission.values().text("note"), FriendService.Via.DIALOG),
                 refused -> openProfile(submission.player(), friend, nav, refused)),
-            submission -> openProfile(submission.player(), friend, nav, null)), null);
+            submission -> openProfile(submission.player(), friend, nav, null));
+        show(player, tooltips(form, ui(FriendsMessages.PROFILE_NOTE_SUBMIT_TOOLTIP)), null);
     }
 
     /** The note form opened by {@code /friend note <player>}: reads the current note first. */

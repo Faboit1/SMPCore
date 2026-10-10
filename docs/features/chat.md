@@ -168,8 +168,11 @@ The console can `/msg` players (no checks apply) and players can `/r` the consol
 ## Ignore lists
 
 `/ignore <player>` ignores a player (or stops ignoring them when already ignored), `/unignore <player>` stops.
-`/ignore` and `/ignore list` open a dialog listing ignored players; picking one asks to stop ignoring them, and
-"Ignore a player" opens a form. Ignoring hides the player's public chat and private messages, and stops their
+`/ignore` and `/ignore list` open the Ignored players dialog: one status line ("Ignoring 3 of 100 players", or "You
+don't ignore anyone."), a button per ignored player (tooltip: "Stop ignoring Alex. Asks first."), all on one page (the
+list is bounded by `ignore.max`), and **Ignore a player**, a form whose Ignore button says in its tooltip what ignoring
+does. A name the form refuses (unknown, yourself, staff, list full) shows in red on the form; an ignored name shows the
+list again, without a message. Ignoring hides the player's public chat and private messages, and stops their
 teleport requests, friend requests and team invites (refused like any refusal: "You can't invite <name>."), and
 payments from them arrive without the "<name> paid you" notice (the money still arrives). Teams and economy are built
 before chat, so `FeatureCatalog` installs `IgnoreLookup` in them once chat is built (`EconomyFeature#ignores`,
@@ -266,14 +269,14 @@ default, bell, pling, chime, off) and `balance-privacy` (Privacy: who sees the b
 | `links.allowed` / `top-level-domains` | `siftvanilla.com`, `discord.gg/siftvanilla` / 42 endings | Addresses that pass; which endings count as a domain |
 | `mentions.enabled` / `plain-names` / `min-plain-length` / `cooldown` | true / true / 3 / 3s | Mentions, bare-name mentions, their minimum length, one alert per sender and player per cooldown |
 | `private-messages.reply-expiry` / `log-to-console` | 10m / true | How long `/r` remembers a conversation; console log |
-| `ignore.max` / `page-size` | 100 / 10 | Ignore list size; names per dialog page |
+| `ignore.max` | 100 | Ignore list size (the dialog shows it all; the old `ignore.page-size` is no longer read) |
 | `new-players.playtime` | 30m | Who counts as brand new for "Hide brand-new players" (`0s` removes the setting) |
 
 Every key is explained in the file. Sections: `format` (hover card, `[item]`), `anti-spam` (length, gap, rate limit,
 repeats, capitals), `filter` (words, replace or block, leetspeak, spaced letters, private messages, logging, and
 `strict-words`: the milder words of the strict filter, 23 by default), `links` (block or replace, private messages,
 allow list, top-level domains), `mentions` (on or off, bare names, minimum length, cooldown), `private-messages`
-(reply window, console log), `ignore` (limit, dialog page size) and `new-players` (`playtime`: who counts as a
+(reply window, console log), `ignore` (limit) and `new-players` (`playtime`: who counts as a
 brand-new player for "Hide brand-new players", 30m, `0s` removes the setting). `/sift reload` applies changes; nothing
 half-applies on a typo.
 

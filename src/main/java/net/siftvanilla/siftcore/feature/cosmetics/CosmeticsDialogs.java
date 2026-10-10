@@ -3,16 +3,20 @@ package net.siftvanilla.siftcore.feature.cosmetics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
+import net.siftvanilla.siftcore.core.player.Change;
+import net.siftvanilla.siftcore.core.player.SetResult;
+import net.siftvanilla.siftcore.core.player.Toggle;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
 import net.siftvanilla.siftcore.core.text.MessageKey;
 import net.siftvanilla.siftcore.ui.dialog.Body;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.FormValues;
 import net.siftvanilla.siftcore.ui.dialog.Input;
 import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
@@ -20,16 +24,15 @@ import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.entity.Player;
 
 /**
- * The cosmetics dialogs: the menu, chat colours (vanilla, ready-made and mixed), the nickname form, chat tags, join
- * and leave messages and kill effects. Colour and tag buttons show the colour or tag itself, so players see what
- * they pick. Locked perks stay visible and say which rank unlocks them. Every click goes through
- * {@link CosmeticsActions}, which checks it again; picking something finishes and closes the dialog, moving between
- * screens replaces the dialog.
+ * The cosmetics dialogs, in the dialog style: the menu (one button per perk showing what the player has now, in its own
+ * colours: "Chat colour: Gold" in gold, "Chat tag: [VIP]", then switches for other players' chat colours and kill
+ * effects), the chat colour pickers (every colour a button in its own colour), the nickname form, the tags (every tag in
+ * its own look), the join and leave messages (with the lines as everyone sees them) and the kill effects. What a button
+ * does is in its tooltip; nothing is paged (the dialogs scroll). Picking something uses it at once and shows the same
+ * dialog again with the choice marked "(now)", without a message; a refusal shows in red on it. Locked perks stay
+ * visible and say which rank unlocks them. Every click goes through {@link CosmeticsActions}, which checks it again.
  */
 final class CosmeticsDialogs {
-
-    /** Tag buttons per page. */
-    static final int TAGS_PER_PAGE = 16;
 
     private final Services services;
     private final Lang lang;
@@ -43,8 +46,8 @@ final class CosmeticsDialogs {
         this.actions = actions;
     }
 
-    private void show(Player player, View view) {
-        this.services.dialogs().show(player, view);
+    private void show(Player player, View view, Component error) {
+        this.services.dialogs().show(player, error == null ? view : view.withError(error, FormValues.EMPTY));
     }
 
     /** Opens a screen, or tells the player why not (feature off, in combat). */
@@ -57,56 +60,89 @@ final class CosmeticsDialogs {
         return true;
     }
 
-    /** Shows the outcome of a pick: success on the action bar (the dialog closes), a refusal re-opens it with the reason. */
-    private void finish(Submission submission, CosmeticsActions.Outcome outcome) {
+    /**
+     * After a pick in a dialog: the dialog shows again with the new choice (no message: the dialog shows it), or the
+     * reason in red.
+     */
+    private void picked(Submission submission, CosmeticsActions.Outcome outcome, Consumer<Player> again) {
         if (outcome.ok()) {
-            this.actions.tell(submission.player(), outcome);
-            submission.close();
+            again.accept(submission.player());
         } else {
-            submission.error(this.lang.get(outcome.key(), outcome.args()));
+            submission.error(text(outcome));
         }
     }
 
-    private static List<Body> body(List<Component> lines) {
-        return List.of(Body.text(Component.join(JoinConfiguration.newlines(), lines)));
+    private Component text(CosmeticsActions.Outcome outcome) {
+        return this.lang.get(outcome.key(), outcome.args());
     }
 
-    private Component tooltip(MessageKey key, Arg... args) {
+    private static List<Body> body(List<Component> lines) {
+        return lines.isEmpty() ? List.of() : List.of(Body.text(Templates.lines(lines)));
+    }
+
+    private Component ui(MessageKey key, Arg... args) {
         return this.lang.get(key, args);
+    }
+
+    /** "none" in the off colour, for a perk the player doesn't use. */
+    private Component none() {
+        return ui(CosmeticsMessages.NONE).color(this.lang.style().palette().off());
+    }
+
+    /** An option's label, marked when it is the one chosen now ("Gold (now)"). */
+    private Component option(Component label, boolean current) {
+        return current ? ui(CosmeticsMessages.CURRENT_OPTION, Arg.component("option", label)) : label;
+    }
+
+    /** A copy of a dialog whose first buttons get these tooltips, in order (null keeps a button as it is). */
+    private static View tooltips(View view, Component... tooltips) {
+        List<Button> buttons = new ArrayList<>(view.buttons());
+        for (int i = 0; i < tooltips.length && i < buttons.size(); i++) {
+            if (tooltips[i] != null) {
+                buttons.set(i, buttons.get(i).tooltip(tooltips[i]));
+            }
+        }
+        return new View(view.kind(), view.title(), view.body(), view.inputs(), buttons, view.exit(), view.columns(), view.escapable());
     }
 
     // ------------------------------------------------------------------ menu
 
     void menu(Player player) {
+        menu(player, null);
+    }
+
+    private void menu(Player player, Component error) {
         if (refused(player)) {
             return;
         }
-        List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.MENU_BODY));
-        lines.add(Component.empty());
-        ChatStyle chat = this.cosmetics.chatStyle(player);
-        lines.add(line(CosmeticsMessages.MENU_CHAT_COLOR, chat.none() ? this.lang.get(CosmeticsMessages.NONE) : this.cosmetics.styleName(chat)));
-        String nick = this.cosmetics.nick(player);
-        lines.add(line(CosmeticsMessages.MENU_NICK, nick == null ? this.lang.get(CosmeticsMessages.NONE) : this.cosmetics.name(player)));
-        ChatTag tag = this.cosmetics.currentTag(player);
-        lines.add(line(CosmeticsMessages.MENU_TAG, tag == null ? this.lang.get(CosmeticsMessages.NONE) : tag.display()));
-        lines.add(line(CosmeticsMessages.MENU_JOIN, this.lang.get(joinState(player))));
-        KillEffect effect = this.cosmetics.killEffect(player);
-        lines.add(line(CosmeticsMessages.MENU_KILL, this.lang.get(effect == null ? CosmeticsMessages.NONE : CosmeticsMessages.name(effect))));
-
         boolean colours = player.hasPermission(CosmeticsNodes.CHAT_COLOR) || player.hasPermission(CosmeticsNodes.CHAT_COLOR_HEX);
         boolean nicks = player.hasPermission(CosmeticsNodes.NICK);
         boolean joins = player.hasPermission(CosmeticsNodes.JOIN);
-        List<Button> buttons = List.of(
-            entry(CosmeticsMessages.MENU_CHAT_COLOR, colours, CosmeticsMessages.RANK_BARON, this::chatColor),
-            entry(CosmeticsMessages.MENU_NICK, nicks, CosmeticsMessages.RANK_BARON, this::nick),
-            entry(CosmeticsMessages.MENU_TAG, true, CosmeticsMessages.RANK_PROSPECTOR, p -> tags(p, 0)),
-            entry(CosmeticsMessages.MENU_JOIN, joins, CosmeticsMessages.RANK_BARON, this::joinMessages),
-            entry(CosmeticsMessages.MENU_KILL, true, CosmeticsMessages.RANK_TYCOON, this::killEffects));
-        show(player, this.services.templates().listWithBody(this.lang.get(CosmeticsMessages.MENU_TITLE), body(lines), buttons, 2, null));
-    }
-
-    private Component line(MessageKey label, Component value) {
-        return this.lang.get(CosmeticsMessages.MENU_LINE, Arg.component("label", this.lang.get(label)), Arg.component("value", value));
+        ChatStyle chat = this.cosmetics.chatStyle(player);
+        String nick = this.cosmetics.nick(player);
+        ChatTag tag = this.cosmetics.currentTag(player);
+        KillEffect effect = this.cosmetics.killEffect(player);
+        List<Button> buttons = new ArrayList<>();
+        buttons.add(perk(CosmeticsMessages.MENU_CHAT_COLOR, chat.none() ? none() : this.cosmetics.styleName(chat),
+            CosmeticsMessages.MENU_CHAT_COLOR_TOOLTIP, colours, CosmeticsMessages.RANK_BARON, this::chatColor));
+        buttons.add(perk(CosmeticsMessages.MENU_NICK, nick == null ? none() : this.cosmetics.name(player).hoverEvent(null),
+            CosmeticsMessages.MENU_NICK_TOOLTIP, nicks, CosmeticsMessages.RANK_BARON, this::nick));
+        buttons.add(perk(CosmeticsMessages.MENU_TAG, tag == null ? none() : tag.display(), CosmeticsMessages.MENU_TAG_TOOLTIP, true,
+            CosmeticsMessages.RANK_PROSPECTOR, this::tags));
+        buttons.add(perk(CosmeticsMessages.MENU_JOIN, ui(joinState(player)), CosmeticsMessages.MENU_JOIN_TOOLTIP, joins,
+            CosmeticsMessages.RANK_BARON, this::joinMessages));
+        buttons.add(perk(CosmeticsMessages.MENU_KILL, effect == null ? none() : ui(CosmeticsMessages.name(effect)),
+            CosmeticsMessages.MENU_KILL_TOOLTIP, true, CosmeticsMessages.RANK_TYCOON, this::killEffects));
+        CosmeticsSettings settings = this.cosmetics.settings();
+        if (settings.enabled()) {
+            viewerSwitch(buttons, player, CosmeticsFeature.CHAT_COLORS, CosmeticsMessages.MENU_SHOW_COLORS,
+                CosmeticsMessages.SETTING_CHAT_COLORS_DESCRIPTION);
+        }
+        if (CosmeticsFeature.killEffectsPlay(settings)) {
+            viewerSwitch(buttons, player, CosmeticsFeature.KILL_EFFECTS, CosmeticsMessages.MENU_SHOW_EFFECTS,
+                CosmeticsMessages.SETTING_KILL_EFFECTS_DESCRIPTION);
+        }
+        show(player, this.services.templates().column(ui(CosmeticsMessages.MENU_TITLE), buttons, null), error);
     }
 
     private MessageKey joinState(Player player) {
@@ -118,18 +154,37 @@ final class CosmeticsDialogs {
         return custom ? CosmeticsMessages.MENU_JOIN_CUSTOM : CosmeticsMessages.MENU_JOIN_RANK;
     }
 
-    /** A menu button: opens the screen, or (locked) says which rank unlocks it. */
-    private Button entry(MessageKey label, boolean unlocked, MessageKey rank, java.util.function.Consumer<Player> open) {
-        Component tooltip = unlocked ? tooltip(CosmeticsMessages.MENU_OPEN)
-            : tooltip(CosmeticsMessages.MENU_UNLOCK, Arg.component("unlock", this.lang.get(rank)));
-        return Button.of(this.lang.get(label), tooltip, submission -> {
+    /**
+     * A perk's button, "Chat colour: Gold" with the value in its own colours: opens the perk's dialog, or (locked) shows
+     * "locked" and says in red which rank unlocks it.
+     */
+    private Button perk(MessageKey label, Component value, MessageKey tooltip, boolean unlocked, MessageKey rank, Consumer<Player> open) {
+        Component tip = unlocked ? ui(tooltip)
+            : Templates.lines(List.of(ui(tooltip), ui(CosmeticsMessages.MENU_UNLOCK, Arg.component("unlock", ui(rank)))));
+        return this.services.templates().choiceButton(ui(label), unlocked ? value : ui(CosmeticsMessages.MENU_LOCKED), tip, submission -> {
             if (unlocked) {
                 open.accept(submission.player());
             } else {
-                CosmeticsActions.Outcome locked = this.actions.locked(rank);
-                submission.error(this.lang.get(locked.key(), locked.args()));
+                submission.error(text(this.actions.locked(rank)));
             }
-        }).width(150);
+        });
+    }
+
+    /**
+     * A switch for what the player sees of others (the same setting as in Settings): flips at once and shows the menu
+     * again. Left out while the server locks the setting.
+     */
+    private void viewerSwitch(List<Button> buttons, Player player, Toggle toggle, MessageKey label, MessageKey description) {
+        var settings = this.services.settings();
+        if (settings.locked(toggle)) {
+            return;
+        }
+        boolean on = Boolean.TRUE.equals(settings.get(player, toggle));
+        buttons.add(this.services.templates().switchButton(ui(label), on, ui(description), submission -> {
+            Player clicker = submission.player();
+            SetResult result = settings.set(clicker, toggle, !on, Change.dialog(clicker.getName()));
+            menu(clicker, result.succeeded() ? null : ui(CosmeticsMessages.MENU_SWITCH_REFUSED, Arg.component("label", ui(label))));
+        }));
     }
 
     // ------------------------------------------------------------------ chat colour
@@ -143,30 +198,28 @@ final class CosmeticsDialogs {
             return;
         }
         ChatStyle current = this.cosmetics.chatStyle(player);
-        List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.COLOR_BODY));
-        lines.add(this.lang.get(CosmeticsMessages.COLOR_CURRENT, Arg.component("preview", sample(current))));
+        List<Component> lines = List.of(ui(CosmeticsMessages.COLOR_CURRENT, Arg.component("preview", sample(current))));
         List<Button> buttons = new ArrayList<>();
         for (NamedTextColor color : this.cosmetics.settings().colors().basic()) {
             ChatStyle style = ChatStyle.vanilla(color);
             buttons.add(styleButton(style, this.lang.plain(CosmeticsMessages.colorName(color)), current,
-                submission -> finish(submission, this.actions.setChatStyle(submission.player(), style))));
+                submission -> picked(submission, this.actions.setChatStyle(submission.player(), style), this::chatColor)));
         }
         boolean premium = player.hasPermission(CosmeticsNodes.CHAT_COLOR_HEX);
-        buttons.add(Button.of(this.lang.get(CosmeticsMessages.COLOR_MORE),
-            premium ? tooltip(CosmeticsMessages.COLOR_MORE_TOOLTIP) : tooltip(CosmeticsMessages.MENU_UNLOCK,
-                Arg.component("unlock", this.lang.get(CosmeticsMessages.RANK_TYCOON))),
+        buttons.add(Button.of(ui(CosmeticsMessages.COLOR_MORE),
+            premium ? ui(CosmeticsMessages.COLOR_MORE_TOOLTIP) : Templates.lines(List.of(ui(CosmeticsMessages.COLOR_MORE_TOOLTIP),
+                ui(CosmeticsMessages.MENU_UNLOCK, Arg.component("unlock", ui(CosmeticsMessages.RANK_TYCOON))))),
             submission -> {
                 if (submission.player().hasPermission(CosmeticsNodes.CHAT_COLOR_HEX)) {
                     premiumColors(submission.player());
                 } else {
-                    CosmeticsActions.Outcome locked = this.actions.locked(CosmeticsMessages.RANK_TYCOON);
-                    submission.error(this.lang.get(locked.key(), locked.args()));
+                    submission.error(text(this.actions.locked(CosmeticsMessages.RANK_TYCOON)));
                 }
-            }).width(150));
-        buttons.add(Button.of(this.lang.get(CosmeticsMessages.COLOR_RESET_BUTTON),
-            submission -> finish(submission, this.actions.setChatStyle(submission.player(), ChatStyle.NONE))).width(150).closes());
-        show(player, this.services.templates().listWithBody(this.lang.get(CosmeticsMessages.COLOR_TITLE), body(lines), buttons, 2,
-            submission -> menu(submission.player())));
+            }));
+        buttons.add(Button.of(option(ui(CosmeticsMessages.COLOR_RESET_BUTTON), current.none()), ui(CosmeticsMessages.COLOR_RESET_TOOLTIP),
+            submission -> picked(submission, this.actions.setChatStyle(submission.player(), ChatStyle.NONE), this::chatColor)));
+        show(player, this.services.templates().grid(ui(CosmeticsMessages.COLOR_TITLE), lines, buttons,
+            submission -> menu(submission.player())), null);
     }
 
     /** "This is how your messages look" in a style. */
@@ -175,13 +228,23 @@ final class CosmeticsDialogs {
         return style.none() ? Component.text(text, this.lang.style().palette().primary()) : style.apply(text);
     }
 
-    /** A button labelled in its own colour; the tooltip shows a sample (or that it is the current one). */
+    /**
+     * A colour's button, labelled in its own colour ("Gold (now)" for the colour used now); the tooltip shows a sample in
+     * it, or that it is the colour now.
+     */
     private Button styleButton(ChatStyle style, String name, ChatStyle current, Button.Handler handler) {
-        Component tooltip = style.serialize().equals(current.serialize()) ? tooltip(CosmeticsMessages.COLOR_SELECTED_TOOLTIP)
-            : style instanceof ChatStyle.Gradient ? Component.join(JoinConfiguration.newlines(), sample(style),
-                tooltip(CosmeticsMessages.COLOR_GRADIENT_TOOLTIP))
-            : sample(style);
-        return Button.of(style.apply(name), tooltip, handler).width(150).closes();
+        boolean chosen = style.serialize().equals(current.serialize());
+        List<Component> tooltip = new ArrayList<>();
+        if (chosen) {
+            tooltip.add(ui(CosmeticsMessages.COLOR_SELECTED_TOOLTIP));
+        } else {
+            tooltip.add(sample(style));
+            if (style instanceof ChatStyle.Gradient) {
+                tooltip.add(ui(CosmeticsMessages.COLOR_GRADIENT_TOOLTIP));
+            }
+            tooltip.add(ui(CosmeticsMessages.COLOR_PICK_TOOLTIP));
+        }
+        return Button.of(option(style.apply(name), chosen), Templates.lines(tooltip), handler);
     }
 
     void premiumColors(Player player) {
@@ -189,8 +252,7 @@ final class CosmeticsDialogs {
             return;
         }
         ChatStyle current = this.cosmetics.chatStyle(player);
-        List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.COLOR_PREMIUM_BODY));
-        lines.add(this.lang.get(CosmeticsMessages.COLOR_CURRENT, Arg.component("preview", sample(current))));
+        List<Component> lines = List.of(ui(CosmeticsMessages.COLOR_CURRENT, Arg.component("preview", sample(current))));
         List<Button> buttons = new ArrayList<>();
         ColorRules rules = this.cosmetics.rules();
         for (CosmeticsSettings.Preset preset : this.cosmetics.settings().colors().presets()) {
@@ -198,11 +260,12 @@ final class CosmeticsDialogs {
                 continue;
             }
             buttons.add(styleButton(preset.style(), preset.name(), current,
-                submission -> finish(submission, this.actions.setChatStyle(submission.player(), preset.style()))));
+                submission -> picked(submission, this.actions.setChatStyle(submission.player(), preset.style()), this::premiumColors)));
         }
-        buttons.add(Button.of(this.lang.get(CosmeticsMessages.COLOR_CUSTOM_BUTTON), submission -> customColor(submission.player())).width(150));
-        show(player, this.services.templates().listWithBody(this.lang.get(CosmeticsMessages.COLOR_PREMIUM_TITLE), body(lines), buttons, 2,
-            submission -> chatColor(submission.player())));
+        buttons.add(Button.of(ui(CosmeticsMessages.COLOR_CUSTOM_BUTTON), ui(CosmeticsMessages.COLOR_CUSTOM_TOOLTIP),
+            submission -> customColor(submission.player())));
+        show(player, this.services.templates().grid(ui(CosmeticsMessages.COLOR_PREMIUM_TITLE), lines, buttons,
+            submission -> chatColor(submission.player())), null);
     }
 
     void customColor(Player player) {
@@ -219,20 +282,21 @@ final class CosmeticsDialogs {
             to = ChatStyle.hexText(gradient.to());
         }
         List<Input> inputs = List.of(
-            Templates.text("from", this.lang.get(CosmeticsMessages.COLOR_CUSTOM_FROM), from, 7),
-            Templates.text("to", this.lang.get(CosmeticsMessages.COLOR_CUSTOM_TO), to, 7));
-        show(player, this.services.templates().form(this.lang.get(CosmeticsMessages.COLOR_CUSTOM_TITLE),
-            this.lang.lines(CosmeticsMessages.COLOR_CUSTOM_BODY), inputs, this.lang.get(CosmeticsMessages.COLOR_CUSTOM_SUBMIT), submission -> {
+            Templates.text("from", ui(CosmeticsMessages.COLOR_CUSTOM_FROM), from, 7),
+            Templates.text("to", ui(CosmeticsMessages.COLOR_CUSTOM_TO), to, 7));
+        View form = this.services.templates().form(ui(CosmeticsMessages.COLOR_CUSTOM_TITLE), List.of(), inputs,
+            ui(CosmeticsMessages.COLOR_CUSTOM_SUBMIT), submission -> {
                 String typedFrom = submission.values().text("from");
                 String typedTo = submission.values().text("to");
                 ChatStyle style = CosmeticsActions.typed(typedFrom, typedTo);
                 if (style == null) {
                     String input = typedFrom.isBlank() ? typedTo : (ChatStyle.hex(typedFrom) == null ? typedFrom : typedTo);
-                    submission.error(this.lang.get(CosmeticsMessages.COLOR_INVALID, Arg.text("input", input.isBlank() ? "-" : input)));
+                    submission.error(ui(CosmeticsMessages.COLOR_INVALID, Arg.text("input", input.isBlank() ? "-" : input)));
                     return;
                 }
-                finish(submission, this.actions.setChatStyle(submission.player(), style));
-            }, submission -> premiumColors(submission.player())));
+                picked(submission, this.actions.setChatStyle(submission.player(), style), this::premiumColors);
+            }, submission -> premiumColors(submission.player()));
+        show(player, tooltips(form, ui(CosmeticsMessages.COLOR_CUSTOM_SUBMIT_TOOLTIP)), null);
     }
 
     // ------------------------------------------------------------------ nickname
@@ -248,14 +312,12 @@ final class CosmeticsDialogs {
         CosmeticsSettings.Nicknames rules = this.cosmetics.settings().nicknames();
         Profile profile = this.cosmetics.profiles().get(player.getUniqueId());
         boolean premium = player.hasPermission(CosmeticsNodes.NICK_GRADIENT);
-        List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.NICK_BODY, Arg.number("min", rules.minLength()),
-            Arg.number("max", rules.maxLength())));
         String shown = this.cosmetics.nick(player);
-        lines.add(shown == null ? this.lang.get(CosmeticsMessages.NICK_CURRENT_NONE)
-            : this.lang.get(CosmeticsMessages.NICK_CURRENT, Arg.component("nick", this.cosmetics.name(player))));
+        List<Component> lines = List.of(shown == null ? ui(CosmeticsMessages.NICK_CURRENT_NONE)
+            : ui(CosmeticsMessages.NICK_CURRENT, Arg.component("nick", this.cosmetics.name(player))));
 
         List<Input.Option> options = new ArrayList<>();
-        options.add(new Input.Option("default", this.lang.get(CosmeticsMessages.NICK_STYLE_DEFAULT)));
+        options.add(new Input.Option("default", ui(CosmeticsMessages.NICK_STYLE_DEFAULT)));
         for (NamedTextColor color : this.cosmetics.settings().colors().basic()) {
             options.add(new Input.Option("c:" + NamedTextColor.NAMES.key(color), ChatStyle.vanilla(color).apply(
                 this.lang.plain(CosmeticsMessages.colorName(color)))));
@@ -273,7 +335,7 @@ final class CosmeticsDialogs {
                     }
                 }
             }
-            options.add(new Input.Option("custom", this.lang.get(CosmeticsMessages.NICK_STYLE_CUSTOM)));
+            options.add(new Input.Option("custom", ui(CosmeticsMessages.NICK_STYLE_CUSTOM)));
         }
         if (stored instanceof ChatStyle.Solid solid && solid.vanilla()
             && this.cosmetics.settings().colors().basic().contains((NamedTextColor) solid.color())) {
@@ -283,20 +345,21 @@ final class CosmeticsDialogs {
             customInitial = stored.serialize().replace(":", " ");
         }
         List<Input> inputs = new ArrayList<>();
-        inputs.add(Templates.text("nick", this.lang.get(CosmeticsMessages.NICK_INPUT), profile.nick() == null ? "" : profile.nick(),
+        inputs.add(Templates.text("nick", ui(CosmeticsMessages.NICK_INPUT), profile.nick() == null ? "" : profile.nick(),
             rules.maxLength()));
-        inputs.add(Templates.choice("style", this.lang.get(CosmeticsMessages.NICK_STYLE_INPUT), options, initial));
+        inputs.add(Templates.choice("style", ui(CosmeticsMessages.NICK_STYLE_INPUT), options, initial));
         if (premium) {
-            inputs.add(Templates.text("custom", this.lang.get(CosmeticsMessages.NICK_CUSTOM_INPUT), customInitial, 15));
+            inputs.add(Templates.text("custom", ui(CosmeticsMessages.NICK_CUSTOM_INPUT), customInitial, 15));
         }
         List<Button> buttons = new ArrayList<>();
-        buttons.add(Button.of(this.lang.get(CosmeticsMessages.NICK_SAVE), submission -> saveNick(submission)).width(150).closes());
+        buttons.add(Button.of(ui(CosmeticsMessages.NICK_SAVE), ui(CosmeticsMessages.NICK_SAVE_TOOLTIP,
+            Arg.text("min", Lang.number(rules.minLength())), Arg.text("max", Lang.number(rules.maxLength()))), this::saveNick).width(150));
         if (profile.nick() != null) {
-            buttons.add(Button.of(this.lang.get(CosmeticsMessages.NICK_REMOVE),
-                submission -> finish(submission, this.actions.clearNick(submission.player()))).width(150).closes());
+            buttons.add(Button.of(ui(CosmeticsMessages.NICK_REMOVE), ui(CosmeticsMessages.NICK_REMOVE_TOOLTIP),
+                submission -> picked(submission, this.actions.clearNick(submission.player()), this::menu)).width(150));
         }
-        Button back = Button.of(this.lang.get(CoreMessages.UI_BACK), submission -> menu(submission.player())).width(Templates.WIDE);
-        show(player, new View(View.Kind.FORM, this.lang.get(CosmeticsMessages.NICK_TITLE), body(lines), inputs, buttons, back, 2, true));
+        Button back = Button.of(ui(CoreMessages.UI_BACK), submission -> menu(submission.player())).width(Templates.WIDE);
+        show(player, new View(View.Kind.FORM, ui(CosmeticsMessages.NICK_TITLE), body(lines), inputs, buttons, back, 2, true), null);
     }
 
     private void saveNick(Submission submission) {
@@ -317,16 +380,16 @@ final class CosmeticsDialogs {
             String typed = submission.values().text("custom");
             style = CosmeticsActions.typed(typed, "");
             if (style == null) {
-                submission.error(this.lang.get(CosmeticsMessages.COLOR_INVALID, Arg.text("input", typed.isBlank() ? "-" : typed)));
+                submission.error(ui(CosmeticsMessages.COLOR_INVALID, Arg.text("input", typed.isBlank() ? "-" : typed)));
                 return;
             }
         }
-        finish(submission, this.actions.setNick(player, nick, style));
+        picked(submission, this.actions.setNick(player, nick, style), this::menu);
     }
 
     // ------------------------------------------------------------------ tags
 
-    void tags(Player player, int page) {
+    void tags(Player player) {
         if (refused(player)) {
             return;
         }
@@ -342,54 +405,45 @@ final class CosmeticsDialogs {
         }
         List<ChatTag> all = new ArrayList<>(usable);
         all.addAll(locked);
-        int pages = Math.max(1, (all.size() + TAGS_PER_PAGE - 1) / TAGS_PER_PAGE);
-        int shownPage = Math.clamp(page, 0, pages - 1);
         ChatTag current = this.cosmetics.currentTag(player);
         Profile profile = this.cosmetics.profiles().get(player.getUniqueId());
 
-        List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.TAGS_BODY, Arg.number("count", usable.size()),
-            Arg.number("total", all.size())));
-        lines.add(current == null ? this.lang.get(CosmeticsMessages.TAGS_CURRENT_NONE)
-            : this.lang.get(CosmeticsMessages.TAGS_CURRENT, Arg.component("tag", current.display())));
+        List<Component> lines = new ArrayList<>();
+        lines.add(current == null ? ui(CosmeticsMessages.TAGS_CURRENT_NONE)
+            : ui(CosmeticsMessages.TAGS_CURRENT, Arg.component("tag", current.display())));
         if (all.isEmpty()) {
-            lines.add(this.lang.get(CosmeticsMessages.TAGS_EMPTY));
-        }
-        if (pages > 1) {
-            lines.add(this.lang.get(CosmeticsMessages.PAGE, Arg.number("page", shownPage + 1), Arg.number("pages", pages)));
+            lines.add(ui(CosmeticsMessages.TAGS_EMPTY));
         }
         List<Button> buttons = new ArrayList<>();
-        for (ChatTag tag : all.subList(shownPage * TAGS_PER_PAGE, Math.min(all.size(), (shownPage + 1) * TAGS_PER_PAGE))) {
+        for (ChatTag tag : all) {
             boolean open = usable.contains(tag);
+            boolean chosen = current != null && current.id().equals(tag.id());
             List<Component> tip = new ArrayList<>();
             if (!tag.description().isEmpty()) {
-                tip.add(this.lang.get(CosmeticsMessages.TAG_HOVER, Arg.text("description", tag.description())));
+                tip.add(ui(CosmeticsMessages.TAG_HOVER, Arg.text("description", tag.description())));
             }
-            if (current != null && current.id().equals(tag.id())) {
-                tip.add(this.lang.get(CosmeticsMessages.TAG_TOOLTIP_SELECTED));
+            if (chosen) {
+                tip.add(ui(CosmeticsMessages.TAG_TOOLTIP_SELECTED));
             } else if (!open) {
-                tip.add(this.lang.get(CosmeticsMessages.TAG_TOOLTIP_LOCKED, Arg.component("unlock", this.actions.unlock(tag))));
+                tip.add(ui(CosmeticsMessages.TAG_TOOLTIP_LOCKED, Arg.component("unlock", this.actions.unlock(tag))));
             }
             if (tag.claimable(month) && !profile.ownedTags().contains(tag.id())) {
-                tip.add(this.lang.get(CosmeticsMessages.TAG_TOOLTIP_MONTHLY));
+                tip.add(ui(CosmeticsMessages.TAG_TOOLTIP_MONTHLY));
             } else if (profile.ownedTags().contains(tag.id())) {
-                tip.add(this.lang.get(CosmeticsMessages.TAG_TOOLTIP_OWNED));
+                tip.add(ui(CosmeticsMessages.TAG_TOOLTIP_OWNED));
             }
-            Button button = Button.of(tag.display(), tip.isEmpty() ? null : Component.join(JoinConfiguration.newlines(), tip),
-                submission -> finish(submission, this.actions.setTag(submission.player(), tag.id()))).width(150);
-            buttons.add(open ? button.closes() : button);
+            if (open && !chosen) {
+                tip.add(ui(CosmeticsMessages.TAGS_PICK_TOOLTIP));
+            }
+            buttons.add(Button.of(option(tag.display(), chosen), Templates.lines(tip),
+                submission -> picked(submission, this.actions.setTag(submission.player(), tag.id()), this::tags)));
         }
         if (current != null) {
-            buttons.add(Button.of(this.lang.get(CosmeticsMessages.TAGS_REMOVE),
-                submission -> finish(submission, this.actions.clearTag(submission.player()))).width(150).closes());
+            buttons.add(Button.of(ui(CosmeticsMessages.TAGS_REMOVE), ui(CosmeticsMessages.TAGS_REMOVE_TOOLTIP),
+                submission -> picked(submission, this.actions.clearTag(submission.player()), this::tags)));
         }
-        if (shownPage > 0) {
-            buttons.add(Button.of(this.lang.get(CosmeticsMessages.PREVIOUS_PAGE), submission -> tags(submission.player(), shownPage - 1)).width(150));
-        }
-        if (shownPage < pages - 1) {
-            buttons.add(Button.of(this.lang.get(CosmeticsMessages.NEXT_PAGE), submission -> tags(submission.player(), shownPage + 1)).width(150));
-        }
-        show(player, this.services.templates().listWithBody(this.lang.get(CosmeticsMessages.TAGS_TITLE), body(lines), buttons, 2,
-            submission -> menu(submission.player())));
+        show(player, this.services.templates().grid(ui(CosmeticsMessages.TAGS_TITLE), lines, buttons,
+            submission -> menu(submission.player())), null);
     }
 
     // ------------------------------------------------------------------ join and leave messages
@@ -407,46 +461,46 @@ final class CosmeticsDialogs {
             return;
         }
         if (!player.hasPermission(CosmeticsNodes.JOIN_CUSTOM)) {
-            List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.JOINMSG_RANK_BODY));
-            lines.add(Component.empty());
-            lines.add(this.cosmetics.render(player, true));
-            lines.add(this.cosmetics.render(player, false));
-            show(player, this.services.templates().listWithBody(this.lang.get(CosmeticsMessages.JOINMSG_RANK_TITLE), body(lines),
-                List.of(), 1, submission -> menu(submission.player())));
+            List<Component> lines = List.of(this.cosmetics.render(player, true), this.cosmetics.render(player, false));
+            Button own = Button.of(ui(CosmeticsMessages.JOINMSG_WRITE_OWN),
+                ui(CosmeticsMessages.MENU_UNLOCK, Arg.component("unlock", ui(CosmeticsMessages.RANK_TYCOON))),
+                submission -> submission.error(text(this.actions.locked(CosmeticsMessages.RANK_TYCOON))));
+            show(player, this.services.templates().column(ui(CosmeticsMessages.JOINMSG_RANK_TITLE), lines, List.of(own),
+                submission -> menu(submission.player())), null);
             return;
         }
-        joinForm(player, null, null);
+        joinForm(player, null, null, null);
     }
 
-    /** The custom message form, with typed values (null: the stored ones). */
-    private void joinForm(Player player, String joinText, String leaveText) {
+    /** The custom message form, with typed values (null: the stored ones) and a refusal in red, or none. */
+    private void joinForm(Player player, String joinText, String leaveText, Component error) {
         Profile profile = this.cosmetics.profiles().get(player.getUniqueId());
         int max = this.cosmetics.settings().join().maxLength();
         String join = joinText != null ? joinText : profile.joinMessage() == null ? "" : profile.joinMessage();
         String leave = leaveText != null ? leaveText : profile.leaveMessage() == null ? "" : profile.leaveMessage();
-        List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.JOINMSG_BODY, Arg.number("max", max)));
-        lines.add(Component.empty());
-        lines.add(this.cosmetics.render(player, true, join.isBlank() ? null : JoinText.clean(join)));
-        lines.add(this.cosmetics.render(player, false, leave.isBlank() ? null : JoinText.clean(leave)));
+        List<Component> lines = List.of(
+            this.cosmetics.render(player, true, join.isBlank() ? null : JoinText.clean(join)),
+            this.cosmetics.render(player, false, leave.isBlank() ? null : JoinText.clean(leave)));
         List<Input> inputs = List.of(
-            Templates.text("join", this.lang.get(CosmeticsMessages.JOINMSG_JOIN_INPUT), join, max),
-            Templates.text("leave", this.lang.get(CosmeticsMessages.JOINMSG_LEAVE_INPUT), leave, max));
+            Templates.text("join", ui(CosmeticsMessages.JOINMSG_JOIN_INPUT), join, max),
+            Templates.text("leave", ui(CosmeticsMessages.JOINMSG_LEAVE_INPUT), leave, max));
         List<Button> buttons = List.of(
-            Button.of(this.lang.get(CosmeticsMessages.JOINMSG_SAVE), this::saveMessages).width(150).closes(),
-            Button.of(this.lang.get(CosmeticsMessages.JOINMSG_PREVIEW), this::previewMessages).width(150),
-            Button.of(this.lang.get(CosmeticsMessages.JOINMSG_RESET), submission -> {
+            Button.of(ui(CosmeticsMessages.JOINMSG_SAVE), ui(CosmeticsMessages.JOINMSG_SAVE_TOOLTIP, Arg.text("max", Lang.number(max))),
+                this::saveMessages).width(150),
+            Button.of(ui(CosmeticsMessages.JOINMSG_PREVIEW), ui(CosmeticsMessages.JOINMSG_PREVIEW_TOOLTIP), this::previewMessages)
+                .width(150),
+            Button.of(ui(CosmeticsMessages.JOINMSG_RESET), ui(CosmeticsMessages.JOINMSG_RESET_TOOLTIP), submission -> {
                 Player p = submission.player();
                 CosmeticsActions.Outcome first = this.actions.setMessage(p, true, null);
                 if (!first.ok()) {
-                    submission.error(this.lang.get(first.key(), first.args()));
+                    submission.error(text(first));
                     return;
                 }
                 this.actions.setMessage(p, false, null);
-                this.actions.tell(p, CosmeticsActions.Outcome.ok(CosmeticsMessages.JOINMSG_RESET_DONE));
-                submission.close();
-            }).width(150).closes());
-        Button back = Button.of(this.lang.get(CoreMessages.UI_BACK), submission -> menu(submission.player())).width(Templates.WIDE);
-        show(player, new View(View.Kind.FORM, this.lang.get(CosmeticsMessages.JOINMSG_TITLE), body(lines), inputs, buttons, back, 2, true));
+                joinForm(p, null, null, null);
+            }).width(150));
+        Button back = Button.of(ui(CoreMessages.UI_BACK), submission -> menu(submission.player())).width(Templates.WIDE);
+        show(player, new View(View.Kind.FORM, ui(CosmeticsMessages.JOINMSG_TITLE), body(lines), inputs, buttons, back, 2, true), error);
     }
 
     /** Checks typed messages (empty means "the rank line"); returns the first refusal or null. */
@@ -462,6 +516,7 @@ final class CosmeticsDialogs {
         return null;
     }
 
+    /** Saves both messages and shows the form again with them (the lines above show how everyone sees them). */
     private void saveMessages(Submission submission) {
         Player player = submission.player();
         String join = submission.values().text("join");
@@ -469,13 +524,12 @@ final class CosmeticsDialogs {
         CosmeticsActions.Outcome blocked = this.actions.customBlocked(player);
         CosmeticsActions.Outcome refused = blocked != null ? blocked : checkTyped(join, leave);
         if (refused != null) {
-            submission.error(this.lang.get(refused.key(), refused.args()));
+            submission.error(text(refused));
             return;
         }
         this.actions.setMessage(player, true, join.isBlank() ? null : join);
         this.actions.setMessage(player, false, leave.isBlank() ? null : leave);
-        this.actions.tell(player, CosmeticsActions.Outcome.ok(CosmeticsMessages.JOINMSG_SAVED));
-        submission.close();
+        joinForm(player, null, null, null);
     }
 
     private void previewMessages(Submission submission) {
@@ -484,10 +538,10 @@ final class CosmeticsDialogs {
         String leave = submission.values().text("leave");
         CosmeticsActions.Outcome refused = checkTyped(join, leave);
         if (refused != null) {
-            submission.error(this.lang.get(refused.key(), refused.args()));
+            submission.error(text(refused));
             return;
         }
-        joinForm(player, join, leave);
+        joinForm(player, join, leave, null);
     }
 
     // ------------------------------------------------------------------ kill effects
@@ -501,28 +555,28 @@ final class CosmeticsDialogs {
             return;
         }
         KillEffect current = this.cosmetics.killEffect(player);
-        List<Component> lines = new ArrayList<>(this.lang.lines(CosmeticsMessages.KILL_BODY));
-        lines.add(current == null ? this.lang.get(CosmeticsMessages.KILL_CURRENT_NONE)
-            : this.lang.get(CosmeticsMessages.KILL_CURRENT, Arg.component("effect", this.lang.get(CosmeticsMessages.name(current)))));
+        List<Component> lines = List.of(current == null ? ui(CosmeticsMessages.KILL_CURRENT_NONE)
+            : ui(CosmeticsMessages.KILL_CURRENT, Arg.component("effect", ui(CosmeticsMessages.name(current)))));
         List<Button> buttons = new ArrayList<>();
         for (KillEffect effect : this.cosmetics.settings().killEffects().effects()) {
             boolean open = this.cosmetics.usable(player, effect);
             List<Component> tip = new ArrayList<>();
-            tip.add(this.lang.get(CosmeticsMessages.description(effect)));
+            tip.add(ui(CosmeticsMessages.description(effect)));
             if (effect == current) {
-                tip.add(this.lang.get(CosmeticsMessages.COLOR_SELECTED_TOOLTIP));
+                tip.add(ui(CosmeticsMessages.COLOR_SELECTED_TOOLTIP));
             } else if (!open) {
-                tip.add(this.lang.get(CosmeticsMessages.MENU_UNLOCK, Arg.component("unlock", this.lang.get(CosmeticsMessages.RANK_TYCOON))));
+                tip.add(ui(CosmeticsMessages.MENU_UNLOCK, Arg.component("unlock", ui(CosmeticsMessages.RANK_TYCOON))));
+            } else {
+                tip.add(ui(CosmeticsMessages.KILL_PICK_TOOLTIP));
             }
-            Button button = Button.of(this.lang.get(CosmeticsMessages.name(effect)), Component.join(JoinConfiguration.newlines(), tip),
-                submission -> finish(submission, this.actions.setKillEffect(submission.player(), effect))).width(150);
-            buttons.add(open ? button.closes() : button);
+            buttons.add(Button.of(option(ui(CosmeticsMessages.name(effect)), effect == current), Templates.lines(tip),
+                submission -> picked(submission, this.actions.setKillEffect(submission.player(), effect), this::killEffects)));
         }
         if (current != null) {
-            buttons.add(Button.of(this.lang.get(CosmeticsMessages.KILL_NONE_BUTTON),
-                submission -> finish(submission, this.actions.setKillEffect(submission.player(), null))).width(150).closes());
+            buttons.add(Button.of(ui(CosmeticsMessages.KILL_NONE_BUTTON), ui(CosmeticsMessages.KILL_NONE_TOOLTIP),
+                submission -> picked(submission, this.actions.setKillEffect(submission.player(), null), this::killEffects)));
         }
-        show(player, this.services.templates().listWithBody(this.lang.get(CosmeticsMessages.KILL_TITLE), body(lines), buttons, 2,
-            submission -> menu(submission.player())));
+        show(player, this.services.templates().grid(ui(CosmeticsMessages.KILL_TITLE), lines, buttons,
+            submission -> menu(submission.player())), null);
     }
 }

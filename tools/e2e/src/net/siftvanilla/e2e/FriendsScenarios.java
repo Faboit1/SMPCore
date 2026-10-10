@@ -84,7 +84,7 @@ final class FriendsScenarios {
         list.add(of("friends-presence", FriendsScenarios::presence, Map.of("relog-grace", "5s", "join-delay", "3s")));
         list.add(of("friends-offline-accept-summary", FriendsScenarios::offlineAcceptSummary));
         list.add(of("friends-staff", FriendsScenarios::staff));
-        list.add(of("friends-menu", FriendsScenarios::menu, Map.of("page-size", "4")));
+        list.add(of("friends-menu", FriendsScenarios::menu, Map.of("find-from", "4")));
         list.add(of("friends-profile-actions", FriendsScenarios::profileActions));
         list.add(of("friends-restart", FriendsScenarios::restart));
         list.add(of("friends-request-alerts", FriendsScenarios::requestAlerts));
@@ -318,7 +318,7 @@ final class FriendsScenarios {
         e2e.step("the requests dialogs show it on both sides");
         Bot.SeenDialog sent = open(e2e, a, "friend requests", "Friend requests");
         e2e.expect(sent.bodyText().contains("Incoming: 0. Sent: 1."), "sender body: " + sent.body());
-        e2e.expect(sent.button("Cancel: " + bea) != null, "a cancel row: " + sent.buttons());
+        e2e.expect(sent.button("Sent to " + bea) != null, "a cancel row: " + sent.buttons());
         Bot.SeenDialog incoming = open(e2e, b, "friend requests", "Friend requests");
         e2e.expect(incoming.bodyText().contains("Incoming: 1. Sent: 0."), "target body: " + incoming.body());
         e2e.click(b, alex + ",");
@@ -327,6 +327,8 @@ final class FriendsScenarios {
             && one.bodyText().contains("ago"), "the request: " + one.body());
         e2e.expect(one.button("Accept") != null && one.button("Deny") != null && one.button("Back") != null, "buttons: " + one.buttons());
         e2e.expect(one.button("Deny and ignore") != null, "chat's ignore list adds Deny and ignore: " + one.buttons());
+        e2e.expect(one.button("Accept").tooltip().contains("You become friends") && one.button("Deny").tooltip().contains("They aren't told"),
+            "what each answer does is in its tooltip: " + one.button("Accept").tooltip() + " / " + one.button("Deny").tooltip());
 
         e2e.step("Accept makes them friends and tells the requester in chat");
         a.clearLogs();
@@ -464,7 +466,7 @@ final class FriendsScenarios {
         e2e.expect(!i.chatContains(hal), "the hidden request was not told: " + i.chat());
         e2e.expect("1".equals(placeholder(e2e, ivy, "friends_requests")), "only the visible one counts");
         Bot.SeenDialog sent = open(e2e, h, "friend requests", "Friend requests");
-        e2e.expect(sent.button("Cancel: " + ivy) != null, "the sender sees it waiting: " + sent.buttons());
+        e2e.expect(sent.button("Sent to " + ivy) != null, "the sender sees it waiting: " + sent.buttons());
         e2e.expect(staff(e2e, "sift friends requests " + ivy).stream().anyMatch(line -> line.contains(hal + " to " + ivy + ": shadow")),
             "stored hidden");
         e2e.log("IgnoreLookup is NONE until an ignore list exists; ignore hiding uses this same path (unit-tested)");
@@ -490,7 +492,9 @@ final class FriendsScenarios {
         k.command("friend " + jo);
         e2e.eventually(() -> k.actionBarContains(jo + "'s friend list is full."), "target full: " + k.actionBar());
         Bot.SeenDialog list = open(e2e, j, "friend", "Friends");
-        e2e.expect(list.bodyText().contains("1 of 1 friends.") && list.bodyText().contains("Ranks raise this limit."), "list: " + list.body());
+        e2e.expect(list.bodyText().contains("1 of 1 friends"), "list: " + list.body());
+        e2e.expect(list.button("Add a friend").tooltip().contains("Ranks raise the limit"), "the rank hint is on Add a friend: "
+            + list.button("Add a friend").tooltip());
 
         e2e.step("favourites are capped (1 in this test)");
         befriend(e2e, kai, lu);
@@ -955,10 +959,14 @@ final class FriendsScenarios {
         e2e.expect(menu.button("Friends") != null, "a Friends entry: " + menu.buttons());
         e2e.click(d, "Friends");
         Bot.SeenDialog list = e2e.dialog(d, "Friends");
-        e2e.expect(list.bodyText().contains("0 of 0 online, 0 of 50 friends.") && list.bodyText().contains("No friends yet."),
+        e2e.expect(list.bodyText().contains("0 online, 0 of 50 friends") && list.bodyText().contains("No friends yet."),
             "empty list: " + list.body());
-        e2e.expect(list.button("Back") != null && list.button("Add a friend") != null && list.button("Requests (0)") != null
+        e2e.expect(list.button("Back") != null && list.button("Add a friend") != null && list.button("Requests: 0") != null
             && list.button("Settings") != null, "footer: " + list.buttons());
+        for (String button : List.of("Add a friend", "Requests: 0", "Settings")) {
+            e2e.expect(list.button(button).tooltip() != null && !list.button(button).tooltip().isBlank(), button + " says what it does");
+        }
+        e2e.expect(list.bodyText().split("\n").length <= 2, "no paragraph above the buttons: " + list.body());
         e2e.click(d, "Back");
         e2e.dialog(d, "SiftVanilla");
         Bot.SeenDialog direct = open(e2e, d, "friend", "Friends");
@@ -969,8 +977,11 @@ final class FriendsScenarios {
         e2e.click(d, "Add a friend");
         Bot.SeenDialog add = e2e.dialog(d, "Add a friend");
         e2e.expect(add.button("Enter a name") != null, "enter a name: " + add.buttons());
+        e2e.expect(add.body().isEmpty(), "no intro line: " + add.body());
         e2e.click(d, "Enter a name");
-        e2e.dialog(d, "Add a friend");
+        Bot.SeenDialog form = e2e.dialog(d, "Add a friend");
+        e2e.expect(form.body().isEmpty() && form.button("Send request").tooltip().contains("accept or deny"),
+            "the form explains on its button: " + form.body() + " " + form.button("Send request").tooltip());
         e2e.click(d, "Send request", Map.of("name", "bad name!"));
         Bot.SeenDialog invalid = e2e.dialog(d, "Add a friend");
         e2e.expect(invalid.bodyText().contains("Names are 1 to 17 letters"), "invalid name: " + invalid.body());
@@ -985,14 +996,17 @@ final class FriendsScenarios {
 
         e2e.step("requests dialog: a sent row asks before it cancels");
         Bot.SeenDialog requests = open(e2e, d, "friend requests", "Friend requests");
-        e2e.expect(requests.bodyText().contains("Rows starting with Cancel are requests you sent."), "the sent hint: " + requests.body());
-        e2e.click(d, "Cancel: " + eli);
+        e2e.expect(requests.bodyText().split("\n").length == 1 && requests.bodyText().contains("Sent: 1."),
+            "one status line: " + requests.body());
+        e2e.expect(requests.button("Sent to " + eli).tooltip().contains("A request you sent"), "the sent row says so in its tooltip: "
+            + requests.button("Sent to " + eli).tooltip());
+        e2e.click(d, "Sent to " + eli);
         Bot.SeenDialog confirm = e2e.dialog(d, "Cancel request");
         e2e.expect(confirm.bodyText().contains("Cancel your request to " + eli + "?"), "the question: " + confirm.body());
         e2e.click(d, "Back");
         e2e.dialog(d, "Friend requests");
         e2e.expect("1".equals(placeholder(e2e, eli, "friends_requests")), "Back cancels nothing");
-        e2e.click(d, "Cancel: " + eli);
+        e2e.click(d, "Sent to " + eli);
         e2e.dialog(d, "Cancel request");
         e2e.click(d, "Cancel request");
         Bot.SeenDialog after = e2e.dialog(d, "Friend requests");
@@ -1032,20 +1046,28 @@ final class FriendsScenarios {
         d.command("friend settings announce");
         e2e.eventually(() -> d.chatContains("announce: off"), "announce: " + d.chat());
 
-        e2e.step("Find shows once there is more than one page (4 per page here)");
+        e2e.step("every friend shows on one list (no pages); Find comes from list.find-from (4 here)");
+        Bot.SeenDialog three = null;
         for (int i = 0; i < 5; i++) {
             String name = e2e.name("FrF" + i);
             join(e2e, name);
             befriend(e2e, dee, name);
+            if (i == 2) {
+                three = open(e2e, d, "friend", "Friends");
+            }
         }
+        e2e.expect(three.button("Find") == null, "no Find below find-from: " + three.buttons());
         Bot.SeenDialog full = open(e2e, d, "friend", "Friends");
-        e2e.expect(full.button("Find") != null && full.button("Next") != null, "find and next: " + full.buttons());
-        e2e.expect(full.bodyText().contains("Page 1 of 2."), "the page is named: " + full.body());
-        e2e.click(d, "Next");
-        Bot.SeenDialog second = e2e.dialog(d, "Friends");
-        e2e.expect(second.bodyText().contains("Page 2 of 2.") && second.button("Previous") != null, "page 2: " + second.body());
-        e2e.click(d, "Previous");
-        e2e.dialog(d, "Friends");
+        e2e.expect(full.button("Find") != null && full.button("Next") == null && full.button("Previous") == null,
+            "find, no pages: " + full.buttons());
+        e2e.expect(!full.bodyText().contains("Page"), "no page line: " + full.body());
+        for (int i = 0; i < 5; i++) {
+            String name = e2e.name("FrF" + i);
+            Bot.Button row = full.button(name + ", online");
+            e2e.expect(row != null, name + " is on the list, online: " + full.buttons());
+            e2e.expect("#55FF55".equals(row.valueColor()), "online in green: " + row.valueColor());
+            e2e.expect(row.tooltip().contains("Friends since"), "since in the tooltip: " + row.tooltip());
+        }
         e2e.click(d, "Find");
         e2e.dialog(d, "Find a friend");
         e2e.click(d, "Find", Map.of("query", "FrF3"));
@@ -1067,9 +1089,13 @@ final class FriendsScenarios {
         Bot.SeenDialog profile = open(e2e, f, "profile " + gil, gil);
         e2e.expect(profile.bodyText().contains("Online") && profile.bodyText().contains("Friends since")
             && profile.bodyText().contains("Mutual friends: 0"), "body: " + profile.body());
-        e2e.expect(profile.button("Pay") != null && profile.button("Stats") != null && profile.button("Favourite") != null
+        e2e.expect(profile.button("Pay") != null && profile.button("Stats") != null && profile.button("Favourite: OFF") != null
             && profile.button("Edit note") != null && profile.button("Remove friend") != null && profile.button("Back") != null,
             "buttons: " + profile.buttons());
+        for (Bot.Button button : profile.buttons()) {
+            e2e.expect(button.label().equals("Back") || button.tooltip() != null && !button.tooltip().isBlank(),
+                button.label() + " says what it does");
+        }
         e2e.expect(profile.button("Teleport request") != null, "a teleport request button (TPA is installed): " + profile.buttons());
 
         e2e.step("Teleport request runs /tpa <name> as the player: the friend gets the request");
@@ -1113,14 +1139,20 @@ final class FriendsScenarios {
         g.command("friend fav " + fay);
         e2e.eventually(() -> g.actionBarContains(fay + " is no longer a favourite."), "unfavourited: " + g.actionBar());
 
-        e2e.step("Favourite and the note change the profile");
-        open(e2e, f, "profile " + gil, gil);
-        e2e.click(f, "Favourite");
-        Bot.SeenDialog fav = e2e.dialog(f, gil);
-        e2e.eventually(() -> f.actionBarContains(gil + " is a favourite now."), "favourite: " + f.actionBar());
-        e2e.expect(fav.button("Unfavourite") != null, "toggled: " + fav.buttons());
+        e2e.step("Favourite is a switch: it flips at once and the profile shows it, without a message");
+        Bot.SeenDialog before = open(e2e, f, "profile " + gil, gil);
+        e2e.expect("#FF5555".equals(before.button("Favourite: OFF").valueColor()), "OFF in red: " + before.button("Favourite: OFF").valueColor());
+        f.clearMessages();
+        e2e.click(f, "Favourite: OFF");
+        e2e.eventually(() -> f.dialog() != null && f.dialog().button("Favourite: ON") != null, "flipped on the same page: "
+            + (f.dialog() == null ? "none" : f.dialog().buttons()));
+        e2e.expect("#55FF55".equals(f.dialog().button("Favourite: ON").valueColor()), "ON in green");
+        e2e.sleep(500);
+        e2e.expect(!f.anyFeedbackContains("is a favourite now"), "no message per click: " + f.actionBar() + f.chat());
         e2e.click(f, "Edit note");
-        e2e.dialog(f, "Note on " + gil);
+        Bot.SeenDialog noteForm = e2e.dialog(f, "Note on " + gil);
+        e2e.expect(noteForm.body().isEmpty() && noteForm.button("Save").tooltip().contains("Only you see this note"),
+            "the note form explains on its button: " + noteForm.body());
         e2e.click(f, "Save", Map.of("note", "  builds the farms  "));
         Bot.SeenDialog noted = e2e.dialog(f, gil);
         e2e.expect(noted.bodyText().contains("Your note: builds the farms"), "note shown: " + noted.body());
@@ -1150,12 +1182,9 @@ final class FriendsScenarios {
         e2e.console("deop " + fay);
 
         e2e.step("Invite to team runs /team invite for a friend without a team");
-        e2e.console("eco set " + fay + " 60k");
-        e2e.eventually(() -> e2e.money(fay) == 60_000, "funded");
         String team = e2e.name("FrTeam");
         f.command("team create " + team);
-        e2e.dialog(f, "Start a team");
-        e2e.click(f, "Start team");
+        e2e.dialog(f, "Team " + team);
         e2e.eventually(() -> team.equals(e2e.services().placeholders().resolve(e2e.player(fay), "team_name")), "team created");
         UUID gilId = e2e.uuid(gil);
         var closed = e2e.services().settings().setParsed(gilId, "team-invites", "nobody",
@@ -1234,7 +1263,7 @@ final class FriendsScenarios {
         Bot back = join(e2e, ike);
         e2e.eventually(() -> lookup(e2e).friendsOf(iid).contains(jid), "loaded again");
         Bot.SeenDialog profile = open(e2e, back, "profile " + jan, jan);
-        e2e.expect(profile.button("Unfavourite") != null, "the favourite survived: " + profile.buttons());
+        e2e.expect(profile.button("Favourite: ON") != null, "the favourite survived: " + profile.buttons());
         e2e.expect(profile.bodyText().contains("Your note: met at spawn"), "the note survived: " + profile.body());
     }
 
@@ -1432,15 +1461,16 @@ final class FriendsScenarios {
 
         e2e.step("the list counts them and Deny all asks first");
         Bot.SeenDialog list = open(e2e, t, "friend", "Friends");
-        e2e.expect(list.button("Requests (5)") != null, "requests button: " + list.buttons());
-        e2e.click(t, "Requests (5)");
+        e2e.expect(list.button("Requests: 5") != null, "requests button: " + list.buttons());
+        e2e.click(t, "Requests: 5");
         Bot.SeenDialog requests = e2e.dialog(t, "Friend requests");
         e2e.expect(requests.bodyText().contains("Incoming: 5. Sent: 0."), "body: " + requests.body());
         e2e.expect(requests.button("Accept all") == null, "there is no accept all");
         senders.forEach(Bot::clearLogs);
         e2e.click(t, "Deny all");
         Bot.SeenDialog confirm = e2e.dialog(t, "Deny all requests");
-        e2e.expect(confirm.bodyText().contains("Requests: 5. Nobody is told."), "confirmation: " + confirm.body());
+        e2e.expect(confirm.bodyText().contains("Deny all 5 requests?") && confirm.bodyText().contains("Nobody is told."),
+            "confirmation: " + confirm.body());
         e2e.expect("5".equals(placeholder(e2e, tom, "friends_requests")), "nothing changed before confirming");
         e2e.click(t, "Deny all");
         Bot.SeenDialog after = e2e.dialog(t, "Friend requests");
@@ -1454,7 +1484,7 @@ final class FriendsScenarios {
 
         e2e.step("the senders still see their requests waiting");
         Bot.SeenDialog mine = open(e2e, senders.get(0), "friend requests", "Friend requests");
-        e2e.expect(mine.bodyText().contains("Sent: 1.") && mine.button("Cancel: " + tom) != null, "sender's view: " + mine.body());
+        e2e.expect(mine.bodyText().contains("Sent: 1.") && mine.button("Sent to " + tom) != null, "sender's view: " + mine.body());
     }
 
     /**

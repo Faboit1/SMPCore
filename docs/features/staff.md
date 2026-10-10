@@ -291,7 +291,8 @@ always echo, and switching to staff chat mode reminds them that others' lines ar
 ## Reports
 
 Players report with `/report <player> <reason>`, `/report <player>` (form with the name filled in), `/report`
-(empty form) or the main menu entry "Report a player" (hub entry `report`, order 95, everyone). Rules, checked in
+(empty form) or the main menu entry "Report a player" (hub entry `report`, order 95, everyone). The form has no lines
+above its two inputs; **Send report** says in its tooltip what to write and that only staff see it. Rules, checked in
 this order: not yourself, reason 3 to 100 characters (`reports.reason-min-length` / `reason-max-length`), not the
 same player twice while the first report is open, at most 5 open reports per reporter, then one report per 60
 seconds (`reports.cooldown`). The form keeps what was typed and shows the problem.

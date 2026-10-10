@@ -333,7 +333,7 @@ final class CosmeticsCommands {
     private LiteralArgumentBuilder<CommandSourceStack> tagsTree(String label) {
         return Commands.literal(label)
             .requires(CommandSupport.playerPermission(CosmeticsNodes.TAGS))
-            .executes(ctx -> forPlayer(ctx, player -> this.dialogs.tags(player, 0)))
+            .executes(ctx -> forPlayer(ctx, player -> this.dialogs.tags(player)))
             .then(Commands.literal("off").executes(ctx -> forPlayer(ctx, player -> this.actions.tell(player, this.actions.clearTag(player)))))
             .then(Commands.argument("tag", StringArgumentType.word()).suggests((ctx, builder) -> {
                 String remaining = builder.getRemainingLowerCase();

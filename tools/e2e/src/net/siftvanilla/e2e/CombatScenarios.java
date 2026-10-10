@@ -55,6 +55,7 @@ import org.bukkit.plugin.Plugin;
 final class CombatScenarios {
 
     private static final String COMBAT = "features/combat.yml";
+    private static final String BOUNTIES = "features/bounties.yml";
     private static final long JOIN_PROTECTION_MILLIS = 3_500;
     private static final long BOUNTY_COOLDOWN_MILLIS = 5_200;
     /** The title of the Combat & stats settings page. */
@@ -98,6 +99,7 @@ final class CombatScenarios {
         list.add(of("combat-settings", CombatScenarios::settings));
         list.add(of("combat-death-settings", CombatScenarios::deathSettings));
         list.add(of("bounty-settings", CombatScenarios::bountySettings));
+        list.add(of("bounty-no-tax", CombatScenarios::bountyNoTax));
         return list;
     }
 
@@ -566,8 +568,8 @@ final class CombatScenarios {
             String announce = loggerName + " logged out in combat. " + hunterName + " gets the kill.";
             e2e.eventually(() -> hunter.chatContains(announce), "announced: " + hunter.chat());
             e2e.eventually(() -> kills(e2e, hunterName, loggerName).equals(List.of("counted")), "the kill counts");
-            e2e.eventually(() -> hunter.chatContains("You claimed $4,500 for killing " + loggerName + "."), "bounty claimed: " + hunter.chat());
-            e2e.eventually(() -> money(e2e, hunterName) == hunterMoney + 4_500, "paid $4,500 after tax");
+            e2e.eventually(() -> hunter.chatContains("You claimed $5,000 for killing " + loggerName + "."), "bounty claimed: " + hunter.chat());
+            e2e.eventually(() -> money(e2e, hunterName) == hunterMoney + 5_000, "paid the full $5,000 (no tax)");
             e2e.expect(escrow(e2e) == escrowBefore, "the escrow gave the bounty out");
             e2e.eventually(() -> e2e.onPlayer(hunterName, () -> {
                 Player player = e2e.player(hunterName);
@@ -688,11 +690,7 @@ final class CombatScenarios {
         String team = e2e.name("Tm");
         Bot owner = e2e.bot(ownerName);
         Bot mate = e2e.bot(mateName);
-        e2e.console("eco set " + ownerName + " 50k");
-        e2e.eventually(() -> money(e2e, ownerName) == 50_000, "the owner can pay for a team");
         owner.command("team create " + team);
-        e2e.dialog(owner, "Start a team");
-        e2e.click(owner, "Start team");
         e2e.eventually(() -> team.equals(placeholder(e2e, ownerName, "team_name")), ownerName + " owns " + team);
         List<String> added = e2e.consoleOutput("team admin add " + team + " " + mateName);
         e2e.expect(added.stream().anyMatch(line -> line.contains("Added")), "the mate was added: " + added);
@@ -1202,24 +1200,33 @@ final class CombatScenarios {
         e2e.step("the list and a target's details");
         s.command("bounties");
         Bot.SeenDialog list = e2e.dialog(s, "Bounties");
-        e2e.expect(list.bodyText().contains(targetName + " $205,000 from 1 player"), "the list: " + list.body());
+        Bot.Button row = list.button(targetName + ": $205,000");
+        e2e.expect(row != null && row.tooltip().contains("put up by 1 player"), "a button per bounty: " + list.buttons());
+        e2e.expect("#1AFF1A".equals(row.valueColor()), "the total in the money colour: " + row.valueColor());
+        e2e.expect(!list.bodyText().contains("Kill the player"), "no intro line: " + list.body());
+        e2e.expect(list.button("Place a bounty").tooltip().contains("Whoever kills them gets it"), "Place a bounty explained");
         e2e.click(s, targetName);
         Bot.SeenDialog details = e2e.dialog(s, "Bounty on " + targetName);
         e2e.expect(details.bodyText().contains("$205,000") && details.bodyText().contains("Your part $205,000")
             && details.bodyText().contains("Put up by 1 player"), "details: " + details.body());
 
+        e2e.expect(!details.bodyText().contains("tax") && !details.button("Add to this bounty").tooltip().contains("tax"),
+            "no tax named while there is none: " + details.body() + " " + details.button("Add to this bounty").tooltip());
+
         e2e.step("the form checks what was typed and keeps it");
         e2e.click(s, "Add to this bounty");
-        e2e.dialog(s, "Place a bounty");
-        e2e.click(s, "Submit", Map.of("player", targetName, "amount", "abc"));
+        Bot.SeenDialog form = e2e.dialog(s, "Place a bounty");
+        e2e.expect(form.body().isEmpty() && form.button("Place bounty").tooltip().contains("you get it back"),
+            "the form explains on its button: " + form.body() + " " + form.button("Place bounty").tooltip());
+        e2e.click(s, "Place bounty", Map.of("player", targetName, "amount", "abc"));
         e2e.eventually(() -> s.dialog() != null && s.dialog().bodyText().contains("is not an amount"), "amount error: " + s.dialog());
-        e2e.click(s, "Submit", Map.of("player", targetName, "amount", "500"));
+        e2e.click(s, "Place bounty", Map.of("player", targetName, "amount", "500"));
         e2e.eventually(() -> s.dialog() != null && s.dialog().bodyText().contains("The smallest bounty is $1,000."), "minimum: " + s.dialog());
-        e2e.click(s, "Submit", Map.of("player", e2e.name("Nobody"), "amount", "5k"));
+        e2e.click(s, "Place bounty", Map.of("player", e2e.name("Nobody"), "amount", "5k"));
         e2e.eventually(() -> s.dialog() != null && s.dialog().bodyText().contains("has played here"), "unknown player: " + s.dialog());
         e2e.sleep(BOUNTY_COOLDOWN_MILLIS);
         int cleared = s.dialogsCleared();
-        e2e.click(s, "Submit", Map.of("player", targetName, "amount", "2k"));
+        e2e.click(s, "Place bounty", Map.of("player", targetName, "amount", "2k"));
         Bot.SeenDialog after = e2e.dialog(s, "Bounty on " + targetName);
         e2e.eventually(() -> bounty(e2e, targetName) == 207_000, "added through the form");
         e2e.expect(after.bodyText().contains("$207,000"), "the details show the new total: " + after.body());
@@ -1229,7 +1236,7 @@ final class CombatScenarios {
         e2e.step("submitting again during the cooldown says so in the form and keeps what was typed");
         e2e.click(s, "Add to this bounty");
         e2e.dialog(s, "Place a bounty");
-        e2e.click(s, "Submit", Map.of("player", targetName, "amount", "3k"));
+        e2e.click(s, "Place bounty", Map.of("player", targetName, "amount", "3k"));
         e2e.eventually(() -> s.dialog() != null && s.dialog().bodyText().contains("before doing that again"), "cooldown: " + s.dialog());
         e2e.expect("3k".equals(s.dialog().initial("amount")), "the typed amount: " + s.dialog().initial());
         e2e.expect(s.dialogsCleared() == cleared, "the form stayed");
@@ -1258,8 +1265,9 @@ final class CombatScenarios {
         e2e.eventually(() -> bounty(e2e, targetName) == 30_000, "two sponsors, $30,000");
         e2e.sleep(JOIN_PROTECTION_MILLIS);
 
-        withConfig(e2e, COMBAT, Map.of("same-ip: true", "same-ip: false"), x -> {
-            e2e.step("a sponsor who kills the target claims only the others' part");
+        withConfig(e2e, COMBAT, Map.of("same-ip: true", "same-ip: false"), y -> withConfig(e2e, BOUNTIES,
+            Map.of("tax-percent: 0", "tax-percent: 10"), x -> {
+            e2e.step("a sponsor who kills the target claims only the others' part, minus the 10% tax set here");
             s.clearLogs();
             h.clearLogs();
             killWithHit(e2e, s, t);
@@ -1278,7 +1286,7 @@ final class CombatScenarios {
             e2e.expect(escrow(e2e) == escrow0, "the escrow is back where it started");
             e2e.expect(kills(e2e, sponsorName, targetName).equals(List.of("counted"))
                 && kills(e2e, hunterName, targetName).equals(List.of("counted")), "both kills counted");
-        });
+        }));
 
         e2e.step("kills that do not count claim nothing (same IP, the default)");
         String altName = e2e.name("ClAlt");
@@ -1290,6 +1298,54 @@ final class CombatScenarios {
         e2e.eventually(() -> kills(e2e, altName, targetName).equals(List.of("same_ip")), "not counted: " + kills(e2e, altName, targetName));
         e2e.expect(bounty(e2e, targetName) == 5_000, "the bounty stays");
         e2e.expect(money(e2e, altName) == 0, "the alt got nothing");
+    }
+
+    /**
+     * The shipped bounties.yml has no claim tax: the killer gets every dollar, and no dialog or message names a tax. With a
+     * tax set, the confirmation and the details' button name it.
+     */
+    static void bountyNoTax(E2E e2e) throws Exception {
+        String sponsorName = e2e.name("NtSponsor");
+        String targetName = e2e.name("NtTarget");
+        String hunterName = e2e.name("NtHunter");
+        Bot s = e2e.bot(sponsorName);
+        Bot t = e2e.bot(targetName);
+        Bot h = e2e.bot(hunterName);
+        e2e.console("eco set " + sponsorName + " 1m");
+        e2e.console("eco set " + hunterName + " 0");
+        e2e.eventually(() -> money(e2e, sponsorName) == 1_000_000 && money(e2e, hunterName) == 0, "funded");
+
+        e2e.step("the confirmation names no tax");
+        s.command("bounty " + targetName + " 150k");
+        Bot.SeenDialog confirm = e2e.dialog(s, "Confirm bounty");
+        e2e.expect(confirm.bodyText().contains("Put $150,000 on " + targetName + "?") && !confirm.bodyText().contains("tax"),
+            "no tax line: " + confirm.body());
+        e2e.expect(confirm.button("Place bounty").tooltip().contains("Whoever kills them gets the money"), "explained on the button");
+        e2e.click(s, "Place bounty");
+        e2e.eventually(() -> bounty(e2e, targetName) == 150_000, "placed");
+        e2e.sleep(JOIN_PROTECTION_MILLIS);
+
+        e2e.step("the killer is paid in full and the line names no tax");
+        withConfig(e2e, COMBAT, Map.of("same-ip: true", "same-ip: false"), x -> {
+            h.clearLogs();
+            killWithHit(e2e, h, t);
+            e2e.eventually(() -> h.chatContains("You claimed $150,000 for killing " + targetName + "."), "claim: " + h.chat());
+            e2e.expect(h.chat().stream().noneMatch(line -> line.contains("tax")), "no tax named: " + h.chat());
+            e2e.eventually(() -> money(e2e, hunterName) == 150_000, "every dollar: " + money(e2e, hunterName));
+        });
+
+        e2e.step("with a tax set, the confirmation and the details name it");
+        withConfig(e2e, BOUNTIES, Map.of("tax-percent: 0", "tax-percent: 10"), x -> {
+            e2e.sleep(BOUNTY_COOLDOWN_MILLIS);
+            s.command("bounty " + targetName + " 150k");
+            Bot.SeenDialog taxed = e2e.dialog(s, "Confirm bounty");
+            e2e.expect(taxed.bodyText().contains("The killer gets it minus 10% tax."), "the tax line: " + taxed.body());
+            e2e.click(s, "Cancel");
+            s.command("bounties " + targetName);
+            Bot.SeenDialog details = e2e.dialog(s, "Bounty on " + targetName);
+            Bot.Button place = details.button("Put a bounty on them");
+            e2e.expect(place != null && place.tooltip().contains("10% of it goes to tax"), "the tax in the tooltip: " + details.buttons());
+        });
     }
 
     static void bountyAdmin(E2E e2e) {

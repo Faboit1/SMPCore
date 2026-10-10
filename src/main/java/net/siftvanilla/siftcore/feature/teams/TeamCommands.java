@@ -201,7 +201,12 @@ final class TeamCommands {
         if (cost > 0) {
             this.menus.show(player, this.menus.confirmCreate(player, name, null));
         } else {
-            report(player, this.actions.create(player, name, cost), name);
+            // Free: no confirmation, straight to the new team's dialog (where the paid path ends too).
+            TeamService.Outcome outcome = this.actions.create(player, name, cost);
+            report(player, outcome, name);
+            if (outcome.ok()) {
+                this.menus.showMain(player, null);
+            }
         }
     }
 
@@ -335,7 +340,7 @@ final class TeamCommands {
 
     private int list(CommandSender sender, int page) {
         if (sender instanceof Player player) {
-            this.menus.show(player, this.menus.listView(player, page, null));
+            this.menus.show(player, this.menus.listView(player, null));
             return CommandSupport.OK;
         }
         int pageSize = this.settings.get().pageSize();

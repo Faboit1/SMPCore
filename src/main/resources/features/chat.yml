@@ -129,10 +129,8 @@ private-messages:
   log-to-console: true
 
 ignore:
-  # The most players one player can ignore.
+  # The most players one player can ignore. The /ignore list dialog shows them all (it scrolls).
   max: 100
-  # Names per page in the /ignore list dialog.
-  page-size: 10
 
 new-players:
   # Players can turn on "Hide brand-new players" (/settings, Chat) to stop reading public chat from players with

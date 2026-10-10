@@ -98,7 +98,7 @@ final class FriendCommands {
                 .then(player("cancel").then(nameArgument(this::sentTo).executes(playerOnly(this::cancel))))
                 .then(player("remove").then(nameArgument(this::friendNames).executes(playerOnly(this::remove))))
                 .then(player("requests").executes(playerOnly((player, ctx) ->
-                    this.views.openRequests(player, 1, FriendViews.Nav.command(), null))))
+                    this.views.openRequests(player, FriendViews.Nav.command(), null))))
                 .then(favourite("favourite"))
                 .then(favourite("fav"))
                 .then(player("note").then(nameArgument(this::friendNames)
@@ -209,7 +209,7 @@ final class FriendCommands {
             return;
         }
         if (incoming.size() > 1) {
-            this.views.openRequests(player, 1, FriendViews.Nav.command(), null);
+            this.views.openRequests(player, FriendViews.Nav.command(), null);
             return;
         }
         UUID only = incoming.keySet().iterator().next();

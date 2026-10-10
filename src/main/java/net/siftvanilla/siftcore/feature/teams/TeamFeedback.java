@@ -102,4 +102,13 @@ final class TeamFeedback {
             ? Arg.text(name, this.lang.plain(TeamsMessages.UNLIMITED))
             : Arg.number(name, limit);
     }
+
+    /**
+     * A member limit as plain text that takes the colour around it ("5", or "unlimited"), for dialog lines that colour
+     * their values themselves ({@code <accent>}).
+     */
+    Arg limitText(String name, Team team) {
+        int limit = this.service.memberLimit(team);
+        return Arg.text(name, limit == TeamRules.UNLIMITED ? this.lang.plain(TeamsMessages.UNLIMITED) : Lang.number(limit));
+    }
 }

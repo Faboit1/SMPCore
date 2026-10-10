@@ -834,7 +834,9 @@ final class StaffScenarios {
         reporter.command("menu");
         e2e.dialog(reporter, "SiftVanilla");
         e2e.click(reporter, "Report a player");
-        e2e.dialog(reporter, "Report a player");
+        Bot.SeenDialog reportForm = e2e.dialog(reporter, "Report a player");
+        e2e.expect(reportForm.body().isEmpty() && reportForm.button("Send report").tooltip().contains("Only staff see it"),
+            "no line above the inputs, the explanation on Send report: " + reportForm.body());
         e2e.click(reporter, "Send report", Map.of("player", SUSPECT, "reason", "x"));
         Bot.SeenDialog retry = e2e.dialog(reporter, "Report a player");
         e2e.expect(retry.bodyText().contains("Tell staff a bit more"), "the error in the form: " + retry.body());

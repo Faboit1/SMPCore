@@ -15,6 +15,7 @@ import net.siftvanilla.siftcore.ui.dialog.Button;
 import net.siftvanilla.siftcore.ui.dialog.Input;
 import net.siftvanilla.siftcore.ui.dialog.Submission;
 import net.siftvanilla.siftcore.ui.dialog.Templates;
+import net.siftvanilla.siftcore.ui.dialog.View;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -50,14 +51,19 @@ final class ReportDialogs {
     void openForm(Player player, String name, String reason, Button.Handler back) {
         Lang lang = this.services.lang();
         int max = this.settings.get().reports().maxLength();
-        this.services.dialogs().show(player, this.services.templates().form(
+        View form = this.services.templates().form(
             lang.get(StaffMessages.REPORT_FORM_TITLE),
-            lang.lines(StaffMessages.REPORT_FORM_BODY),
+            List.of(),
             List.of(Templates.text("player", lang.get(StaffMessages.REPORT_FORM_PLAYER), name, MAX_NAME),
                 new Input.Text("reason", lang.get(StaffMessages.REPORT_FORM_REASON), reason, max, 3, 250)),
             lang.get(StaffMessages.REPORT_FORM_SUBMIT),
             this::submitForm,
-            back));
+            back);
+        // What the form is for goes on its button (the dialog style: no lines above the inputs).
+        List<Button> buttons = new ArrayList<>(form.buttons());
+        buttons.set(0, buttons.getFirst().tooltip(lang.get(StaffMessages.REPORT_FORM_SUBMIT_TOOLTIP)));
+        this.services.dialogs().show(player, new View(form.kind(), form.title(), form.body(), form.inputs(), buttons, form.exit(),
+            form.columns(), form.escapable()));
     }
 
     private void submitForm(Submission submission) {

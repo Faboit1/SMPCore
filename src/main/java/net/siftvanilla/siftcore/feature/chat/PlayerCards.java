@@ -11,6 +11,7 @@ import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.siftvanilla.siftcore.api.economy.Currency;
+import net.siftvanilla.siftcore.core.config.Durations;
 import net.siftvanilla.siftcore.core.integration.Ranks;
 import net.siftvanilla.siftcore.core.link.Cosmetics;
 import net.siftvanilla.siftcore.core.link.StatsRecorder;
@@ -112,9 +113,10 @@ final class PlayerCards {
         if (balance) {
             lines.add(this.lang.get(ChatMessages.CARD_BALANCE, Arg.money("balance", this.ledger.balance(player, Currency.MONEY))));
         }
-        lines.add(this.lang.get(ChatMessages.CARD_KILLS, Arg.number("kills", this.stats.get(player, StatsRecorder.Stat.KILLS))));
-        lines.add(this.lang.get(ChatMessages.CARD_PLAYTIME,
-            Arg.time("playtime", Duration.ofSeconds(Math.max(0, this.stats.get(player, StatsRecorder.Stat.PLAYTIME_SECONDS))))));
+        // Values as plain text: the card's lines colour them (accent).
+        lines.add(this.lang.get(ChatMessages.CARD_KILLS, Arg.text("kills", Lang.number(this.stats.get(player, StatsRecorder.Stat.KILLS)))));
+        lines.add(this.lang.get(ChatMessages.CARD_PLAYTIME, Arg.text("playtime",
+            Durations.format(Duration.ofSeconds(Math.max(0, this.stats.get(player, StatsRecorder.Stat.PLAYTIME_SECONDS)))))));
         lines.add(this.lang.get(profile ? ChatMessages.CARD_CLICK_PROFILE : ChatMessages.CARD_CLICK, Arg.text("name", name)));
         return Component.join(JoinConfiguration.newlines(), lines);
     }

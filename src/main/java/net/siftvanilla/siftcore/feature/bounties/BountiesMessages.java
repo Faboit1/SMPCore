@@ -15,10 +15,14 @@ public final class BountiesMessages {
     public static final MessageKey PLACE_YOURSELF = MessageKey.error("bounties.place.yourself");
     public static final MessageKey PLACE_CANCELLED = MessageKey.info("bounties.place.cancelled");
     public static final MessageKey CONFIRM_TITLE = MessageKey.ui("bounties.place.confirm-title");
-    public static final MessageKey CONFIRM_BODY = MessageKey.ui("bounties.place.confirm-body", "amount", "name", "tax", "time");
+    public static final MessageKey CONFIRM_BODY = MessageKey.ui("bounties.place.confirm-body", "amount", "name", "time");
+    /** The claim tax line of the confirmation, only while {@code claim.tax-percent} is above 0. */
+    public static final MessageKey CONFIRM_TAX = MessageKey.ui("bounties.place.confirm-tax", "tax");
     public static final MessageKey CONFIRM_BUTTON = MessageKey.ui("bounties.place.confirm-button");
+    public static final MessageKey CONFIRM_TOOLTIP = MessageKey.ui("bounties.place.confirm-tooltip");
     public static final MessageKey FORM_TITLE = MessageKey.ui("bounties.place.form-title");
-    public static final MessageKey FORM_BODY = MessageKey.ui("bounties.place.form-body", "time");
+    public static final MessageKey FORM_SUBMIT = MessageKey.ui("bounties.place.form-submit");
+    public static final MessageKey FORM_SUBMIT_TOOLTIP = MessageKey.ui("bounties.place.form-submit-tooltip", "time");
     public static final MessageKey FORM_PLAYER = MessageKey.ui("bounties.place.form-player");
     public static final MessageKey FORM_AMOUNT = MessageKey.ui("bounties.place.form-amount", "minimum");
 
@@ -33,20 +37,24 @@ public final class BountiesMessages {
     public static final MessageKey REFUND_REMOVED = MessageKey.chat("bounties.refund.removed", "amount", "name");
 
     public static final MessageKey LIST_TITLE = MessageKey.ui("bounties.list.title");
-    public static final MessageKey LIST_INTRO = MessageKey.ui("bounties.list.intro");
+    /** The one line above a list that shows only the biggest bounties ({@code list-size}). */
+    public static final MessageKey LIST_CAPPED = MessageKey.ui("bounties.list.capped", "count");
+    public static final MessageKey LIST_TOOLTIP = MessageKey.ui("bounties.list.tooltip", "rank", "sponsors");
     public static final MessageKey LIST_LINE = MessageKey.chat("bounties.list.line", "rank", "name", "total", "sponsors");
     public static final MessageKey LIST_EMPTY = MessageKey.chat("bounties.list.empty");
     public static final MessageKey LIST_YOURS = MessageKey.ui("bounties.list.yours", "total");
     public static final MessageKey LIST_HEADER = MessageKey.chat("bounties.list.header");
     public static final MessageKey LIST_PLACE = MessageKey.ui("bounties.list.place");
+    public static final MessageKey LIST_PLACE_TOOLTIP = MessageKey.ui("bounties.list.place-tooltip");
 
     public static final MessageKey DETAILS_TITLE = MessageKey.ui("bounties.details.title", "name");
     public static final MessageKey DETAILS_TOTAL = MessageKey.ui("bounties.details.total", "total");
     public static final MessageKey DETAILS_SPONSORS = MessageKey.ui("bounties.details.sponsors", "sponsors");
     public static final MessageKey DETAILS_YOURS = MessageKey.ui("bounties.details.yours", "amount");
     public static final MessageKey DETAILS_EXPIRY = MessageKey.ui("bounties.details.expiry", "time");
-    public static final MessageKey DETAILS_HINT = MessageKey.ui("bounties.details.hint", "name", "tax");
-    public static final MessageKey DETAILS_HINT_SELF = MessageKey.ui("bounties.details.hint-self");
+    public static final MessageKey DETAILS_CLAIM_TOOLTIP = MessageKey.ui("bounties.details.claim-tooltip", "name");
+    /** The claim tax in the tooltip, only while {@code claim.tax-percent} is above 0. */
+    public static final MessageKey DETAILS_TAX_TOOLTIP = MessageKey.ui("bounties.details.tax-tooltip", "tax");
     public static final MessageKey DETAILS_NONE = MessageKey.chat("bounties.details.none", "name");
     public static final MessageKey DETAILS_ADD = MessageKey.ui("bounties.details.add");
     public static final MessageKey DETAILS_PLACE = MessageKey.ui("bounties.details.place");

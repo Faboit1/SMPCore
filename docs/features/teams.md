@@ -25,7 +25,7 @@ members, friendly fire, same-team checks; thread-safe, lock-free). It consumes t
 | Command | Who | What it does |
 |---|---|---|
 | `/team` | everyone | The team dialog (see below). From the console: the help |
-| `/team create [name]` | `siftcore.teams.create` | Starts a team. Without a name: the name form. Asks to confirm the cost |
+| `/team create [name]` | `siftcore.teams.create` | Starts a team. Without a name: the name form. Free by default (the team dialog opens at once); while `create.cost` is above 0 it asks to confirm the cost first |
 | `/team invite [player]` | owner, admins | Invites an online player. Without a name: the invite form |
 | `/team join <team>` / `/team decline <team>` | invited players | Answers an invite (the chat message's dialog does the same) |
 | `/team leave` | members, admins | Leaves the team (the owner must hand it over or disband first) |
@@ -38,7 +38,7 @@ members, friendly fire, same-team checks; thread-safe, lock-free). It consumes t
 | `/team friendlyfire [on\|off]` | owner, admins | Toggles (or sets) friendly fire |
 | `/team chat` | members | Turns team chat mode on or off |
 | `/team info [team]` | everyone, console | Owner, members, online count, kills, deaths, total money, age, leaderboard places, friendly fire; the home only for members and staff |
-| `/team list [page]` | everyone, console | Every team by size |
+| `/team list [page]` | everyone, console | Every team by size: the All teams dialog for players (the biggest `list-size`, no pages), pages of `page-size` in the console |
 | `/team top [kills\|money]` | everyone, console | The team leaderboards |
 | `/team spy` | `siftcore.teams.spy` | Turns seeing every team's chat on or off (the `team-spy` setting, also in `/settings` under Staff; refused with the reason while the server locks or hides it) |
 | `/team admin ...` | `siftcore.admin.teams`, console | Staff tools, see below |
@@ -83,26 +83,39 @@ second click or a racing command can never bypass it.
 
 ## The team dialog
 
-`/team`, the main menu's **Team** entry (hub id `teams`, order 50) and the `teams` pause-menu entry open it.
+`/team`, the main menu's **Team** entry (hub id `teams`, order 50) and the `teams` pause-menu entry open it. Like every
+dialog (the dialog style, `docs/development.md`) it shows buttons, not paragraphs: what a button does is in its tooltip,
+the body holds at most a short status, nothing is paged (the dialogs scroll), values are coloured.
 
-- **Without a team:** what starting one costs, a **Start a team** button (name form, then a confirmation with the
-  cost), every open invite with an **Invite from X** button, and the team list and leaderboards.
-- **In a team:** the owner, members of the limit and how many are online, the home, friendly fire and team chat
-  state, then every member with role and online status ("seen 2h ago" when offline, or just "offline" for a member
-  whose last-seen time is kept from the viewer, see below). Buttons depend on the role:
-  team home, team chat, invite (form), remove a member, make an admin, remove an admin (each a member picker), set
-  home, friendly fire, hand over (picker, then confirmation), disband or leave (confirmation), team stats, top teams,
-  all teams.
+- **Without a team:** one line ("You're not in a team."), then **Start a team** (the name form; its Continue tooltip
+  gives the name rules, and while starting a team costs money, the cost; then a confirmation with the cost), an
+  **Invite from X** button per open invite (tooltip: who invited and how long is left), **All teams** and **Top teams**.
+- **In a team:** two status lines (the owner; members of the limit and how many are online), then a grid of buttons:
+  **Team home** (tooltip: where it is and the warmup), the switches **Team chat: ON/OFF** and **Friendly fire: ON/OFF**
+  (ON green, OFF red; a click flips it and the dialog shows again, without a message for the one who clicked: the team
+  is still told of friendly fire; members see Friendly fire greyed and get the refusal in red), **Members: 3/5**, for
+  the owner and admins **Invite a player** (form) and **Set home here**, **Team stats**, **Top teams**, **All teams**,
+  **Settings** (the Friends & teams settings, Back returns here) and **Leave the team** or, for the owner, **Disband the
+  team** (both ask first).
+- **Members:** one button per member, owner first: "Alex: owner, online" (online green), "Bob: member, seen 2h ago",
+  or "Bob: member, offline" for a member whose last-seen time is kept from the viewer (see below). Clicking a member
+  opens their dialog: role, online or last seen, how long in the team, and what the viewer's role allows: **Make
+  admin**, **Make member**, **Remove from the team** (asks first) and **Hand over the team** (asks first). These
+  replace the member pickers of earlier versions; the commands stay.
+- **Team stats** (also `/team info <team>`): the stats lines and a **Members: N** button to that team's members.
+- **All teams:** a button per team, biggest first ("Alpha: 4 members", tooltip: online now), the biggest `list-size`
+  (100) with one line naming the cap when there are more. **Top teams:** the board, and a **Ranked by: Kills** choice
+  that moves to Money and back.
 
-After an action the dialog is shown again with fresh state; a refused action shows the reason inside it.
+After an action the dialog it came from is shown again with fresh state; a refused action shows the reason in red.
 
 ### Last seen in member lists
 
-The member lists of `/team` and `/team info <team>` (also opened from **All teams** and **Team stats**) follow each
+The members dialogs (from `/team` and from `/team info <team>`, also opened from **All teams** and **Team stats**) follow each
 member's shared **Who sees when I was last online** setting (`seen-privacy`: everyone, friends, nobody), the same rule
 as the friends list and `/seen`: being in the same team does not count, staff with `siftcore.staff.whois` and the
-member themselves always see it. A member whose time is kept from the viewer reads "Alex member, offline"
-(`teams.menu.member-offline-hidden`). Online members are answered from memory; the offline members' rows are read in
+member themselves always see it. A member whose time is kept from the viewer reads "Alex: member, offline"
+(`teams.members.offline-hidden`). Online members are answered from memory; the offline members' rows are read in
 one query (in the database writer's order) before the dialog is built, so the dialog that was clicked stays on screen
 for that moment (`TeamSeen`).
 
@@ -112,7 +125,8 @@ An invite lasts 2 minutes (configurable). The invitee gets a chat message; click
 and **Decline**. That dialog is bound to the invitee (another player can't use its buttons), works once, and checks
 the invite again when clicked (expired, team gone, team full, already in a team). One open invite per team and
 player, at most 10 open invites per team, and a 3 second cooldown between invites. Pending invites also show in the
-team dialog, and `/team join <team>` works too. Invites are kept in memory only.
+team dialog, and `/team join <team>` works too. Invites are kept in memory only. The invite dialog's Join and Decline
+say in their tooltips what they do.
 
 Who may invite a player is their **Team invites from** setting (everyone, friends, nobody). A refused invite reads
 "Cara isn't taking team invites from you." on the inviter's action bar (inside the dialog for the invite form), and
@@ -211,7 +225,7 @@ The creation is also a ledger transaction of kind `team_create`, so `EconomyTran
 
 | Key | Default | Meaning |
 |---|---|---|
-| `create.cost` | `50k` | What starting a team costs (0 = free). Never refunded |
+| `create.cost` | `0` | What starting a team costs. 0 (the shipped value: the owner removed every fee) is free, and then no cost is named anywhere (the Start a team and Continue tooltips, the disband question); above 0 the creation asks to confirm it. Never refunded |
 | `names.min-length` / `names.max-length` | `3` / `16` | Name length (16 is the column size) |
 | `names.blocked-words` | `[]` | Words a name may not contain, ignoring case, separators, digits used as letters and stretched letters |
 | `members.default-limit` | `5` | Members per team, owner included, when the owner's rank grants no more |
@@ -229,7 +243,8 @@ The creation is also a ledger transaction of kind `team_create`, so `EconomyTran
 | `member-alerts.startup-quiet` | `60s` | No login alerts this long after the server starts (0-10m) |
 | `leaderboard.refresh` | `60s` | Leaderboard rebuild period (10s-1h) |
 | `leaderboard.size` | `10` | Teams shown on `/team top` |
-| `page-size` | `10` | Teams per `/team list` page |
+| `list-size` | `100` | Teams the All teams dialog shows, biggest first (10-1000); the dialog scrolls, no pages |
+| `page-size` | `10` | Teams per `/team list` page in the console |
 
 Everything applies with `/sift reload` (the leaderboard timer is rescheduled).
 
@@ -278,7 +293,8 @@ timer; nothing scans the world.
 
 ## Testing
 
-Unit tests (`src/test/java/.../feature/teams`): the role permission matrix, name validation and the block list,
+Unit tests (`src/test/java/.../feature/teams`): the role permission matrix and what a member's dialog offers each role
+(`TeamsSettingsTest`, with the free shipped cost and a cost still settable), name validation and the block list,
 member limits, invite expiry and single use (including 64 concurrent accepts), snapshot invariants and ownership
 transfer, the loader's repairs, leaderboards, and the service against a real ledger and SQLite database: creation as
 one transaction (one ledger row, ledger invariants hold, refused creations and a changed cost charge nothing), 16 concurrent
@@ -293,14 +309,20 @@ session, never back after a session with it off (the setting turned on later), n
 a removal while offline. `TeamSeenTest`: the last-seen rule, how a stored row resolves, the members a viewer may see
 (loaded and offline in one query, friends, nobody, staff) and the server's lock, hidden list and default.
 
-End-to-end scenarios (`tools/e2e`, `TeamsScenarios`): `teams-create`, `teams-cost-change` (a reload changes the
-cost under an open confirmation: nothing is charged, the new cost is shown), `teams-invite`, `teams-roles`,
+End-to-end scenarios (`tools/e2e`, `TeamsScenarios`): `teams-create` (with `create.cost` set to 50k: the cost in the
+Start a team tooltip, the confirmation, one charge), `teams-cost-change` (a reload changes the
+cost under an open confirmation: nothing is charged, the new cost is shown), `teams-free` (the shipped config: no
+confirmation, nothing charged, no cost or refund named), `teams-dialogs` (status lines, a tooltip on every button, the
+Team chat and Friendly fire switches flipping in place without a message, greyed and refused for a member, the members
+dialog, All teams without pages, team stats), `teams-invite`, `teams-roles` (promote and remove from the member's
+dialog, the remove asks first, nothing offered to members or to oneself),
 `teams-ownership`, `teams-chat`, `teams-home`, `teams-friendly-fire`, `teams-staff`, `teams-menu`,
 `teams-ignored-invite`, `teams-settings` (team invites picked in the settings dialog, friends only, team news above
 the hotbar typed as `/settings team-notices actionbar` and off, the actor's own change confirmed with news off, a new owner always told, disbanding still in chat,
 the team chat sound, `/team spy` locked), `teams-login-alerts` (logins, logouts, off, friends not told twice, team chat
-mode kept across a relog, and not brought back from a session where it was off) and `teams-seen-privacy` (a stranger's
-`/team info` and a teammate's `/team` without the time of a member who keeps it to nobody, friends only, staff).
+mode kept across a relog, and not brought back from a session where it was off) and `teams-seen-privacy` (the members
+dialog from a stranger's `/team info` and a teammate's `/team` without the time of a member who keeps it to nobody,
+friends only, staff).
 
 ## Known limitations
 

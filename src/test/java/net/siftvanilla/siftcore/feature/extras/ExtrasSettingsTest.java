@@ -138,6 +138,15 @@ class ExtrasSettingsTest {
         assertEquals(List.of(), problems);
         assertEquals("Alex keeps their last online time private.", lang.plain(ExtrasMessages.SEEN_HIDDEN,
             net.siftvanilla.siftcore.core.text.Arg.text("name", "Alex")));
+        // /help is buttons: every place it offers says in its tooltip what it is, and nothing names the plugin.
+        for (Map.Entry<String, net.siftvanilla.siftcore.core.text.MessageKey> place : ExtrasFeature.HELP) {
+            String tooltip = lang.plain(place.getValue());
+            assertFalse(tooltip.isBlank(), place.getKey());
+            assertFalse(tooltip.toLowerCase(java.util.Locale.ROOT).contains("siftcore"), tooltip);
+        }
+        assertEquals(List.of("rtp", "sell", "shop", "auction", "homes", "teams", "friends", "spawn", "rules"),
+            ExtrasFeature.HELP.stream().map(Map.Entry::getKey).toList(), "the main menu's ids, in the order a new player needs them");
+        assertTrue(text.getStringList("extras.help.body").isEmpty(), "no paragraph above the buttons any more");
         assertEquals("New players only", lang.plain(ExtrasMessages.JOIN_LINES_FIRST));
         ConfigReader reader = new ConfigReader("features/extras.yml", yaml("features/extras.yml"));
         ExtrasSettings parsed = ExtrasSettings.parse(reader);

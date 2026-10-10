@@ -44,7 +44,10 @@ final class FriendService {
     enum Via {
         /** A command: every message is sent. */
         COMMAND,
-        /** A dialog button: refusals are returned for the dialog to show; successes are sent. */
+        /**
+         * A dialog button: refusals are returned for the dialog to show; successes are sent, except those the dialog
+         * shown again tells by itself (a favourite, a note).
+         */
         DIALOG
     }
 
@@ -430,7 +433,7 @@ final class FriendService {
         }
         return unit(player, friend, via, "changing a favourite", this.store.favourite(self, friend, desired, cap),
             result -> switch (result.outcome()) {
-                case DONE -> succeed(player, desired ? FriendsMessages.PROFILE_FAVOURITED : FriendsMessages.PROFILE_UNFAVOURITED,
+                case DONE -> succeed(player, via, desired ? FriendsMessages.PROFILE_FAVOURITED : FriendsMessages.PROFILE_UNFAVOURITED,
                     Arg.text("name", name));
                 case FAVOURITES_FULL -> refuseNow(player, via, FriendsMessages.PROFILE_FAVOURITES_FULL, Arg.number("count", cap));
                 default -> refuseNow(player, via, FriendsMessages.NOT_FRIENDS, Arg.text("name", name));
@@ -453,7 +456,7 @@ final class FriendService {
         String note = NoteText.clean(text);
         return unit(player, friend, via, "saving a note", this.store.note(self, friend, note.isEmpty() ? null : note),
             result -> result.outcome() == Outcome.DONE
-                ? succeed(player, note.isEmpty() ? FriendsMessages.PROFILE_NOTE_CLEARED : FriendsMessages.PROFILE_NOTE_SAVED,
+                ? succeed(player, via, note.isEmpty() ? FriendsMessages.PROFILE_NOTE_CLEARED : FriendsMessages.PROFILE_NOTE_SAVED,
                     Arg.text("name", name))
                 : refuseNow(player, via, FriendsMessages.NOT_FRIENDS, Arg.text("name", name)));
     }
@@ -657,6 +660,18 @@ final class FriendService {
 
     private Reply succeed(Player player, MessageKey key, Arg... args) {
         this.messenger.send(player, key, args);
+        return new Reply(true, this.lang.get(key, args));
+    }
+
+    /**
+     * A success the dialog shows by itself (the favourite switch, a saved note on the profile shown again): from a
+     * dialog only its sound plays, from a command the message is sent.
+     */
+    private Reply succeed(Player player, Via via, MessageKey key, Arg... args) {
+        if (via == Via.COMMAND) {
+            return succeed(player, key, args);
+        }
+        this.messenger.feedback(player, key.feedback());
         return new Reply(true, this.lang.get(key, args));
     }
 

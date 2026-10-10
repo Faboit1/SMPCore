@@ -18,43 +18,49 @@ public final class CosmeticsMessages {
     public static final MessageKey RANK_TYCOON = MessageKey.ui("cosmetics.ranks.tycoon");
     public static final MessageKey HIGHER_RANK = MessageKey.ui("cosmetics.ranks.higher");
     public static final MessageKey NAME_HOVER = MessageKey.ui("cosmetics.name-hover", "name");
-    public static final MessageKey NEXT_PAGE = MessageKey.ui("cosmetics.next-page");
-    public static final MessageKey PREVIOUS_PAGE = MessageKey.ui("cosmetics.previous-page");
-    public static final MessageKey PAGE = MessageKey.ui("cosmetics.page", "page", "pages");
+    /** A picker's option that is chosen now ("Gold (now)"). */
+    public static final MessageKey CURRENT_OPTION = MessageKey.ui("cosmetics.current-option", "option");
 
     // ------------------------------------------------------------------ menu
     public static final MessageKey HUB_LABEL = MessageKey.ui("cosmetics.menu.label");
     public static final MessageKey HUB_DESCRIPTION = MessageKey.ui("cosmetics.menu.description");
     public static final MessageKey MENU_TITLE = MessageKey.ui("cosmetics.menu.title");
-    public static final MessageKey MENU_BODY = MessageKey.ui("cosmetics.menu.body");
-    public static final MessageKey MENU_LINE = MessageKey.ui("cosmetics.menu.line", "label", "value");
     public static final MessageKey MENU_CHAT_COLOR = MessageKey.ui("cosmetics.menu.chat-color");
+    public static final MessageKey MENU_CHAT_COLOR_TOOLTIP = MessageKey.ui("cosmetics.menu.chat-color-tooltip");
     public static final MessageKey MENU_NICK = MessageKey.ui("cosmetics.menu.nick");
+    public static final MessageKey MENU_NICK_TOOLTIP = MessageKey.ui("cosmetics.menu.nick-tooltip");
     public static final MessageKey MENU_TAG = MessageKey.ui("cosmetics.menu.tag");
+    public static final MessageKey MENU_TAG_TOOLTIP = MessageKey.ui("cosmetics.menu.tag-tooltip");
     public static final MessageKey MENU_JOIN = MessageKey.ui("cosmetics.menu.join");
+    public static final MessageKey MENU_JOIN_TOOLTIP = MessageKey.ui("cosmetics.menu.join-tooltip");
     public static final MessageKey MENU_KILL = MessageKey.ui("cosmetics.menu.kill");
-    public static final MessageKey MENU_OPEN = MessageKey.ui("cosmetics.menu.open");
+    public static final MessageKey MENU_KILL_TOOLTIP = MessageKey.ui("cosmetics.menu.kill-tooltip");
+    public static final MessageKey MENU_LOCKED = MessageKey.ui("cosmetics.menu.locked");
     public static final MessageKey MENU_UNLOCK = MessageKey.ui("cosmetics.menu.unlock", "unlock");
+    public static final MessageKey MENU_SHOW_COLORS = MessageKey.ui("cosmetics.menu.show-colors");
+    public static final MessageKey MENU_SHOW_EFFECTS = MessageKey.ui("cosmetics.menu.show-effects");
+    public static final MessageKey MENU_SWITCH_REFUSED = MessageKey.ui("cosmetics.menu.switch-refused", "label");
     public static final MessageKey MENU_JOIN_DEFAULT = MessageKey.ui("cosmetics.menu.join-default");
     public static final MessageKey MENU_JOIN_RANK = MessageKey.ui("cosmetics.menu.join-rank");
     public static final MessageKey MENU_JOIN_CUSTOM = MessageKey.ui("cosmetics.menu.join-custom");
 
     // ------------------------------------------------------------------ chat colour
     public static final MessageKey COLOR_TITLE = MessageKey.ui("cosmetics.color.title");
-    public static final MessageKey COLOR_BODY = MessageKey.ui("cosmetics.color.body");
     public static final MessageKey COLOR_CURRENT = MessageKey.ui("cosmetics.color.current", "preview");
     public static final MessageKey COLOR_SAMPLE = MessageKey.ui("cosmetics.color.sample");
+    public static final MessageKey COLOR_PICK_TOOLTIP = MessageKey.ui("cosmetics.color.pick-tooltip");
     public static final MessageKey COLOR_MORE = MessageKey.ui("cosmetics.color.more");
     public static final MessageKey COLOR_MORE_TOOLTIP = MessageKey.ui("cosmetics.color.more-tooltip");
     public static final MessageKey COLOR_RESET_BUTTON = MessageKey.ui("cosmetics.color.reset");
+    public static final MessageKey COLOR_RESET_TOOLTIP = MessageKey.ui("cosmetics.color.reset-tooltip");
     public static final MessageKey COLOR_CUSTOM_BUTTON = MessageKey.ui("cosmetics.color.custom");
+    public static final MessageKey COLOR_CUSTOM_TOOLTIP = MessageKey.ui("cosmetics.color.custom-tooltip");
     public static final MessageKey COLOR_PREMIUM_TITLE = MessageKey.ui("cosmetics.color.premium-title");
-    public static final MessageKey COLOR_PREMIUM_BODY = MessageKey.ui("cosmetics.color.premium-body");
     public static final MessageKey COLOR_CUSTOM_TITLE = MessageKey.ui("cosmetics.color.custom-title");
-    public static final MessageKey COLOR_CUSTOM_BODY = MessageKey.ui("cosmetics.color.custom-body");
     public static final MessageKey COLOR_CUSTOM_FROM = MessageKey.ui("cosmetics.color.custom-from");
     public static final MessageKey COLOR_CUSTOM_TO = MessageKey.ui("cosmetics.color.custom-to");
     public static final MessageKey COLOR_CUSTOM_SUBMIT = MessageKey.ui("cosmetics.color.custom-submit");
+    public static final MessageKey COLOR_CUSTOM_SUBMIT_TOOLTIP = MessageKey.ui("cosmetics.color.custom-submit-tooltip");
     public static final MessageKey COLOR_GRADIENT_TOOLTIP = MessageKey.ui("cosmetics.color.gradient-tooltip");
     public static final MessageKey COLOR_SELECTED_TOOLTIP = MessageKey.ui("cosmetics.color.selected-tooltip");
     public static final MessageKey COLOR_SET = MessageKey.success("cosmetics.color.set", "preview");
@@ -98,7 +104,6 @@ public final class CosmeticsMessages {
 
     // ------------------------------------------------------------------ nicknames
     public static final MessageKey NICK_TITLE = MessageKey.ui("cosmetics.nick.title");
-    public static final MessageKey NICK_BODY = MessageKey.ui("cosmetics.nick.body", "min", "max");
     public static final MessageKey NICK_CURRENT = MessageKey.ui("cosmetics.nick.current", "nick");
     public static final MessageKey NICK_CURRENT_NONE = MessageKey.ui("cosmetics.nick.current-none");
     public static final MessageKey NICK_INPUT = MessageKey.ui("cosmetics.nick.input");
@@ -107,7 +112,9 @@ public final class CosmeticsMessages {
     public static final MessageKey NICK_STYLE_DEFAULT = MessageKey.ui("cosmetics.nick.style-default");
     public static final MessageKey NICK_STYLE_CUSTOM = MessageKey.ui("cosmetics.nick.style-custom");
     public static final MessageKey NICK_SAVE = MessageKey.ui("cosmetics.nick.save");
+    public static final MessageKey NICK_SAVE_TOOLTIP = MessageKey.ui("cosmetics.nick.save-tooltip", "min", "max");
     public static final MessageKey NICK_REMOVE = MessageKey.ui("cosmetics.nick.remove");
+    public static final MessageKey NICK_REMOVE_TOOLTIP = MessageKey.ui("cosmetics.nick.remove-tooltip");
     public static final MessageKey NICK_SET = MessageKey.success("cosmetics.nick.set", "nick");
     public static final MessageKey NICK_REMOVED = MessageKey.success("cosmetics.nick.removed");
     public static final MessageKey NICK_NOT_SET = MessageKey.error("cosmetics.nick.not-set");
@@ -130,11 +137,12 @@ public final class CosmeticsMessages {
 
     // ------------------------------------------------------------------ tags
     public static final MessageKey TAGS_TITLE = MessageKey.ui("cosmetics.tags.title");
-    public static final MessageKey TAGS_BODY = MessageKey.ui("cosmetics.tags.body", "count", "total");
     public static final MessageKey TAGS_CURRENT = MessageKey.ui("cosmetics.tags.current", "tag");
     public static final MessageKey TAGS_CURRENT_NONE = MessageKey.ui("cosmetics.tags.current-none");
     public static final MessageKey TAGS_EMPTY = MessageKey.ui("cosmetics.tags.empty");
     public static final MessageKey TAGS_REMOVE = MessageKey.ui("cosmetics.tags.remove");
+    public static final MessageKey TAGS_REMOVE_TOOLTIP = MessageKey.ui("cosmetics.tags.remove-tooltip");
+    public static final MessageKey TAGS_PICK_TOOLTIP = MessageKey.ui("cosmetics.tags.pick-tooltip");
     public static final MessageKey TAG_HOVER = MessageKey.ui("cosmetics.tags.hover", "description");
     public static final MessageKey TAG_TOOLTIP_SELECTED = MessageKey.ui("cosmetics.tags.tooltip-selected");
     public static final MessageKey TAG_TOOLTIP_LOCKED = MessageKey.ui("cosmetics.tags.tooltip-locked", "unlock");
@@ -155,14 +163,16 @@ public final class CosmeticsMessages {
     public static final MessageKey CUSTOM_RANK_LINE = MessageKey.ui("cosmetics.join.custom-rank-line", "rank", "message");
     public static final MessageKey CUSTOM_LINE = MessageKey.ui("cosmetics.join.custom-line", "message");
     public static final MessageKey JOINMSG_TITLE = MessageKey.ui("cosmetics.join.title");
-    public static final MessageKey JOINMSG_BODY = MessageKey.ui("cosmetics.join.body", "max");
     public static final MessageKey JOINMSG_JOIN_INPUT = MessageKey.ui("cosmetics.join.join-input");
     public static final MessageKey JOINMSG_LEAVE_INPUT = MessageKey.ui("cosmetics.join.leave-input");
     public static final MessageKey JOINMSG_SAVE = MessageKey.ui("cosmetics.join.save");
+    public static final MessageKey JOINMSG_SAVE_TOOLTIP = MessageKey.ui("cosmetics.join.save-tooltip", "max");
     public static final MessageKey JOINMSG_PREVIEW = MessageKey.ui("cosmetics.join.preview");
+    public static final MessageKey JOINMSG_PREVIEW_TOOLTIP = MessageKey.ui("cosmetics.join.preview-tooltip");
     public static final MessageKey JOINMSG_RESET = MessageKey.ui("cosmetics.join.reset");
+    public static final MessageKey JOINMSG_RESET_TOOLTIP = MessageKey.ui("cosmetics.join.reset-tooltip");
     public static final MessageKey JOINMSG_RANK_TITLE = MessageKey.ui("cosmetics.join.rank-title");
-    public static final MessageKey JOINMSG_RANK_BODY = MessageKey.ui("cosmetics.join.rank-body");
+    public static final MessageKey JOINMSG_WRITE_OWN = MessageKey.ui("cosmetics.join.write-own");
     public static final MessageKey JOINMSG_JOIN_SET = MessageKey.success("cosmetics.join.join-set");
     public static final MessageKey JOINMSG_LEAVE_SET = MessageKey.success("cosmetics.join.leave-set");
     public static final MessageKey JOINMSG_SAVED = MessageKey.success("cosmetics.join.saved");
@@ -180,10 +190,11 @@ public final class CosmeticsMessages {
 
     // ------------------------------------------------------------------ kill effects
     public static final MessageKey KILL_TITLE = MessageKey.ui("cosmetics.kill.title");
-    public static final MessageKey KILL_BODY = MessageKey.ui("cosmetics.kill.body");
     public static final MessageKey KILL_CURRENT = MessageKey.ui("cosmetics.kill.current", "effect");
     public static final MessageKey KILL_CURRENT_NONE = MessageKey.ui("cosmetics.kill.current-none");
+    public static final MessageKey KILL_PICK_TOOLTIP = MessageKey.ui("cosmetics.kill.pick-tooltip");
     public static final MessageKey KILL_NONE_BUTTON = MessageKey.ui("cosmetics.kill.none");
+    public static final MessageKey KILL_NONE_TOOLTIP = MessageKey.ui("cosmetics.kill.none-tooltip");
     public static final MessageKey KILL_SET = MessageKey.success("cosmetics.kill.set", "effect");
     public static final MessageKey KILL_CLEARED = MessageKey.success("cosmetics.kill.cleared");
     public static final MessageKey KILL_UNKNOWN = MessageKey.error("cosmetics.kill.unknown", "id");

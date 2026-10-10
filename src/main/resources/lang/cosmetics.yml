@@ -18,55 +18,56 @@ cosmetics:
     higher: "a higher rank"
   # Hovering a nickname anywhere it is shown.
   name-hover: "<secondary>Real name <primary><name>"
-  next-page: "Next page"
-  previous-page: "Previous page"
-  page: "<secondary>Page <page> of <pages>"
+  # The option a picker shows as chosen now ("Gold (now)"), next to the others.
+  current-option: "<option> <secondary>(now)"
 
-  # The cosmetics menu (/cosmetics and the main menu).
+  # The cosmetics menu (/cosmetics and the main menu): one button per perk showing what you have now ("Chat colour:
+  # Gold" in gold), then two switches for what you see of other players. Hovering a button says what it is.
   menu:
     label: "Cosmetics"
     description: "Chat colour, nickname, tags and more"
     title: "Cosmetics"
-    body:
-      - "<primary>Make chat yours."
-      - "<secondary>Cosmetics change how you look, never how the game plays."
-    # One line per perk in the menu body: what the player has now.
-    line: "<secondary><label> <primary><value>"
     chat-color: "Chat colour"
+    chat-color-tooltip: "<primary>The colour of your chat messages."
     nick: "Nickname"
+    nick-tooltip: "<primary>A name to show in chat.<newline><secondary>Your real name shows when someone hovers it."
     tag: "Chat tag"
+    tag-tooltip: "<primary>A tag before your name in chat."
     join: "Join message"
+    join-tooltip: "<primary>What everyone sees when you join and leave."
     kill: "Kill effect"
-    open: "<secondary>Click to change it"
+    kill-tooltip: "<primary>What happens where your victim falls.<newline><secondary>Only looks: nothing is hurt or dropped."
+    # The value of a perk the player's rank doesn't have yet.
+    locked: "<off>locked"
     unlock: "<secondary>Comes with the <primary><unlock>"
     join-default: "plain"
     join-rank: "rank line"
     join-custom: "your own"
+    # Switches for what you see of others (the same as in Settings).
+    show-colors: "Others' chat colours"
+    show-effects: "Others' kill effects"
+    # A switch the server or another plugin did not let change, in red on the menu.
+    switch-refused: "<primary><label> couldn't be changed."
 
+  # Chat colour pickers: every colour is a button in its own colour; a click uses it at once.
   color:
     title: "Chat colour"
-    body:
-      - "<primary>Pick the colour of your chat messages."
-      - "<secondary>Red and green stay for errors, kills and money. Players can turn chat colours off in their settings."
     current: "<secondary>Now <preview>"
     # The text shown in the colour you look at.
     sample: "This is how your messages look"
+    pick-tooltip: "<secondary>Click to use it."
     more: "More colours"
-    more-tooltip: "<secondary>Hex colours and gradients"
+    more-tooltip: "<primary>Hex colours and gradients."
     reset: "Default colour"
+    reset-tooltip: "<primary>Back to the normal chat colour."
     custom: "Mix your own"
+    custom-tooltip: "<primary>Type a hex colour, or two for a gradient."
     premium-title: "More colours"
-    premium-body:
-      - "<primary>Hex colours and gradients."
-      - "<secondary>Pick a ready-made one or mix your own."
     custom-title: "Mix a colour"
-    custom-body:
-      - "<primary>Type a hex colour like <secondary>#ffb07a<primary>."
-      - "<primary>Add a second one for a gradient, like <secondary>#55ffff<primary> to <secondary>#5555ff<primary>."
-      - "<secondary>Colours close to red or green, or too dark to read, are refused."
-    custom-from: "Colour"
+    custom-from: "Colour, like #ffb07a"
     custom-to: "Second colour for a gradient (optional)"
     custom-submit: "Use it"
+    custom-submit-tooltip: "<primary>Two colours make a gradient, like #55ffff to #5555ff.<newline><secondary>Colours close to red or green, or too dark to read, are refused."
     gradient-tooltip: "<secondary>A gradient"
     selected-tooltip: "<primary>Your colour now"
     set: "<primary>Your chat colour is now <preview>."
@@ -101,9 +102,6 @@ cosmetics:
 
   nick:
     title: "Nickname"
-    body:
-      - "<primary>Pick a name to show in chat."
-      - "<secondary><min> to <max> letters, digits or underscores. Your real name shows when someone hovers it, and /msg works with both."
     current: "<secondary>Now <nick>"
     current-none: "<secondary>You show your own name."
     input: "Nickname"
@@ -112,7 +110,9 @@ cosmetics:
     style-default: "Default"
     style-custom: "My own (below)"
     save: "Save"
+    save-tooltip: "<primary><accent><min></accent> to <accent><max></accent> letters, digits or underscores.<newline><secondary>Your real name shows when someone hovers it, and /msg works with both."
     remove: "Remove nickname"
+    remove-tooltip: "<primary>Show your own name again."
     set: "<primary>You now show as <nick>."
     removed: "<primary>You show your own name again."
     not-set: "<primary>You have no nickname."
@@ -134,15 +134,15 @@ cosmetics:
     realname: "<primary><nick> <secondary>is <primary><name><secondary>."
     realname-none: "<primary>Nobody uses the nickname <nick>."
 
+  # The tags dialog: every tag is a button in its own look; a click uses it at once.
   tags:
     title: "Chat tags"
-    body:
-      - "<primary>Your tag shows before your name in chat."
-      - "<secondary>You can use <count> of the <total> tags."
     current: "<secondary>Now <tag>"
     current-none: "<secondary>You show no tag."
     empty: "<secondary>There are no tags yet."
     remove: "No tag"
+    remove-tooltip: "<primary>Show no tag before your name."
+    pick-tooltip: "<secondary>Click to use it."
     # Hovering a tag in chat or in /tags.
     hover: "<secondary><description>"
     tooltip-selected: "<primary>Your tag now"
@@ -166,18 +166,17 @@ cosmetics:
     custom-rank-line: "<rank> <secondary><message>"
     custom-line: "<secondary><message>"
     title: "Join and leave messages"
-    body:
-      - "<primary>Write what everyone sees when you join and leave."
-      - "<secondary>Put {name} where your name goes (or it goes first), at most <max> characters. Leave a box empty to use your rank line."
     join-input: "Join message"
     leave-input: "Leave message"
     save: "Save"
+    save-tooltip: "<primary>Put {name} where your name goes (or it goes first), at most <accent><max></accent> characters.<newline><secondary>Leave a box empty to use your rank line."
     preview: "Preview"
+    preview-tooltip: "<primary>Shows the lines above with what you typed."
     reset: "Use the rank lines"
+    reset-tooltip: "<primary>Clears both messages: everyone sees your rank line."
     rank-title: "Join and leave lines"
-    rank-body:
-      - "<primary>Everyone sees your rank when you join and leave."
-      - "<secondary>Writing your own messages comes with the Tycoon rank."
+    # For players whose rank has join lines but not their own messages: the lines above, then this button.
+    write-own: "Write your own"
     join-set: "<primary>Your join message is saved."
     leave-set: "<primary>Your leave message is saved."
     saved: "<primary>Your join and leave messages are saved."
@@ -193,14 +192,14 @@ cosmetics:
     filtered: "<primary>That message has a word that isn't allowed here."
     "off": "<primary>Join and leave lines are turned off right now."
 
+  # The kill effects dialog: a click picks one at once and shows it to you.
   kill:
     title: "Kill effects"
-    body:
-      - "<primary>Pick what happens where your victim falls."
-      - "<secondary>Only looks: nothing is hurt, lit or dropped. Picking one shows it to you."
-    current: "<secondary>Now <primary><effect>"
+    current: "<secondary>Now <accent><effect>"
     current-none: "<secondary>Your kills show no effect."
+    pick-tooltip: "<secondary>Click to use it. You see it played."
     none: "No effect"
+    none-tooltip: "<primary>Your kills show nothing."
     set: "<primary>Your kill effect is now <effect>."
     cleared: "<primary>Your kills show no effect now."
     unknown: "<primary>There is no kill effect called <id>."

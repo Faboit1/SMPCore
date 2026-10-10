@@ -63,12 +63,12 @@ class BountiesResourcesTest {
         assertTrue(settings.announcePlacements());
         assertEquals(50_000, settings.announceAbove());
         assertTrue(settings.notifyTarget());
-        assertEquals(10, settings.taxPercent());
+        assertEquals(0, settings.taxPercent(), "no tax: the owner removed every fee");
         assertTrue(settings.announceClaims());
         assertTrue(settings.notifySponsors());
         assertEquals(Duration.ofDays(14), settings.expireAfter());
         assertEquals(Duration.ofMinutes(5), settings.expiryCheck());
-        assertEquals(10, settings.listSize());
+        assertEquals(50, settings.listSize());
     }
 
     @Test
@@ -77,14 +77,14 @@ class BountiesResourcesTest {
         broken.set("place.minimum", "0");
         broken.set("claim.tax-percent", 95);
         broken.set("expiry.after", "10m");
-        broken.set("list-size", 50);
+        broken.set("list-size", 500);
         ConfigReader reader = new ConfigReader("features/bounties.yml", broken);
         BountiesSettings settings = BountiesSettings.parse(reader, MoneyFormat.defaults());
         assertEquals(4, reader.problems().size(), reader.problems().toString());
         assertEquals(1_000, settings.minimum());
-        assertEquals(10, settings.taxPercent());
+        assertEquals(0, settings.taxPercent());
         assertEquals(Duration.ofDays(14), settings.expireAfter());
-        assertEquals(10, settings.listSize());
+        assertEquals(50, settings.listSize());
     }
 
     @Test
@@ -112,9 +112,12 @@ class BountiesResourcesTest {
             Arg.text("name", "Alex"), Arg.money("total", 9_000), Arg.text("sponsors", "3 players")));
         assertEquals("Bounty on Alex", lang.plain(BountiesMessages.DETAILS_TITLE, Arg.text("name", "Alex")));
         List<String> confirm = lang.lines(BountiesMessages.CONFIRM_BODY, Arg.money("amount", 150_000), Arg.text("name", "Alex"),
-            Arg.number("tax", 10), Arg.time("time", Duration.ofDays(14))).stream().map(TextStyle::plain).toList();
-        assertEquals(List.of("Put $150,000 on Alex?", "Whoever kills them gets it, minus 10% tax.",
-            "If nobody does within 14d, you get it back.", "You can't take it back before then."), confirm);
+            Arg.text("time", "14d")).stream().map(TextStyle::plain).toList();
+        assertEquals(List.of("Put $150,000 on Alex?", "You get it back if nobody kills them within 14d."), confirm,
+            "no tax named in the confirmation itself");
+        assertEquals("The killer gets it minus 10% tax.", lang.plain(BountiesMessages.CONFIRM_TAX, Arg.text("tax", "10")),
+            "the tax line, only while there is a tax");
+        assertEquals("10% of it goes to tax.", lang.plain(BountiesMessages.DETAILS_TAX_TOOLTIP, Arg.text("tax", "10")));
     }
 
     @Test

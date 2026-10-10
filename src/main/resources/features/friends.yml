@@ -45,7 +45,10 @@ presence:
   request-batch: 10s
 
 list:
-  # Friends per page of the friends dialog (4 to 30).
+  # The friends dialog shows every friend (it scrolls). From this many friends it also offers Find, which shows only
+  # the names starting with what the player types.
+  find-from: 20
+  # Friends per page of /friend list in chat (4 to 30).
   page-size: 16
   # "People you may know" buttons in the add dialog (0 to 12; 0 turns them off).
   suggestions: 6

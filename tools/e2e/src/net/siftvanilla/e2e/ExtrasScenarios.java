@@ -44,7 +44,31 @@ final class ExtrasScenarios {
         list.add(of("extras-join-lines", ExtrasScenarios::joinLines));
         list.add(of("extras-rank-lines", ExtrasScenarios::rankLines));
         list.add(of("extras-seen-privacy", ExtrasScenarios::seenPrivacy));
+        list.add(of("extras-help", ExtrasScenarios::help));
         return list;
+    }
+
+    /** /help is buttons, not a paragraph: each place to start opens its page, what it is in the tooltip. */
+    static void help(E2E e2e) {
+        Bot bot = e2e.bot(e2e.name("Helped"));
+        bot.clearLogs();
+        bot.command("help");
+        Bot.SeenDialog help = e2e.dialog(bot, "Getting started");
+        e2e.expect(help.body().isEmpty(), "no lines above the buttons: " + help.body());
+        for (String label : List.of("Open the menu", "Random teleport", "Sell", "Shop", "Auction house", "Homes", "Team", "Friends",
+            "Spawn", "Rules")) {
+            Bot.Button button = help.button(label);
+            e2e.expect(button != null && button.tooltip() != null && !button.tooltip().isBlank(), label + " with a tooltip: " + help.buttons());
+            e2e.expect(!button.tooltip().contains("SiftCore"), "no plugin name: " + button.tooltip());
+        }
+        e2e.expect(help.button("Random teleport").tooltip().contains("/rtp"), "the command is in the tooltip");
+        e2e.click(bot, "Team");
+        e2e.dialog(bot, "Team");
+        bot.clearLogs();
+        bot.command("help");
+        e2e.dialog(bot, "Getting started");
+        e2e.click(bot, "Open the menu");
+        e2e.dialog(bot, "SiftVanilla");
     }
 
     /** Gives an online player the rank join and leave line of the cosmetics ({@code siftcore.join.message}). */
