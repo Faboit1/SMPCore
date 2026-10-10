@@ -228,8 +228,12 @@ final class DisplaysScenarios {
             e2e.step("the list dialog shows the board and teleports to it");
             bot.command("displays list");
             Bot.SeenDialog list = e2e.dialog(bot, "Displays");
-            e2e.expect(list.bodyText().contains(board + ", template welcome"), "the board is listed: " + list.body());
-            e2e.expect(list.bodyText().contains("shown"), "it is shown: " + list.body());
+            e2e.expect(list.body().isEmpty(), "buttons only, nothing above them: " + list.body());
+            Bot.Button go = list.button("Go to " + board);
+            e2e.expect(go != null && go.tooltip() != null && go.tooltip().contains(board + ", template welcome"),
+                "the board is a button, what it shows in its tooltip: " + (go == null ? list.buttons() : go.tooltip()));
+            e2e.expect(go.tooltip().contains("shown") && go.tooltip().contains("Click to teleport there."), "it is shown: " + go.tooltip());
+            e2e.expect(list.buttons().stream().noneMatch(b -> b.label().contains("Next page")), "no pages: " + list.buttons());
             e2e.click(bot, "Go to " + board);
             e2e.eventually(() -> Math.abs(bot.x() - boardX) < 0.6 && Math.abs(bot.z() - z) < 0.6,
                 "the bot was teleported to the board (now at " + bot.x() + " " + bot.z() + ")");
