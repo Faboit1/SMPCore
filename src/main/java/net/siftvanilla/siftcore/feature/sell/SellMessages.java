@@ -118,6 +118,8 @@ public final class SellMessages {
 
     public static final MessageKey TOP_TITLE = MessageKey.ui("sell.top.title");
     public static final MessageKey TOP_LINE = MessageKey.ui("sell.top.line", "place", "name", "sold");
+    public static final MessageKey TOP_LINE_YOU = MessageKey.ui("sell.top.line-you", "place", "name", "sold");
+    public static final MessageKey TOP_SHOWN = MessageKey.ui("sell.top.shown", "count");
     public static final MessageKey TOP_EMPTY = MessageKey.ui("sell.top.empty");
     public static final MessageKey TOP_YOU = MessageKey.ui("sell.top.you", "rank", "sold");
     public static final MessageKey TOP_YOU_NONE = MessageKey.ui("sell.top.you-none");

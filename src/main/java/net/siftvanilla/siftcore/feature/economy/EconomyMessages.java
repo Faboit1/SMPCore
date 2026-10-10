@@ -28,8 +28,12 @@ public final class EconomyMessages {
     public static final MessageKey TOP_LINE = MessageKey.chat("economy.top.line", "rank", "name", "amount");
     public static final MessageKey TOP_YOU = MessageKey.chat("economy.top.you", "rank", "amount");
     public static final MessageKey TOP_EMPTY = MessageKey.chat("economy.top.empty");
-    /** Under a full leaderboard: how many places it lists (baltop.size). */
-    public static final MessageKey TOP_CAP = MessageKey.ui("economy.top.cap", "count");
+    /** How many places the leaderboard lists (at most baltop.size). */
+    public static final MessageKey TOP_SHOWN = MessageKey.ui("economy.top.shown", "count");
+    public static final MessageKey TOP_NOT_LISTED = MessageKey.ui("economy.top.not-listed");
+    /** A listed player's button, and the viewer's own. */
+    public static final MessageKey TOP_ENTRY = MessageKey.ui("economy.top.entry", "rank", "name", "amount");
+    public static final MessageKey TOP_ENTRY_YOU = MessageKey.ui("economy.top.entry-you", "rank", "name", "amount");
 
     public static final MessageKey ECO_GIVEN = MessageKey.chat("economy.admin.given", "name", "amount", "balance");
     public static final MessageKey ECO_TAKEN = MessageKey.chat("economy.admin.taken", "name", "amount", "balance");

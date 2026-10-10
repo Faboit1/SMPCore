@@ -724,7 +724,7 @@ final class SellPlusScenarios {
         bot.clearLogs();
         bot.command("sell top");
         Bot.SeenDialog top = e2e.dialog(bot, "Top sellers");
-        e2e.expect(top.bodyText().contains("You: #") && top.bodyText().contains("$500"), "the viewer's line: " + top.body());
+        e2e.expect(top.bodyText().contains("You are number ") && top.bodyText().contains("with $500."), "the viewer's line: " + top.body());
         bot.clickButton("Close", Map.of());
         e2e.step("/sell history lists the sale");
         openScreen(e2e, bot, "sell history", "Your sales");

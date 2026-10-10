@@ -237,33 +237,32 @@ final class EconomyCommands {
     }
 
     /**
-     * The leaderboard dialog: the player's own place, then every place kept ({@code baltop.size}, said under a full
-     * list), with no pages (the dialog scrolls). {@code back} (the Money page) adds Back, null a Close button.
+     * The leaderboard dialog, the same way every leaderboard looks (the stats boards): one or two short lines (the
+     * player's own place, how many are listed), then every listed player as a button, "1. Alex $5,000", the player's own
+     * one highlighted. No pages: the top {@code baltop.size} (100) show and the dialog scrolls. {@code back} (the Money
+     * page) adds Back, null a Close button.
      */
     void openTopDialog(Player player, Button.Handler back) {
         var lang = this.services.lang();
         int size = this.settings.get().topSize();
         List<EconomyApi.TopEntry> all = this.economy.top(Currency.MONEY, size);
-        List<Component> lines = new ArrayList<>();
+        List<Component> lines = new ArrayList<>(2);
         long own = this.economy.balance(player.getUniqueId(), Currency.MONEY);
         int rank = this.economy.leaderboard().rankOf(Currency.MONEY, player.getUniqueId(), own);
         if (rank > 0) {
             lines.add(lang.get(EconomyMessages.TOP_YOU, Arg.text("rank", Lang.number(rank)), Arg.money("amount", own)));
-            lines.add(Component.empty());
+        } else if (!all.isEmpty()) {
+            lines.add(lang.get(EconomyMessages.TOP_NOT_LISTED));
         }
-        if (all.isEmpty()) {
-            lines.add(lang.get(EconomyMessages.TOP_EMPTY));
-        }
+        lines.add(all.isEmpty() ? lang.get(EconomyMessages.TOP_EMPTY) : lang.get(EconomyMessages.TOP_SHOWN, Arg.value("count", all.size())));
+        List<Button> buttons = new ArrayList<>(all.size());
+        Button.Handler stay = s -> openTopDialog(s.player(), back);
         for (EconomyApi.TopEntry entry : all) {
-            lines.add(lang.get(EconomyMessages.TOP_LINE, Arg.number("rank", entry.rank()), Arg.text("name", entry.name()),
-                Arg.money("amount", entry.value())));
+            boolean you = entry.account().equals(player.getUniqueId());
+            buttons.add(Button.of(lang.get(you ? EconomyMessages.TOP_ENTRY_YOU : EconomyMessages.TOP_ENTRY, Arg.value("rank", entry.rank()),
+                Arg.text("name", entry.name()), Arg.money("amount", entry.value())), null, stay));
         }
-        if (all.size() >= size) {
-            lines.add(Component.empty());
-            lines.add(lang.get(EconomyMessages.TOP_CAP, Arg.number("count", size)));
-        }
-        this.services.dialogs().show(player, this.services.templates().list(lang.get(EconomyMessages.TOP_TITLE), lines,
-            List.of(), 1, back));
+        this.services.dialogs().show(player, this.services.templates().column(lang.get(EconomyMessages.TOP_TITLE), lines, buttons, back));
     }
 
     // ------------------------------------------------------------------ /eco

@@ -124,9 +124,13 @@ sell:
   # /sell top
   top:
     title: "Top sellers"
-    line: "<primary><place>. <name> <sold>"
+    # A listed seller's button, and your own (like every leaderboard).
+    line: "<secondary><place>. <primary><name> <sold>"
+    line-you: "<secondary><place>. <accent><name> <sold>"
+    # How many are listed (the top 10).
+    shown: "<secondary>Top <accent><count></accent>, by what they sold."
     empty: "<secondary>Nobody has sold anything yet."
-    you: "<secondary>You: #<rank> <sold>"
+    you: "<secondary>You are number <accent><rank></accent> with <sold>."
     you-none: "<secondary>You haven't sold anything yet."
     you-hidden: "<secondary>You are hidden from leaderboards, so you have no place here."
   # /sell history

@@ -40,8 +40,12 @@ economy:
     line: "<secondary><rank>. <primary><name> <amount>"
     you: "<secondary>You are number <accent><rank></accent> with <amount>."
     empty: "<secondary>Nobody has money yet."
-    # Under a full leaderboard (baltop.size in features/economy.yml).
-    cap: "<secondary>Only the top <count> are listed."
+    not-listed: "<secondary>You are not on this leaderboard yet."
+    # How many are listed (at most baltop.size in features/economy.yml, 100).
+    shown: "<secondary>Top <accent><count></accent>, the richest first."
+    # A listed player's button, and your own (like every leaderboard).
+    entry: "<secondary><rank>. <primary><name> <amount>"
+    entry-you: "<secondary><rank>. <accent><name> <amount>"
   admin:
     given: "<primary>Gave <name> <amount>. They now have <balance>."
     taken: "<primary>Took <amount> from <name>. They now have <balance>."

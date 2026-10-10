@@ -264,33 +264,33 @@ final class SellDialogs {
     // ------------------------------------------------------------------ top sellers
 
     /**
-     * {@code /sell top}: the ten players who sold the most, and the viewer's own place. A viewer who hides from
+     * {@code /sell top}, the way every leaderboard looks (the stats boards): the viewer's own place on top, then the ten
+     * players who sold the most as buttons, "1. Alex $1,200", the viewer's own one highlighted. A viewer who hides from
      * leaderboards gets no place (their switch is read now, the list follows at the next read).
      */
     void top(Player player) {
         Lang lang = this.services.lang();
         TopSellers.Snapshot snapshot = this.top.snapshot();
-        List<Component> lines = new ArrayList<>();
-        if (snapshot.top().isEmpty()) {
-            lines.addAll(lang.lines(SellMessages.TOP_EMPTY));
-        }
-        int place = 1;
-        for (TopSellers.Entry entry : snapshot.top()) {
-            lines.addAll(lang.lines(SellMessages.TOP_LINE, Arg.number("place", place++), Arg.text("name", entry.name()),
-                Arg.money("sold", entry.sold())));
-        }
+        List<Component> lines = new ArrayList<>(2);
         long own = Math.max(this.mastery.total(player.getUniqueId()),
             snapshot.byUuid().getOrDefault(player.getUniqueId(), 0L));
-        lines.add(Component.empty());
         if (this.services.settings().get(player, SharedSettings.HIDE_FROM_LEADERBOARDS)) {
             lines.addAll(lang.lines(SellMessages.TOP_YOU_HIDDEN));
         } else if (own > 0) {
-            lines.addAll(lang.lines(SellMessages.TOP_YOU, Arg.number("rank", snapshot.rankOf(own)), Arg.money("sold", own)));
+            lines.addAll(lang.lines(SellMessages.TOP_YOU, Arg.text("rank", Lang.number(snapshot.rankOf(own))), Arg.money("sold", own)));
         } else {
             lines.addAll(lang.lines(SellMessages.TOP_YOU_NONE));
         }
-        this.services.dialogs().show(player, this.services.templates().notice(lang.get(SellMessages.TOP_TITLE), lines,
-            lang.get(CoreMessages.UI_CLOSE), null));
+        lines.addAll(snapshot.top().isEmpty() ? lang.lines(SellMessages.TOP_EMPTY)
+            : lang.lines(SellMessages.TOP_SHOWN, Arg.value("count", snapshot.top().size())));
+        List<Button> buttons = new ArrayList<>(snapshot.top().size());
+        int place = 1;
+        for (TopSellers.Entry entry : snapshot.top()) {
+            boolean you = entry.uuid().equals(player.getUniqueId());
+            buttons.add(Button.of(lang.get(you ? SellMessages.TOP_LINE_YOU : SellMessages.TOP_LINE, Arg.value("place", place++),
+                Arg.text("name", entry.name()), Arg.money("sold", entry.sold())), null, s -> top(s.player())));
+        }
+        this.services.dialogs().show(player, this.services.templates().column(lang.get(SellMessages.TOP_TITLE), lines, buttons, null));
     }
 
     /** A per-category summary line for staff, e.g. "Mining level 2, $300,000 sold". */

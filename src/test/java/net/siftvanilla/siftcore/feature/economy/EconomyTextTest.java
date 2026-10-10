@@ -103,7 +103,11 @@ class EconomyTextTest {
         Component given = lang.get(EconomyMessages.ECO_GIVEN_SHARDS, Arg.text("name", "Alex"), Arg.shards("amount", 50),
             Arg.shards("balance", 70));
         assertEquals(List.of(Palette.defaults().shards()), colours(given, "50 shards"));
-        assertEquals("Only the top 100 are listed.", plain(lang.get(EconomyMessages.TOP_CAP, Arg.number("count", 100))));
+        // The leaderboard looks like every other one: a count line, then a button per place.
+        assertEquals("Top 100, the richest first.", plain(lang.get(EconomyMessages.TOP_SHOWN, Arg.value("count", 100))));
+        Component entry = lang.get(EconomyMessages.TOP_ENTRY_YOU, Arg.value("rank", 3), Arg.text("name", "Alex"), Arg.money("amount", 5_000));
+        assertEquals("3. Alex $5,000", plain(entry));
+        assertEquals(List.of(Palette.defaults().accent()), colours(entry, "Alex"), "your own place is highlighted");
     }
 
     /** The colours of the text pieces that overlap {@code text}, each once, in order. */

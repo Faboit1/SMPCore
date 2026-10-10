@@ -600,10 +600,13 @@ final class MoneyScenarios {
         bot.command("baltop");
         Bot.SeenDialog top = e2e.dialog(bot, "Richest players");
         e2e.expect(top.body().getFirst().startsWith("You are number"), "the own place first: " + top.body());
-        e2e.expect(top.bodyText().contains("1. "), "the list: " + top.body());
+        // Like every leaderboard: a button per place ("1. Alex $5,000"), the count in one line, no pages.
+        e2e.expect(top.button("1. ") != null && top.bodyText().contains("Top "), "the list: " + top.body() + " " + top.buttons());
         e2e.expect(!top.bodyText().contains("Page ") && top.button("Next page") == null && top.button("Previous page") == null,
             "no paging: " + top.body() + " " + top.buttons());
-        e2e.expect(top.buttons().size() == 1 && top.button("Close") != null, "only Close: " + top.buttons());
+        e2e.expect(top.button("Close") != null && top.buttons().stream().filter(button -> !button.label().equals("Close"))
+            .allMatch(button -> button.label().matches("\\d+\\. .*")), "places and Close: " + top.buttons());
+        e2e.expect(top.buttons().stream().anyMatch(button -> button.label().contains(name)), "the bot's own place is listed: " + top.buttons());
         bot.clickButton("Close", Map.of());
 
         e2e.step("the pay confirmation: the question, and \"can't be undone\" in the Pay tooltip");
@@ -667,7 +670,8 @@ final class MoneyScenarios {
         bot.clearLogs();
         bot.command("baltop");
         Bot.SeenDialog top = e2e.dialog(bot, "Richest players");
-        e2e.expect(!top.bodyText().contains(name) && !top.bodyText().contains("You are number"), "left out: " + top.body());
+        e2e.expect(!top.bodyText().contains(name) && !top.bodyText().contains("You are number")
+            && top.buttons().stream().noneMatch(button -> button.label().contains(name)), "left out: " + top.body() + " " + top.buttons());
         bot.clickButton("Close", Map.of());
 
         e2e.step("without the permission the choice doesn't count; shown again once turned off");
@@ -930,13 +934,16 @@ final class MoneyScenarios {
         e2e.step("/sell top: the list leaves them out, they are told they have no place, the other has place 1");
         hidden.command("sell top");
         Bot.SeenDialog own = e2e.dialog(hidden, "Top sellers");
-        e2e.expect(!own.bodyText().contains(hiddenName), "not listed: " + own.body());
+        e2e.expect(!own.bodyText().contains(hiddenName) && own.buttons().stream().noneMatch(button -> button.label().contains(hiddenName)),
+            "not listed: " + own.body() + " " + own.buttons());
         e2e.expect(own.bodyText().contains("You are hidden from leaderboards, so you have no place here."), "told: " + own.body());
         hidden.clickButton("Close", Map.of());
         shown.command("sell top");
         Bot.SeenDialog other = e2e.dialog(shown, "Top sellers");
-        e2e.expect(other.bodyText().contains("1. " + shownName) && other.bodyText().contains("You: #1"), "place 1: " + other.body());
-        e2e.expect(!other.bodyText().contains(hiddenName), "the hidden seller is not shown to others: " + other.body());
+        e2e.expect(other.button("1. " + shownName) != null && other.bodyText().contains("You are number 1 with"),
+            "place 1: " + other.body() + " " + other.buttons());
+        e2e.expect(other.buttons().stream().noneMatch(button -> button.label().contains(hiddenName)),
+            "the hidden seller is not shown to others: " + other.buttons());
         shown.clickButton("Close", Map.of());
 
         e2e.step("shown again once turned off");
