@@ -11,8 +11,10 @@ pay:
   # Whether money can be sent to players who are offline. With false, the "Offline payments summary" setting (who
   # paid you while you were away) is not offered.
   allow-offline-targets: true
-  # How much a player may send per day (server time zone). It grows with time played so new accounts can't be
-  # used to move a lot of money around. Players with siftcore.pay.unlimited have no limit.
+  # How much a player may send per day with /pay (server time zone). It grows with time played so new accounts
+  # can't be used to move a lot of money around. Players with siftcore.pay.unlimited have no limit. It covers /pay
+  # only: buying a player's auction listing, filling a buy order and claiming a bounty move money too, at any price
+  # and without a fee (docs/features/economy.md, "What the limit covers").
   daily-limit:
     enabled: true
     # Everyone can send this much per day.

@@ -96,9 +96,20 @@ stats feature reads them for `/stats` and the stat leaderboards.
 | `pay.confirm-above` | 100k | Payments of at least this ask first (0: never; players can ask sooner) |
 | `pay.cooldown` | 2s | Time between two payments by one player |
 | `pay.allow-offline-targets` | true | Money can be sent to offline players (and the offline payments summary is offered) |
-| `pay.daily-limit.enabled` / `base` / `per-hour-played` / `maximum` | true / 250k / 50k / 100m | The daily limit, growing with time played; `siftcore.pay.unlimited` has none |
+| `pay.daily-limit.enabled` / `base` / `per-hour-played` / `maximum` | true / 250k / 50k / 100m | The daily limit of `/pay`, growing with time played; `siftcore.pay.unlimited` has none. It covers `/pay` only (see below) |
 | `baltop.refresh` / `size` | 60s / 100 | The leaderboard |
 | `page-size` | 10 | Lines per page of `/baltop` in the console and of `/eco history` (players get the whole list in one dialog) |
+
+### What the limit covers
+
+The daily limit applies to `/pay` only. Buying another player's auction listing, filling their buy order and claiming
+a bounty also move money between players, at any price the players agree on, and since player trades carry no fee
+(auction and order tax 0, bounty claim tax 0) they cost nothing either. So a payment `/pay` refuses can still reach the
+other account through a listing priced at the amount. This is an accepted policy gap (dupe audit R14, option A): no
+money is created, every such trade is in the ledger and the audit log (`/eco history`, `/auction` history, the order
+fills), and staff can see it there. Should alt-account money moving become a problem, the audit's option B (one shared
+daily budget across `/pay`, auction buys, order fills paid to one seller and bounties between related accounts) is the
+fix; it was not done because it would also limit what new players can buy on their first day.
 
 ## Placeholders
 
