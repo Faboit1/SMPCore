@@ -93,7 +93,8 @@ sounds:
       pitch: 1.0
 
 gui:
-  # Clicks closer together than this are ignored in every menu (stops macro spam).
+  # Clicks on a menu's own slots closer together than this are ignored in every menu (stops macro spam).
+  # Shift-clicking items in from your own inventory is never slowed down.
   click-interval: 75ms
 
 crash-safety:

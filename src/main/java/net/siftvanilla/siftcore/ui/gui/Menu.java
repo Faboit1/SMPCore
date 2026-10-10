@@ -29,6 +29,8 @@ public abstract class Menu implements InventoryHolder {
     private final Inventory inventory;
     private final MenuItem[] items;
     private final AtomicBoolean busy = new AtomicBoolean();
+    /** A redraw for changed item slots is queued for the next tick (one covers every change made meanwhile). */
+    private final AtomicBoolean changePending = new AtomicBoolean();
     private boolean drawing;
 
     protected Menu(MenuContext ctx, Player viewer, Component title, int rows) {
@@ -202,6 +204,10 @@ public abstract class Menu implements InventoryHolder {
                     ItemStack moving = event.getCurrentItem();
                     if (moving != null && !moving.isEmpty()) {
                         ItemStack rest = depositIntoItemSlots(moving);
+                        if (rest != null && rest.getAmount() == moving.getAmount()) {
+                            // Nothing fit (the grid is full): nothing changed, so nothing to redraw.
+                            return;
+                        }
                         event.setCurrentItem(rest);
                         scheduleItemsChanged();
                     }
@@ -267,15 +273,18 @@ public abstract class Menu implements InventoryHolder {
     }
 
     final void handleDrag(InventoryDragEvent event) {
+        boolean top = false;
         for (int raw : event.getRawSlots()) {
             if (raw < this.items.length) {
                 if (!acceptsItems() || !isItemSlot(raw) || this.busy.get()) {
                     event.setCancelled(true);
                     return;
                 }
+                top = true;
             }
         }
-        if (acceptsItems()) {
+        // A drag within the player's own inventory changes nothing in the menu.
+        if (top) {
             scheduleItemsChanged();
         }
     }
@@ -284,7 +293,19 @@ public abstract class Menu implements InventoryHolder {
         asViewer(this::closed);
     }
 
+    /**
+     * Queues {@link #itemsChanged()} for the next tick, once: the queued call reads the slots as they are then, so it
+     * covers every change made meanwhile. Clicks that are not rate limited (shift-clicks from the player's own inventory)
+     * can come in by the hundred in one tick; each queued its own full redraw (a sell grid's preview over every shulker
+     * box), which held up the whole region (dupe audit R8).
+     */
     private void scheduleItemsChanged() {
-        this.ctx.scheduler().entityLater(this.viewer, () -> asViewer(this::itemsChanged), null, 1L);
+        if (!this.changePending.compareAndSet(false, true)) {
+            return;
+        }
+        this.ctx.scheduler().entityLater(this.viewer, () -> {
+            this.changePending.set(false);
+            asViewer(this::itemsChanged);
+        }, () -> this.changePending.set(false), 1L);
     }
 }
