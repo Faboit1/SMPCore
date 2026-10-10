@@ -36,7 +36,7 @@ shop:
       price: 50
       max: 16
       name: ""
-      description: "Opens the Common crate at spawn"
+      description: "Opens the Common crate in /crates"
       order: 1
     rare-key:
       type: key
@@ -45,7 +45,7 @@ shop:
       price: 200
       max: 16
       name: ""
-      description: "Opens the Rare crate at spawn"
+      description: "Opens the Rare crate in /crates"
       order: 3
     epic-key:
       type: key
@@ -54,7 +54,7 @@ shop:
       price: 600
       max: 8
       name: ""
-      description: "Opens the Epic crate at spawn"
+      description: "Opens the Epic crate in /crates"
       order: 4
     legendary-key:
       type: key
@@ -63,7 +63,7 @@ shop:
       price: 1500
       max: 4
       name: ""
-      description: "Opens the Legendary crate at spawn"
+      description: "Opens the Legendary crate in /crates"
       order: 5
     experience:
       type: item
@@ -108,7 +108,7 @@ shop:
       price: 110
       max: 16
       name: ""
-      description: "Opens the Uncommon crate at spawn"
+      description: "Opens the Uncommon crate in /crates"
       order: 2
     mythic-key:
       type: key
@@ -117,7 +117,7 @@ shop:
       price: 4000
       max: 2
       name: ""
-      description: "Opens the Mythic crate at spawn"
+      description: "Opens the Mythic crate in /crates"
       order: 6
     celestial-key:
       type: key
@@ -126,5 +126,5 @@ shop:
       price: 11000
       max: 1
       name: ""
-      description: "Opens the Celestial crate at spawn"
+      description: "Opens the Celestial crate in /crates"
       order: 7

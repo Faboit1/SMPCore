@@ -495,7 +495,7 @@ final class AfkScenarios {
         e2e.expect("#FFB12E".equals(CratesScenarios.colorOf(shop.button("Legendary key").labelComponent(), "Legendary")),
             "a key in its crate's colour: " + CratesScenarios.colorOf(shop.button("Legendary key").labelComponent(), "Legendary"));
         String keyTip = shop.button("Common key").tooltip();
-        e2e.expect(keyTip != null && keyTip.contains("Opens the Common crate at spawn") && keyTip.contains("Up to 16 per purchase"),
+        e2e.expect(keyTip != null && keyTip.contains("Opens the Common crate in /crates") && keyTip.contains("Up to 16 per purchase"),
             "what it is in its tooltip: " + keyTip);
 
         e2e.step("the amount slider shows the new total first, then a confirmation for big purchases");

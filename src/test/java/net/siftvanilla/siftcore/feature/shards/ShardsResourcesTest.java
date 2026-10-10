@@ -59,7 +59,7 @@ class ShardsResourcesTest {
                 "experience", "golden-apples", "totem", "shulker-box"),
             settings.offers().stream().map(ShardOffer::id).toList(), "keys from the lowest tier up, then items, by their order");
         ShardOffer basic = settings.offer("basic-key");
-        assertEquals(new ShardOffer("basic-key", ShardOffer.Kind.KEY, "", "Opens the Common crate at spawn", "basic", 1, 50, 16, "", 1),
+        assertEquals(new ShardOffer("basic-key", ShardOffer.Kind.KEY, "", "Opens the Common crate in /crates", "basic", 1, 50, 16, "", 1),
             basic, "an empty name: the crate's own name, in its colour");
         assertEquals(110, settings.offer("uncommon-key").price());
         assertEquals(200, settings.offer("rare-key").price(), "the keys that were sold before keep their price");

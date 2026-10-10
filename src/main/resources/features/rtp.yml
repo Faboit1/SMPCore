@@ -59,7 +59,7 @@ regions:
     min-radius: 200
     max-radius: 2300
   end:
-    name: "End"
+    name: "The End"
     enabled: true
     world: world_the_end
     permission: ""

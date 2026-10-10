@@ -51,7 +51,7 @@ Amounts accept the usual shortcuts (`1.5k`). Store deliveries call these command
 
 A dialog with one line, the balance, then a button per offer in `order`: `Common key, 50 shards` (a key's name in its
 crate's colour, the price in purple), or `32x Bottle o' Enchanting, 40 shards` when one unit gives several. What the
-offer is ("Opens the Common crate at spawn") and how many one purchase may take are in the button's tooltip. There
+offer is ("Opens the Common crate in /crates") and how many one purchase may take are in the button's tooltip. There
 are no pages; the dialog scrolls. An offer opens a purchase dialog: the item (for item offers), the price, the
 balance, the keys the player already has (key offers), an amount slider when more than one may be bought, and a Buy
 button that always names the amount and total (what one unit gives is in its tooltip). Moving the slider
