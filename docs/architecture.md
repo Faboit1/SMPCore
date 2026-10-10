@@ -139,7 +139,14 @@ one lock. A `LedgerTx` bundles:
 Execution is check → apply → enqueue one database unit (ledger rows, balance deltas, domain SQL) on the
 single ordered writer. The result is known immediately; `committed()` completes after the group commit. If
 storage fails, the transaction is reverted in memory, its future fails, and callers never hand out items.
-After five storage failures the economy turns read-only until `/eco resume`.
+A later transaction that already spent money from the failed one is taken back too: the writer stores an account's
+debit only while the stored balance covers it (`UPDATE ... WHERE balance >= amount`), and only the ledger writes
+`accounts`, so that condition fails exactly for money that was never stored. The unit fails, the transaction is
+reverted like the one it relied on (logged as a warning, "was reverted too"), and so on down the chain; a credit, or a
+debit the account could pay anyway, still stores. One storage error can therefore fail the transactions that depend
+on it, and only those. Reverts run on two callback threads in no fixed order, so a balance may read negative for a
+moment while a chain is taken back (credits are still accepted then; debits are refused). After five storage failures
+(not counting these follow-on reverts) the economy turns read-only until `/eco resume`.
 
 Crash safety:
 

@@ -9,6 +9,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -35,7 +36,9 @@ import net.siftvanilla.siftcore.storage.SqlWork;
  * are atomic across all accounts and all economic domain state that joins a transaction. Each transaction is then
  * written as one database unit (ledger rows + balance deltas + domain SQL) through the ordered writer. If storing
  * fails the transaction is reverted in memory and its {@code committed} future fails, so callers that wait for it
- * before handing out items can never hand out items for money that was not saved.
+ * before handing out items can never hand out items for money that was not saved. A later transaction that already
+ * spent money from the failed one fails to store too (its debit is stored only while the stored balance covers it) and
+ * is reverted the same way, so a failure never leaves money behind that was passed on from it.
  * <p>
  * Memory: two longs per account that ever held currency. That is bounded by the number of players who ever joined.
  */
@@ -50,6 +53,7 @@ public final class Ledger {
     private final ReentrantLock lock = new ReentrantLock();
     private final List<Consumer<CommittedTx>> listeners = new CopyOnWriteArrayList<>();
     private final AtomicLong storeFailures = new AtomicLong();
+    private final AtomicLong dependentReverts = new AtomicLong();
     private final AtomicLong executed = new AtomicLong();
     private volatile LedgerHooks hooks = LedgerHooks.NONE;
     private volatile long maxBalance;
@@ -91,6 +95,11 @@ public final class Ledger {
 
     public long storeFailures() {
         return this.storeFailures.get();
+    }
+
+    /** Transactions reverted because they spent money from a transaction that could not be stored (since startup). */
+    public long dependentReverts() {
+        return this.dependentReverts.get();
     }
 
     /** Subscribes to committed transactions. Listeners run on a database callback thread and must be quick. */
@@ -194,7 +203,9 @@ public final class Ledger {
                     } catch (ArithmeticException e) {
                         return TransactionResult.failed(tx.id(), TransactionStatus.BALANCE_LIMIT, "overflow");
                     }
-                    if (next < 0) {
+                    // Only a debit can lack funds. A credit may land on a balance that is negative for a moment, while
+                    // the reverts of a failed transaction and of one that relied on it run in either order.
+                    if (sums[i] < 0 && next < 0) {
                         return TransactionResult.failed(tx.id(), TransactionStatus.INSUFFICIENT_FUNDS, entry.getKey().toString());
                     }
                     if (sums[i] > 0 && next > this.maxBalance && !SystemAccounts.isSystem(entry.getKey())) {
@@ -308,6 +319,14 @@ public final class Ledger {
         } finally {
             this.lock.unlock();
         }
+        Throwable cause = error instanceof java.util.concurrent.CompletionException && error.getCause() != null ? error.getCause() : error;
+        if (cause instanceof UncoveredDebitException) {
+            // Follows from a failure already counted and logged: not a storage problem of its own, so it does not count
+            // towards turning the economy read-only.
+            this.dependentReverts.incrementAndGet();
+            this.logger.warning("Transaction " + tx.id() + " (" + tx.kind() + ") was reverted too: " + cause.getMessage());
+            return;
+        }
         long failures = this.storeFailures.incrementAndGet();
         this.logger.log(Level.SEVERE, "Transaction " + tx.id() + " (" + tx.kind() + ") could not be stored and was reverted", error);
         if (failures >= FAILURES_BEFORE_READ_ONLY && this.available) {
@@ -317,18 +336,54 @@ public final class Ledger {
         }
     }
 
+    /**
+     * Writes a transaction's balance changes and ledger rows. Each account's net change is written once: a credit adds
+     * to the stored balance, a debit only when the stored balance covers it ({@link #DEBIT_SQL}). Units are stored in the
+     * order they were applied, so the stored balance a debit meets holds every earlier transaction that was stored. It is
+     * lower than the balance the debit was checked against in memory only when an earlier transaction that credited the
+     * account failed to store (its revert in memory comes later): the debit spent money that does not exist, and the
+     * whole unit fails with {@link UncoveredDebitException} and is reverted in turn. So a storage failure takes back the
+     * transactions that relied on it, and only those (a credit, or a debit the account could pay anyway, still stores),
+     * whatever order the reverts run in.
+     */
     private void writeLedger(Connection c, LedgerTx tx, long[] balancesAfter, long now) throws SQLException {
         List<Posting> postings = tx.postings();
+        Map<UUID, long[]> net = new LinkedHashMap<>(4);
+        for (Posting posting : postings) {
+            long[] sums = net.computeIfAbsent(posting.account(), k -> new long[CURRENCIES]);
+            sums[posting.currency().ordinal()] = Math.addExact(sums[posting.currency().ordinal()], posting.delta());
+        }
         try (PreparedStatement upsert = c.prepareStatement(this.upsertSql);
+             PreparedStatement debit = c.prepareStatement(DEBIT_SQL);
              PreparedStatement insert = c.prepareStatement("INSERT INTO ledger (tx_id, ts, currency, account, delta, "
                  + "balance_after, kind, flow, counterparty, ref, actor, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            boolean credits = false;
+            for (Map.Entry<UUID, long[]> entry : net.entrySet()) {
+                for (Currency currency : Currency.values()) {
+                    long delta = entry.getValue()[currency.ordinal()];
+                    if (delta < 0) {
+                        debit.setLong(1, delta);
+                        debit.setString(2, entry.getKey().toString());
+                        debit.setString(3, currency.id());
+                        debit.setLong(4, -delta);
+                        if (debit.executeUpdate() != 1) {
+                            throw new UncoveredDebitException(tx.id(), entry.getKey(), currency, -delta);
+                        }
+                    } else if (delta > 0) {
+                        upsert.setString(1, entry.getKey().toString());
+                        upsert.setString(2, currency.id());
+                        upsert.setLong(3, delta);
+                        upsert.addBatch();
+                        credits = true;
+                    }
+                }
+            }
+            if (credits) {
+                upsert.executeBatch();
+            }
             String txId = tx.id().toString();
             for (int i = 0; i < postings.size(); i++) {
                 Posting posting = postings.get(i);
-                upsert.setString(1, posting.account().toString());
-                upsert.setString(2, posting.currency().id());
-                upsert.setLong(3, posting.delta());
-                upsert.addBatch();
                 insert.setString(1, txId);
                 insert.setLong(2, now);
                 insert.setString(3, posting.currency().id());
@@ -355,8 +410,28 @@ public final class Ledger {
                 }
                 insert.addBatch();
             }
-            upsert.executeBatch();
             insert.executeBatch();
+        }
+    }
+
+    /**
+     * A debit stored only while the stored balance covers it. Parameters: the (negative) change, account, currency, and
+     * the amount taken. Only the ledger writes {@code accounts}, so the condition fails only for money that was never
+     * stored.
+     */
+    private static final String DEBIT_SQL = "UPDATE accounts SET balance = balance + ? WHERE uuid = ? AND currency = ? AND balance >= ?";
+
+    /**
+     * A transaction's debit met a stored balance that can't cover it: it spent money from an earlier transaction that
+     * could not be stored. The unit fails and the transaction is reverted like the one it relied on.
+     */
+    static final class UncoveredDebitException extends SQLException {
+
+        private static final long serialVersionUID = 1L;
+
+        UncoveredDebitException(UUID tx, UUID account, Currency currency, long amount) {
+            super("Transaction " + tx + " takes " + amount + " " + currency.id() + " from " + account
+                + ", which the stored balance does not cover: it relied on a transaction that could not be stored");
         }
     }
 

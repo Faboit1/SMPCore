@@ -137,6 +137,110 @@ class LedgerTest {
         assertTrue(report.healthy(), report.problems().toString());
     }
 
+    /** Holds the database writer until the returned latch is released, so later transactions queue behind it. */
+    private java.util.concurrent.CountDownLatch holdWriter() {
+        java.util.concurrent.CountDownLatch gate = new java.util.concurrent.CountDownLatch(1);
+        this.database.write(c -> {
+            try {
+                gate.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        });
+        return gate;
+    }
+
+    private static LedgerTx failingSource(UUID account, long amount, AtomicInteger domain) {
+        return LedgerTx.builder()
+            .source(account, Currency.MONEY, amount, "ah_sale", "1")
+            .apply(domain::incrementAndGet, domain::decrementAndGet)
+            .write(c -> {
+                throw new SQLException("lock timeout");
+            })
+            .build();
+    }
+
+    /**
+     * Dupe audit R6: a sale fails to store after its proceeds were spent by a transaction that was not stored yet. The
+     * spending transaction must fail and be reverted too, or the money it passed on would exist with nothing behind it.
+     */
+    @Test
+    void aTransactionThatSpentMoneyFromAFailedOneIsRevertedToo() throws Exception {
+        UUID seller = player();
+        UUID third = player();
+        AtomicInteger listing = new AtomicInteger();
+        var gate = holdWriter();
+        TransactionResult sale = this.ledger.execute(failingSource(seller, 10_000, listing));
+        TransactionResult spend = this.ledger.execute(LedgerTx.builder().transfer(seller, third, Currency.MONEY, 739, "pay", null).build());
+        assertTrue(sale.success() && spend.success(), "both apply in memory at once");
+        gate.countDown();
+        assertThrows(Exception.class, () -> sale.committed().get(10, TimeUnit.SECONDS));
+        assertThrows(Exception.class, () -> spend.committed().get(10, TimeUnit.SECONDS), "the spend relied on the failed sale");
+        this.database.flush();
+        assertEquals(0, this.ledger.balance(seller, Currency.MONEY));
+        assertEquals(0, this.ledger.balance(third, Currency.MONEY), "the money passed on is taken back");
+        assertEquals(0, listing.get(), "the sale's domain change is reverted");
+        Ledger.AuditReport report = this.ledger.audit().get(10, TimeUnit.SECONDS);
+        assertTrue(report.healthy(), report.problems().toString());
+        assertTrue(this.ledger.available(), "one storage failure does not make the economy read-only");
+        assertEquals(1, this.ledger.storeFailures(), "the revert that follows from it is not a storage failure of its own");
+        assertEquals(1, this.ledger.dependentReverts());
+    }
+
+    /** Only transactions that relied on the failed one go: a credit, or a debit the stored balance covers, still stores. */
+    @Test
+    void transactionsThatDidNotRelyOnAFailedOneStillStore() throws Exception {
+        UUID a = player();
+        UUID b = player();
+        mint(a, 1_000).committed().get(10, TimeUnit.SECONDS);
+        var gate = holdWriter();
+        TransactionResult failed = this.ledger.execute(failingSource(a, 500, new AtomicInteger()));
+        TransactionResult covered = this.ledger.execute(LedgerTx.builder().transfer(a, b, Currency.MONEY, 800, "pay", null).build());
+        TransactionResult credit = this.ledger.execute(LedgerTx.builder().source(a, Currency.MONEY, 50, "test_mint", null).build());
+        gate.countDown();
+        assertThrows(Exception.class, () -> failed.committed().get(10, TimeUnit.SECONDS));
+        covered.committed().get(10, TimeUnit.SECONDS);
+        credit.committed().get(10, TimeUnit.SECONDS);
+        this.database.flush();
+        assertEquals(250, this.ledger.balance(a, Currency.MONEY), "1,000 - 800 + 50");
+        assertEquals(800, this.ledger.balance(b, Currency.MONEY));
+        Ledger.AuditReport report = this.ledger.audit().get(10, TimeUnit.SECONDS);
+        assertTrue(report.healthy(), report.problems().toString());
+        assertEquals(0, this.ledger.dependentReverts());
+    }
+
+    /**
+     * A chain: the failed sale's money goes A -> B -> C before anything is stored, and every link is taken back, however
+     * the reverts interleave on the callback threads. Many such chains in one run must leave memory and storage equal.
+     */
+    @Test
+    void aChainOfSpendsIsTakenBackLinkByLink() throws Exception {
+        for (int round = 0; round < 20; round++) {
+            UUID a = player();
+            UUID b = player();
+            UUID c = player();
+            var gate = holdWriter();
+            TransactionResult failed = this.ledger.execute(failingSource(a, 300, new AtomicInteger()));
+            TransactionResult first = this.ledger.execute(LedgerTx.builder().transfer(a, b, Currency.MONEY, 300, "pay", null).build());
+            TransactionResult second = this.ledger.execute(LedgerTx.builder().transfer(b, c, Currency.MONEY, 200, "pay", null).build());
+            assertTrue(failed.success() && first.success() && second.success());
+            gate.countDown();
+            for (TransactionResult result : List.of(failed, first, second)) {
+                assertThrows(Exception.class, () -> result.committed().get(10, TimeUnit.SECONDS));
+            }
+            this.database.flush();
+            assertEquals(0, this.ledger.balance(a, Currency.MONEY));
+            assertEquals(0, this.ledger.balance(b, Currency.MONEY));
+            assertEquals(0, this.ledger.balance(c, Currency.MONEY));
+            assertTrue(this.ledger.available(), "only the root failure counts towards read-only");
+            this.ledger.resume();
+        }
+        Ledger.AuditReport report = this.ledger.audit().get(10, TimeUnit.SECONDS);
+        assertTrue(report.healthy(), report.problems().toString());
+        assertEquals(40, this.ledger.dependentReverts(), "two links taken back per round");
+    }
+
     @Test
     void afterCommitRunsOnlyForAStoredTransactionAndBeforeCommittedCompletes() throws Exception {
         UUID a = player();
