@@ -52,7 +52,7 @@ afk:
     arrival: "<secondary>Players arrive at <primary><where>"
     arrival-auto: "<secondary>Players arrive on the ground in the middle of the zone"
     players: "<secondary>Players inside <count>, earning <earning>"
-    rewards: "<secondary>Every <time>: <shards><amount> shards</shards>"
+    rewards: "<secondary>Shards every <time>: <shards><amount></shards>"
     rank-rewards: "<secondary>Per group instead: <primary><ranks>"
     cap: "<secondary>Daily limit <shards><cap> shards</shards> per account"
     no-cap: "<secondary>No daily limit"

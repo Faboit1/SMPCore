@@ -78,12 +78,13 @@ shards:
     description: "Your <shards>shards</shards>, the shard shop and the AFK zone"
     title: "Shards"
     balance: "<primary><icon:shard> You have <shards><amount> shards</shards>"
-    zone-inside: "<secondary>You are in the AFK zone now: <shards><amount> shards</shards> every <time>."
+    # In the AFK zone: what it pays (<amount> shards every <time>), then what was earned there today.
+    zone-inside: "<secondary>You're in the AFK zone now, earning <shards>shards</shards>: <shards><amount></shards> every <time>"
     zone-closed: "<secondary>The AFK zone is closed right now."
     shop: "Shard shop"
     shop-tooltip: "<secondary>Crate keys and items for <shards>shards</shards>"
     zone: "Go to the AFK zone"
     # The AFK zone button's tooltip: what the zone pays this player, and what they earned there today.
-    zone-rate: "<secondary>Earn <shards><amount> shards</shards> every <time> by staying there"
+    zone-rate: "<secondary>Stay there to earn <shards>shards</shards>: <shards><amount></shards> every <time>"
     zone-today: "<secondary>Earned there today <shards><today></shards>"
     zone-today-cap: "<secondary>Earned there today <shards><today></shards> of <cap>"

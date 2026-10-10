@@ -154,6 +154,7 @@ public final class ShardsFeature implements Feature {
         if (inside) {
             lines.add(lang.get(ShardsMessages.HUB_ZONE_INSIDE, Arg.shards("amount", this.zone.shardsPerInterval(player)),
                 Arg.time("time", this.zone.interval())));
+            lines.add(today(player));
         } else if (!this.zone.open()) {
             lines.add(lang.get(ShardsMessages.HUB_ZONE_CLOSED));
         }
@@ -175,14 +176,20 @@ public final class ShardsFeature implements Feature {
     /** What the AFK zone pays this player and what they earned there today (of the daily limit, if any). */
     private Component zoneTooltip(Player player) {
         Lang lang = this.services.lang();
-        long today = this.zone.earnedToday(player.getUniqueId());
-        long cap = this.zone.dailyCap();
         return Templates.lines(List.of(
             lang.get(ShardsMessages.HUB_ZONE_RATE, Arg.shards("amount", this.zone.shardsPerInterval(player)),
                 Arg.time("time", this.zone.interval())),
-            cap > 0
-                ? lang.get(ShardsMessages.HUB_ZONE_TODAY_CAP, Arg.shards("today", today), Arg.shards("cap", cap))
-                : lang.get(ShardsMessages.HUB_ZONE_TODAY, Arg.shards("today", today))));
+            today(player)));
+    }
+
+    /** What the player earned in the AFK zone today, of the daily limit when there is one. */
+    private Component today(Player player) {
+        Lang lang = this.services.lang();
+        long today = this.zone.earnedToday(player.getUniqueId());
+        long cap = this.zone.dailyCap();
+        return cap > 0
+            ? lang.get(ShardsMessages.HUB_ZONE_TODAY_CAP, Arg.shards("today", today), Arg.shards("cap", cap))
+            : lang.get(ShardsMessages.HUB_ZONE_TODAY, Arg.shards("today", today));
     }
 
     private void openMenu(Player player) {

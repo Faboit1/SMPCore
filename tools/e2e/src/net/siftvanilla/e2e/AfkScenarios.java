@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.siftvanilla.siftcore.core.link.CrateKeys;
+import net.siftvanilla.siftcore.core.player.SharedSettings;
 import net.siftvanilla.siftcore.core.player.options.AlertStyle;
 import net.siftvanilla.siftcore.core.player.options.ConfirmAbove;
 import net.siftvanilla.siftcore.feature.afk.AfkFeature;
@@ -54,6 +55,7 @@ final class AfkScenarios {
         list.add(of("afk-kick", AfkScenarios::kick));
         list.add(of("afk-zone", AfkScenarios::zone));
         list.add(of("afk-zone-cap", AfkScenarios::zoneCap));
+        list.add(of("afk-zone-countdown", AfkScenarios::zoneCountdown));
         list.add(of("shard-shop", AfkScenarios::shardShop));
         list.add(of("shard-shop-combat", AfkScenarios::shardShopCombat));
         list.add(of("afk-settings", AfkScenarios::zoneSettings));
@@ -254,7 +256,7 @@ final class AfkScenarios {
     // ------------------------------------------------------------------ the zone
 
     static void zone(E2E e2e) throws Exception {
-        withAfkConfig(e2e, Map.of("interval: 60s", "interval: 5s", "status-every: 2s", "status-every: 1s", "afk-after: 5m", "afk-after: 10s",
+        withAfkConfig(e2e, Map.of("interval: 60s", "interval: 5s", "afk-after: 5m", "afk-after: 10s",
             "after: 30m", "after: 10s", "warn-before: 1m", "warn-before: 3s"), unused -> {
             String first = e2e.name("ZoneA");
             String second = e2e.name("ZoneB");
@@ -336,8 +338,82 @@ final class AfkScenarios {
                 e2e.click(bot, "Shards");
                 Bot.SeenDialog page = e2e.dialog(bot, "Shards");
                 e2e.expect(page.bodyText().contains("Earned there today 2 of 2"), "today's progress: " + page.body());
-                e2e.expect(page.bodyText().contains("You are in the AFK zone now."), "where the player is: " + page.body());
+                e2e.expect(page.bodyText().contains("You're in the AFK zone now, earning shards: 1 every 5s"), "where the player is: "
+                    + page.body());
                 e2e.expect(page.button("Go to the AFK zone") == null, "no teleport button inside the zone: " + page.buttons());
+            } finally {
+                e2e.console("afkzone reset");
+            }
+        });
+    }
+
+    private static final String CHIME = "minecraft:block.amethyst_block.chime";
+
+    private static boolean heard(Bot bot, String sound) {
+        return bot.sounds().stream().anyMatch(seen -> seen.sound().equals(sound));
+    }
+
+    /** The seconds of every "next shard in" line above the hotbar so far, in order. */
+    private static List<Integer> countdown(Bot bot) {
+        List<Integer> seconds = new ArrayList<>();
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("next shard in (\\d+)s");
+        for (String line : bot.actionBar()) {
+            java.util.regex.Matcher matcher = pattern.matcher(line);
+            if (matcher.find()) {
+                seconds.add(Integer.parseInt(matcher.group(1)));
+            }
+        }
+        return seconds;
+    }
+
+    /**
+     * The zone countdown above the hotbar goes down one second at a time (no number skipped or shown twice), and a
+     * payout plays the shard chime with the shards in their colour; with success sounds off it is silent.
+     */
+    static void zoneCountdown(E2E e2e) throws Exception {
+        withAfkConfig(e2e, Map.of("interval: 60s", "interval: 10s"), unused -> {
+            String name = e2e.name("ZoneTick");
+            Bot bot = e2e.bot(name);
+            UUID id = e2e.uuid(name);
+            AfkFeature afk = afk(e2e);
+            try {
+                zoneNear(e2e, name);
+                AfkStaffSettingSteps.set(e2e, name, AfkFeature.PAYOUTS, AlertStyle.CHAT);
+                bot.command("afkzone");
+                e2e.eventually(() -> afk.zone().inside(id), 12_000, "inside the zone");
+                e2e.eventually(() -> bot.actionBarContains("next shard in"), 6_000, "the countdown: " + bot.actionBar());
+
+                e2e.step("the countdown above the hotbar goes down one second at a time");
+                bot.clearMessages();
+                e2e.sleep(8_500);
+                List<Integer> seconds = countdown(bot);
+                e2e.expect(seconds.size() >= 7 && seconds.size() <= 10, "a line every second for 8.5s: " + seconds);
+                for (int i = 1; i < seconds.size(); i++) {
+                    int before = seconds.get(i - 1);
+                    int now = seconds.get(i);
+                    e2e.expect(now == before - 1 || now > before, "each line one second less (or the next shard's wait): " + seconds);
+                }
+
+                e2e.step("a payout plays the shard chime and shows the shards in their colour");
+                bot.clearSounds();
+                bot.clearMessages();
+                e2e.eventually(() -> bot.chatContains("AFK zone: +1 shard"), 12_000, "a payout in chat: " + bot.chat());
+                e2e.eventually(() -> heard(bot, CHIME), 2_000, "the chime: " + bot.sounds());
+                net.minecraft.network.chat.Component line = bot.chatComponents().stream()
+                    .filter(component -> component.getString().contains("+1 shard")).findFirst().orElseThrow();
+                e2e.expect("#915DFF".equals(CratesScenarios.colorOf(line, "+1 shard")), "+1 shard in purple: "
+                    + CratesScenarios.colorOf(line, "+1 shard"));
+                e2e.expect(heard(bot, CHIME) && bot.sounds().stream().filter(seen -> seen.sound().equals(CHIME)).count() == 1,
+                    "one chime per payout: " + bot.sounds());
+
+                e2e.step("with success sounds off (API) the payout comes without the chime");
+                AfkStaffSettingSteps.set(e2e, name, SharedSettings.SOUND_SUCCESS, false);
+                bot.clearSounds();
+                bot.clearMessages();
+                e2e.eventually(() -> bot.chatContains("AFK zone: +1 shard"), 12_000, "another payout: " + bot.chat());
+                e2e.sleep(500);
+                e2e.expect(!heard(bot, CHIME), "no chime: " + bot.sounds());
+                AfkStaffSettingSteps.set(e2e, name, SharedSettings.SOUND_SUCCESS, true);
             } finally {
                 e2e.console("afkzone reset");
             }
@@ -402,14 +478,25 @@ final class AfkScenarios {
         bot.command("shards");
         e2e.eventually(() -> bot.chatContains("You have 1,000 shards."), "/shards: " + bot.chat());
 
-        e2e.step("the shop lists the crate key and item offers");
+        e2e.step("the shop: the balance, then a button per offer, every crate tier's key from the lowest up, then the items");
         bot.command("shardshop");
         Bot.SeenDialog shop = e2e.dialog(bot, "Shard shop");
-        e2e.expect(shop.button("Basic key, 50 shards") != null, "the basic key offer: " + shop.buttons());
-        e2e.expect(shop.button("Legendary key, 1,500 shards") != null, "the legendary key offer: " + shop.buttons());
+        e2e.expect(shop.button("Common key, 50 shards") != null, "the Common key offer: " + shop.buttons());
+        e2e.expect(shop.button("Legendary key, 1,500 shards") != null, "the Legendary key offer: " + shop.buttons());
         e2e.expect(shop.button("Totem of Undying, 250 shards") != null, "the totem offer: " + shop.buttons());
         e2e.expect(shop.button("32x Bottle o' Enchanting, 40 shards") != null, "an offer of 32 items says so: " + shop.buttons());
-        e2e.expect(shop.bodyText().contains("You have 1,000 shards"), "the balance: " + shop.body());
+        e2e.expect(shop.body().size() == 1 && shop.bodyText().contains("You have 1,000 shards"), "only the balance above: " + shop.body());
+        List<String> keyOffers = shop.buttons().stream().map(Bot.Button::label).filter(label -> label.contains(" key, "))
+            .map(label -> label.substring(0, label.indexOf(" key, "))).toList();
+        e2e.expect(keyOffers.equals(List.of("Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Celestial")),
+            "a key of every tier, in order: " + keyOffers);
+        e2e.expect("#915DFF".equals(shop.button("Common key, 50 shards").valueColor()), "the price in the shards colour: "
+            + shop.button("Common key, 50 shards").valueColor());
+        e2e.expect("#FFB12E".equals(CratesScenarios.colorOf(shop.button("Legendary key").labelComponent(), "Legendary")),
+            "a key in its crate's colour: " + CratesScenarios.colorOf(shop.button("Legendary key").labelComponent(), "Legendary"));
+        String keyTip = shop.button("Common key").tooltip();
+        e2e.expect(keyTip != null && keyTip.contains("Opens the Common crate at spawn") && keyTip.contains("Up to 16 per purchase"),
+            "what it is in its tooltip: " + keyTip);
 
         e2e.step("the amount slider shows the new total first, then a confirmation for big purchases");
         e2e.click(bot, "Totem of Undying");
@@ -496,8 +583,10 @@ final class AfkScenarios {
         e2e.click(bot, "Shards");
         Bot.SeenDialog page = e2e.dialog(bot, "Shards");
         e2e.expect(page.bodyText().contains("1,234 shards"), "the balance: " + page.body());
-        e2e.expect(page.bodyText().contains("AFK zone"), "what the AFK zone pays: " + page.body());
         e2e.expect(page.button("Go to the AFK zone") != null, "a way to the zone: " + page.buttons());
+        String zoneTip = page.button("Go to the AFK zone").tooltip();
+        e2e.expect(zoneTip != null && zoneTip.contains("Stay there to earn shards: 1 every 1m") && zoneTip.contains("Earned there today"),
+            "what the AFK zone pays, in its tooltip: " + zoneTip);
         e2e.click(bot, "Shard shop");
         e2e.dialog(bot, "Shard shop");
         e2e.click(bot, "Back");
@@ -510,15 +599,15 @@ final class AfkScenarios {
         bot.clearLogs();
         bot.command("shardshop");
         e2e.dialog(bot, "Shard shop");
-        e2e.click(bot, "Basic key");
-        Bot.SeenDialog keyOffer = e2e.dialog(bot, "Buy Basic key");
-        e2e.expect(keyOffer.bodyText().contains("Keys you have for this crate " + keysBefore), "the keys the player has: " + keyOffer.body());
+        e2e.click(bot, "Common key");
+        Bot.SeenDialog keyOffer = e2e.dialog(bot, "Buy Common key");
+        e2e.expect(keyOffer.bodyText().contains("Keys you have " + keysBefore), "the keys the player has: " + keyOffer.body());
         e2e.click(bot, "Buy 1", Map.of("amount", 2));
-        e2e.dialog(bot, "Buy Basic key");
+        e2e.dialog(bot, "Buy Common key");
         e2e.click(bot, "Buy 2 for 100 shards", Map.of("amount", 2));
-        e2e.eventually(() -> keys.keys(id, "basic") == keysBefore + 2, "two basic keys (has " + keys.keys(id, "basic") + ")");
+        e2e.eventually(() -> keys.keys(id, "basic") == keysBefore + 2, "two Common keys (has " + keys.keys(id, "basic") + ")");
         e2e.eventually(() -> e2e.shards(name) == 1134, "charged 100 shards (has " + e2e.shards(name) + ")");
-        e2e.eventually(() -> bot.chatContains("You bought 2x Basic key for 100 shards."), "a receipt: " + bot.chat());
+        e2e.eventually(() -> bot.chatContains("You bought 2x Common key for 100 shards."), "a receipt: " + bot.chat());
         e2e.eventually(() -> String.join(" ", e2e.consoleOutput("shards pending")).contains("Key purchases waiting (0)"),
             "the purchase is finished");
 
@@ -528,10 +617,10 @@ final class AfkScenarios {
         bot.clearLogs();
         bot.command("shardshop");
         e2e.dialog(bot, "Shard shop");
-        e2e.click(bot, "Basic key");
-        e2e.dialog(bot, "Buy Basic key");
+        e2e.click(bot, "Common key");
+        e2e.dialog(bot, "Buy Common key");
         e2e.click(bot, "Buy 1", Map.of("amount", 2));
-        e2e.dialog(bot, "Buy Basic key");
+        e2e.dialog(bot, "Buy Common key");
         e2e.click(bot, "Buy 2 for 100 shards", Map.of("amount", 2));
         e2e.eventually(() -> bot.chatContains("couldn't be given, so your 100 shards were refunded"), "told about the refund: " + bot.chat());
         e2e.expect(e2e.shards(name) == 1134, "the shards are back (has " + e2e.shards(name) + ")");
@@ -551,7 +640,7 @@ final class AfkScenarios {
      * back on the action bar, and silent payouts, through the API.
      */
     static void zoneSettings(E2E e2e) throws Exception {
-        withAfkConfig(e2e, Map.of("interval: 60s", "interval: 5s", "status-every: 2s", "status-every: 1s"), unused -> {
+        withAfkConfig(e2e, Map.of("interval: 60s", "interval: 5s"), unused -> {
             String name = e2e.name("AfkPrefs");
             Bot bot = e2e.bot(name);
             UUID id = e2e.uuid(name);
