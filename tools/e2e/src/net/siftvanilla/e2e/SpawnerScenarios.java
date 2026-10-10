@@ -1047,7 +1047,7 @@ final class SpawnerScenarios {
         e2e.expect(loot == stored, "the " + stored + " stored items refunded (" + loot + ")");
         e2e.expect(count(e2e, name, Material.SPAWNER) == 0, "nothing was handed out into the inventory");
         e2e.eventually(() -> bot.chatContains("Your spider spawner stack of 4 at " + at[0] + ", " + at[1] + ", " + at[2]
-            + " in world is gone.") && bot.chatContains("Its spawners and " + String.format(java.util.Locale.ROOT, "%,d", stored)
+            + " in Overworld is gone.") && bot.chatContains("Its spawners and " + String.format(java.util.Locale.ROOT, "%,d", stored)
             + " stored items are waiting in your claim box (/claims)."), "the owner is told: " + bot.chat());
         e2e.eventually(() -> e2e.onPlayer(name, () -> e2e.player(name).getTotalExperience()) == expBefore + xp,
             "the " + xp + " stored XP went to the owner");
