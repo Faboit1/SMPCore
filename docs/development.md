@@ -181,7 +181,10 @@ What every dialog looks like (the owner's rules; settings are the reference impl
    once and the same page shows again with the new state (`Button.After.NEXT`, the default). **Choices are buttons
    too**, "Label: Value" with the value coloured; clicking moves to the next option. **Numbers** are a button
    "Label: 60%" that opens a small slider dialog whose Done stores the value and comes back.
-6. **No Save step and no chat message per click**: the button shows the new state. A change that is refused shows in
+6. **Every leaderboard looks the same** (the stats boards, `/baltop`, `/sell top`): one or two short lines (the
+   player's own place, "You are number 3 with $5,000.", and how many are listed), then one button per place,
+   "1. Alex $5,000", the player's own name in `<accent>`. No pages; the list's cap is the count line.
+7. **No Save step and no chat message per click**: the button shows the new state. A change that is refused shows in
    red on the page shown again (`view.withError(message, FormValues.EMPTY)`) with the error sound. Commands that change
    the same things keep their chat or action bar feedback.
 
