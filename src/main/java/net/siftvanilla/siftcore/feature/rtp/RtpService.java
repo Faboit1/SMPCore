@@ -56,6 +56,8 @@ final class RtpService {
     private static final class Attempt {
         private final String region;
         private final AtomicLong charged = new AtomicLong();
+        /** Completes once the charge is stored; fails when storing it failed (and the ledger already gave it back). */
+        private volatile CompletableFuture<Void> chargeStored = CompletableFuture.completedFuture(null);
         private volatile Location spot;
 
         private Attempt(String region) {
@@ -310,6 +312,7 @@ final class RtpService {
         TransactionResult result = this.services.ledger().execute(tx);
         switch (result.status()) {
             case SUCCESS -> {
+                attempt.chargeStored = result.committed();
                 attempt.charged.set(cost);
                 return true;
             }
@@ -373,11 +376,33 @@ final class RtpService {
         if (amount <= 0) {
             return;
         }
+        afterCharge(attempt.chargeStored, () -> payBack(player, attempt.region, amount),
+            () -> this.logger.info("The random teleport charge of " + player.getName() + " could not be stored and was "
+                + "already given back; nothing more to refund"));
+    }
+
+    /**
+     * Runs {@code refund} once the charge it pays back is stored, or {@code reverted} instead when storing the charge
+     * failed: the ledger has then already given the money back, and refunding it again would create it (dupe audit
+     * R13). Either runs on the thread that completes the charge (a database callback thread), or at once.
+     */
+    static void afterCharge(CompletableFuture<?> chargeStored, Runnable refund, Runnable reverted) {
+        chargeStored.whenComplete((ignored, error) -> {
+            if (error == null) {
+                refund.run();
+            } else {
+                reverted.run();
+            }
+        });
+    }
+
+    /** Pays a charge back in a silent {@code rtp_refund} source and tells the player. Any thread. */
+    private void payBack(Player player, String region, long amount) {
         UUID id = player.getUniqueId();
         LedgerTx tx = LedgerTx.builder()
             .actor("system")
             .note("random teleport did not happen")
-            .source(id, Currency.MONEY, amount, "rtp_refund", attempt.region)
+            .source(id, Currency.MONEY, amount, "rtp_refund", region)
             .silent()
             .build();
         TransactionResult result = this.services.ledger().execute(tx);

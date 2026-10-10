@@ -77,7 +77,9 @@ The cost is charged only after a safe spot was found, immediately before the tel
 safe spot, timeout) never charges. Charging after the teleport instead would let a player spend their money while
 the teleport runs and get it for free; charging before the search would charge for failures. So if the charged
 teleport then does not happen (the player left in that instant, got combat-tagged, or the server refused the move),
-the same amount is paid back at once in a silent transaction (kind `rtp_refund`, a source) and the player is told.
+the same amount is paid back in a silent transaction (kind `rtp_refund`, a source) and the player is told. The
+refund waits until the charge is stored: when storing the charge failed, the ledger has already given the money back,
+so nothing is refunded on top (dupe audit R13; with the shipped cost of 0 nothing is charged at all).
 The ledger therefore records exactly one net `rtp_cost` for every random teleport that happened, and nothing for one
 that did not.
 
