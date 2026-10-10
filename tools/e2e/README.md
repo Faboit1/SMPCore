@@ -31,9 +31,19 @@ The test server directory must contain `versions/` (the patched Canvas jar) and 
 2. Use `online-mode=false`, `allow-flight=true` (bots don't simulate gravity) and a high
    `packet-limiter.all-packets.max-packet-rate` in `config/paper-global.yml` (the bot's client-side connection
    reuses the server's packet limiter).
-3. Console: `e2e list`, `e2e run all` or `e2e run pay forged-clicks` (scenario names; about 335 in all).
+3. Console: `e2e list`, `e2e run all` or `e2e run pay forged-clicks` (scenario names; about 370 in all).
 4. Results are logged as `E2E PASS <scenario>` / `E2E FAIL <scenario> at step '...'` and a final
    `E2E SUMMARY passed=N failed=M`.
+
+The `audit-*` scenarios are regressions for the dupe audit's SiftCore findings (`AuditScenarios`). Three of them are
+run by name only, never by `e2e run all`:
+
+- `audit-ledger-revert-chain` makes one database write fail on purpose (a SQLite trigger) to check that the
+  transactions which spent its money are taken back too; the self-test then reports the failed write ("database
+  writer is healthy") until the next start.
+- `audit-trash-stop` and `audit-trash-stop-check` run across a real stop: run the first, stop and start the server
+  (the bots stay connected until the stop), then run the second. It checks that open trash bins are emptied as their
+  close would when the plugin is disabled.
 
 Each scenario uses fresh bot names (a per-run suffix), so runs never depend on earlier data. A run stops the day
 cycle and sets every world to midday, so hostile mobs don't attack bots during long runs.

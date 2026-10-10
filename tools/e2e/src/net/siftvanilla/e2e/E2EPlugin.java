@@ -18,8 +18,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class E2EPlugin extends JavaPlugin {
 
     private final Map<String, Scenario> scenarios = new LinkedHashMap<>();
-    /** Scenarios that need a server restart in between: run by name only, never by {@code e2e run all}. */
-    private final java.util.Set<String> acrossRestart = new java.util.HashSet<>();
+    /**
+     * Scenarios run by name only, never by {@code e2e run all}: ones that need a server restart in between, or leave a
+     * trace a later self-test reports (an injected storage failure).
+     */
+    private final java.util.Set<String> byNameOnly = new java.util.HashSet<>();
     private final AtomicBoolean running = new AtomicBoolean();
 
     @Override
@@ -27,9 +30,9 @@ public final class E2EPlugin extends JavaPlugin {
         for (Scenario scenario : Scenarios.all()) {
             this.scenarios.put(scenario.name(), scenario);
         }
-        for (Scenario scenario : AuditScenarios.acrossRestart()) {
+        for (Scenario scenario : AuditScenarios.byNameOnly()) {
             this.scenarios.put(scenario.name(), scenario);
-            this.acrossRestart.add(scenario.name());
+            this.byNameOnly.add(scenario.name());
         }
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
             Commands.literal("e2e")
@@ -53,7 +56,7 @@ public final class E2EPlugin extends JavaPlugin {
         List<Scenario> selected = new ArrayList<>();
         if (names.equals("all")) {
             for (Scenario scenario : this.scenarios.values()) {
-                if (!this.acrossRestart.contains(scenario.name())) {
+                if (!this.byNameOnly.contains(scenario.name())) {
                     selected.add(scenario);
                 }
             }

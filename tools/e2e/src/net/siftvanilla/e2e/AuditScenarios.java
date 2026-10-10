@@ -48,8 +48,10 @@ import org.bukkit.permissions.PermissionAttachment;
  * Regression scenarios for the dupe audit's SiftCore findings (R6, R8, R11, R12, R15, R16), built from the auditors'
  * and verifiers' probes. Each one fails on the code before its fix.
  * <p>
- * Two of them run across a real server stop and are left out of {@code e2e run all} ({@link #acrossRestart}): run
- * {@code audit-trash-stop}, stop and start the server, then run {@code audit-trash-stop-check}.
+ * Three are run by name only, never by {@code e2e run all} ({@link #byNameOnly}): {@code audit-ledger-revert-chain}
+ * makes one database write fail on purpose, which the database health self-test then reports until the next start;
+ * {@code audit-trash-stop} and {@code audit-trash-stop-check} run across a real stop: run the first, stop and start
+ * the server, then run the second.
  */
 final class AuditScenarios {
 
@@ -82,7 +84,6 @@ final class AuditScenarios {
 
     static List<Scenario> all() {
         List<Scenario> list = new ArrayList<>();
-        list.add(of("audit-ledger-revert-chain", AuditScenarios::revertChain));
         list.add(of("audit-sell-click-spam", AuditScenarios::clickSpam));
         list.add(of("audit-sell-save-race", AuditScenarios::saveRace));
         list.add(of("audit-trash-crash", AuditScenarios::trashCrash));
@@ -91,9 +92,10 @@ final class AuditScenarios {
         return list;
     }
 
-    /** Scenarios that need a server stop in between; not part of {@code e2e run all}. */
-    static List<Scenario> acrossRestart() {
+    /** Scenarios run by name only, not by {@code e2e run all} (see the class comment). */
+    static List<Scenario> byNameOnly() {
         List<Scenario> list = new ArrayList<>();
+        list.add(of("audit-ledger-revert-chain", AuditScenarios::revertChain));
         list.add(of("audit-trash-stop", AuditScenarios::trashBeforeStop));
         list.add(of("audit-trash-stop-check", AuditScenarios::trashAfterStop));
         return list;
@@ -651,7 +653,8 @@ final class AuditScenarios {
         fund(e2e, payeeName, 0);
         e2e.sleep(700);
         e2e.step("storage falls behind; the payer sends 240k (the limit is 250k) and leaves at once");
-        CompletableFuture<Object> stall = e2e.stallStorage(25_000);
+        // Long enough to outlast the rejoin, whose login reads wait on storage too (about 25 s in all).
+        CompletableFuture<Object> stall = e2e.stallStorage(55_000);
         try {
             e2e.sleep(300);
             payer.command("pay " + payeeName + " 240k");
@@ -673,7 +676,7 @@ final class AuditScenarios {
             e2e.sleep(1_500);
             e2e.expect(e2e.money(payerName) == 360_000, "only the first payment went out: " + e2e.money(payerName));
         } finally {
-            stall.get(60, TimeUnit.SECONDS);
+            stall.get(90, TimeUnit.SECONDS);
         }
         e2e.services().database().flush();
         e2e.expect(e2e.money(payeeName) == 240_000, "the payee got 240k once");
@@ -703,8 +706,9 @@ final class AuditScenarios {
             ah[0] = e2e.player(buyerName).addAttachment(e2e.services().plugin(), "siftcore.command.ah", false);
             return null;
         });
-        buyer.clearLogs();
-        buyer.clickButton("Buy", Map.of());
+        e2e.expect(!e2e.onPlayer(buyerName, () -> e2e.player(buyerName).hasPermission("siftcore.command.ah")), "the permission is gone");
+        // (clearLogs would forget the dialog on screen: the refusal is looked for as it is, it can't be there before.)
+        e2e.expect(buyer.clickButton("Buy", Map.of()), "the Buy button is still there to click");
         e2e.eventually(() -> buyer.anyFeedbackContains("You can't do that."), "refused: " + buyer.actionBar());
         e2e.sleep(500);
         e2e.expect(e2e.money(buyerName) == 300_000 && e2e.money(sellerName) == 0, "no money moved");
@@ -761,6 +765,7 @@ final class AuditScenarios {
         e2e.step("bounties: siftcore.bounties.place is revoked while the bounty confirmation is open");
         long escrow = e2e.services().ledger().balance(SystemAccounts.BOUNTY_ESCROW, Currency.MONEY);
         long sponsorMoney = e2e.money(buyerName);
+        buyer.clearLogs();
         command(e2e, buyer, "bounty " + sellerName + " 150k");
         e2e.dialog(buyer, "Confirm bounty");
         PermissionAttachment[] bounty = new PermissionAttachment[1];
@@ -768,8 +773,7 @@ final class AuditScenarios {
             bounty[0] = e2e.player(buyerName).addAttachment(e2e.services().plugin(), "siftcore.bounties.place", false);
             return null;
         });
-        buyer.clearLogs();
-        buyer.clickButton("Place bounty", Map.of());
+        e2e.expect(buyer.clickButton("Place bounty", Map.of()), "the Place bounty button is still there to click");
         e2e.eventually(() -> buyer.anyFeedbackContains("You can't do that."), "refused: " + buyer.actionBar());
         e2e.sleep(500);
         e2e.expect(e2e.money(buyerName) == sponsorMoney, "no money moved");
