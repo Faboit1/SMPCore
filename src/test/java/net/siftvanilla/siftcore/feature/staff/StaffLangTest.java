@@ -93,5 +93,13 @@ class StaffLangTest {
         assertEquals(Duration.ofDays(3650), settings.maxLength());
         assertEquals(new ReportRules.Limits(3, 100, 5, Duration.ofSeconds(60)), settings.reports());
         assertEquals(null, settings.freezeBanLength());
+        assertEquals(100, settings.historyListSize(), "/history lists up to 100, no pages");
+        assertEquals(100, settings.reportsListSize(), "/reports lists up to 100, no pages");
+        var before = yaml("features/staff.yml");
+        before.set("history.list-size", null);
+        before.set("history.page-size", 6);
+        ConfigReader old = new ConfigReader("features/staff.yml", before);
+        assertEquals(100, StaffSettings.parse(old).historyListSize(), "a file from before (page-size) lists up to 100");
+        assertEquals(List.of(), old.problems());
     }
 }

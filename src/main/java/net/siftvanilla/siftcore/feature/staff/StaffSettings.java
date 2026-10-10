@@ -21,8 +21,8 @@ import net.siftvanilla.siftcore.core.config.Durations;
  * @param appeal                the appeal line on the ban screen
  * @param maxLength             the longest temporary ban or mute
  * @param reports               report limits
- * @param historyPageSize       entries per page in /history
- * @param reportsPageSize       reports per page in /reports
+ * @param historyListSize       the most punishments /history lists (newest first, one dialog that scrolls)
+ * @param reportsListSize       the most open reports /reports lists (oldest first, one dialog that scrolls)
  * @param clearChatLines        blank lines sent by /clearchat
  * @param hierarchy             who may punish whom among staff
  */
@@ -37,8 +37,8 @@ public record StaffSettings(
     String appeal,
     Duration maxLength,
     ReportRules.Limits reports,
-    int historyPageSize,
-    int reportsPageSize,
+    int historyListSize,
+    int reportsListSize,
     int clearChatLines,
     Hierarchy hierarchy) {
 
@@ -105,9 +105,11 @@ public record StaffSettings(
             max = 100;
         }
         int openPerPlayer = reports.integer("max-open-per-player", 1, 50, 5);
-        int reportsPage = reports.integer("page-size", 2, 12, 6);
+        // Dialogs have no pages: everything is listed up to these caps, and the dialog scrolls.
+        int reportsPage = reports.has("list-size") ? reports.integer("list-size", 5, 200, 100) : 100;
 
-        int historyPage = r.section("history").integer("page-size", 3, 12, 6);
+        ConfigReader history = r.section("history");
+        int historyPage = history.has("list-size") ? history.integer("list-size", 5, 500, 100) : 100;
         int clearLines = r.section("clear-chat").integer("lines", 20, 300, 100);
 
         // Older staff.yml files have no hierarchy section yet: the default keeps staff from punishing their superiors.

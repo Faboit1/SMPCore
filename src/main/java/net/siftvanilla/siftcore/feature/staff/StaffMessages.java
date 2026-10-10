@@ -13,8 +13,6 @@ public final class StaffMessages {
     public static final MessageKey TYPE_MUTE = MessageKey.ui("staff.type.mute");
     public static final MessageKey TYPE_KICK = MessageKey.ui("staff.type.kick");
     public static final MessageKey TYPE_WARN = MessageKey.ui("staff.type.warn");
-    public static final MessageKey PAGE_NEXT = MessageKey.ui("staff.page.next");
-    public static final MessageKey PAGE_PREVIOUS = MessageKey.ui("staff.page.previous");
 
     // ------------------------------------------------------------------ input problems
     public static final MessageKey DURATION_MISSING = MessageKey.error("staff.duration.missing");
@@ -93,7 +91,8 @@ public final class StaffMessages {
     // ------------------------------------------------------------------ history
     public static final MessageKey HISTORY_TITLE = MessageKey.ui("staff.history.title", "name");
     public static final MessageKey HISTORY_HEADER = MessageKey.chat("staff.history.header", "name", "count");
-    public static final MessageKey HISTORY_PAGE = MessageKey.ui("staff.history.page", "count", "page", "pages");
+    public static final MessageKey HISTORY_COUNT = MessageKey.ui("staff.history.count", "count");
+    public static final MessageKey HISTORY_CAPPED = MessageKey.ui("staff.history.capped", "shown", "count");
     public static final MessageKey HISTORY_EMPTY = MessageKey.ui("staff.history.empty", "name");
     public static final MessageKey HISTORY_ENTRY = MessageKey.ui("staff.history.entry", "type", "ago", "staff");
     public static final MessageKey HISTORY_REASON = MessageKey.ui("staff.history.reason", "reason");
@@ -128,7 +127,9 @@ public final class StaffMessages {
     public static final MessageKey REPORT_NOTIFY = MessageKey.notify("staff.report.notify", "id", "reporter", "target", "reason");
     public static final MessageKey REPORT_NOTIFY_HOVER = MessageKey.ui("staff.report.notify-hover");
     public static final MessageKey REPORTS_TITLE = MessageKey.ui("staff.reports.title");
-    public static final MessageKey REPORTS_SUMMARY = MessageKey.ui("staff.reports.summary", "count", "page", "pages");
+    public static final MessageKey REPORTS_COUNT = MessageKey.ui("staff.reports.count", "count");
+    public static final MessageKey REPORTS_CAPPED = MessageKey.ui("staff.reports.capped", "shown", "count");
+    public static final MessageKey REPORTS_BUTTON_TOOLTIP = MessageKey.ui("staff.reports.button-tooltip");
     public static final MessageKey REPORTS_EMPTY = MessageKey.ui("staff.reports.empty");
     public static final MessageKey REPORTS_LINE = MessageKey.ui("staff.reports.line", "id", "target", "reporter", "age", "status");
     public static final MessageKey REPORTS_ONLINE = MessageKey.ui("staff.reports.online");

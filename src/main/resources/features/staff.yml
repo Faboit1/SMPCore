@@ -54,8 +54,8 @@ reports:
   reason-max-length: 100
   # Open reports one player may have at the same time.
   max-open-per-player: 5
-  # Reports listed per page in /reports.
-  page-size: 6
+  # The most open reports /reports lists (the oldest first, in one dialog that scrolls; 5 to 200).
+  list-size: 100
 
 hierarchy:
   # Staff can't ban, mute, kick, warn, freeze or vanish a staff member whose staff weight is the same as or higher
@@ -69,8 +69,8 @@ hierarchy:
   min-weight: 100
 
 history:
-  # Punishments listed per page in /history.
-  page-size: 6
+  # The most punishments /history lists (the newest first, in one dialog that scrolls; 5 to 500).
+  list-size: 100
 
 clear-chat:
   # Blank lines /clearchat sends to push old messages off screen.

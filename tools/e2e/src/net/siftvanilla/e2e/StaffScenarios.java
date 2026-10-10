@@ -327,6 +327,7 @@ final class StaffScenarios {
         String body = history.bodyText();
         e2e.expect(body.contains("Ban") && body.contains("Kick") && body.contains("Warning"), "every entry: " + history.body());
         e2e.expect(body.indexOf("alt account") < body.indexOf("using x-ray"), "newest first: " + history.body());
+        e2e.expect(history.buttons().stream().noneMatch(button -> button.label().toLowerCase().contains("page")), "no pages: " + history.buttons());
 
         e2e.step("unban, and unbanning twice says so");
         mod.command("unban " + BANNED);
@@ -881,14 +882,16 @@ final class StaffScenarios {
         reporter.clearLogs();
         mod.command("reports");
         Bot.SeenDialog list = e2e.dialog(mod, "Open reports");
-        e2e.expect(list.bodyText().contains("#" + id), "the report in the list: " + list.body());
+        e2e.expect(list.button("#" + id + " ") != null && list.button("#" + id + " ").tooltip().contains("Click to review it"),
+            "the report in the list, explained on hover: " + list.buttons());
+        e2e.expect(list.buttons().stream().noneMatch(button -> button.label().toLowerCase().contains("page")), "no pages: " + list.buttons());
         e2e.click(mod, "#" + id + " " + SUSPECT);
         e2e.dialog(mod, "Report #" + id);
         e2e.click(mod, "Mark handled");
         expectSaw(e2e, mod, "Report #" + id + " is marked handled.");
         expectSaw(e2e, reporter, "Staff looked at your report about " + SUSPECT);
         Bot.SeenDialog after = e2e.dialog(mod, "Open reports");
-        e2e.expect(!after.bodyText().contains("#" + id + " "), "the report left the list: " + after.body());
+        e2e.expect(after.button("#" + id + " ") == null, "the report left the list: " + after.buttons());
 
         e2e.step("a closed report can't be handled again");
         mod.clearLogs();

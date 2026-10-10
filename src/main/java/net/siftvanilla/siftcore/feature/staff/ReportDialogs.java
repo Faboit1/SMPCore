@@ -91,46 +91,44 @@ final class ReportDialogs {
 
     // ------------------------------------------------------------------ staff
 
-    /** The paged list of open reports. */
-    void openList(Player staff, int page) {
+    /**
+     * The open reports in one dialog that scrolls (no pages), the oldest first, up to {@code reports.list-size}: a short
+     * count, then a button per report whose tooltip says who reported it, when and whether the player is online.
+     */
+    void openList(Player staff) {
         Lang lang = this.services.lang();
         List<Report> all = this.reports.open();
-        int size = this.settings.get().reportsPageSize();
-        int pages = Math.max(1, (all.size() + size - 1) / size);
-        int current = Math.clamp(page, 1, pages);
+        int cap = this.settings.get().reportsListSize();
         List<Component> lines = new ArrayList<>();
         List<Button> buttons = new ArrayList<>();
         long now = System.currentTimeMillis();
         if (all.isEmpty()) {
             lines.add(lang.get(StaffMessages.REPORTS_EMPTY));
         } else {
-            lines.add(lang.get(StaffMessages.REPORTS_SUMMARY, Arg.number("count", all.size()), Arg.number("page", current),
-                Arg.number("pages", pages)));
-            for (Report report : all.subList((current - 1) * size, Math.min(all.size(), current * size))) {
-                lines.add(lang.get(StaffMessages.REPORTS_LINE, Arg.text("id", Long.toString(report.id())),
-                    Arg.text("target", report.targetName()), Arg.text("reporter", report.reporterName()),
-                    Arg.time("age", StaffText.since(report.created(), now)), Arg.component("status", status(report))));
-                buttons.add(Button.of(lang.get(StaffMessages.REPORTS_BUTTON, Arg.text("id", Long.toString(report.id())),
-                    Arg.text("target", report.targetName())), s -> openDetail(s.player(), report.id(), current)).width(150));
+            lines.add(lang.get(StaffMessages.REPORTS_COUNT, Arg.value("count", all.size())));
+            if (all.size() > cap) {
+                lines.add(lang.get(StaffMessages.REPORTS_CAPPED, Arg.value("shown", cap), Arg.value("count", all.size())));
             }
-        }
-        if (current > 1) {
-            buttons.add(Button.of(lang.get(StaffMessages.PAGE_PREVIOUS), s -> openList(s.player(), current - 1)).width(150));
-        }
-        if (current < pages) {
-            buttons.add(Button.of(lang.get(StaffMessages.PAGE_NEXT), s -> openList(s.player(), current + 1)).width(150));
+            for (Report report : all.subList(0, Math.min(all.size(), cap))) {
+                Component tooltip = Templates.lines(List.of(lang.get(StaffMessages.REPORTS_LINE, Arg.text("id", Long.toString(report.id())),
+                    Arg.text("target", report.targetName()), Arg.text("reporter", report.reporterName()),
+                    Arg.time("age", StaffText.since(report.created(), now)), Arg.component("status", status(report))),
+                    lang.get(StaffMessages.REPORTS_BUTTON_TOOLTIP)));
+                buttons.add(Button.of(lang.get(StaffMessages.REPORTS_BUTTON, Arg.text("id", Long.toString(report.id())),
+                    Arg.text("target", report.targetName())), tooltip, s -> openDetail(s.player(), report.id())).width(150));
+            }
         }
         this.services.dialogs().show(staff, this.services.templates().list(lang.get(StaffMessages.REPORTS_TITLE), lines,
             buttons, 2, null));
     }
 
-    /** One open report with its actions; {@code page} is the list page to go back to. */
-    void openDetail(Player staff, long id, int page) {
+    /** One open report with its actions; Back returns to the list. */
+    void openDetail(Player staff, long id) {
         Lang lang = this.services.lang();
         Optional<Report> found = this.reports.open(id);
         if (found.isEmpty()) {
             this.services.messenger().send(staff, StaffMessages.REPORTS_CLOSED, Arg.text("id", Long.toString(id)));
-            openList(staff, page);
+            openList(staff);
             return;
         }
         Report report = found.get();
@@ -140,16 +138,16 @@ final class ReportDialogs {
         List<Button> buttons = new ArrayList<>();
         if (Bukkit.getPlayer(report.target()) != null) {
             buttons.add(Button.of(lang.get(StaffMessages.REPORTS_TELEPORT, Arg.text("name", report.targetName())),
-                s -> teleport(s, report, page)).width(Templates.WIDE));
+                s -> teleport(s, report)).width(Templates.WIDE));
         }
-        buttons.add(Button.of(lang.get(StaffMessages.REPORTS_HANDLE), s -> close(s, report, ReportState.HANDLED, page)).width(150));
-        buttons.add(Button.of(lang.get(StaffMessages.REPORTS_DISMISS), s -> close(s, report, ReportState.DISMISSED, page)).width(150));
+        buttons.add(Button.of(lang.get(StaffMessages.REPORTS_HANDLE), s -> close(s, report, ReportState.HANDLED)).width(150));
+        buttons.add(Button.of(lang.get(StaffMessages.REPORTS_DISMISS), s -> close(s, report, ReportState.DISMISSED)).width(150));
         this.services.dialogs().show(staff, this.services.templates().list(
             lang.get(StaffMessages.REPORTS_DETAIL_TITLE, Arg.text("id", Long.toString(report.id()))),
-            lines, buttons, 2, s -> openList(s.player(), page)));
+            lines, buttons, 2, s -> openList(s.player())));
     }
 
-    private void close(Submission submission, Report report, ReportState state, int page) {
+    private void close(Submission submission, Report report, ReportState state) {
         Player staff = submission.player();
         if (!staff.hasPermission(StaffNodes.REPORTS)) {
             submission.close();
@@ -162,11 +160,11 @@ final class ReportDialogs {
         } else {
             this.services.messenger().send(staff, state == ReportState.HANDLED ? StaffMessages.REPORTS_HANDLED : StaffMessages.REPORTS_DISMISSED, id);
         }
-        openList(staff, page);
+        openList(staff);
     }
 
     /** Teleports staff to the reported player, with no warmup. */
-    private void teleport(Submission submission, Report report, int page) {
+    private void teleport(Submission submission, Report report) {
         Player staff = submission.player();
         if (!staff.hasPermission(StaffNodes.REPORTS)) {
             submission.close();
@@ -176,7 +174,7 @@ final class ReportDialogs {
         if (target == null) {
             // The report again (now without Teleport) replaces this dialog.
             this.services.messenger().send(staff, CoreMessages.PLAYER_NOT_ONLINE, Arg.text("name", report.targetName()));
-            openDetail(staff, report.id(), page);
+            openDetail(staff, report.id());
             return;
         }
         submission.close();

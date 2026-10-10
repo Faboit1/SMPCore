@@ -55,39 +55,33 @@ final class HistoryView {
                 return;
             }
             if (sender instanceof Player player) {
-                page(player, name, rows, 1, back);
+                page(player, name, rows, back);
             } else {
                 print(sender, name, rows);
             }
         });
     }
 
-    private void page(Player viewer, String name, List<Punishment> rows, int page, Button.Handler back) {
+    /** The whole history in one dialog that scrolls (no pages), the newest first, up to {@code history.list-size}. */
+    private void page(Player viewer, String name, List<Punishment> rows, Button.Handler back) {
         Lang lang = this.services.lang();
-        int size = this.settings.get().historyPageSize();
-        int pages = Math.max(1, (rows.size() + size - 1) / size);
-        int current = Math.clamp(page, 1, pages);
+        int cap = this.settings.get().historyListSize();
         long now = System.currentTimeMillis();
         List<Component> lines = new ArrayList<>();
         if (rows.isEmpty()) {
             lines.add(lang.get(StaffMessages.HISTORY_EMPTY, Arg.text("name", name)));
         } else {
-            lines.add(lang.get(StaffMessages.HISTORY_PAGE, Arg.number("count", rows.size()), Arg.number("page", current),
-                Arg.number("pages", pages)));
-            for (Punishment punishment : rows.subList((current - 1) * size, Math.min(rows.size(), current * size))) {
+            lines.add(lang.get(StaffMessages.HISTORY_COUNT, Arg.value("count", rows.size())));
+            if (rows.size() > cap) {
+                lines.add(lang.get(StaffMessages.HISTORY_CAPPED, Arg.value("shown", cap), Arg.value("count", rows.size())));
+            }
+            for (Punishment punishment : rows.subList(0, Math.min(rows.size(), cap))) {
                 lines.add(Component.empty());
                 lines.addAll(entry(punishment, now));
             }
         }
-        List<Button> buttons = new ArrayList<>();
-        if (current > 1) {
-            buttons.add(Button.of(lang.get(StaffMessages.PAGE_PREVIOUS), s -> page(s.player(), name, rows, current - 1, back)).width(150));
-        }
-        if (current < pages) {
-            buttons.add(Button.of(lang.get(StaffMessages.PAGE_NEXT), s -> page(s.player(), name, rows, current + 1, back)).width(150));
-        }
         this.services.dialogs().show(viewer, this.services.templates().list(lang.get(StaffMessages.HISTORY_TITLE, Arg.text("name", name)),
-            lines, buttons, 2, back));
+            lines, List.of(), 1, back));
     }
 
     private void print(CommandSender sender, String name, List<Punishment> rows) {

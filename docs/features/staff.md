@@ -39,7 +39,7 @@ Every staff node defaults to `op` and none is granted to everyone. Player names 
 | `/unban <player>` (`/pardon`) | `siftcore.staff.unban` | Lifts a ban |
 | `/kick <player> [reason]` | `siftcore.staff.kick` | Kicks an online player with the kick screen |
 | `/warn <player> <reason>` | `siftcore.staff.warn` | Warns; an offline player sees it on their next join |
-| `/history <player>` | `siftcore.staff.history` | Every ban, mute, kick and warning, newest first, paged |
+| `/history <player>` | `siftcore.staff.history` | Every ban, mute, kick and warning, newest first, in one dialog |
 | `/staffchat [message]` (`/sc`) | `siftcore.staff.chat` | Sends one staff chat message, or alone toggles staff chat mode |
 | `/report [player] [reason]` | `siftcore.command.report` (everyone) | Reports a player; without a reason it opens the form |
 | `/reports [id]` | `siftcore.staff.reports` | The open reports, or one report |
@@ -142,8 +142,9 @@ ignore them the moment they end), and a player whose mute ended is told.
 
 Warnings are shown at once to online players and on the next join to offline ones (`staff_punishments.notified`).
 
-`/history` opens a dialog (6 entries per page, `history.page-size`) with each entry's type, age, staff, reason,
-length and state: active (with time left), expired, or lifted by whom. From the console it prints every entry.
+`/history` opens one dialog that scrolls (no pages): how many entries there are, then each entry's type, age, staff,
+reason, length and state: active (with time left), expired, or lifted by whom. It lists the newest `history.list-size`
+(100) and says so in one line when there are more. From the console it prints every entry.
 
 ## Mutes
 
@@ -299,8 +300,9 @@ seconds (`reports.cooldown`). The form keeps what was typed and shows the proble
 
 Online staff with `siftcore.staff.reports` get a chat line `Report #<id>: <reporter> reported <target>: <reason>`;
 clicking it runs `/reports <id>`. Their **Report alerts** setting (`staff-report-alerts`) can move it above the hotbar
-(not clickable there) or turn it off; `/reports` always lists open reports. `/reports` is a paged dialog of open reports (6 per page) with a button per
-report; a report shows the player, whether they are online, who reported, when, and the reason, with:
+(not clickable there) or turn it off; `/reports` always lists open reports. `/reports` is one dialog that scrolls (no pages): how many are open, then a
+button per report ("#12 Alex", who reported it, when and whether the player is online in its tooltip), the oldest
+`reports.list-size` (100) of them, with one line saying so when there are more; a report shows the player, whether they are online, who reported, when, and the reason, with:
 
 - **Teleport to <name>** (only when online): teleports at once (`teleportAsync`, no warmup) to where the player is,
   read on the player's own thread;
@@ -404,7 +406,7 @@ The target is the player's UUID.
 | `reports.cooldown` | `60s` | Time between two reports |
 | `reports.reason-min-length` / `reason-max-length` | `3` / `100` | Reason length |
 | `reports.max-open-per-player` | `5` | Open reports per reporter |
-| `reports.page-size` / `history.page-size` | `6` / `6` | Dialog page sizes |
+| `reports.list-size` / `history.list-size` | `100` / `100` | The most reports and punishments the dialogs list (they scroll; no pages). The old `page-size` keys are no longer read |
 | `clear-chat.lines` | `100` | Blank lines `/clearchat` sends |
 
 ## Storage

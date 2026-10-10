@@ -13,10 +13,6 @@ staff:
     mute: "Mute"
     kick: "Kick"
     warn: "Warning"
-  page:
-    next: "Next page"
-    previous: "Previous page"
-
   duration:
     missing: "<primary>Give a time like 30m, 12h or 7d."
     invalid: "<primary><secondary><input></secondary> is not a time. Try 30m, 12h or 7d."
@@ -128,7 +124,9 @@ staff:
   history:
     title: "History of <name>"
     header: "<primary>History of <name> <secondary>(<count> entries)"
-    page: "<secondary><count> entries, page <page> of <pages>"
+    count: "<secondary><accent><count></accent> entries, newest first"
+    # When there are more than history.list-size in features/staff.yml.
+    capped: "<secondary>The newest <accent><shown></accent> of <accent><count></accent> are listed."
     empty: "<secondary><name> has no punishments."
     entry: "<primary><type> <secondary><ago> ago by <primary><staff>"
     reason: "<secondary>Reason: <primary><reason>"
@@ -166,12 +164,16 @@ staff:
 
   reports:
     title: "Open reports"
-    summary: "<secondary><count> open, page <page> of <pages>"
+    count: "<secondary><accent><count></accent> open, oldest first"
+    # When there are more than reports.list-size in features/staff.yml.
+    capped: "<secondary>The oldest <accent><shown></accent> of <accent><count></accent> are listed."
     empty: "<secondary>There are no open reports."
     line: "<primary>#<id> <target> <secondary>by <reporter>, <age> ago, <status>"
     online: "online"
     offline: "offline"
     button: "#<id> <target>"
+    # Under the report's line in its button's tooltip.
+    button-tooltip: "<secondary>Click to review it"
     detail-title: "Report #<id>"
     detail:
       - "<secondary>Player: <primary><target> <secondary>(<status>)"

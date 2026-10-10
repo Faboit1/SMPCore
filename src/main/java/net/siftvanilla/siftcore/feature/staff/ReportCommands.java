@@ -72,7 +72,7 @@ final class ReportCommands {
             .requires(CommandSupport.permission(StaffNodes.REPORTS))
             .executes(ctx -> {
                 if (ctx.getSource().getSender() instanceof Player player) {
-                    this.dialogs.openList(player, 1);
+                    this.dialogs.openList(player);
                 } else {
                     this.dialogs.print(ctx.getSource().getSender());
                 }
@@ -81,7 +81,7 @@ final class ReportCommands {
             .then(Commands.argument("id", LongArgumentType.longArg(1)).executes(ctx -> {
                 Player player = this.support.player(ctx);
                 if (player != null) {
-                    this.dialogs.openDetail(player, LongArgumentType.getLong(ctx, "id"), 1);
+                    this.dialogs.openDetail(player, LongArgumentType.getLong(ctx, "id"));
                 }
                 return CommandSupport.OK;
             })));
