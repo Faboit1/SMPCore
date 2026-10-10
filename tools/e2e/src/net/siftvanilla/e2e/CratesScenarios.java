@@ -333,9 +333,17 @@ final class CratesScenarios {
     }
 
     static void awaitScreen(E2E e2e, Bot bot, Bot.Screen before, String title) {
-        e2e.eventually(() -> bot.screen() != null && bot.screen() != before && bot.screen().title().equals(title)
-            && !bot.screenItems().isEmpty(), bot.name + " sees the screen '" + title + "' (now "
-            + (bot.screen() == null ? "none" : bot.screen().title()) + ")");
+        List<String> seen = new CopyOnWriteArrayList<>();
+        boolean shown = Bot.await(() -> {
+            Bot.Screen now = bot.screen();
+            String state = (now == null ? "none" : now.title() + "/" + now.type()) + " dialog="
+                + (bot.dialog() == null ? "none" : bot.dialog().title());
+            if (seen.isEmpty() || !seen.getLast().equals(state)) {
+                seen.add(state);
+            }
+            return now != null && now != before && now.title().equals(title) && !bot.screenItems().isEmpty();
+        }, 10_000);
+        e2e.expect(shown, bot.name + " sees the screen '" + title + "' (seen " + seen + ")");
         e2e.sleep(300);
     }
 
@@ -1474,6 +1482,15 @@ final class CratesScenarios {
     private static final String REVEAL = "minecraft:entity.player.levelup";
     private static final String BIG_REVEAL = "minecraft:ui.toast.challenge_complete";
 
+    /**
+     * Clicks an Open button whose opening is animated, without waiting for a new dialog: the client leaves its
+     * waiting screen for the crate window, and the next dialog (the result) only comes once the window is gone.
+     */
+    private static void roll(E2E e2e, Bot bot, String label) {
+        e2e.expect(bot.clickButton(label, Map.of()), bot.name + " can click '" + label + "': "
+            + (bot.dialog() == null ? "no dialog" : bot.dialog().buttons()));
+    }
+
     private static boolean heard(Bot bot, String sound) {
         return bot.sounds().stream().anyMatch(seen -> seen.sound().equals(sound));
     }
@@ -1512,7 +1529,7 @@ final class CratesScenarios {
                 "the tooltip: " + view.button("Open").tooltip());
             bot.clearSounds();
             Bot.Screen before = bot.screen();
-            e2e.click(bot, "Open");
+            roll(e2e, bot, "Open");
             awaitScreen(e2e, bot, before, "Test crate");
             e2e.expect("minecraft:generic_9x3".equals(bot.screen().type()), "a chest window: " + bot.screen().type());
             e2e.expect(keys(e2e, name, "e2etest") == 4 && logRows(e2e, uuid) == 1, "the key was spent and the opening logged first");
@@ -1546,7 +1563,7 @@ final class CratesScenarios {
             bot.clearMessages();
             bot.clearSounds();
             before = bot.screen();
-            e2e.click(bot, "Open another");
+            roll(e2e, bot, "Open another");
             awaitScreen(e2e, bot, before, "Test crate");
             long clicked = System.currentTimeMillis();
             bot.clickSlot(13);
@@ -1561,7 +1578,7 @@ final class CratesScenarios {
             e2e.step("closing the window mid-roll hands the reward over at once");
             bot.clearMessages();
             before = bot.screen();
-            e2e.click(bot, "Open another");
+            roll(e2e, bot, "Open another");
             awaitScreen(e2e, bot, before, "Test crate");
             bot.closeScreen();
             e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 15, 1_500, "handed over when the window closed");
@@ -1571,7 +1588,7 @@ final class CratesScenarios {
             e2e.step("while a crate rolls, no other crate opens");
             bot.clearMessages();
             before = bot.screen();
-            e2e.click(bot, "Open another");
+            roll(e2e, bot, "Open another");
             awaitScreen(e2e, bot, before, "Test crate");
             bot.command("crates open e2etest");
             e2e.eventually(() -> bot.actionBarContains("Your last crate is still opening."), "refused: " + bot.actionBar());
@@ -1586,7 +1603,7 @@ final class CratesScenarios {
             bot.clearSounds();
             watcher.clearLogs();
             before = bot.screen();
-            e2e.click(bot, "Open");
+            roll(e2e, bot, "Open");
             awaitScreen(e2e, bot, before, "Cash crate");
             e2e.expect(e2e.money(name) == 1_234, "the money was paid with the opening (has " + e2e.money(name) + ")");
             e2e.sleep(500);
@@ -1622,12 +1639,12 @@ final class CratesScenarios {
             e2e.step("leaving mid-roll: the reward waits in the claim box");
             openView(e2e, bot, "Test");
             Bot.Screen before = bot.screen();
-            e2e.click(bot, "Open");
+            roll(e2e, bot, "Open");
             awaitScreen(e2e, bot, before, "Test crate");
             bot.quit();
             e2e.eventually(() -> Bukkit.getPlayerExact(name) == null, "left");
             e2e.sleep(1_000);
-            e2e.expect(claimBox(e2e, uuid) == 1 && logRows(e2e, uuid) == 1 && keys(e2e, name, "e2etest") == 2,
+            e2e.expect(claimBox(e2e, uuid) == 1 && logRows(e2e, uuid) == 1 && crates(e2e).keys().keys(uuid, "e2etest") == 2,
                 "one key spent, one opening logged, its diamonds in the claim box");
 
             e2e.step("back online, the claim box hands them out and crates open again");
@@ -1644,7 +1661,7 @@ final class CratesScenarios {
             clear(e2e, name);
             openView(e2e, back, "Test");
             before = back.screen();
-            e2e.click(back, "Open");
+            roll(e2e, back, "Open");
             awaitScreen(e2e, back, before, "Test crate");
             e2e.onPlayer(name, () -> {
                 e2e.player(name).setHealth(0);
@@ -1664,7 +1681,7 @@ final class CratesScenarios {
             e2e.sleep(1_000);
             openView(e2e, back, "Test");
             before = back.screen();
-            e2e.click(back, "Open");
+            roll(e2e, back, "Open");
             awaitScreen(e2e, back, before, "Test crate");
             back.closeScreen();
             e2e.eventually(() -> count(e2e, name, Material.DIAMOND) == 5 && logRows(e2e, uuid) == 3, "opened and handed over");
@@ -1739,7 +1756,7 @@ final class CratesScenarios {
             e2e.dialog(bot, "Test crate");
             Bot.Screen before = bot.screen();
             bot.clearParticles();
-            e2e.click(bot, "Open");
+            roll(e2e, bot, "Open");
             awaitScreen(e2e, bot, before, "Test crate");
             e2e.eventually(() -> displays(bot, "minecraft:item_display", at).size() == 1, 3_000, "the spin above the block: "
                 + bot.entities());
