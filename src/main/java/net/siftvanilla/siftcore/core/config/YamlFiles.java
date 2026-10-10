@@ -30,6 +30,11 @@ import org.bukkit.plugin.Plugin;
  * Updates also change shipped defaults (better text, new colours). An entry the server still has exactly as an
  * earlier version shipped it was never edited, so it gets this version's value; an edited entry is never touched.
  * The values each file was last shipped with are kept in {@code data/shipped/}.
+ * <p>
+ * The same goes for settings a version retires and for comments: a key (or a whole section) the last version shipped,
+ * this one no longer ships and the server still has exactly as shipped is removed, so a dead setting doesn't sit in
+ * the file looking like it does something; and a comment the server still has as the last version wrote it gets this
+ * version's text, so it describes what the entry does now. Edited entries and edited comments stay.
  */
 public final class YamlFiles {
 
@@ -110,13 +115,26 @@ public final class YamlFiles {
                     : leafKeys(server);
                 List<String> added = addNewKeys(server, jar, known);
                 List<String> updated = List.of();
+                List<String> retired = List.of();
+                List<String> recommented = List.of();
                 if (Files.exists(shippedCopy)) {
                     YamlConfiguration previous = new YamlConfiguration();
+                    previous.options().parseComments(true);
                     previous.loadFromString(Files.readString(shippedCopy, StandardCharsets.UTF_8));
                     updated = updateUnedited(server, jar, previous);
+                    retired = removeRetired(server, jar, previous);
+                    recommented = refreshComments(server, jar, previous);
                 }
-                if (!added.isEmpty() || !updated.isEmpty()) {
+                if (!added.isEmpty() || !updated.isEmpty() || !retired.isEmpty() || !recommented.isEmpty()) {
                     Files.writeString(path, server.saveToString(), StandardCharsets.UTF_8);
+                }
+                if (!retired.isEmpty()) {
+                    this.plugin.getLogger().info("Removed " + retired.size() + (retired.size() == 1 ? " setting" : " settings")
+                        + " this version no longer uses (you never edited them) from " + resource + ": " + list(retired));
+                }
+                if (!recommented.isEmpty()) {
+                    this.plugin.getLogger().info("Updated the comments of " + recommented.size()
+                        + (recommented.size() == 1 ? " entry" : " entries") + " in " + resource);
                 }
                 if (!added.isEmpty()) {
                     this.plugin.getLogger().info("Added " + added.size() + (added.size() == 1 ? " new key" : " new keys")
@@ -161,6 +179,88 @@ public final class YamlFiles {
             }
         }
         return updated;
+    }
+
+    /**
+     * Removes from {@code server} every key or section that {@code previous} (the last shipped copy) had, {@code jar} no
+     * longer ships, and the server still holds exactly as shipped: same values, no keys of its own added. Only the
+     * outermost retired path is removed, so a section is removed whole or not at all (a half-edited one stays as it is).
+     * Returns the paths removed.
+     */
+    static List<String> removeRetired(YamlConfiguration server, YamlConfiguration jar, YamlConfiguration previous) {
+        List<String> removed = new ArrayList<>();
+        for (String key : previous.getKeys(true)) {
+            if (jar.contains(key) || !server.contains(key)) {
+                continue;
+            }
+            String parent = key.contains(".") ? key.substring(0, key.lastIndexOf('.')) : null;
+            if (parent != null && !jar.contains(parent)) {
+                continue; // a section above it is retired too: handled there
+            }
+            if (sameAsShipped(server, previous, key)) {
+                server.set(key, null);
+                removed.add(key);
+            }
+        }
+        return removed;
+    }
+
+    /** Whether {@code server} holds {@code key} exactly as {@code previous} shipped it (a value, or a whole section). */
+    private static boolean sameAsShipped(YamlConfiguration server, YamlConfiguration previous, String key) {
+        boolean section = previous.isConfigurationSection(key);
+        if (section != server.isConfigurationSection(key)) {
+            return false;
+        }
+        if (!section) {
+            return java.util.Objects.equals(server.get(key), previous.get(key));
+        }
+        Set<String> mine = server.getConfigurationSection(key).getKeys(true);
+        Set<String> shipped = previous.getConfigurationSection(key).getKeys(true);
+        if (!mine.equals(shipped)) {
+            return false;
+        }
+        for (String sub : shipped) {
+            String full = key + "." + sub;
+            if (!previous.isConfigurationSection(full) && !java.util.Objects.equals(server.get(full), previous.get(full))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Gives every entry of {@code server} whose comments are still exactly the ones {@code previous} shipped the comments
+     * {@code jar} ships now, when those changed (and the same for comments at the end of a line, and the file's
+     * header). Comments the admin wrote or changed stay. Returns the keys whose comments changed.
+     */
+    static List<String> refreshComments(YamlConfiguration server, YamlConfiguration jar, YamlConfiguration previous) {
+        List<String> changed = new ArrayList<>();
+        for (String key : jar.getKeys(true)) {
+            if (!server.contains(key) || !previous.contains(key)) {
+                continue;
+            }
+            boolean touched = false;
+            List<String> now = jar.getComments(key);
+            if (!now.equals(previous.getComments(key)) && server.getComments(key).equals(previous.getComments(key))) {
+                server.setComments(key, now);
+                touched = true;
+            }
+            List<String> inline = jar.getInlineComments(key);
+            if (!inline.equals(previous.getInlineComments(key))
+                && server.getInlineComments(key).equals(previous.getInlineComments(key))) {
+                server.setInlineComments(key, inline);
+                touched = true;
+            }
+            if (touched) {
+                changed.add(key);
+            }
+        }
+        List<String> header = jar.options().getHeader();
+        if (!header.equals(previous.options().getHeader()) && server.options().getHeader().equals(previous.options().getHeader())) {
+            server.options().setHeader(header);
+            changed.add("(header)");
+        }
+        return changed;
     }
 
     /** Every key that holds a value (not a section), in file order. */

@@ -26,7 +26,7 @@ net.siftvanilla.siftcore
 │   ├── Feature, Services, CoreSettings (config.yml), CoreMessages (lang/core.yml)
 │   ├── scheduler           Scheduler (global/region/entity/async) over Paper's region scheduler API, Task
 │   ├── config              ConfigReader (typed, validating), Configs (all-or-nothing reload), Setting<S>, YamlFiles
-│   │                       (new keys added, unedited shipped values updated), Durations, ConfigProblem
+│   │                       (new keys added; unedited shipped values, comments and retired keys follow the jar), Durations, ConfigProblem
 │   ├── money               MoneyFormat ($10, 1.5k parsing, compact display), MoneyStyle (full, short, server)
 │   ├── text                Palette, TextStyle (the only MiniMessage), Lang (+LangFiles), MessageKey, Arg,
 │   │                       Messenger (+Routing: feedback channel, alerts, quiet in combat), ChatRepeats, Sounds

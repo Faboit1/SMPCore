@@ -20,9 +20,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A live server that never edited its crates.yml or shards.yml gets exactly the seven crate tiers and the new shard shop
- * when it updates: YamlFiles adds the new keys and gives unedited entries the new values, but never removes a key, so
- * every reward the old file shipped must still exist with the same kind (a removed or retyped one would stay behind and
- * break its crate). The files from before the tiers are in {@code src/test/resources/upgrade}.
+ * when it updates: YamlFiles adds the new keys and gives unedited entries the new values; it only removes keys the jar
+ * no longer ships and nobody edited, so every reward the old file shipped must still exist with the same kind (an
+ * edited reward the jar dropped would stay behind and break its crate). The files from before the tiers are in
+ * {@code src/test/resources/upgrade}.
  */
 class TierUpgradeTest {
 
