@@ -54,7 +54,7 @@ who you asked) or online players you can see (`/tpa`, `/tpahere`); selectors are
 2. A `/tpa` the target auto-accepts ("Auto-accept /tpa from", see below) skips the request: the sender's warmup starts
    at once. Otherwise the target gets a chat line with a clickable `Click to answer` (in the accent colour): a
    `ClickEvent.showDialog` carrying an accept/deny dialog made for that target (`Dialogs#inline`). The dialog is one
-   line ("Alex wants to teleport to you.") and a green Accept and a red Deny; what each answer does, and when requests
+   line ("Alex wants to teleport to you.") and plain Accept and Deny buttons (green and red are kept for states); what each answer does, and when requests
    expire, are on the buttons' tooltips. With several requests waiting, `/tpaccept` and `/tpdeny` open "Accept a
    request" or "Deny a request": one button per sender (which way in its tooltip) and, for denying, Deny all. Typing `/tpaccept` works the same. With
    "Requests open a pop-up" on, the same window also opens by itself, on the target's thread, unless they are in

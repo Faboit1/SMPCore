@@ -52,8 +52,8 @@ tpa:
     title: "Teleport request"
     body: "<accent><name></accent><primary> wants to teleport to you."
     body-here: "<accent><name></accent><primary> wants you to teleport to them."
-    accept: "<on>Accept"
-    deny: "<off>Deny"
+    accept: "Accept"
+    deny: "Deny"
     accept-tooltip: "<primary><name> teleports to you."
     accept-tooltip-here: "<primary>You teleport to <name>."
     deny-tooltip: "<primary><name> is told you said no."
@@ -64,7 +64,7 @@ tpa:
     choice-title-deny: "Deny a request"
     choice-tooltip: "<secondary>Wants to teleport to you"
     choice-tooltip-here: "<secondary>Wants you to teleport to them"
-    deny-all: "<off>Deny all"
+    deny-all: "Deny all"
     deny-all-tooltip: "<primary>Deny every request waiting for you."
   # The form of the main menu's "Teleport to a player": a name, then a button for each way.
   form:

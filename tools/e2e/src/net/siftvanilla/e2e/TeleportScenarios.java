@@ -537,7 +537,9 @@ final class TeleportScenarios {
         e2e.expect(list.button("base").tooltip() != null && list.button("base").tooltip().contains(where)
             && list.button("base").tooltip().contains("Click to teleport to base."), "where it is in the tooltip: " + list.button("base").tooltip());
         e2e.expect(list.button("Set a home here") != null && list.button("Delete") != null, "set and delete buttons: " + list.buttons());
-        e2e.expect("#FF5555".equals(list.button("Delete").valueColor()), "Delete is red: " + list.button("Delete").valueColor());
+        // Green and red mean a state (ON/OFF, online); an action's label says what it does and stays plain.
+        e2e.expect(list.button("Delete").valueColor() == null && list.button("Set a home here").valueColor() == null,
+            "action labels are plain: " + list.button("Delete").valueColor() + " " + list.button("Set a home here").valueColor());
         e2e.expect(list.buttons().stream().noneMatch(button -> button.label().contains("page")), "no pages: " + list.buttons());
         long start = System.currentTimeMillis();
         e2e.click(bot, "base");
@@ -861,8 +863,8 @@ final class TeleportScenarios {
         Bot.SeenDialog answer = e2e.dialog(host, "Teleport request");
         e2e.expect(answer.body().size() == 1 && answer.bodyText().contains(askerName + " wants to teleport to you."),
             "one line, who asks: " + answer.body());
-        e2e.expect("#55FF55".equals(answer.button("Accept").valueColor()) && "#FF5555".equals(answer.button("Deny").valueColor()),
-            "Accept green, Deny red: " + answer.button("Accept").valueColor() + " " + answer.button("Deny").valueColor());
+        e2e.expect(answer.button("Accept").valueColor() == null && answer.button("Deny").valueColor() == null,
+            "Accept and Deny are plain (green and red mean a state): " + answer.button("Accept").valueColor() + " " + answer.button("Deny").valueColor());
         e2e.expect(answer.button("Accept").tooltip().contains(askerName + " teleports to you.")
             && answer.button("Accept").tooltip().contains("Requests expire after"), "what Accept does, on hover: "
             + answer.button("Accept").tooltip());

@@ -42,9 +42,9 @@ homes:
     where: "<secondary><world> <accent><x>, <y>, <z>"
     where-hidden: "<secondary><world>"
     teleport-tooltip: "<primary>Click to teleport to <accent><name></accent>."
-    delete: "<error>Delete"
+    delete: "Delete"
     delete-tooltip: "<primary>Delete <accent><name></accent>. <secondary>Asks first."
-    set-here: "<on>Set a home here"
+    set-here: "Set a home here"
     set-here-tooltip: "<primary>Name a new home where you stand."
   delete:
     title: "Delete home"
@@ -54,7 +54,7 @@ homes:
     body-hidden:
       - "<primary>Delete home <accent><name></accent>?"
       - "<secondary><world>"
-    button: "<error>Delete"
+    button: "Delete"
   # Asked before /sethome (or the form) moves a home that already exists, unless the player turned that off.
   overwrite:
     title: "Move home"
@@ -63,7 +63,7 @@ homes:
     to: "<secondary>New: <world> <accent><x>, <y>, <z>"
     from-hidden: "<secondary>Now: <world>"
     to-hidden: "<secondary>New: <world>"
-    button: "<on>Move it here"
+    button: "Move it here"
   # The settings in Settings, Teleports & homes: a label, and what it does (shown when hovering its button).
   settings:
     confirm-overwrite: "Confirm moving a home"
@@ -76,7 +76,7 @@ homes:
   form:
     title: "Set a home"
     name: "Name"
-    submit: "<on>Set home"
+    submit: "Set home"
     submit-tooltip: "<primary>Sets the home where you stand. <secondary>Names are 1 to 16 letters, numbers, _ or -."
   other:
     title: "Homes of <name>"

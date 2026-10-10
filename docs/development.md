@@ -170,7 +170,11 @@ What every dialog looks like (the owner's rules; settings are the reference impl
    Staff and console output may stay technical, but says the server's name or nothing where it would say SiftCore.
 4. **Colours through palette tags**, values in a colour and labels plain: `<money>` money, `<shards>` every shard
    amount and mention (purple, the TAB sidebar's), `<on>`/`<off>` a switch's state, `<accent>` any other value (a
-   chosen option, a number, a time), `<error>` warnings, `<primary>`/`<secondary>` text.
+   chosen option, a number, a time), `<error>` warnings, `<primary>`/`<secondary>` text. Green and red always mean a
+   state: a switch's ON/OFF and state words (online, ready, claimed, locked, full, Off/Never/Nobody). **Action
+   buttons stay plain** (Accept, Deny, Claim, Set home, Delete, Buy): their label says what they do, whatever the
+   feature. The one exception is a button that goes past a safety warning ("Teleport anyway"), which is `<error>`.
+   Numbers and times go in `<accent>` with `Arg.value(name, n)` (`Arg.number`/`Arg.time` force the primary colour).
 5. **Switches are buttons**: "Label: ON" with ON in `<on>`, "Label: OFF" with OFF in `<off>`. Clicking flips it at
    once and the same page shows again with the new state (`Button.After.NEXT`, the default). **Choices are buttons
    too**, "Label: Value" with the value coloured; clicking moves to the next option. **Numbers** are a button
@@ -193,6 +197,7 @@ Helpers (`services.templates()` unless noted):
 | `Button.tooltip(text)` | the same button with a tooltip |
 | `core.player.SettingValues.value(lang, setting, value)` | a setting's value coloured the shared way (ON/OFF, an option in `<accent>` or `<off>` for Off/Nobody/Never, a number in `<accent>`) |
 | `Arg.shards(name, amount)` | a shard amount in purple |
+| `Arg.value(name, number or duration)` | a value that takes the colour its text gives it (`<accent><name>`) |
 | `services.messenger().sounds().play(player, sound, Feedback.X)` | a feature's own sound (a config sound) under the player's volume and sound switches for that kind |
 
 Bedrock players (Floodgate forms) see no tooltips: keep labels clear on their own.

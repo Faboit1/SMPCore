@@ -17,8 +17,8 @@ kits:
     empty: "<secondary>There are no kits for you yet."
     open-tooltip: "<primary>Click to see what it gives."
     # The claim button when one kit is ready, and when several are.
-    claim-one: "<on>Claim <name>"
-    claim-ready: "<on>Claim <count> ready kits"
+    claim-one: "Claim <name>"
+    claim-ready: "Claim <count> ready kits"
     claim-tooltip: "<primary>Claim every kit that is ready now."
     collect: "Collect waiting items"
     # The Collect button's tooltip.
@@ -47,7 +47,7 @@ kits:
     item: "<primary><name>"
     item-many: "<primary><name> <secondary>x<accent><amount>"
     keys: "<secondary><icon:key> Also gives <primary><keys>"
-    claim: "<on>Claim"
+    claim: "Claim"
 
   # Crate keys a kit gives: "1 Common key", "2 Rare keys" (<crate> is the crate's name in its colour).
   keys:

@@ -40,7 +40,7 @@ Rank nodes on SiftVanilla (the default of 2 comes from the config): `prospector`
 
 `/homes`, `/home` with several homes and the main menu entry `homes` (order 55, also a pause-menu route) open one
 list in the dialog style (`HomesViews`): one status line, `2 of 3 homes` (the numbers in the accent colour), then a
-button per home named after it, with a red Delete next to it, and a green Set a home here (a form with a name field
+button per home named after it, with a Delete button next to it, and Set a home here (a form with a name field
 prefilled with the first free name: `home`, `home2`, ...; the name rule is on its Set home button's tooltip). Where a
 home is (world and block position, or the world only in streamer mode) is in its button's tooltip. Worlds are named
 the way players know them: the server's main world "Overworld", its nether "Nether" and its end "The End"
