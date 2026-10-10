@@ -8,15 +8,27 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 
 /**
- * The colour system: primary text, secondary text, the money colour (used for money amounts only) and the two error
- * colours. Lang strings use them as {@code <primary>}, {@code <secondary>}, {@code <money>} and {@code <error>}.
- * Every error message is shown in the error colours: its primary text in {@code error}, its secondary text in
- * {@code errorSecondary}, whatever tags the text uses.
+ * The colour system. Lang strings use each colour as a tag:
+ * <ul>
+ *   <li>{@code <primary>}: main text (white), {@code <secondary>}: less important text (gray);</li>
+ *   <li>{@code <money>}: money amounts only (green);</li>
+ *   <li>{@code <error>}: warnings; every error message is shown in the error colours, its primary text in
+ *       {@code error} and its secondary text in {@code errorSecondary}, whatever tags the text uses;</li>
+ *   <li>{@code <shards>}: every shard amount and mention of shards (purple);</li>
+ *   <li>{@code <on>} and {@code <off>}: the state of a switch, ON in green and OFF in red;</li>
+ *   <li>{@code <accent>}: a value that is not money, shards or a switch (a chosen option, a number, a time).</li>
+ * </ul>
  */
-public record Palette(TextColor primary, TextColor secondary, TextColor money, TextColor error, TextColor errorSecondary) {
+public record Palette(TextColor primary, TextColor secondary, TextColor money, TextColor error, TextColor errorSecondary,
+                      TextColor shards, TextColor on, TextColor off, TextColor accent) {
 
     public static final TextColor DEFAULT_ERROR = TextColor.color(0xFF5555);
     public static final TextColor DEFAULT_ERROR_SECONDARY = TextColor.color(0xFF9E9E);
+    /** The owner's shard colour (the TAB sidebar's). */
+    public static final TextColor DEFAULT_SHARDS = TextColor.color(0x915DFF);
+    public static final TextColor DEFAULT_ON = TextColor.color(0x55FF55);
+    public static final TextColor DEFAULT_OFF = TextColor.color(0xFF5555);
+    public static final TextColor DEFAULT_ACCENT = TextColor.color(0xFFD866);
 
     public Palette {
         Objects.requireNonNull(primary);
@@ -24,6 +36,15 @@ public record Palette(TextColor primary, TextColor secondary, TextColor money, T
         Objects.requireNonNull(money);
         error = error == null ? DEFAULT_ERROR : error;
         errorSecondary = errorSecondary == null ? DEFAULT_ERROR_SECONDARY : errorSecondary;
+        shards = shards == null ? DEFAULT_SHARDS : shards;
+        on = on == null ? DEFAULT_ON : on;
+        off = off == null ? DEFAULT_OFF : off;
+        accent = accent == null ? DEFAULT_ACCENT : accent;
+    }
+
+    /** The text, money and error colours; shards, switch and accent colours are the defaults. */
+    public Palette(TextColor primary, TextColor secondary, TextColor money, TextColor error, TextColor errorSecondary) {
+        this(primary, secondary, money, error, errorSecondary, null, null, null, null);
     }
 
     public Palette(TextColor primary, TextColor secondary, TextColor money) {
@@ -32,6 +53,11 @@ public record Palette(TextColor primary, TextColor secondary, TextColor money, T
 
     public static Palette defaults() {
         return new Palette(NamedTextColor.WHITE, NamedTextColor.GRAY, TextColor.color(0x1AFF1A));
+    }
+
+    /** The colour of a switch's state: {@link #on()} or {@link #off()}. */
+    public TextColor state(boolean on) {
+        return on ? this.on : this.off;
     }
 
     /**

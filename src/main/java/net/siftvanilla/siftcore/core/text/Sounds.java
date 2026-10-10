@@ -73,6 +73,19 @@ public final class Sounds {
     }
 
     /**
+     * Plays a sound a feature picks itself (a config sound, like the AFK zone's shard sound) as if it were a feedback
+     * sound of {@code kind}: scaled by the player's volume, silent when they switched that kind off, and for
+     * {@link Feedback#NOTIFY} and {@link Feedback#SUCCESS} silent in combat with quiet in combat on. Null plays nothing.
+     */
+    public void play(Audience audience, Sound sound, Feedback kind) {
+        if (sound == null || kind == Feedback.NONE) {
+            return;
+        }
+        float factor = audience instanceof Player player ? factor(kind, prefs(player.getUniqueId()), tagged(player.getUniqueId())) : 1f;
+        playScaled(audience, sound, factor);
+    }
+
+    /**
      * Plays a personal ping (a mention, a private message, team chat) in the sound the player chose:
      * {@link PingSound#DEFAULT} is the notify sound and follows "Notification pings"; the named sounds play even with
      * that off; {@link PingSound#OFF} plays nothing. Volume and quiet in combat apply to all.

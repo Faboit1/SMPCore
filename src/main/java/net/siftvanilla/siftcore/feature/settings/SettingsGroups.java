@@ -5,12 +5,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.player.Registry;
 import net.siftvanilla.siftcore.core.player.SettingCategory;
 
 /**
  * Which groups and settings a player sees (pure, unit tested): the groups holding at least one setting they may see,
- * in the order the server set ({@code categories} in {@code features/settings.yml}, else the built-in order).
+ * in the order the server set ({@code categories} in {@code features/settings.yml}, else the built-in order), with
+ * the icon and button colour the server set or the built-in ones.
  */
 final class SettingsGroups {
 
@@ -68,6 +70,12 @@ final class SettingsGroups {
         return override != null && override.icon() != null ? override.icon() : category.icon();
     }
 
+    /** A group's button colour: the server's, else the built-in one (null for the primary text colour). */
+    static TextColor color(SettingCategory category, Map<String, SettingsConfig.CategoryOverride> overrides) {
+        SettingsConfig.CategoryOverride override = overrides.get(category.id());
+        return override != null && override.color() != null ? override.color() : category.color();
+    }
+
     /** The group with this id among the shown ones (case ignored), or null. */
     static Shown find(List<Shown> groups, String id) {
         for (Shown group : groups) {
@@ -88,15 +96,5 @@ final class SettingsGroups {
             }
         }
         return null;
-    }
-
-    /** The page (1-based) of a list holding a setting, or 1 when it is not in the list. */
-    static int pageOf(List<Registry.Entry<?>> entries, String settingId, int pageSize) {
-        for (int i = 0; i < entries.size(); i++) {
-            if (entries.get(i).id().equals(settingId)) {
-                return i / pageSize + 1;
-            }
-        }
-        return 1;
     }
 }

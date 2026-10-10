@@ -570,7 +570,6 @@ final class AfkScenarios {
                 e2e.step("boss bar countdown and chat payouts, saved in the dialog");
                 AfkStaffSettingSteps.editSettings(e2e, bot, "afk", AfkStaffSettingSteps.AFK_PAGE,
                     Map.of("afk_zone_status", "bossbar", "afk_zone_payouts", "chat"));
-                e2e.eventually(() -> bot.anyFeedbackContains("Saved 2 settings"), "saved: " + bot.chat() + " " + bot.actionBar());
                 AfkStaffSettingSteps.expectStored(e2e, id, "afk-zone-status", "bossbar");
                 AfkStaffSettingSteps.expectStored(e2e, id, "afk-zone-payouts", "chat");
 
@@ -745,7 +744,6 @@ final class AfkScenarios {
 
         e2e.step("Always, picked in the dialog: a 250-shard totem asks first");
         AfkStaffSettingSteps.editSettings(e2e, bot, "afk", AfkStaffSettingSteps.AFK_PAGE, Map.of("shard_confirm_above", "always"));
-        e2e.eventually(() -> bot.anyFeedbackContains("Saved") || bot.anyFeedbackContains("set to"), "saved: " + bot.chat() + " " + bot.actionBar());
         AfkStaffSettingSteps.expectStored(e2e, id, "shard-confirm-above", "always");
         bot.command("shardshop");
         e2e.dialog(bot, "Shard shop");

@@ -83,7 +83,11 @@ public record CoreSettings(
             color(p, "secondary", "#AAAAAA"),
             color(p, "money", "#1AFF1A"),
             color(p, "error", "#FF5555"),
-            color(p, "error-secondary", "#FF9E9E"));
+            color(p, "error-secondary", "#FF9E9E"),
+            color(p, "shards", "#915DFF"),
+            color(p, "switch-on", "#55FF55"),
+            color(p, "switch-off", "#FF5555"),
+            color(p, "accent", "#FFD866"));
 
         Map<Feedback, Sound> sounds = new EnumMap<>(Feedback.class);
         ConfigReader sound = r.section("sounds");

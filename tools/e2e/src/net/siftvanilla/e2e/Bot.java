@@ -213,8 +213,30 @@ public final class Bot {
         }
     }
 
-    /** A dialog button and the custom click it sends. */
-    public record Button(String label, String actionId, CompoundTag additions) {
+    /**
+     * A dialog button and the custom click it sends. {@code tooltip} is its tooltip as plain text (lines joined with
+     * newlines), or null when it has none; {@code labelComponent} keeps the label's colours.
+     */
+    public record Button(String label, String actionId, CompoundTag additions, String tooltip, Component labelComponent) {
+
+        public Button(String label, String actionId, CompoundTag additions) {
+            this(label, actionId, additions, null, null);
+        }
+
+        /** The colour of the last coloured part of the label (the value of "Label: ON"), as #RRGGBB, or null. */
+        public String valueColor() {
+            if (this.labelComponent == null) {
+                return null;
+            }
+            String[] found = new String[1];
+            this.labelComponent.visit((style, text) -> {
+                if (!text.isBlank() && style.getColor() != null) {
+                    found[0] = String.format("#%06X", style.getColor().getValue());
+                }
+                return java.util.Optional.empty();
+            }, net.minecraft.network.chat.Style.EMPTY);
+            return found[0];
+        }
     }
 
     /** An open container screen: its menu type id (e.g. {@code minecraft:generic_9x6}) and the title as sent. */
@@ -616,6 +638,11 @@ public final class Bot {
         this.dialogs.clear();
         this.chatDialogs.clear();
         this.dialog = null;
+    }
+
+    /** Forgets the sounds heard so far, keeping everything else (the open dialog too). */
+    public void clearSounds() {
+        this.sounds.clear();
     }
 
     /** Forgets the chat, action bar and titles received so far, keeping the open dialog (to click it next). */
@@ -1400,9 +1427,10 @@ public final class Bot {
     private static Button button(ActionButton action) {
         String label = action.button().label().getString();
         if (action.action().isPresent() && action.action().get() instanceof CustomAll custom) {
-            return new Button(label, custom.id().toString(), custom.additions().orElse(null));
+            return new Button(label, custom.id().toString(), custom.additions().orElse(null),
+                action.button().tooltip().map(Component::getString).orElse(null), action.button().label());
         }
-        return new Button(label, null, null);
+        return new Button(label, null, null, action.button().tooltip().map(Component::getString).orElse(null), action.button().label());
     }
 
     @Override

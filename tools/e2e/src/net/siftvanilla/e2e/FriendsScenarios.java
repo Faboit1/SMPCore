@@ -120,25 +120,12 @@ final class FriendsScenarios {
     }
 
     /**
-     * Opens the Friends &amp; teams settings page and saves {@code wanted} (input key to value) on it, checking that each
-     * choice offers the value. Every wanted key must be on the first page.
+     * Opens the Friends &amp; teams settings page and sets {@code wanted} (input key to value) on its buttons, checking
+     * that each choice offers the value.
      */
     static void saveSocial(E2E e2e, Bot bot, Map<String, Object> wanted) {
-        Bot.SeenDialog before = bot.dialog();
         bot.clearMessages();
-        bot.command("settings social");
-        e2e.eventually(() -> bot.dialog() != before && bot.dialog() != null && bot.dialog().title().equals(SOCIAL_PAGE),
-            bot.name + " sees a fresh '" + SOCIAL_PAGE + "': " + (bot.dialog() == null ? "none" : bot.dialog().title()));
-        Bot.SeenDialog page = bot.dialog();
-        Map<String, Object> values = page.values();
-        wanted.forEach((key, value) -> {
-            e2e.expect(page.inputs().containsKey(key), key + " on the first page: " + page.inputs());
-            if (value instanceof String option) {
-                e2e.expect(page.options().getOrDefault(key, List.of()).contains(option), key + " offers " + option + ": " + page.options());
-            }
-            values.put(key, value);
-        });
-        e2e.click(bot, "Save", values);
+        SettingsSteps.edit(e2e, bot, "social", SOCIAL_PAGE, wanted);
     }
 
     /**
@@ -525,16 +512,13 @@ final class FriendsScenarios {
             k.clearLogs();
             k.command("friend settings join-alerts favourites");
             e2e.eventually(() -> k.chatContains("Use one of these for join-alerts: all, off."), "no favourites choice: " + k.chat());
-            Bot.SeenDialog social = open(e2e, k, "friend settings", SOCIAL_PAGE);
+            Bot.SeenDialog social = SettingsSteps.form(e2e, open(e2e, k, "friend settings", SOCIAL_PAGE));
             e2e.expect(List.of("all", "off").equals(social.options().get("friends_join_alerts")),
                 "the settings page offers no favourites option: " + social.options());
-            Map<String, Object> forged = social.values();
-            forged.put("friends_join_alerts", "favourites");
-            e2e.click(k, "Save", forged);
-            Bot.SeenDialog refused = e2e.dialog(k, SOCIAL_PAGE);
-            e2e.expect(!refused.body().isEmpty() && refused.bodyText().toLowerCase().contains("join alerts"),
-                "a forged favourites is refused by the dialog router: " + refused.body());
-            e2e.expect(stored(e2e, e2e.uuid(kai), "friends-join-alerts") == null, "nothing stored");
+            e2e.click(k, "Friend join alerts: All friends");
+            e2e.expect(SettingsSteps.page(e2e, k, SOCIAL_PAGE).button("Friend join alerts: Off") != null,
+                "the next option after All is Off, never favourites: " + k.dialog().buttons());
+            e2e.expect("off".equals(stored(e2e, e2e.uuid(kai), "friends-join-alerts")), "off stored, no favourites");
         });
 
         String nia = e2e.name("FrNia");
@@ -765,7 +749,6 @@ final class FriendsScenarios {
 
         e2e.step("Friend requests from: nobody, picked in the settings dialog, refuses requests honestly");
         saveSocial(e2e, a, Map.of("friends_requests", "nobody"));
-        e2e.eventually(() -> a.anyFeedbackContains("Friend requests from set to Nobody."), "saved: " + a.actionBar() + " " + a.chat());
         e2e.expect("nobody".equals(stored(e2e, aid, "friends-requests")), "stored as nobody");
         b.clearLogs();
         b.command("friend " + ava);
@@ -1018,22 +1001,22 @@ final class FriendsScenarios {
         e2e.step("Settings: the Friends & teams page of the settings dialog, saved through the registry, back to the friends list");
         Bot.SeenDialog friendsList = open(e2e, d, "friend", "Friends");
         e2e.click(d, "Settings");
-        Bot.SeenDialog settingsForm = e2e.dialog(d, SOCIAL_PAGE);
+        Bot.SeenDialog settingsForm = SettingsSteps.form(e2e, e2e.dialog(d, SOCIAL_PAGE));
         e2e.expect(settingsForm.inputs().keySet().containsAll(java.util.Set.of("friends_requests", "friends_join_alerts",
             "friends_request_alerts", "friends_announce", "team_notices")), "friends and teams settings on one page: "
             + settingsForm.inputs());
         e2e.expect(List.of("everyone", "known", "nobody").equals(settingsForm.options().get("friends_requests")),
             "who can send requests: " + settingsForm.options());
         e2e.expect(!settingsForm.inputs().containsKey("friends_tpa"), "auto-accept is with the teleport settings: " + settingsForm.inputs());
-        e2e.expect(settingsForm.bodyText().contains("people you know (friends of friends and teammates)"), "known explained: "
-            + settingsForm.body());
+        e2e.expect(settingsForm.button("Friend requests from").tooltip().contains("people you know (friends of friends and teammates)"),
+            "known explained in the tooltip: " + settingsForm.button("Friend requests from").tooltip());
         Map<String, Object> changed = settingsForm.values();
         changed.putAll(Map.of("friends_requests", "known", "friends_join_alerts", "favourites", "friends_request_alerts", false,
             "friends_announce", false));
         d.clearMessages();
-        e2e.click(d, "Save", changed);
-        e2e.eventually(() -> d.anyFeedbackContains("Saved 4 settings."), "saved: " + d.actionBar() + " " + d.chat());
-        // Opened from the friends list, Save (like Back) returns there.
+        SettingsSteps.applyChanged(e2e, d, settingsForm, changed);
+        // Opened from the friends list, Back returns there.
+        e2e.click(d, "Back");
         e2e.dialog(d, "Friends");
         e2e.expect(friendsList != null, "the list was open before");
         e2e.expect("known".equals(stored(e2e, e2e.uuid(dee), "friends-requests")), "stored as before: known");

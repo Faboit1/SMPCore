@@ -1,6 +1,6 @@
 # Settings (`settings` and `core/player`)
 
-One place for every per-player setting on the server: a dialog with groups, pages, search, a summary of what the
+One place for every per-player setting on the server: a dialog of buttons with groups, search, the settings the
 player changed and resets; the `/settings` command words; the staff tools `/sift settings`; placeholders; and the
 public `SettingsView`. The model and storage live in core (`core/player`: `PlayerSettings`, `PlayerSetting`,
 `Toggle`, `Choice`, `NumberSetting`, `SettingCategories`, `SharedSettings`); everything players and staff use lives in
@@ -19,12 +19,14 @@ running, a display standing in the world).
 
 ## How players and staff use them
 
-- **Players** open `/settings` (or Settings in the main menu or the pause screen), pick a group, change switches,
-  choices and sliders on its pages and press Save; or search, see what they changed, and reset a group or everything.
-  The same works typed: `/settings sound-volume 60`, `/settings chat`, `/settings search ping`, `/settings reset all`
-  (see [/settings](#settings)). Several commands flip one setting directly (`/msgtoggle`, `/tpatoggle`, `/sidebar`,
-  `/socialspy`, `/team spy`, `/friend settings`). Changes apply at once and are stored; choosing the default again
-  removes the stored value, so the player follows the server's default from then on.
+- **Players** open `/settings` (or Settings in the main menu or the pause screen), pick a group and click its buttons:
+  a switch flips at once ("Notification pings: ON" turns to "Notification pings: OFF"), a choice moves to its next
+  option, a number opens a slider; hovering a button says what it does. They can also search, see what they changed,
+  and reset a group or everything. The same works typed: `/settings sound-volume 60`, `/settings chat`,
+  `/settings search ping`, `/settings reset all` (see [/settings](#settings)). Several commands flip one setting
+  directly (`/msgtoggle`, `/tpatoggle`, `/sidebar`, `/socialspy`, `/team spy`, `/friend settings`). Changes apply at
+  once and are stored; choosing the default again removes the stored value, so the player follows the server's default
+  from then on.
 - **The server** shapes the dialog and sets defaults in `features/settings.yml`: a different default for players who
   never changed a setting, a lock that fixes a value for everyone, a hidden list, and the group order and icons (see
   [Server overrides](#server-overrides-featuressettingsyml)).
@@ -36,11 +38,15 @@ running, a display standing in the world).
 
 ## Kinds of settings
 
-| Kind | Stored as | Dialog input | Notes |
+| Kind | Stored as | Dialog button | Notes |
 |---|---|---|---|
-| `Toggle` | `true`/`false` (on/off, yes/no and 1/0 are read too) | switch | the classic switch; `register(toggle)` and `set(uuid, toggle, on)` still work |
-| `Choice` | the option id | cycling button (single option) | up to 6 options; only options the player may pick are shown; an option may need a permission or depend on the server (`optionAvailableWhen`) and then reads as its `unavailableAs` fallback |
-| `NumberSetting` | the number | slider (number range) with the unit in its label | whole numbers, a whole number of steps, within 2^24 (exact as a float), at most 1000 steps; stored numbers outside the range are brought into range and onto the nearest step |
+| `Toggle` | `true`/`false` (on/off, yes/no and 1/0 are read too) | "Label: ON" (green) / "Label: OFF" (red); a click flips it | the classic switch; `register(toggle)` and `set(uuid, toggle, on)` still work |
+| `Choice` | the option id | "Label: option" (accent colour; Off, Nobody and Never in red); a click moves to the next option | up to 6 options; only options the player may pick are offered; an option may need a permission or depend on the server (`optionAvailableWhen`) and then reads as its `unavailableAs` fallback |
+| `NumberSetting` | the number | "Label: 60%" (accent colour); a click opens a slider (the unit in its label) with Done | whole numbers, a whole number of steps, within 2^24 (exact as a float), at most 1000 steps; stored numbers outside the range are brought into range and onto the nearest step |
+
+Values look the same wherever they show (`core.player.SettingValues`): ON in `<on>`, OFF in `<off>`, an option in
+`<accent>` (or `<off>` for off, nobody, never and none), a number with its unit in `<accent>`, and money or shard
+amounts inside an option ("From $10,000", "From 1,000" shards) in the money or shards colour.
 
 A toggle can become a choice under the same id: `Choice.Builder.legacyValue("true", "chat")` makes old rows (and config
 entries) read as that option. A setting can take over a retired id: `SettingOptions.legacy("old-id", value -> ...)`
@@ -54,7 +60,9 @@ Every setting is in one of the shared groups (`SettingCategories`), in this orde
 announcements, Sounds, Teleports & homes, Money & selling, Shop, auction & orders, Combat & stats, Display, Privacy,
 AFK & shards, Crates & kits, Spawners, Staff, then General for settings registered without a group. Each group has an
 icon (`icons.yml`: chat, social, bell, sound, teleport, economy, auction, kill, display, privacy, afk, crates, spawners,
-staff). A group shows only when the player can see a setting in it. `search`, `changed`, `reset` and `all` can't be
+staff) and a button colour (`SettingCategory.color`: chat #7DD3FC, social #F9A8D4, announcements #FDE68A, sound
+#5EEAD4, teleport #C4B5FD, economy #1AFF1A like money, market #FDBA74, combat #FF7B7B, display #A3E635, privacy
+#CBD5E1, afk #915DFF like shards, crates #FFC94D, spawners #E879F9, staff #60A5FA; General has none and reads white). A group shows only when the player can see a setting in it. `search`, `changed`, `reset` and `all` can't be
 group ids.
 
 ## Shared settings
@@ -63,7 +71,7 @@ Settings several features read are defined by core (`SharedSettings`), so no fea
 
 | Id | Kind | Group | What it does |
 |---|---|---|---|
-| `sound-volume` | number 0-100, step 10 (%) | Sounds | scales every SiftCore sound; 0 mutes them |
+| `sound-volume` | number 0-100, step 10 (%) | Sounds | "Sound volume": scales every sound the server plays to the player (clicks, chimes, error notes, pings); 0 mutes them |
 | `sound-notify` | toggle, on | Sounds | notification pings |
 | `sound-mention`, `sound-pm` | choice default/bell/pling/chime/off | Sounds | ping sound of mentions and private messages |
 | `sound-clicks`, `sound-success`, `sound-errors` | toggle, on | Sounds | menu clicks, success chimes, error notes |
@@ -143,13 +151,11 @@ features, remembered sort orders) are never touched. `lookup(uuid, setting)` rea
 
 | Key | Default | Meaning |
 |---|---|---|
-| `page-size` | 8 | settings per page (1-20) |
 | `skip-single-group` | true | open the only group directly |
-| `show-descriptions` | true | one line per setting above the inputs saying what it does; false gives compact pages (only the inputs, whose labels stay; a setting that takes effect after a rejoin still says so) |
 | `hidden` | `[]` | setting ids left out of the dialog, commands, searches and placeholders; everyone reads their lock, else their server default, else the code default, and changes are refused (`NOT_ALLOWED`). Stored choices are kept and come back when the setting is shown again |
 | `defaults` | not set | a section of `setting-id: value` for players who never changed it |
 | `locked` | not set | a section of `setting-id: value` forced on everyone; shown as "set by the server", refused as `LOCKED` (also by `/settings` and `/sift settings`) |
-| `categories` | not set | a section of `<group id>: { order: <number>, icon: <icon name> }`: moves a group in the group list or gives it another `icons.yml` icon (both keys optional; the built-in orders are chat 10, social 20, announcements 30, sound 40, teleport 50, economy 60, market 70, combat 80, display 90, privacy 100, afk 110, crates 120, spawners 130, staff 900) |
+| `categories` | not set | a section of `<group id>: { order: <number>, icon: <icon name>, color: "#RRGGBB" }`: moves a group in the group list, gives it another `icons.yml` icon or another button colour (every key optional; the built-in orders are chat 10, social 20, announcements 30, sound 40, teleport 50, economy 60, market 70, combat 80, display 90, privacy 100, afk 110, crates 120, spawners 130, staff 900) |
 
 `defaults`, `locked` and `categories` are not in the shipped file (comments show them): synced config files only gain
 value keys, so an empty section would never reach an existing server. Add them when needed. Values are
@@ -167,54 +173,71 @@ the main menu entry `settings` and the pause screen (`siftcore:hub/settings`, wi
 with `services.settings().screens().open(player, groupId, back)`. Everything is built from the registry when it
 opens, so a setting a feature registers appears by itself.
 
+The dialog follows the [dialog style](../development.md#dialog-style): buttons only, nothing written above them, what a
+button does in its tooltip, nothing paged (the dialog scrolls), no Save.
+
 **Buttons.** Every button shows the next screen in place: the dialog stays until the next one arrives (no waiting
-screen). Save closes the dialog when there is nothing to go back to (a group opened directly when the player sees only
-one), and Search shows the client's waiting screen while the results are built. Errors (a value the router refused,
-an empty search) show in red on the same dialog with what the player typed kept.
+screen), except Search, which shows the client's waiting screen while the results are built. A click on a setting
+stores the change at once and shows the same page again with the new value; nothing is said in chat or above the hotbar
+(the button shows it). A change that is refused (a `SettingChangeEvent` listener cancelled it, the server locked it
+meanwhile) shows in red on the page shown again, `Success chimes couldn't be changed.`, with the error sound.
 
-**The group list** ("Settings"): one line per group the player sees, with its icon, description and how many settings
-it holds for them (`Chat: Mentions, private messages and what you see in public chat (3)`), and "You changed 2 of 38
-settings." Buttons: one per group (its tooltip repeats the description and the counts), **Search settings**, and
-**Changed settings (n)** once the player changed something. A group shows only when the player can see a setting in
-it (permission, the server's `hidden` list, and whether its feature offers it now). With `skip-single-group` the only
-group opens directly.
+**The group list** ("Settings", two columns): one button per group the player sees, with its icon, in the group's
+colour; its tooltip says what the group covers and how many settings it holds for the player and how many they changed
+(`Mentions, private messages and what you see in public chat` / `11 settings, 2 changed`). Then **Search settings** and
+**Changed settings (n)** (its tooltip: "You changed 2 of 38 settings."). A group shows only when the player can see a
+setting in it (permission, the server's `hidden` list, and whether its feature offers it now). With
+`skip-single-group` the only group opens directly.
 
-**A page** ("Chat settings", 8 settings per page by default): each setting's label and what it does, then one input
-per setting: a switch (toggle), a cycling button (choice: only the options the player may pick, by permission and by
-what the server offers) or a slider (number: its unit in the label, like "SiftCore volume (%)", because Bedrock
-forms show only the label). A setting the server locked shows its value as text, "(set by the server)". Previous page
-and Next page carry the changes made so far ("Changes on other pages: 2, saved with this page."); Back leaves without
-saving. **Reset this category** shows when the player changed something in the group.
+**A page** ("Chat settings", one column): one button per setting the player sees, in the group's order, showing its
+value:
 
-**Saving** stores only what the player changed in the dialog (a value changed elsewhere while it was open is never
-overwritten). Each change goes through the registry: still offered, the player still has the permissions, not
-locked, not cancelled by a `SettingChangeEvent` listener. Messages (above the hotbar, or wherever the player's
-feedback channel says): `Mention alerts turned off.` (a switch), `SiftCore volume set to 60%.` (a choice or number),
-`Saved 2 settings.`, `Nothing changed.`, and `Success chimes couldn't be changed.` (red) for a refused change. Save
-returns to the screen the page was opened from.
+- a switch: "Show public chat: ON" (ON green) or "OFF" (red); a click flips it;
+- a choice: "Mention alerts: Above the hotbar" (the option in the accent colour, Off/Nobody/Never in red); a click
+  moves to the next option the player may pick (by permission and by what the server offers), back to the first after
+  the last;
+- a number: "Sound volume: 60%"; a click opens a small dialog titled with the setting, a slider labelled with its unit
+  ("Sound volume (%)", as Bedrock forms show only the label), **Done** (stores it and returns to the page) and **Back**;
+- a setting the server locked: its label and value greyed, "Quiet during combat: ON"; its tooltip says "Set by the
+  server." and a click changes nothing.
 
-**Resets.** Reset this category asks "Reset Sounds settings?" and lists each changed setting as
-`SiftCore volume: 30% to 100%`; Reset puts them back to their defaults (their rows are deleted, so the player follows
-the server's default from then on) and shows the group's first page with the defaults and nothing pending (changes
-not saved yet are dropped too); Cancel returns to the page with the unsaved changes kept. **Changed settings** lists every setting the player changed, `Sounds > SiftCore volume: 30% (default 100%)`,
-with a button per group and **Reset everything** (asks first, then resets every setting the player sees and changed;
-locked settings are never touched).
+A button's tooltip says what the setting does (its description), then for a choice every option it offers (the current
+one highlighted), for a number its range ("From 0% to 100%, in steps of 10%"), then "Default: ...", "Takes effect after
+you rejoin." for a setting that applies on rejoin, and what a click does ("Click to switch it.", "Click for the next
+choice.", "Click to change it."). In search results and the changed settings the tooltip starts with the group's name in
+its colour. A click asks for the value after the one the button showed, not after the value stored now: a switch that
+showed ON turns OFF even if a command turned it off meanwhile (the page then shows OFF).
 
-**Search** ("Search settings"): one text field, up to 32 characters. A setting matches when every word typed occurs in
-its label, description, id or short name, its group's name, one of its option labels, its unit or its extra search
-words (`SettingOptions.keywords`); case and punctuation don't matter and part of a word is enough (`vol`). Results are
-ranked: label starting with the query, then label holding every word, then the rest, each in dialog order. They show
-as pages like a group's (lines name the group, `Sounds > SiftCore volume: ...`), with paging, pending changes and Save;
-Back returns to the form with the query kept. No match shows "No setting matches zzz." with Back to the form.
+**Reset this group** ends a group's page when the player changed something in it (tooltip: how many). It asks first:
+"Reset Sounds settings?", "2 settings go back to their defaults.", and the Reset button's tooltip lists them
+(`Sound volume: 30% to 100%`, at most 12, then "and 3 more."). Reset puts them back to their defaults (their rows are
+deleted, so the player follows the server's default from then on), says `Reset 2 settings to their defaults.` and shows
+the page again; Cancel returns to the page. Locked settings are never touched.
+
+**Changed settings** ("Changed settings"): the settings the player changed, as the same buttons, in dialog order, then
+**Reset everything** (asks first like a group's reset, then resets every setting the player sees and changed; after it
+the group list shows). A setting clicked back to its default stays listed until the list is opened again, so buttons
+never jump away under the cursor. With nothing changed it says "You use the defaults for every setting." above Back.
+
+**Search** ("Search settings"): one text field, up to 32 characters (the Search button's tooltip says what can be
+typed). A setting matches when every word typed occurs in its label, description, id or short name, its group's name,
+one of its option labels, its unit or its extra search words (`SettingOptions.keywords`); case and punctuation don't
+matter and part of a word is enough (`vol`). Results are ranked: label starting with the query, then label holding
+every word, then the rest, each in dialog order. They show as the same buttons ("Search: volume"), all on one page;
+clicks change settings in place, and Back returns to the form with the query kept. No match shows "No setting matches
+zzz." with Back to the form.
+
+**Bedrock players** (Floodgate) get the same buttons as a form; forms have no tooltips, so they see the labels and
+values only, and a number's slider form.
 
 ## /settings
 
 | Command | Does |
 |---|---|
 | `/settings` | the group list |
-| `/settings <group>` | the group's first page (`There is no settings group called x.` otherwise) |
-| `/settings <group> <setting>` | `SiftCore volume: 30% (default 100%). Values: a whole number from 0 to 100 in steps of 10` in chat; clicking the line opens the page that holds the setting |
-| `/settings <group> <setting> <value>` | changes it: `on`/`off` (also true/false, yes/no, 1/0) or `toggle` for a switch, an option id or an option's label for a choice (`above the hotbar`), a number in range and on a step for a slider (`60` or `60%`) |
+| `/settings <group>` | the group's page (`There is no settings group called x.` otherwise) |
+| `/settings <group> <setting>` | `Sound volume: 30% (default 100%). Values: a whole number from 0 to 100 in steps of 10` in chat; clicking the line opens the page that holds the setting |
+| `/settings <group> <setting> <value>` | changes it: `on`/`off` (also true/false, yes/no, 1/0) or `toggle` for a switch, an option id or an option's label for a choice (`above the hotbar`), a number in range and on a step for a number (`60` or `60%`) |
 | `/settings <setting> [value]` | the same without the group: the setting's id (`sound-volume`), its dialog input key (`sound_volume`) or a short name only one visible setting has (`volume`) |
 | `/settings search <words>` | the search results |
 | `/settings changed` | the changed settings |
@@ -228,8 +251,8 @@ like unknown ones, so a staff setting's name never leaks. A single unknown word 
 called x.`; an unknown first word followed by more (`/settings x on`) answers `There is no setting or settings group
 called x.`. The command's own words typed in capitals (`/settings Search volume`) do what they do in lower case.
 
-**Results:** `SiftCore volume set to 30%.`, `Notification pings turned off.`, `SiftCore volume is already 30%.`, and in
-red `For SiftCore volume, use a whole number from 0 to 100 in steps of 10.`, `For Quick results and errors, use
+**Results** (commands keep their messages, unlike dialog clicks): `Sound volume set to 30%.`, `Notification pings turned
+off.`, `Sound volume is already 30%.`, and in red `For Sound volume, use a whole number from 0 to 100 in steps of 10.`, `For Quick results and errors, use
 actionbar, chat, both.`, `You can't pick both for X.` (an option the player lacks), `Quiet during combat is set by the
 server.`, `X couldn't be changed.` (a listener cancelled it), `There is no setting called x in Sounds.`
 
@@ -312,8 +335,9 @@ Core:
 Settings feature:
 - dialog input keys are valid and unique;
 - the overrides in `features/settings.yml` name real settings, values, groups and icons;
-- every page of every group, the group list, the changed summary and the search form build (for someone with every
-  permission), and no page holds more inputs than `page-size`;
+- every group's page, the group list, the changed settings and the search form build (for someone with every
+  permission), and a group's page is buttons only (no inputs, nothing above them), one per setting, each with a
+  tooltip;
 - every setting is found by searching its label;
 - `/settings <group> <short name>` and `/settings <id>` name each setting exactly once;
 - the placeholders resolve, and private settings show nothing;
@@ -380,7 +404,7 @@ Every player setting SiftCore 1.0.0 registers (133), generated with `/sift setti
 | Server announcements (`announcements`) | `kill-streak-announcements` | toggle | true, false | `true` | Kill streak announcements |  |  |
 | Server announcements (`announcements`) | `combat-log-announcements` | toggle | true, false | `true` | Combat log announcements |  |  |
 | Server announcements (`announcements`) | `booster-announcements` | choice | all, starts, off | `all` | Sell booster announcements |  |  |
-| Sounds (`sound`) | `sound-volume` | number | 0-100 step 10 (%) | `100` | SiftCore volume |  |  |
+| Sounds (`sound`) | `sound-volume` | number | 0-100 step 10 (%) | `100` | Sound volume |  |  |
 | Sounds (`sound`) | `sound-notify` | toggle | true, false | `true` | Notification pings |  |  |
 | Sounds (`sound`) | `sound-mention` | choice | default, bell, pling, chime, off | `default` | Mention sound |  |  |
 | Sounds (`sound`) | `sound-pm` | choice | default, bell, pling, chime, off | `default` | Private message sound |  |  |

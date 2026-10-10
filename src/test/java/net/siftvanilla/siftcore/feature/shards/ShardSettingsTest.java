@@ -41,7 +41,7 @@ class ShardSettingsTest {
         assertEquals(1_000, choice.decodeOrNull("1000").amount());
         assertNull(choice.decodeOrNull("1k"), "only the listed presets are options");
         Choice.Option<ConfirmAbove> preset = choice.option("5000");
-        assertEquals(List.of(Arg.number("amount", 5_000)), preset.args(), "shards are counted, not shown as money");
+        assertEquals(List.of(Arg.shards("amount", 5_000)), preset.args(), "shards are counted in the shards colour, not shown as money");
     }
 
     @Test

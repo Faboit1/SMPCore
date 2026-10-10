@@ -105,21 +105,31 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - Every player-facing string lives in `lang/<id>.yml` and is referenced by a `MessageKey`. The factory method
   picks the channel: `chat` (worth keeping), `notify` (chat + sound), `success`/`error`/`info` (action bar,
   transient), `title` (rare), `ui` (lore, dialog text, names, never sent alone).
-- What `TextStyle` accepts (and the lang loader checks): `<primary>` (white), `<secondary>` (gray), `<money>`
-  (#1AFF1A, money only), `<error>` (the error red), named and hex colours (`<red>`, `<#3CC4EE>`, `<color:...>`),
-  `<bold>`, `<shadow:...>`, `<icon:name>`, `<!italic>`, `<newline>`, `<reset>`, click, hover, key and translation
-  tags, plus the message's declared placeholders. Gradients, rainbow, obfuscated text, other decorations, turning
-  italics on, undeclared placeholders and unknown icons are rejected when lang loads (the entry keeps the shipped
-  text). Lang texts use only the palette tags (white, gray, money green, `<error>` for warnings), never bold, other
-  colours or prefixes like "[Server] »"; colours, bold and shadow are for server owners and for the spawn boards in
-  `features/displays.yml` (same check), whose titles are bold and whose places and values are hex coloured.
-- Placeholders are typed: `Arg.money` (renders `$1,500` in the money colour), `Arg.number` (white), `Arg.amount`,
-  `Arg.decimal`, `Arg.time`, `Arg.text` (untrusted text, inserted literally), `Arg.component` (pre-built safe
-  component). Never concatenate player text into MiniMessage.
-- Wording: sentence case, short lines, no ALL CAPS, no emoji, no stray space before punctuation
-  (`<primary>You got <amount>.`). State is told by words and sound, never colour.
+- What `TextStyle` accepts (and the lang loader checks): the palette tags `<primary>` (white), `<secondary>` (gray),
+  `<money>` (#1AFF1A, money only), `<error>` (the error red), `<shards>` (#915DFF, every shard amount and mention),
+  `<on>` (green) and `<off>` (red) for switch states, `<accent>` (#FFD866, other values: a chosen option, a number, a
+  time); named and hex colours (`<red>`, `<#3CC4EE>`, `<color:...>`), `<bold>`, `<shadow:...>`, `<icon:name>`,
+  `<!italic>`, `<newline>`, `<reset>`, click, hover, key and translation tags, plus the message's declared
+  placeholders. Gradients, rainbow, obfuscated text, other decorations, turning italics on, undeclared placeholders and
+  unknown icons are rejected when lang loads (the entry keeps the shipped text). Lang texts use only the palette tags
+  (see [Dialog style](#dialog-style)), never bold, other colours or prefixes like "[Server] »"; colours, bold and
+  shadow are for server owners and for the spawn boards in `features/displays.yml` (same check), whose titles are bold
+  and whose places and values are hex coloured. The palette's colours are `config.yml` `palette` (`shards`,
+  `switch-on`, `switch-off`, `accent` and the others).
+- A placeholder wins over a palette tag of the same name: in a message that declares `<shards>` as a placeholder,
+  `<shards>` is the value, not the colour. Write shard amounts with `Arg.shards(name, amount)` (or
+  `Arg.amount(name, Currency.SHARDS, amount)`), which renders them purple; to colour the word "shards" too, name the
+  placeholder `amount` and write `<shards><amount> shards</shards>`.
+- Placeholders are typed: `Arg.money` (renders `$1,500` in the money colour), `Arg.shards` (`1,500` in the shards
+  colour), `Arg.number` (white), `Arg.amount` (money green, shards purple), `Arg.decimal`, `Arg.time`, `Arg.text`
+  (untrusted text, inserted literally), `Arg.component` (pre-built safe component, for a value in its own colour).
+  Never concatenate player text into MiniMessage.
+- Wording: sentence case, short lines, no ALL CAPS (ON and OFF on a switch are the one exception), no emoji, no
+  stray space before punctuation (`<primary>You got <amount>.`). State is told by words and colour together (ON in
+  green, OFF in red), never by colour alone.
 - Icons: `<icon:name>` followed by a space; names come from `icons.yml` (already verified against the 26.2 atlases).
-  Use sparingly: scoreboard/stat lines, dialog bodies, hover cards. Never in titles or buttons.
+  Use sparingly: scoreboard/stat lines, dialog bodies, hover cards, and the group buttons of a menu (the settings
+  groups, each with its icon and colour). Never in titles or in buttons that do something.
 - Item names/lore via `ui.gui.Items` (italics off). GUI titles: plain `Component.text(...)` from lang with no tags.
 - Money format is `$<amount>` (config `currency.format`); amounts parse `1.5k`, `2m` and reject non-whole results.
 - Each player picks how money reads for them (`money-format`: the server's way, in full, short). `Arg.money`,
@@ -144,12 +154,56 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
     `Arg.money(name, amount, style)` pins one amount to a style. Never pre-format money into `Arg.text` with
     `money().get().format(...)`: that skips both the reader's format and confirmation exactness.
 
+## Dialog style
+
+What every dialog looks like (the owner's rules; settings are the reference implementation, `feature/settings`):
+
+1. **Buttons, not paragraphs.** No intro or explanation lines on top of a dialog. What a button does goes in that
+   button's tooltip (`Button.of(label, tooltip, handler)`, `button.tooltip(text)`). Body text only for what the player
+   must see to decide: an amount in a confirmation, a player's name, a balance, a short status; a few short lines at
+   most.
+2. **No pagination in dialogs.** No "Next page", "Previous page" or "Page x of y": show everything, the dialog
+   scrolls. Only lists that can grow without bound (leaderboards, histories, member lists) keep a sensible cap (the top
+   50 or 100), named in a tooltip or one short line. Chest GUIs (auction house, shop grids) keep their own paging.
+3. **Words players understand.** Never "SiftCore" or anything a player would not understand (PlaceholderAPI,
+   LuckPerms, config, yml, region, database, UUID, ledger, permission nodes, feature names) in player-facing text.
+   Staff and console output may stay technical, but says the server's name or nothing where it would say SiftCore.
+4. **Colours through palette tags**, values in a colour and labels plain: `<money>` money, `<shards>` every shard
+   amount and mention (purple, the TAB sidebar's), `<on>`/`<off>` a switch's state, `<accent>` any other value (a
+   chosen option, a number, a time), `<error>` warnings, `<primary>`/`<secondary>` text.
+5. **Switches are buttons**: "Label: ON" with ON in `<on>`, "Label: OFF" with OFF in `<off>`. Clicking flips it at
+   once and the same page shows again with the new state (`Button.After.NEXT`, the default). **Choices are buttons
+   too**, "Label: Value" with the value coloured; clicking moves to the next option. **Numbers** are a button
+   "Label: 60%" that opens a small slider dialog whose Done stores the value and comes back.
+6. **No Save step and no chat message per click**: the button shows the new state. A change that is refused shows in
+   red on the page shown again (`view.withError(message, FormValues.EMPTY)`) with the error sound. Commands that change
+   the same things keep their chat or action bar feedback.
+
+Helpers (`services.templates()` unless noted):
+
+| Helper | Gives |
+|---|---|
+| `switchButton(label, on, tooltip, handler)` | "Label: ON" (green) / "Label: OFF" (red); the handler flips and shows the page again |
+| `choiceButton(label, value, tooltip, handler)` | "Label: value"; an uncoloured value is written in `<accent>`, a coloured one (money, shards) keeps its colour |
+| `state(on)` | "ON" in green or "OFF" in red, to put into other texts |
+| `column(title, [lines,] buttons, back)` | one column of wide (`Templates.LONG`, 300) buttons, nothing above them (or a few status lines), Back (Close when `back` is null) |
+| `grid(title, [lines,] buttons, back)` | two columns of `Templates.HALF` (150) buttons, for short labels such as menu groups |
+| `number(title, range, done, back)` | a slider (`Input.Range`) with Done and Back |
+| `Templates.lines(list)` | tooltip lines joined into one text |
+| `Button.tooltip(text)` | the same button with a tooltip |
+| `core.player.SettingValues.value(lang, setting, value)` | a setting's value coloured the shared way (ON/OFF, an option in `<accent>` or `<off>` for Off/Nobody/Never, a number in `<accent>`) |
+| `Arg.shards(name, amount)` | a shard amount in purple |
+| `services.messenger().sounds().play(player, sound, Feedback.X)` | a feature's own sound (a config sound) under the player's volume and sound switches for that kind |
+
+Bedrock players (Floodgate forms) see no tooltips: keep labels clear on their own.
+
 ## UI
 
-- Dialogs are the main UI (forms, lists, settings, confirmations). Build them with `services.templates()`
-  (`notice`, `confirm`, `list`, `form`, plus input helpers `text`, `toggle`, `choice`, `range`) and show them with
-  `services.dialogs().show(player, view)`. Buttons are plain labels from lang; handlers get a `Submission`
-  (`values()`, `show(next)`, `error(message)` to re-open with typed values kept, `close()`).
+- Dialogs are the main UI (forms, lists, settings, confirmations), in the [Dialog style](#dialog-style). Build them
+  with `services.templates()` (`notice`, `confirm`, `list`, `column`, `grid`, `form`, `number`, the buttons
+  `switchButton` and `choiceButton`, plus input helpers `text`, `toggle`, `choice`, `range`) and show them with
+  `services.dialogs().show(player, view)`. Button labels come from lang and their tooltips say what they do; handlers
+  get a `Submission` (`values()`, `show(next)`, `error(message)` to re-open with typed values kept, `close()`).
 - After a click a dialog stays on screen until the next one replaces it (`Button` default `After.NEXT`); a handler
   that shows nothing gets its dialog closed after a short grace. Mark a button that finishes something
   `.closes()`: the dialog then closes at once when its handler shows nothing (on the client already when every button
@@ -170,7 +224,9 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
   keep an existing id if you own that area, and add a `hub.entries.<id>` label to `lang/hub.yml`.
 - Sounds: the messenger plays the key's feedback sound; use `messenger.feedback(player, Feedback.CLICK)` for clicks.
   Every sound goes through `Sounds`, which applies each player's volume and sound switches; personal pings use
-  `Sounds.ping(player, choice)`. Never add a sound switch of your own.
+  `Sounds.ping(player, choice)`, and a feature's own sound (a configurable sound for a moment of its own, like the AFK
+  zone paying out) `Sounds.play(player, sound, Feedback.SUCCESS)` (or the kind it is). Never add a sound switch of your
+  own.
 - Repeating action-bar lines (timers, countdowns) are `MessageKey.status(...)`: they stay on the action bar whatever
   the player's feedback channel. One-off results and errors (`success`/`error`) follow the player's choice. A refusal
   an event repeats many times a second (a move into a border) is `MessageKey.error(...).asStatus()`, so it stays on

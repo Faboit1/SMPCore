@@ -403,17 +403,17 @@ final class IntegrationsScenarios {
 
             e2e.step("Show my rank sits in the Privacy settings, on by default");
             AfkStaffSettingSteps.openGroup(e2e, bot, "privacy", "Privacy settings");
-            Bot.SeenDialog page = bot.dialog();
+            Bot.SeenDialog page = AfkStaffSettingSteps.form(e2e, bot);
             e2e.expect("toggle".equals(page.inputs().get("show_my_rank")), "the switch: " + page.inputs());
             e2e.expect(Boolean.TRUE.equals(page.toggleValue("show_my_rank")), "on by default");
-            e2e.expect(page.bodyText().contains("Show my rank"), "its label: " + page.body());
+            e2e.expect(page.button("Show my rank: ON") != null, "its button: " + page.buttons());
 
             e2e.step("turning it off hides the rank in chat, the placeholders and the API at once; the group stays");
             Map<String, Object> values = page.values();
             values.put("show_my_rank", false);
             bot.clearMessages();
-            e2e.click(bot, "Save", values);
-            e2e.eventually(() -> bot.anyFeedbackContains("Show my rank turned off"), "confirmed: " + bot.actionBar() + " " + bot.chat());
+            SettingsSteps.applyChanged(e2e, bot, page, values);
+            e2e.expect(bot.dialog().button("Show my rank: OFF") != null, "the button shows OFF: " + bot.dialog().buttons());
             e2e.eventually(() -> integrations.ranks().label(id).isEmpty(), "no label: '" + integrations.ranks().label(id) + "'");
             e2e.expect(placeholder(e2e, name, "rank").isEmpty(), "%siftcore_rank% is empty: " + placeholder(e2e, name, "rank"));
             e2e.expect("default".equals(placeholder(e2e, name, "rank_group")), "%siftcore_rank_group% reads as a member: "

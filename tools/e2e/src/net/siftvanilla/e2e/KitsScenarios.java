@@ -978,7 +978,6 @@ final class KitsScenarios {
 
         e2e.step("auto-equip (a switch) and the Delete button bin (a choice) are saved in the settings dialog");
         ItemSettingsSteps.edit(e2e, bot, "crates", "Crates & kits settings", Map.of("kit_auto_equip", true, "trash_confirm", "delete-button"));
-        e2e.eventually(() -> bot.anyFeedbackContains("Saved 2 settings"), "saved: " + bot.chat() + " " + bot.actionBar());
         ItemSettingsSteps.expectStored(e2e, uuid, "kit-auto-equip", "true");
         ItemSettingsSteps.expectStored(e2e, uuid, "trash-confirm", "delete-button");
 

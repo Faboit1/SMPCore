@@ -13,7 +13,7 @@ class SettingsSearchTest {
             List.of("mentions", "mentions", "How you are told someone mentioned you", "Chat", "Above the hotbar", "Chat", "Title", "Off")),
         new SettingsSearch.Doc("private-messages", "Who can message me",
             List.of("private-messages", "private-messages", "Who can send you private messages", "Chat", "Everyone", "Friends", "Nobody")),
-        new SettingsSearch.Doc("sound-volume", "SiftCore volume",
+        new SettingsSearch.Doc("sound-volume", "Sound volume",
             List.of("sound-volume", "volume", "How loud menu clicks, chimes and pings are", "Sounds", "%")),
         new SettingsSearch.Doc("sound-mention", "Mention sound",
             List.of("sound-mention", "mention", "The sound when someone mentions you", "Sounds", "Default", "Bell", "Pling")),
@@ -62,8 +62,10 @@ class SettingsSearchTest {
         // nothing else holds it in the label.
         List<String> mention = SettingsSearch.match(DOCS, "mention");
         assertEquals(List.of("mentions", "sound-mention"), mention);
-        // "sound": only Mention sound holds it in its label; SiftCore volume matches through its id and group.
-        assertEquals(List.of("sound-mention", "sound-volume"), SettingsSearch.match(DOCS, "sound"));
+        // "sound": the label of Sound volume starts with it, Mention sound only holds it.
+        assertEquals(List.of("sound-volume", "sound-mention"), SettingsSearch.match(DOCS, "sound"));
+        // "pling": no label holds it, only Mention sound's option.
+        assertEquals(List.of("sound-mention"), SettingsSearch.match(DOCS, "pling"));
         // "who": both who-can settings start with it.
         assertEquals(List.of("private-messages", "seen-privacy"), SettingsSearch.match(DOCS, "who"));
         // "can": the label of Who can message me holds it (rank 1); Who sees... only in its description (rank 2).

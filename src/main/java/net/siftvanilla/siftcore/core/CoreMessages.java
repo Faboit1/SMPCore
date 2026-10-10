@@ -56,6 +56,13 @@ public final class CoreMessages {
     public static final MessageKey UI_ERROR_LINE = MessageKey.ui("ui.error-line", "error");
     public static final MessageKey UI_INVALID_INPUT = MessageKey.ui("ui.invalid-input", "field");
     public static final MessageKey UI_EXPIRED = MessageKey.error("ui.expired");
+    /** A switch's state on its button ({@code Templates.switchButton}): ON in the on colour, OFF in the off colour. */
+    public static final MessageKey UI_ON = MessageKey.ui("ui.on");
+    public static final MessageKey UI_OFF = MessageKey.ui("ui.off");
+    /** A button that shows a value, "Label: value" ({@code Templates.switchButton}, {@code choiceButton}). */
+    public static final MessageKey UI_VALUE_BUTTON = MessageKey.ui("ui.value-button", "label", "value");
+    /** The button that finishes a small dialog, like a slider's ({@code Templates.number}). */
+    public static final MessageKey UI_DONE = MessageKey.ui("ui.done");
 
     private CoreMessages() {
     }

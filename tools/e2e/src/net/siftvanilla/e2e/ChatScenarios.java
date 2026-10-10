@@ -159,11 +159,11 @@ final class ChatScenarios {
         return new HashMap<>(dialog.values());
     }
 
-    /** Waits for the Chat group's settings page. */
+    /** Waits for the Chat group's settings page, as the form it used to be ({@link SettingsSteps#form}). */
     private static Bot.SeenDialog chatGroup(E2E e2e, Bot bot) {
         Bot.SeenDialog dialog = e2e.dialog(bot, "Chat settings");
         e2e.expect(dialog.title().equals("Chat settings"), "the chat group: " + dialog.title());
-        return dialog;
+        return SettingsSteps.form(e2e, dialog);
     }
 
     private static String placeholder(E2E e2e, String name, String placeholder) {
@@ -213,31 +213,13 @@ final class ChatScenarios {
     }
 
     /**
-     * Opens the Chat group with {@code /settings chat}, changes the given inputs wherever they are (the group has two
-     * pages) and saves, then waits for the confirmation.
+     * Opens the Chat group with {@code /settings chat} and sets the given settings on their buttons (all on one page);
+     * a click says nothing ({@code confirmation}, the message a command would send, never shows): the button shows it.
      */
     private static void editChat(E2E e2e, Bot bot, Map<String, Object> wanted, String confirmation) {
         bot.clearLogs();
-        bot.command("settings chat");
-        java.util.Set<String> left = new java.util.HashSet<>(wanted.keySet());
-        for (int guard = 0; guard < 5; guard++) {
-            Bot.SeenDialog current = chatGroup(e2e, bot);
-            Map<String, Object> values = inputs(current);
-            for (String key : List.copyOf(left)) {
-                if (current.inputs().containsKey(key)) {
-                    values.put(key, wanted.get(key));
-                    left.remove(key);
-                }
-            }
-            if (left.isEmpty()) {
-                e2e.click(bot, "Save", values);
-                expectSaw(e2e, bot, confirmation);
-                return;
-            }
-            e2e.expect(current.button("Next page") != null, "inputs " + left + " on a later page (last page: " + current.inputs().keySet() + ")");
-            e2e.click(bot, "Next page", values);
-        }
-        throw new E2E.Failure("too many chat settings pages");
+        SettingsSteps.edit(e2e, bot, "chat", "Chat settings", wanted);
+        e2e.expect(!bot.anyFeedbackContains(confirmation), "no message for a click: " + bot.chat() + " " + bot.actionBar());
     }
 
     /**
@@ -783,8 +765,8 @@ final class ChatScenarios {
             "its options: " + dialog.options().get("mentions"));
         Map<String, Object> values = inputs(dialog);
         values.put("mentions", "off");
-        e2e.click(called, "Save", values);
-        expectSaw(e2e, called, "Mention alerts set to Off");
+        SettingsSteps.applyChanged(e2e, called, dialog, values);
+        e2e.expect(called.dialog().button("Mention alerts: Off") != null, "the button shows Off: " + called.dialog().buttons());
         e2e.expect(choice(e2e, calledName, ChatFeature.MENTIONS) == AlertStyle.OFF, "stored");
         e2e.sleep(3_000);
         called.clearLogs();

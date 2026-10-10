@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
+import net.kyori.adventure.text.format.TextColor;
 import net.siftvanilla.siftcore.core.config.ConfigReader;
 import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.player.Overrides;
@@ -106,7 +107,8 @@ class SettingsOverridesTest {
         }
         SettingsConfig config = parse(text);
         assertEquals(Overrides.NONE, config.overrides());
-        assertEquals(8, config.pageSize());
+        assertEquals(SettingsConfig.DEFAULTS, config);
+        assertTrue(!text.contains("page-size") && !text.contains("show-descriptions"), "settings pages are not paged any more");
         // Synced files only gain value keys: the shipped file must not rely on empty sections (they never arrive).
         assertTrue(!text.contains("{}"), "no empty sections in the shipped file");
     }
@@ -139,7 +141,7 @@ class SettingsOverridesTest {
     }
 
     @Test
-    void compactPagesAndGroupOverridesAreRead() throws Exception {
+    void groupOverridesAreReadAndOldPagingKeysIgnored() throws Exception {
         SettingsConfig config = parse("""
             page-size: 4
             skip-single-group: false
@@ -150,11 +152,21 @@ class SettingsOverridesTest {
                 order: 5
               privacy:
                 icon: Star
+                color: "#55ffff"
             """);
-        assertEquals(4, config.pageSize());
-        assertTrue(!config.skipSingleGroup() && !config.showDescriptions());
-        assertEquals(Map.of("sound", new SettingsConfig.CategoryOverride(5, null), "privacy", new SettingsConfig.CategoryOverride(null, "star")),
-            config.categories());
+        assertTrue(!config.skipSingleGroup());
+        assertEquals(Map.of("sound", new SettingsConfig.CategoryOverride(5, null),
+            "privacy", new SettingsConfig.CategoryOverride(null, "star", TextColor.color(0x55FFFF))), config.categories());
+    }
+
+    @Test
+    void aGroupColourMustBeHex() throws Exception {
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.loadFromString("skip-single-group: true\ncategories:\n  sound:\n    color: blue\n");
+        ConfigReader reader = new ConfigReader("features/settings.yml", yaml);
+        SettingsConfig config = SettingsConfig.parse(reader);
+        assertEquals(1, reader.problems().size(), "problems: " + reader.problems());
+        assertEquals(new SettingsConfig.CategoryOverride(null, null, null), config.categories().get("sound"), "the built-in colour stays");
     }
 
     @Test

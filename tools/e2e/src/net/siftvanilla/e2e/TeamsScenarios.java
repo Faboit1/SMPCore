@@ -818,7 +818,6 @@ final class TeamsScenarios {
 
         e2e.step("Team invites from: nobody, picked in the settings dialog, refuses invites with a reason");
         FriendsScenarios.saveSocial(e2e, guest, Map.of("team_invites", "nobody"));
-        e2e.eventually(() -> guest.anyFeedbackContains("Team invites from set to Nobody."), "saved: " + guest.actionBar() + " " + guest.chat());
         e2e.expect("nobody".equals(FriendsScenarios.stored(e2e, e2e.uuid(guestName), "team-invites")), "stored as nobody");
         owner.clearLogs();
         guest.clearLogs();

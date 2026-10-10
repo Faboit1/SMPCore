@@ -13,7 +13,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * The single MiniMessage setup for trusted text (lang and config). It knows the palette tags
- * {@code <primary> <secondary> <money> <error>}, any colour ({@code <red>}, {@code <#3CC4EE>}, {@code <color:...>}),
+ * {@code <primary> <secondary> <money> <error> <shards> <on> <off> <accent>} ({@link Palette}), any colour ({@code <red>}, {@code <#3CC4EE>}, {@code <color:...>}),
  * {@code <shadow:...>}, {@code <bold>}, {@code <icon:name>} sprites, {@code <!italic>}, {@code <newline>},
  * {@code <reset>}, click/hover/key/lang tags, and the placeholders a message declares. Gradients, rainbow,
  * obfuscation and other decorative tags are unavailable, and {@link #findDisallowedTags} reports them.
@@ -23,7 +23,7 @@ public final class TextStyle {
 
     private static final Pattern TAG = Pattern.compile("<(/?)(!?)([a-zA-Z0-9_#:.\\-]+)");
     private static final Set<String> STRUCTURAL = Set.of(
-        "primary", "secondary", "money", "error", "icon", "italic", "i", "em", "newline", "br", "reset",
+        "primary", "secondary", "money", "error", "shards", "on", "off", "accent", "icon", "italic", "i", "em", "newline", "br", "reset",
         "click", "hover", "key", "lang", "tr", "translate", "lang_or", "tr_or", "translate_or",
         "color", "colour", "c", "shadow", "bold", "b");
     private static final Pattern HEX = Pattern.compile("#[0-9a-fA-F]{6}");
@@ -53,6 +53,10 @@ public final class TextStyle {
             .tag("secondary", Tag.styling(p.secondary()))
             .tag("money", Tag.styling(p.money()))
             .tag("error", Tag.styling(p.error()))
+            .tag("shards", Tag.styling(p.shards()))
+            .tag("on", Tag.styling(p.on()))
+            .tag("off", Tag.styling(p.off()))
+            .tag("accent", Tag.styling(p.accent()))
             .tag("icon", (args, ctx) -> Tag.selfClosingInserting(i.component(args.popOr("<icon> needs a name").lowerValue())))
             .resolver(StandardTags.decorations(TextDecoration.ITALIC))
             .resolver(StandardTags.decorations(TextDecoration.BOLD))

@@ -59,7 +59,7 @@ class VocabulariesTest {
         Choice<ConfirmAbove> pay = Choices.confirmAbove("pay", Currency.MONEY, false, "1k", "10k", "100k").text(LABEL, DESCRIPTION).build();
         assertEquals(List.of("server", "always", "1k", "10k", "100k"), pay.optionIds(), "without never");
         Choice<ConfirmAbove> shards = Choices.confirmAbove("shards", Currency.SHARDS, true, "100", "1000", "5000").text(LABEL, DESCRIPTION).build();
-        assertEquals(List.of(Arg.number("amount", 1_000)), shards.option("1000").args(), "plain numbers for shards");
+        assertEquals(List.of(Arg.shards("amount", 1_000)), shards.option("1000").args(), "shard amounts in the shards colour");
         assertThrows(IllegalArgumentException.class, () -> ConfirmAbove.preset("lots"));
         assertThrows(IllegalArgumentException.class, () -> ConfirmAbove.preset("0"));
         assertThrows(IllegalArgumentException.class, () -> new ConfirmAbove(ConfirmAbove.Kind.FROM, 0, "x"));

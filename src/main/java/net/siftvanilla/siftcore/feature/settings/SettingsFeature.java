@@ -3,7 +3,6 @@ package net.siftvanilla.siftcore.feature.settings;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.siftvanilla.siftcore.api.SettingsView;
@@ -18,6 +17,7 @@ import net.siftvanilla.siftcore.core.selftest.SelfTest;
 import net.siftvanilla.siftcore.feature.admin.AdminFeature;
 import net.siftvanilla.siftcore.feature.settings.SettingsGroups.Shown;
 import net.siftvanilla.siftcore.ui.dialog.Button;
+import net.siftvanilla.siftcore.ui.dialog.Dialogs;
 import net.siftvanilla.siftcore.ui.dialog.View;
 import net.siftvanilla.siftcore.ui.hub.HubEntry;
 import org.bukkit.Bukkit;
@@ -26,8 +26,9 @@ import org.bukkit.plugin.ServicePriority;
 
 /**
  * The settings dialog ({@code /settings}, and Settings in the main menu and the pause screen): every per-player
- * setting on the server, whichever feature registered it, grouped by the shared {@link SettingCategory categories},
- * paged, searchable, with a summary of what the player changed and resets (see {@link SettingsDialogs}). Nothing here
+ * setting on the server, whichever feature registered it, grouped by the shared {@link SettingCategory categories}, as
+ * buttons that change a setting at once, searchable, with the settings the player changed and resets (see
+ * {@link SettingsDialogs}). Nothing here
  * lists settings: a feature that registers one (with {@code services.settings().register(category, setting, options)})
  * appears automatically.
  * <p>
@@ -35,7 +36,7 @@ import org.bukkit.plugin.ServicePriority;
  * ({@link SettingsAdmin}), the {@code setting_<id>}, {@code settingtext_<id>} and {@code settings_changed}
  * placeholders ({@link SettingsPlaceholders}), the public {@link SettingsView} ({@link SettingsApi}), and the server's
  * overrides from {@code features/settings.yml}: defaults for players who never changed a setting, locked values
- * players can't change, hidden settings, and the groups' order and icons.
+ * players can't change, hidden settings, and the groups' order, icons and colours.
  */
 public final class SettingsFeature implements Feature {
 
@@ -57,7 +58,7 @@ public final class SettingsFeature implements Feature {
         services.lang().register(SettingsMessages.class);
         services.permissions().declare(COMMAND, "Open the settings with /settings", true);
         services.permissions().declare(SettingsAdmin.PERMISSION, "See and change other players' settings with /sift settings", false);
-        this.dialogs = new SettingsDialogs(services, this.config);
+        this.dialogs = new SettingsDialogs(services, this.config::get);
         this.commands = new SettingsCommands(services, this.dialogs);
         this.placeholders = new SettingsPlaceholders(services.settings(), services.lang());
         this.api = new SettingsApi(services.settings(), services.lang(), services.audit(),
@@ -154,7 +155,8 @@ public final class SettingsFeature implements Feature {
             List<String> problems = overrideProblems();
             return problems.isEmpty() ? null : String.join("; ", problems);
         });
-        test.check(id(), "every page, the group list, the summary and the search form build", this::checkPages);
+        test.check(id(), "every group page, the group list, the changed settings and the search form build, buttons with tooltips only",
+            this::checkPages);
         test.check(id(), "every setting is found by searching its label", this::checkSearch);
         test.check(id(), "/settings words name each setting exactly once", this::checkWords);
         test.check(id(), "placeholders resolve", this::checkPlaceholders);
@@ -171,16 +173,21 @@ public final class SettingsFeature implements Feature {
     private String checkPages() {
         Viewer viewer = operator();
         List<Shown> groups = this.dialogs.groups(viewer);
-        int pageSize = this.config.get().pageSize();
         for (Shown group : groups) {
-            int pages = SettingsForm.pages(group.entries().size(), pageSize);
-            for (int page = 1; page <= pages; page++) {
-                View view = this.dialogs.pageView(viewer, new SettingsDialogs.Group(group.id()), page, Map.of(), s -> { }, null);
-                if (view == null) {
-                    return "page " + page + " of " + group.id() + " is empty";
-                }
-                if (view.inputs().size() > pageSize) {
-                    return "page " + page + " of " + group.id() + " has " + view.inputs().size() + " inputs";
+            View view = this.dialogs.pageView(viewer, new SettingsDialogs.Group(group.id()), s -> { }, null);
+            if (view == null) {
+                return "the page of " + group.id() + " is empty";
+            }
+            if (!view.inputs().isEmpty() || !view.body().isEmpty()) {
+                return "the page of " + group.id() + " shows more than buttons";
+            }
+            // One button per setting, plus Reset this group when the operator changed something.
+            if (view.buttons().size() < group.entries().size()) {
+                return "the page of " + group.id() + " has " + view.buttons().size() + " buttons for " + group.entries().size() + " settings";
+            }
+            for (Button button : view.buttons()) {
+                if (button.tooltip() == null) {
+                    return "a button of " + group.id() + " has no tooltip: " + Dialogs.plain(button.label());
                 }
             }
         }

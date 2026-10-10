@@ -113,7 +113,7 @@ public final class Lang {
                 }
                 if (!bad.isEmpty()) {
                     problems.add(new ConfigProblem(fileName, key.path(), "uses tags that are not allowed: " + String.join(", ", bad)
-                        + " (allowed: <primary> <secondary> <money> <error>, colours such as <red> or <#3CC4EE>, <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>"
+                        + " (allowed: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, colours such as <red> or <#3CC4EE>, <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>"
                         + (key.placeholders().isEmpty() ? "" : " and " + placeholderList(key)) + ")"));
                     chosen = bundledValue;
                 }
@@ -381,7 +381,7 @@ public final class Lang {
                     Component.text(format.format(m.amount(), m.style() != null ? m.style() : money), palette.money()));
                 case Arg.Amount a -> a.currency() == Currency.MONEY
                     ? Placeholder.component(a.name(), Component.text(format.format(a.amount(), money), palette.money()))
-                    : Placeholder.component(a.name(), Component.text(number(a.amount()), palette.primary()));
+                    : Placeholder.component(a.name(), Component.text(number(a.amount()), palette.shards()));
                 case Arg.Number n -> Placeholder.component(n.name(), Component.text(number(n.value()), palette.primary()));
                 case Arg.Decimal d -> Placeholder.component(d.name(), Component.text(decimal(d.value()), palette.primary()));
                 case Arg.Text t -> Placeholder.unparsed(t.name(), t.value());

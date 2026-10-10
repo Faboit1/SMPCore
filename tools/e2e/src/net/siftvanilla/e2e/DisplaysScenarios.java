@@ -308,15 +308,15 @@ final class DisplaysScenarios {
 
             e2e.step("turning Spawn holograms off in the Display settings removes both entities at once");
             AfkStaffSettingSteps.openGroup(e2e, bot, "display", "Display settings");
-            Bot.SeenDialog page = bot.dialog();
+            Bot.SeenDialog page = AfkStaffSettingSteps.form(e2e, bot);
             e2e.expect("toggle".equals(page.inputs().get("show_spawn_holograms")), "the switch: " + page.inputs());
             e2e.expect(Boolean.TRUE.equals(page.toggleValue("show_spawn_holograms")), "on by default");
-            e2e.expect(page.bodyText().contains("Spawn holograms"), "its label: " + page.body());
+            e2e.expect(page.button("Spawn holograms: ON") != null, "its button: " + page.buttons());
             Map<String, Object> values = page.values();
             values.put("show_spawn_holograms", false);
             bot.clearMessages();
-            e2e.click(bot, "Save", values);
-            e2e.eventually(() -> bot.anyFeedbackContains("Spawn holograms turned off"), "confirmed: " + bot.actionBar() + " " + bot.chat());
+            SettingsSteps.applyChanged(e2e, bot, page, values);
+            e2e.expect(bot.dialog().button("Spawn holograms: OFF") != null, "the button shows OFF: " + bot.dialog().buttons());
             e2e.eventually(() -> !seen(bot, text) && !seen(bot, box), "the text display and the click box are removed for the client");
             e2e.sleep(1_000);
             e2e.expect(textDisplay(other, x, z, "Richest players") != null, "the other player keeps it");

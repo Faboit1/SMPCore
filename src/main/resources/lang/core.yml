@@ -1,6 +1,6 @@
 # Shared text: the answers every feature uses, common button labels, teleport countdowns, the shared settings
 # and the money format setting.
-# Tags, checked when the file loads: <primary> <secondary> <money> <error>, named and hex colours (<red>, <#3CC4EE>),
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
 # <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
 # (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
 # Money and numbers are coloured automatically.
@@ -59,6 +59,11 @@ ui:
   error-line: "<primary><error>"
   invalid-input: "<primary>Check <field> and try again."
   expired: "<primary>That menu expired. Open it again."
+  # A switch's state on its button ("Sound effects: ON"), and a button that shows a value ("Mention sound: Bell").
+  "on": "<on>ON"
+  "off": "<off>OFF"
+  value-button: "<label>: <value>"
+  done: "Done"
 
 teleport:
   warmup: "<primary>Teleporting in <time>. Don't move."
@@ -78,7 +83,7 @@ teleport:
 # says what it does.
 shared-settings:
   sound-volume:
-    label: "SiftCore volume"
+    label: "Sound volume"
     description: "How loud menu clicks, chimes, error notes and pings are. 0 mutes them all."
   sound-notify:
     label: "Notification pings"
@@ -94,7 +99,7 @@ shared-settings:
     description: "Play a click when you use buttons in menus."
   sound-success:
     label: "Success chimes"
-    description: "Chime when something works, like a sale, purchase or saved setting."
+    description: "Chime when something works, like a sale or a purchase."
   sound-errors:
     label: "Error sounds"
     description: "Play a low note when something can't be done. Errors stay readable without it."
@@ -103,7 +108,7 @@ shared-settings:
     description: "Play a sound when a teammate writes in team chat."
   quiet-in-combat:
     label: "Quiet during combat"
-    description: "While you are in combat: no notification pings, chimes or pop-ups from other features. Chat lines and error sounds stay."
+    description: "While you are in combat: no notification pings, chimes or pop-ups. Chat lines and error sounds stay."
   feedback-channel:
     label: "Quick results and errors"
     description: "Where short results and errors appear: above the hotbar, in chat, or both. Repeating status lines (combat timer, AFK) stay above the hotbar."

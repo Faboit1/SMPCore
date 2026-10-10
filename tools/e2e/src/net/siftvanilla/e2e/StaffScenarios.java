@@ -1107,7 +1107,6 @@ final class StaffScenarios {
             e2e.step("punishment alerts above the hotbar and staff chat hidden, saved in the dialog");
             AfkStaffSettingSteps.editSettings(e2e, watch, "staff", AfkStaffSettingSteps.STAFF_PAGE,
                 Map.of("staff_punish_alerts", "actionbar", "staff_chat", false));
-            e2e.eventually(() -> watch.anyFeedbackContains("Saved 2 settings"), "saved: " + watch.chat() + " " + watch.actionBar());
             AfkStaffSettingSteps.expectStored(e2e, watchId, "staff-punish-alerts", "actionbar");
             AfkStaffSettingSteps.expectStored(e2e, watchId, "staff-chat", "false");
 
@@ -1198,7 +1197,6 @@ final class StaffScenarios {
 
             e2e.step("See vanished staff off, in the dialog: the moderator disappears for the other moderator at once");
             AfkStaffSettingSteps.editSettings(e2e, seer, "staff", AfkStaffSettingSteps.STAFF_PAGE, Map.of("vanish_see_vanished", false));
-            e2e.eventually(() -> seer.anyFeedbackContains("See vanished staff turned off"), "saved: " + seer.chat() + " " + seer.actionBar());
             AfkStaffSettingSteps.expectStored(e2e, seerId, "vanish-see-vanished", "false");
             e2e.eventually(() -> !seer.hasPlayerInfo(modId) && !seer.seesEntity(modId), 4_000, "gone from the tab list and the world");
             e2e.expect(!e2e.onPlayer(SEER, () -> e2e.player(SEER).canSee(e2e.player(MOD))), "the server agrees");

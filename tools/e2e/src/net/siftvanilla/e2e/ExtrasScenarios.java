@@ -91,14 +91,14 @@ final class ExtrasScenarios {
         e2e.step("new players only, chosen in the Server announcements settings; off through the setting API");
         onlyNew.clearLogs();
         onlyNew.command("settings announcements");
-        Bot.SeenDialog page = e2e.dialog(onlyNew, "Server announcements settings");
+        Bot.SeenDialog page = SettingsSteps.form(e2e, e2e.dialog(onlyNew, "Server announcements settings"));
         e2e.expect(List.of("all", "first-joins", "off").equals(page.options().get("join_leave_messages")),
             "the join and leave choice: " + page.options());
         Map<String, Object> values = page.values();
         values.put("join_leave_messages", "first-joins");
-        e2e.click(onlyNew, "Save", values);
-        e2e.eventually(() -> onlyNew.anyFeedbackContains("Join and leave messages set to New players only"),
-            "saved: " + onlyNew.actionBar() + " " + onlyNew.chat());
+        SettingsSteps.applyChanged(e2e, onlyNew, page, values);
+        e2e.expect(onlyNew.dialog().button("Join and leave messages: New players only") != null,
+            "the button shows it: " + onlyNew.dialog().buttons());
         e2e.expect(e2e.services().settings().get(e2e.uuid(newName), ExtrasFeature.JOIN_LEAVE_MESSAGES) == JoinLines.FIRST_JOINS, "stored");
         set(e2e, offName, "join-leave-messages", "off");
 
@@ -152,7 +152,7 @@ final class ExtrasScenarios {
             e2e.step("no plain line and no welcome, but rank lines: the setting is still offered, without new players only");
             off.clearLogs();
             off.command("settings announcements");
-            Bot.SeenDialog page = e2e.dialog(off, "Server announcements settings");
+            Bot.SeenDialog page = SettingsSteps.form(e2e, e2e.dialog(off, "Server announcements settings"));
             e2e.expect(List.of("all", "off").equals(page.options().get("join_leave_messages")),
                 "the join and leave choice is there: " + page.options());
             e2e.expect("off".equals(page.choiceValue("join_leave_messages")), "showing the stored choice: " + page.choiceInitial());

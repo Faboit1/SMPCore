@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.link.Relations;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
 import net.siftvanilla.siftcore.core.player.SettingCategories;
@@ -42,7 +43,7 @@ final class SettingsDb implements AutoCloseable {
     static Lang lang() {
         Lang lang = Fakes.lang();
         for (Class<?> type : List.of(SettingsMessages.class, SettingCategories.class, SettingTexts.class, OptionTexts.class,
-            SharedSettings.class)) {
+            SharedSettings.class, CoreMessages.class)) {
             lang.register(type);
         }
         YamlConfiguration merged = new YamlConfiguration();
