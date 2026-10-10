@@ -161,6 +161,8 @@ final class CoreScenarios {
         var registry = io.papermc.paper.registry.RegistryAccess.registryAccess().getRegistry(io.papermc.paper.registry.RegistryKey.DIALOG);
         io.papermc.paper.dialog.Dialog pause = registry.get(SiftCoreBootstrap.HUB_DIALOG);
         e2e.expect(pause != null, "siftcore:hub is registered");
+        // The main menu on screen has a Random teleport button too: forget it, so the wait below sees the pause menu.
+        bot.clearLogs();
         e2e.onPlayer(name, () -> {
             e2e.player(name).showDialog(pause);
             return null;
