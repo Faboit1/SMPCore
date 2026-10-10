@@ -8,7 +8,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -73,13 +72,14 @@ public final class ClaimHandouts {
     private final Deliveries deliveries;
     private final Scheduler scheduler;
     private final Logger logger;
-    private final BooleanSupplier saveAfterTrade;
+    private final Consumer<Player> saveAfterTrade;
     private final Handoffs<Handover> handoffs = new Handoffs<>();
 
     /**
-     * @param saveAfterTrade whether to save the player file after items reached the inventory (core setting)
+     * @param saveAfterTrade saves the player file after items reached the inventory, when the server saves after trades
+     *                       ({@code Services#saveAfterTrade})
      */
-    public ClaimHandouts(Deliveries deliveries, Scheduler scheduler, Logger logger, BooleanSupplier saveAfterTrade) {
+    public ClaimHandouts(Deliveries deliveries, Scheduler scheduler, Logger logger, Consumer<Player> saveAfterTrade) {
         this.deliveries = deliveries;
         this.scheduler = scheduler;
         this.logger = logger;
@@ -183,9 +183,7 @@ public final class ClaimHandouts {
             if (!left.isEmpty()) {
                 store(owner, left, source, ref);
             }
-            if (this.saveAfterTrade.getAsBoolean()) {
-                player.saveData();
-            }
+            this.saveAfterTrade.accept(player);
             done.accept(left);
         }, handover -> {
             store(handover.owner(), handover.items(), handover.source(), handover.ref());

@@ -90,6 +90,11 @@ final class DeliveryMenu extends Menu implements OrdersView {
         backup(slot);
     }
 
+    @Override
+    protected void persistItems() {
+        backup();
+    }
+
     /** Copies the grid into the viewer's player data, while this menu is the one they have open. Viewer's thread. */
     void backup() {
         backup(-1);

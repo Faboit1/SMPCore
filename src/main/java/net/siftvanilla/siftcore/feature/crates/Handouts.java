@@ -158,9 +158,7 @@ final class Handouts {
                 if (!left.isEmpty()) {
                     store(owner, left, ref);
                 }
-                if (this.services.core().get().savePlayerAfterTrade()) {
-                    player.saveData();
-                }
+                this.services.saveAfterTrade(player);
                 done.accept(left.size());
             }, retired);
         } catch (RuntimeException e) {

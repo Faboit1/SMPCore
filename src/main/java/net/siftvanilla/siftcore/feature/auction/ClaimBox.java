@@ -198,9 +198,7 @@ final class ClaimBox {
                 if (!left.isEmpty()) {
                     store(owner, left, handover.source(), handover.ref());
                 }
-                if (this.services.core().get().savePlayerAfterTrade()) {
-                    player.saveData();
-                }
+                this.services.saveAfterTrade(player);
                 done.accept(left);
             }, retired);
         } catch (RuntimeException e) {

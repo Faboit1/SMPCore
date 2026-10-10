@@ -241,11 +241,7 @@ final class PerkService implements Listener {
                 left.addAll(player.getInventory().addItem(item.clone()).values());
             }
             return left;
-        }, () -> {
-            if (this.services.core().get().savePlayerAfterTrade()) {
-                player.saveData();
-            }
-        }, left -> {
+        }, () -> this.services.saveAfterTrade(player), left -> {
             long stored = 0;
             for (ItemStack item : left) {
                 TransactionResult result = this.services.deliveries().give(player.getUniqueId(), TRASH_SOURCE, null, item,

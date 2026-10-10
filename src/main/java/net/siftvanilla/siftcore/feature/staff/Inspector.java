@@ -119,8 +119,8 @@ final class Inspector {
             Inventory container = container(target, kind);
             ItemStack taken = InspectSnapshot.takeIfUnchanged(expected, container.getItem(index),
                 () -> container.setItem(index, null), ItemStack::equals, ItemStack::isEmpty);
-            if (taken != null && this.services.core().get().savePlayerAfterTrade()) {
-                target.saveData();
+            if (taken != null) {
+                this.services.saveAfterTrade(target);
             }
             return taken == null ? null : taken.clone();
         });
@@ -162,9 +162,7 @@ final class Inspector {
             }
             this.services.messenger().send(staff, StaffMessages.INSPECT_CLAIM_BOX);
         }
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            staff.saveData();
-        }
+        this.services.saveAfterTrade(staff);
     }
 
     private void toClaimBox(UUID owner, ItemStack item) {
@@ -191,8 +189,8 @@ final class Inspector {
                     container.setItem(i, null);
                 }
             }
-            if (stacks > 0 && this.services.core().get().savePlayerAfterTrade()) {
-                target.saveData();
+            if (stacks > 0) {
+                this.services.saveAfterTrade(target);
             }
             this.services.audit().record(staff.getUniqueId().toString(), auditPrefix(kind) + "clear", target.getUniqueId().toString(),
                 stacks + " stacks: " + summary);

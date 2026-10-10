@@ -95,8 +95,7 @@ public final class ShopFeature implements Feature, Listener {
         services.permissions().declare(PERMISSION, "Open the shop with /shop", true);
         this.items = new ShopItems(spawners, services.lang());
         this.recent = new RecentPurchases(services.database(), this.logger);
-        this.handouts = new ClaimHandouts(services.deliveries(), services.scheduler(), this.logger,
-            () -> services.core().get().savePlayerAfterTrade());
+        this.handouts = new ClaimHandouts(services.deliveries(), services.scheduler(), this.logger, services::saveAfterTrade);
         PurchaseFlow purchases = new PurchaseFlow(services, this.settings, this.items, this.handouts, sell, combat, this.recent);
         this.menus = new ShopMenus(services, this.settings, this.items, purchases, sell, this.recent);
     }

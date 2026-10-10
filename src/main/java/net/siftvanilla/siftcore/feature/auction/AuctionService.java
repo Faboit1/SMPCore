@@ -234,10 +234,7 @@ final class AuctionService {
         }
         // The same order on disk: the player file without the items is written before the listing can be stored, so
         // a crash in between can never leave the items both in the inventory and on the auction house.
-        boolean save = this.services.core().get().savePlayerAfterTrade();
-        if (save) {
-            player.saveData();
-        }
+        this.services.saveAfterTrade(player);
         AuctionEngine.Created<ItemStack> created;
         try {
             created = this.engine.create(new AuctionEngine.Draft<>(player.getUniqueId(), listed, AuctionItems.typeKey(listed),
@@ -314,9 +311,7 @@ final class AuctionService {
                 this.claims.store(player.getUniqueId(), left, AuctionEngine.SOURCE, null);
             }
         }
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            player.saveData();
-        }
+        this.services.saveAfterTrade(player);
     }
 
     // ------------------------------------------------------------------ buying

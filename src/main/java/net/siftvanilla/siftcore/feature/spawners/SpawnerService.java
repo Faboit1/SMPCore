@@ -127,8 +127,7 @@ final class SpawnerService {
         this.combat = combat;
         this.vanish = vanish;
         this.logger = services.plugin().getLogger();
-        this.handouts = new ClaimHandouts(services.deliveries(), services.scheduler(), this.logger,
-            () -> services.core().get().savePlayerAfterTrade());
+        this.handouts = new ClaimHandouts(services.deliveries(), services.scheduler(), this.logger, services::saveAfterTrade);
         this.xpBox = new XpBox(services.ledger(), services.database(), this.logger);
         this.fullAlerts = new FullAlerts(services.cooldowns(), registry::ownedBy, new FullAlertOwners());
     }
@@ -381,9 +380,7 @@ final class SpawnerService {
     }
 
     private void saveIfConfigured(Player player) {
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            player.saveData();
-        }
+        this.services.saveAfterTrade(player);
     }
 
     private static boolean silkTouch(Player player) {

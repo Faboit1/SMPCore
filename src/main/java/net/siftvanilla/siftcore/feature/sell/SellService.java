@@ -661,9 +661,7 @@ final class SellService {
     }
 
     private void saveIfConfigured(Player player) {
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            player.saveData();
-        }
+        this.services.saveAfterTrade(player);
     }
 
     // ------------------------------------------------------------------ messages

@@ -437,9 +437,7 @@ final class SellMenus implements Listener {
     }
 
     private void save(Player player) {
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            player.saveData();
-        }
+        this.services.saveAfterTrade(player);
     }
 
     /**

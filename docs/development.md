@@ -90,8 +90,10 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
   - Giving items (purchases, claims): put them in the claim box inside the transaction
     (`services.deliveries().add(tx, ...)`), or wait for `result.committed()` before giving anything, then hop to
     the player's thread. Items that don't fit go to the claim box (`deliveries().give(...)`), never on the ground.
-- After a trade moved items in or out of an inventory, if `services.core().get().savePlayerAfterTrade()`, call
-  `player.saveData()` on the player's thread.
+- After a trade moved items in or out of an inventory, call `services.saveAfterTrade(player)` on the player's thread
+  (it saves only when `crash-safety.save-player-after-trade` is on). Never call `player.saveData()` yourself: the save
+  first has the item grid the player has open (sell, delivery, trash) write its copy, or a save in the tick after a
+  click into the grid would find the moved items in neither place (a unit test checks there is no other save).
 - Serialize items with `ItemStack#serializeAsBytes()` / `ItemStack.deserializeBytes(...)` (full data components).
 - Click spam and double submits: menus use `runBusy`/`lock`; dialogs are one-shot by design; re-check everything
   inside the transaction (`check`), never trust the state you showed the player.

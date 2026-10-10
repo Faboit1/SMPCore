@@ -180,6 +180,27 @@ public abstract class Menu implements InventoryHolder {
     protected void itemSlotClicked(int slot) {
     }
 
+    /**
+     * Writes the crash-safety copy of the item slots now, if the menu keeps one (viewer's thread). Called right after the
+     * menu itself moved items into its slots, and by {@link #persistOpen} before the player is saved, so a save never
+     * finds the items in neither the inventory nor the copy.
+     */
+    protected void persistItems() {
+    }
+
+    /**
+     * Before a player file is written: the item-taking menu the player has open writes its copy first. A click's vanilla
+     * move lands after its handler and the menu's own write follows a tick later; anything that saves the player
+     * meanwhile (a command, a dialog button, another feature's hand-out) would otherwise save the moved items nowhere,
+     * and a crash before the next save would lose them (dupe audit R11). Player's thread.
+     */
+    public static void persistOpen(Player player) {
+        if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof Menu menu && menu.acceptsItems()
+            && menu.viewer.equals(player)) {
+            menu.asViewer(menu::persistItems);
+        }
+    }
+
     /** Called when the viewer closes the menu (also when another screen replaces it). */
     protected void closed() {
     }
@@ -209,6 +230,8 @@ public abstract class Menu implements InventoryHolder {
                             return;
                         }
                         event.setCurrentItem(rest);
+                        // The deposit is done here and now: the copy follows at once, before anything can save.
+                        asViewer(this::persistItems);
                         scheduleItemsChanged();
                     }
                 }

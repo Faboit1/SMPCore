@@ -189,9 +189,7 @@ final class KitHandouts {
                 if (!left.isEmpty()) {
                     store(owner, left, ref);
                 }
-                if (this.services.core().get().savePlayerAfterTrade()) {
-                    player.saveData();
-                }
+                this.services.saveAfterTrade(player);
                 done.accept(new Outcome(handover.items().size() - left.size(), waiting(owner, refs).size() + left.size(), false));
             }, retired);
         } catch (RuntimeException e) {

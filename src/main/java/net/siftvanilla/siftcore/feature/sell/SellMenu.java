@@ -112,6 +112,11 @@ final class SellMenu extends Menu {
         this.menus.backup(this, slot);
     }
 
+    @Override
+    protected void persistItems() {
+        backup();
+    }
+
     /** Copies the grid into the viewer's player data (see {@link net.siftvanilla.siftcore.ui.gui.GridBackup}). */
     void backup() {
         this.menus.backup(this, -1);

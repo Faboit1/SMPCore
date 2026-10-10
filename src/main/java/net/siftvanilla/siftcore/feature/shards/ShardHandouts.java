@@ -168,9 +168,7 @@ final class ShardHandouts {
                 if (!left.isEmpty()) {
                     store(owner, left, ref);
                 }
-                if (this.services.core().get().savePlayerAfterTrade()) {
-                    player.saveData();
-                }
+                this.services.saveAfterTrade(player);
                 done.accept(given - back, back);
             }, retired);
         } catch (RuntimeException e) {

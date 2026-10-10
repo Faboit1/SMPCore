@@ -575,10 +575,7 @@ final class OrderService {
         }
         // A delivery grid's copy in the player's data drops the taken items before the player is saved.
         gridChanged(inventory);
-        boolean save = this.services.core().get().savePlayerAfterTrade();
-        if (save) {
-            seller.saveData();
-        }
+        this.services.saveAfterTrade(seller);
         int taxRate = this.settings.get().taxBasisPoints();
         TransactionResult result;
         try {
@@ -586,11 +583,11 @@ final class OrderService {
                 seller.getUniqueId().toString());
         } catch (RuntimeException e) {
             this.logger.log(Level.SEVERE, "Delivering to order " + order.id() + " failed for " + seller.getName(), e);
-            putBack(seller, inventory, plan, order.id(), save);
+            putBack(seller, inventory, plan, order.id());
             return new Problem(CoreMessages.ACTION_FAILED);
         }
         if (!result.success()) {
-            putBack(seller, inventory, plan, order.id(), save);
+            putBack(seller, inventory, plan, order.id());
             return fillProblem(seller, result, order);
         }
         filled(seller, order, item, units, plan.taken(), result, source);
@@ -598,15 +595,13 @@ final class OrderService {
     }
 
     /** Undoes a taken plan: exact slots back where nothing changed, the rest handed to the seller. */
-    private void putBack(Player seller, Inventory inventory, ItemTaker.Plan plan, long orderId, boolean save) {
+    private void putBack(Player seller, Inventory inventory, ItemTaker.Plan plan, long orderId) {
         List<ItemStack> rest = ItemTaker.restore(inventory, plan);
         gridChanged(inventory);
         if (!rest.isEmpty()) {
             give(seller, rest, Order.ref(orderId));
         }
-        if (save) {
-            seller.saveData();
-        }
+        this.services.saveAfterTrade(seller);
     }
 
     /** After items were taken from (or put back into) a delivery grid: its copy in the player's data follows. */
@@ -810,11 +805,7 @@ final class OrderService {
         }
         GridBackup.handBack(stacks,
             all -> new ArrayList<>(player.getInventory().addItem(all.stream().map(ItemStack::clone).toArray(ItemStack[]::new)).values()),
-            () -> {
-                if (this.services.core().get().savePlayerAfterTrade()) {
-                    player.saveData();
-                }
-            },
+            () -> this.services.saveAfterTrade(player),
             overflow -> {
                 toClaimBox(player.getUniqueId(), overflow, ref);
                 this.services.messenger().send(player, OrdersMessages.ITEMS_IN_CLAIM_BOX, Arg.number("amount", OrderItem.count(overflow)));
@@ -1133,9 +1124,7 @@ final class OrderService {
         if (notGiven > 0) {
             uncollect(entry.player(), entry.orderId(), entry.key(), notGiven);
         }
-        if (this.services.core().get().savePlayerAfterTrade()) {
-            owner.saveData();
-        }
+        this.services.saveAfterTrade(owner);
         int given = entry.amount() - notGiven;
         if (!tell) {
             return given;

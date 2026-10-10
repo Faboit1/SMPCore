@@ -66,6 +66,19 @@ public record Services(
         return this.debugFlag.getAsBoolean();
     }
 
+    /**
+     * The save after a trade ({@code crash-safety.save-player-after-trade}): the item grid the player has open writes its
+     * copy into their data first ({@link net.siftvanilla.siftcore.ui.gui.Menu#persistOpen}), then the player file is
+     * written with the inventory and that copy together. Every player save SiftCore makes goes through here. Player's
+     * thread.
+     */
+    public void saveAfterTrade(org.bukkit.entity.Player player) {
+        if (this.core.get().savePlayerAfterTrade()) {
+            net.siftvanilla.siftcore.ui.gui.Menu.persistOpen(player);
+            player.saveData();
+        }
+    }
+
     /** The current money format (follows reloads). */
     public Supplier<MoneyFormat> money() {
         return () -> this.core.get().money();
