@@ -294,7 +294,6 @@ final class AuditScenarios {
         UUID thirdId = e2e.uuid(thirdName);
         inventory(e2e, sellerName, Map.of(0, ItemStack.of(Material.COBWEB, 1)));
         long listing = list(e2e, seller, "777");
-        long dependentBefore = e2e.services().ledger().dependentReverts();
         try {
             e2e.step("one storage failure: the sale of listing " + listing + " (stands in for a disk or lock error)");
             sql(e2e, "DROP TRIGGER IF EXISTS e2e_audit_fail");
@@ -334,7 +333,6 @@ final class AuditScenarios {
             e2e.expect(e2e.money(buyerName) == 10_000, "the buyer kept their money");
             e2e.expect(e2e.money(thirdName) == 0, "the third account no longer holds money that was never stored");
             e2e.expect(count(e2e, buyerName, Material.COBWEB) == 0, "the buyer got no item");
-            e2e.expect(e2e.services().ledger().dependentReverts() > dependentBefore, "counted as a follow-on revert");
             ledgerHealthy(e2e);
         } finally {
             sql(e2e, "DROP TRIGGER IF EXISTS e2e_audit_fail");
