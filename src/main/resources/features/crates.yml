@@ -149,6 +149,9 @@ keyall:
   # Whether players who are AFK get keys too (as on most SMPs, staying online is what earns them). Set it to false
   # to give keys only to players who are active; the AFK feature decides who is AFK.
   include-afk: true
+  # Only one account per connection gets keys (the one online longest), so alt accounts parked online don't multiply
+  # the keyall. The others are told why. Same rule as the AFK zone.
+  one-per-connection: true
   countdown:
     # Announcements in chat this long before the keyall (each at least 10s and shorter than the interval).
     chat: [5m, 1m]

@@ -42,6 +42,20 @@ class KeyallRecipientsTest {
         assertEquals(ONLINE, Keyall.recipients(ONLINE, config(true, true), VANISH, AFK));
     }
 
+    /** Dupe audit R17: alt accounts on one connection get one share, the first listed (online longest). */
+    @Test
+    void oneShareperConnection() {
+        UUID alt = new UUID(0, 5);
+        List<UUID> online = List.of(ACTIVE, AWAY, alt);
+        java.util.function.Function<UUID, String> connection = uuid -> uuid.equals(ACTIVE) ? "home" : uuid.equals(alt) ? "home" : "other";
+        assertEquals(List.of(ACTIVE, AWAY), Keyall.recipients(online, config(false, true), VANISH, AFK, connection));
+        CratesSettings.Keyall perAccount = new CratesSettings.Keyall(true, Duration.ofHours(4), "basic", 1, Duration.ofMinutes(10), false,
+            true, List.of(), Duration.ZERO, false);
+        assertEquals(online, Keyall.recipients(online, perAccount, VANISH, AFK, connection), "one-per-connection: false");
+        // A vanished account doesn't take its connection's share.
+        assertEquals(List.of(ACTIVE), Keyall.recipients(List.of(HIDDEN, ACTIVE), config(false, true), VANISH, AFK, uuid -> "home"));
+    }
+
     @Test
     void withoutTheAfkFeatureNobodyIsAfk() {
         assertEquals(List.of(ACTIVE, AWAY), Keyall.recipients(ONLINE, config(false, false), VANISH, AfkStatus.NONE));

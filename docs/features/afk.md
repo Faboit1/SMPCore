@@ -94,7 +94,7 @@ are offsets, 16 to 28 blocks east of the spawn, inside the protected spawn area,
   `afk_reward` in `Currency.SHARDS`, after the cancellable `AfkZoneRewardEvent`.
 - **Continuous presence.** Leaving the zone (walking out, a teleport, death, spectator mode) throws away the progress
   towards the next reward. A combat tag does the same for as long as it lasts.
-- **One account per connection.** Accounts are grouped by a salted hash of their address (`PlayerDirectory`). The
+- **One account per connection.** Accounts are grouped by a salted hash of their network, an IPv4 address or an IPv6 /64 (`PlayerDirectory#connection`, dupe audit R17), so the addresses of one IPv6 network count as one connection. The
   first in the zone earns; others from the same connection wait (`AFK zone: another account on your connection is
   earning`). When the earner leaves, the account that entered next takes over with a fresh interval.
 - **Daily limit** (`rewards.daily-cap`, off by default): the most shards one account earns in the zone per day,

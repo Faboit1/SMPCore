@@ -71,6 +71,28 @@ class PlayerDirectoryTest {
         this.directory.load();
     }
 
+    /** Dupe audit R17: one person's accounts on addresses of one IPv6 /64 are one connection; IPv4 is per address. */
+    @Test
+    void connectionsGroupAnIpv6NetworkAndKeepIpv4AddressesApart() {
+        this.directory.recordJoin(ALEX, "Alex", "2001:db8:1:2:aaaa::1");
+        this.directory.recordJoin(BLAKE, "Blake", "2001:db8:1:2:bbbb::7%eth0");
+        org.junit.jupiter.api.Assertions.assertEquals(this.directory.connection(ALEX), this.directory.connection(BLAKE),
+            "same /64, same connection");
+        org.junit.jupiter.api.Assertions.assertNotEquals(this.directory.ipHash(ALEX), this.directory.ipHash(BLAKE),
+            "staff tools still see two addresses");
+        this.directory.recordJoin(BLAKE, "Blake", "2001:db8:1:3::1");
+        org.junit.jupiter.api.Assertions.assertNotEquals(this.directory.connection(ALEX), this.directory.connection(BLAKE),
+            "another /64 is another connection");
+        this.directory.recordJoin(ALEX, "Alex", "203.0.113.5");
+        this.directory.recordJoin(BLAKE, "Blake", "::ffff:203.0.113.5");
+        org.junit.jupiter.api.Assertions.assertEquals(this.directory.connection(ALEX), this.directory.connection(BLAKE),
+            "an IPv4-mapped address is the IPv4 address");
+        this.directory.recordJoin(BLAKE, "Blake", "203.0.113.6");
+        org.junit.jupiter.api.Assertions.assertNotEquals(this.directory.connection(ALEX), this.directory.connection(BLAKE));
+        org.junit.jupiter.api.Assertions.assertEquals("player:" + NOBODY, this.directory.connection(NOBODY), "unknown: their own");
+        org.junit.jupiter.api.Assertions.assertNull(PlayerDirectory.network("example.org"), "names are never looked up");
+    }
+
     @Test
     void playersOnlineAtShutdownAreSeenWhenTheServerStops() throws Exception {
         this.directory.recordJoin(ALEX, "Alex", null);

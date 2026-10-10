@@ -217,7 +217,8 @@ final class Keyall {
         for (Player player : Bukkit.getOnlinePlayers()) {
             online.put(player.getUniqueId(), player);
         }
-        List<UUID> recipients = recipients(online.keySet(), settings.keyall(), this.vanish, this.afk);
+        List<UUID> recipients = recipients(online.keySet(), settings.keyall(), this.vanish, this.afk,
+            this.services.directory()::connection);
         List<Player> players = new ArrayList<>(recipients.size());
         for (UUID uuid : recipients) {
             players.add(online.get(uuid));
@@ -238,15 +239,19 @@ final class Keyall {
         Component keys = this.text.keys(amount, target);
         if (given > 0) {
             this.services.messenger().broadcast(CratesMessages.KEYALL_DONE, Arg.component("keys", keys));
-            // Players left out for being AFK are told why, so the broadcast doesn't read like a mistake.
+            // Players left out for being AFK or for sharing a connection are told why, so the broadcast doesn't read
+            // like a mistake.
             CratesSettings.Keyall config = settings.keyall();
-            if (!config.includeAfk()) {
-                Set<UUID> chosen = new HashSet<>(recipients);
-                for (Map.Entry<UUID, Player> entry : online.entrySet()) {
-                    UUID uuid = entry.getKey();
-                    if (!chosen.contains(uuid) && this.afk.afk(uuid) && (config.includeVanished() || !this.vanish.vanished(uuid))) {
-                        this.services.messenger().send(entry.getValue(), CratesMessages.KEYALL_MISSED_AFK, Arg.component("keys", keys));
-                    }
+            Set<UUID> chosen = new HashSet<>(recipients);
+            for (Map.Entry<UUID, Player> entry : online.entrySet()) {
+                UUID uuid = entry.getKey();
+                if (chosen.contains(uuid) || (!config.includeVanished() && this.vanish.vanished(uuid))) {
+                    continue;
+                }
+                if (!config.includeAfk() && this.afk.afk(uuid)) {
+                    this.services.messenger().send(entry.getValue(), CratesMessages.KEYALL_MISSED_AFK, Arg.component("keys", keys));
+                } else if (config.onePerConnection()) {
+                    this.services.messenger().send(entry.getValue(), CratesMessages.KEYALL_MISSED_CONNECTION, Arg.component("keys", keys));
                 }
             }
         }
@@ -260,9 +265,22 @@ final class Keyall {
      * {@code include-vanished}) and AFK players (unless {@code include-afk}). Pure.
      */
     static List<UUID> recipients(Collection<UUID> online, CratesSettings.Keyall config, VanishStatus vanish, AfkStatus afk) {
+        return recipients(online, config, vanish, afk, uuid -> "player:" + uuid);
+    }
+
+    /**
+     * The same, and with {@code one-per-connection} only the first account of each connection, in the order given
+     * (Bukkit lists players in the order they joined, so the one online longest). Pure.
+     *
+     * @param connection a player's connection key ({@code PlayerDirectory#connection})
+     */
+    static List<UUID> recipients(Collection<UUID> online, CratesSettings.Keyall config, VanishStatus vanish, AfkStatus afk,
+                                 java.util.function.Function<UUID, String> connection) {
         List<UUID> result = new ArrayList<>(online.size());
+        Set<String> connections = new HashSet<>();
         for (UUID uuid : online) {
-            if ((config.includeVanished() || !vanish.vanished(uuid)) && (config.includeAfk() || !afk.afk(uuid))) {
+            if ((config.includeVanished() || !vanish.vanished(uuid)) && (config.includeAfk() || !afk.afk(uuid))
+                && (!config.onePerConnection() || connections.add(connection.apply(uuid)))) {
                 result.add(uuid);
             }
         }

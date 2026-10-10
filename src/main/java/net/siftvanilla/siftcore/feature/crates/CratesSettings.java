@@ -66,11 +66,19 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
      * @param includeAfk      whether players who are AFK get keys too
      * @param chatAt          countdown announcements in chat, longest first
      * @param actionBarFrom   the last seconds are counted down in the action bar (zero turns it off)
+     * @param onePerConnection only one account per connection gets keys (the one online longest), like the AFK zone
      */
     public record Keyall(boolean enabled, Duration interval, String crate, int amount, Duration missedDelay,
-                         boolean includeVanished, boolean includeAfk, List<Duration> chatAt, Duration actionBarFrom) {
+                         boolean includeVanished, boolean includeAfk, List<Duration> chatAt, Duration actionBarFrom,
+                         boolean onePerConnection) {
         public Keyall {
             chatAt = List.copyOf(chatAt);
+        }
+
+        /** One account per connection (the shipped default). */
+        public Keyall(boolean enabled, Duration interval, String crate, int amount, Duration missedDelay,
+                      boolean includeVanished, boolean includeAfk, List<Duration> chatAt, Duration actionBarFrom) {
+            this(enabled, interval, crate, amount, missedDelay, includeVanished, includeAfk, chatAt, actionBarFrom, true);
         }
 
     }
@@ -578,6 +586,8 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
         Duration missed = k.duration("missed-delay", Duration.ZERO, Duration.ofHours(1), Duration.ofMinutes(10));
         boolean includeVanished = k.bool("include-vanished", false);
         boolean includeAfk = k.bool("include-afk", true);
+        // Optional: a file from before it existed keeps the safe default.
+        boolean onePerConnection = !k.has("one-per-connection") || k.bool("one-per-connection", true);
         ConfigReader countdown = k.section("countdown");
         List<Duration> chatAt = new ArrayList<>();
         for (String text : countdown.stringList("chat", List.of())) {
@@ -604,8 +614,8 @@ public record CratesSettings(Duration openCooldown, boolean blockInCombat, int b
         }
         if (!known) {
             k.problem("crate", "is '" + crate + "', which is not a crate, so the keyall is off");
-            return new Keyall(false, interval, crate, amount, missed, includeVanished, includeAfk, chatAt, actionBar);
+            return new Keyall(false, interval, crate, amount, missed, includeVanished, includeAfk, chatAt, actionBar, onePerConnection);
         }
-        return new Keyall(enabled, interval, crate, amount, missed, includeVanished, includeAfk, chatAt, actionBar);
+        return new Keyall(enabled, interval, crate, amount, missed, includeVanished, includeAfk, chatAt, actionBar, onePerConnection);
     }
 }

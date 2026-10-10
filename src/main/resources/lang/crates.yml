@@ -115,6 +115,7 @@ crates:
     done: "<primary>Keyall: everyone online got <keys>. <click:run_command:'/crates'><secondary>Click to open your crates.</click>"
     # To players left out because they were AFK (only when keyall.include-afk is false).
     missed-afk: "<secondary>You were away, so you didn't get <keys> from this keyall."
+    missed-connection: "<secondary>Another account on your connection got <keys> from this keyall. Each connection gets one share."
     info: "<primary>The next keyall is in <time>. <secondary>Everyone online gets <keys>."
     "off": "<primary>There is no keyall scheduled."
     ran: "<primary>Gave <keys> to everyone online. <secondary>Players: <primary><count>"

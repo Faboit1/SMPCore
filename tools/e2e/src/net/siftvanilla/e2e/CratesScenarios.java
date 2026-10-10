@@ -796,12 +796,20 @@ final class CratesScenarios {
         e2e.eventually(() -> e2e.feature(net.siftvanilla.siftcore.feature.staff.StaffFeature.class).vanish().vanished(e2e.uuid(hiddenName)),
             "the second bot is vanished");
         int uncommonBefore = keys(e2e, name, "uncommon");
+        // Every bot connects from 127.0.0.1: one connection, so only the account online longest gets a share.
+        String altName = e2e.name("CrAlt");
+        Bot alt = e2e.bot(altName);
 
-        e2e.step("a keyall started by staff gives everyone online keys, but not vanished staff");
+        e2e.step("a keyall started by staff gives everyone online keys, but not vanished staff, and one share per connection");
         bot.clearLogs();
+        alt.clearLogs();
         answer(e2e, "keyall rare 2", "Gave 2 Rare keys to everyone online.");
         e2e.eventually(() -> keys(e2e, name, "rare") == 2, "two rare keys");
         e2e.expect(keys(e2e, hiddenName, "rare") == 0, "the vanished bot got none");
+        e2e.expect(keys(e2e, altName, "rare") == 0, "the second account on the connection got none");
+        e2e.eventually(() -> alt.chatContains("Another account on your connection got 2 Rare keys from this keyall."),
+            "and is told why: " + alt.chat());
+        alt.quit();
         e2e.eventually(() -> bot.chatContains("Keyall: everyone online got 2 Rare keys."), "the broadcast: " + bot.chat());
         e2e.expect(number(e2e, "SELECT COUNT(*) FROM crate_grants WHERE ref LIKE ? AND uuid = ?", "keyall:m%", e2e.uuid(name).toString()) == 1,
             "the grant carries a keyall reference");

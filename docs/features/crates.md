@@ -195,7 +195,12 @@ and recipients, then every online player (vanished staff left out unless `includ
 when `include-afk` is false) gets the keys through
 `CrateKeys.give` with the reference `keyall:<run>:<uuid>`, so a player can never get one keyall twice. Everyone
 gets "Keyall: everyone online got 1 Uncommon key." with a click to open their crates; with `include-afk: false`, AFK
-players who were left out are told "You were away, so you didn't get 1 Uncommon key from this keyall." The shipped
+players who were left out are told "You were away, so you didn't get 1 Uncommon key from this keyall." With
+`one-per-connection: true` (shipped) only the first account of each connection gets keys, in the order players joined
+(the one online longest), like the AFK zone: a connection is an IPv4 address or an IPv6 /64
+(`PlayerDirectory#connection`, dupe audit R17), so alt accounts parked online don't multiply the keyall. The others are
+told "Another account on your connection got 1 Uncommon key from this keyall." Vanished staff and left-out AFK players
+don't take their connection's share. The shipped
 keyall gives 1 Uncommon key every 4 hours (it gave a Basic key, now called Common, before the tiers).
 
 The next time is stored in `crate_schedule`, so restarts keep the schedule. When the server was offline at keyall

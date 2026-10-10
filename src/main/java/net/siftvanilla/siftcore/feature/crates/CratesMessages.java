@@ -109,6 +109,7 @@ public final class CratesMessages {
     public static final MessageKey KEYALL_ACTIONBAR = MessageKey.status("crates.keyall.action-bar", "time");
     public static final MessageKey KEYALL_DONE = MessageKey.notify("crates.keyall.done", "keys");
     public static final MessageKey KEYALL_MISSED_AFK = MessageKey.chat("crates.keyall.missed-afk", "keys");
+    public static final MessageKey KEYALL_MISSED_CONNECTION = MessageKey.chat("crates.keyall.missed-connection", "keys");
     public static final MessageKey KEYALL_INFO = MessageKey.chat("crates.keyall.info", "time", "keys");
     public static final MessageKey KEYALL_OFF = MessageKey.chat("crates.keyall.off");
     public static final MessageKey KEYALL_RAN = MessageKey.chat("crates.keyall.ran", "count", "keys");

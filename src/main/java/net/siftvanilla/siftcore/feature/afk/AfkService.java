@@ -249,8 +249,7 @@ final class AfkService implements AfkStatus, AfkZoneInfo {
     }
 
     private String connection(UUID player) {
-        String hash = this.services.directory().ipHash(player);
-        return hash == null ? "player:" + player : hash;
+        return this.services.directory().connection(player);
     }
 
     /** Records whether the player is in the zone and tells them when that changed. Player's thread. */

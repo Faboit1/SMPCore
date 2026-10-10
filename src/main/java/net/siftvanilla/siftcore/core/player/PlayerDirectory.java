@@ -34,6 +34,8 @@ public final class PlayerDirectory {
     private final Map<String, UUID> byName = new ConcurrentHashMap<>();
     /** Online players' last-seen time from before their current session (see {@link #previousSeen}). */
     private final Map<UUID, Long> previousSeen = new ConcurrentHashMap<>();
+    /** Each player's connection key since their last join this uptime (see {@link #connection}). */
+    private final Map<UUID, String> connections = new ConcurrentHashMap<>();
 
     public PlayerDirectory(Database database, byte[] salt) {
         this.database = database;
@@ -82,6 +84,9 @@ public final class PlayerDirectory {
         Known previous = this.byUuid.get(uuid);
         this.previousSeen.put(uuid, previous == null ? 0L : previous.lastSeen());
         String hash = ip == null ? (previous == null ? null : previous.ipHash()) : hashIp(ip);
+        if (ip != null) {
+            this.connections.put(uuid, connectionKey(ip));
+        }
         Known known = new Known(uuid, name, previous == null ? now : previous.firstJoin(), now, hash);
         put(known);
         this.database.write(c -> {
@@ -153,6 +158,51 @@ public final class PlayerDirectory {
     public String ipHash(UUID uuid) {
         Known known = this.byUuid.get(uuid);
         return known == null ? null : known.ipHash();
+    }
+
+    /**
+     * The key of a player's connection, for one-account-per-connection rules (the AFK zone, the keyall): a salted
+     * hash of their address's network, an IPv4 address or an IPv6 /64, so accounts on addresses of one IPv6 network
+     * share it (each IPv6 address of a /64 counted on its own otherwise). Staff tools keep the full address hash
+     * ({@link #ipHash}). Players without a known address get a key of their own.
+     */
+    public String connection(UUID uuid) {
+        String key = this.connections.get(uuid);
+        if (key != null) {
+            return key;
+        }
+        String hash = ipHash(uuid);
+        return hash == null ? "player:" + uuid : hash;
+    }
+
+    /** The connection key of an address literal: its IPv4 address or IPv6 /64, salted and hashed. */
+    String connectionKey(String ip) {
+        byte[] network = network(ip);
+        if (network == null) {
+            return hashIp(ip);
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(this.salt);
+            digest.update("net:".getBytes(StandardCharsets.UTF_8));
+            digest.update(network);
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** The network part of an address literal (all 4 bytes of IPv4, the first 8 of IPv6), or null when it isn't one. */
+    static byte[] network(String ip) {
+        String literal = ip.contains("%") ? ip.substring(0, ip.indexOf('%')) : ip;
+        byte[] bytes;
+        try {
+            // A literal only: never a name lookup. IPv4-mapped IPv6 addresses come back as IPv4.
+            bytes = com.google.common.net.InetAddresses.forString(literal).getAddress();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        return bytes.length == 16 ? java.util.Arrays.copyOf(bytes, 8) : bytes;
     }
 
     /** True when both players were last seen from the same IP. */
