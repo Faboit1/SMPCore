@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.siftvanilla.siftcore.core.config.Setting;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.player.PlayerSettings;
@@ -144,10 +145,16 @@ final class PreviewMenu extends PagedMenu<Reward> {
                 lore.add(lang.get(CratesMessages.PREVIEW_WORTH, Arg.money("worth", value)));
             }
             ItemStack shown = Items.display(icon, lore);
-            if (shown.getData(DataComponentTypes.CUSTOM_NAME) == null) {
+            Component own = shown.getData(DataComponentTypes.CUSTOM_NAME);
+            if (own == null) {
                 // A plain item reads as its reward, in its rarity's colour; named rewards keep their (coloured) name.
                 shown.setData(DataComponentTypes.CUSTOM_NAME, lang.get(CratesMessages.PREVIEW_NAME,
                     Arg.component("reward", this.text.reward(reward))).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
+            } else if (reward.kind() instanceof Reward.Spawner) {
+                // A spawner keeps its own name ("Blaze spawner"), in its rarity's colour like every other reward. Only
+                // this picture is renamed: the spawner won is the spawners feature's own item.
+                shown.setData(DataComponentTypes.CUSTOM_NAME, Component.text(PlainTextComponentSerializer.plainText().serialize(own),
+                    this.text.color(reward)).decoration(TextDecoration.ITALIC, false));
             }
             return shown;
         }

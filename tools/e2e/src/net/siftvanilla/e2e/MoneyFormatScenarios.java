@@ -429,7 +429,7 @@ final class MoneyFormatScenarios {
         e2e.step("a crate's money reward, shown once the opening is stored, and its chat receipt in the same format");
         Path crates = file(e2e, "features/crates.yml");
         String shipped = Files.readString(crates, StandardCharsets.UTF_8);
-        e2e.expect(shipped.stripTrailing().endsWith("display: \"a blaze spawner\""), "crates.yml ends with the shipped crates section");
+        e2e.expect(shipped.stripTrailing().endsWith("display: \"an iron golem spawner\""), "crates.yml ends with the shipped crates section");
         Files.writeString(crates, shipped.stripTrailing() + "\n" + TEST_CRATE, StandardCharsets.UTF_8);
         try {
             List<String> output = e2e.consoleOutput("sift reload");
@@ -442,7 +442,9 @@ final class MoneyFormatScenarios {
                 bot.clearLogs();
                 e2e.sleep(1_000);
                 next(e2e, bot, "Crates", () -> bot.command("crates"));
-                e2e.click(bot, "Open Fortune");
+                e2e.click(bot, "Fortune crate");
+                e2e.dialog(bot, "Fortune crate");
+                e2e.click(bot, "Open");
             }
             Bot.SeenDialog fullWin = awaitBody(e2e, full, "You won");
             Bot.SeenDialog shortWin = awaitBody(e2e, brief, "You won");

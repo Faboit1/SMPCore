@@ -31,6 +31,8 @@ public final class CratesMessages {
     public static final MessageKey WON = MessageKey.chat("crates.open.won", "reward", "name").withFeedback(Feedback.SUCCESS);
     public static final MessageKey WON_CLAIM_BOX = MessageKey.chat("crates.open.won-claim-box", "reward", "name")
         .withFeedback(Feedback.SUCCESS);
+    /** The receipt of a win revealed while the player was dead: the reward was kept in the claim box. */
+    public static final MessageKey WON_KEPT = MessageKey.chat("crates.open.won-kept", "reward", "name");
     public static final MessageKey ANNOUNCE = MessageKey.chat("crates.open.announce", "player", "reward", "name");
     /** The receipt of several openings in a row: a line per reward won, with how often. */
     public static final MessageKey BATCH_WON = MessageKey.chat("crates.open.batch", "count", "name", "rewards")

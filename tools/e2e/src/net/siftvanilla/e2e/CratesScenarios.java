@@ -739,7 +739,7 @@ final class CratesScenarios {
             command(e2e, bot, "crates open e2etest");
             e2e.eventually(() -> logRows(e2e, uuid) == 1, "opened");
             answer(e2e, "crates log " + name, "Test 5 diamonds");
-            List<String> info = answer(e2e, "crates info e2etest", "100% 5 diamonds Rare");
+            List<String> info = answer(e2e, "crates info e2etest", "100% 5 diamonds Epic");
             e2e.expect(info.stream().anyMatch(line -> line.contains("items that sell for $2,000")), "info values the items: " + info);
 
             e2e.step("placeholders");

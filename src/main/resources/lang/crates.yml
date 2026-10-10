@@ -32,6 +32,8 @@ crates:
     # The receipt in chat after every opening.
     won: "<primary>You won <reward> from the <name> crate."
     won-claim-box: "<primary>You won <reward> from the <name> crate. <secondary>It didn't fit, so it's waiting in your claim box (/claims)."
+    # A win revealed while the player was dead (the crate was still rolling): nothing dropped, it was kept for them.
+    won-kept: "<primary>You won <reward> from the <name> crate. <secondary>It's waiting in your claim box (/claims)."
     # The receipt after several openings in a row: one line per reward, with how often it was won.
     batch: "<primary>You opened <count> <name> crates.<newline><rewards>"
     batch-claim-box: "<primary>You opened <count> <name> crates.<newline><rewards><newline><secondary>Some of it didn't fit, so it's waiting in your claim box (/claims)."

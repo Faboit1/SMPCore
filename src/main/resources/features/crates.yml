@@ -199,8 +199,8 @@ keyall:
 #
 # What a key is worth on average: /crates info <crate> (money, shards, the sell value of the items and the keys of
 # other crates). docs/features/crates.md has the numbers of the shipped crates next to how keys are earned, so the
-# crates never print money: keep each tier worth about three times the one below, and keep the money part a third of
-# a key's worth or less. Every crate has a small chance of a key of the next tier, so the lower crates lead upward.
+# crates never print money: keep each tier worth two to four times the one below, and keep the money part under half
+# of what a key pays. Every crate has a small chance of a key of the next tier, so the lower crates lead upward.
 crates:
   basic:
     name: "Common"

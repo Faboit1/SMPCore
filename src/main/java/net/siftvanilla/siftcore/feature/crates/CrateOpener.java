@@ -214,7 +214,7 @@ final class CrateOpener {
         Arg rewardArg = this.text.rewardArg("reward", reward);
         Arg name = CrateText.nameArg(crate);
         if (inClaimBox > 0) {
-            this.services.messenger().send(player, CratesMessages.WON_CLAIM_BOX, rewardArg, name);
+            this.services.messenger().send(player, player.isDead() ? CratesMessages.WON_KEPT : CratesMessages.WON_CLAIM_BOX, rewardArg, name);
             return AlertStyle.CHAT;
         }
         AlertStyle style = this.services.settings().get(player, CratePlayerSettings.RECEIPT);

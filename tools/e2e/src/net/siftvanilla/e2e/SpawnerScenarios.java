@@ -1074,6 +1074,8 @@ final class SpawnerScenarios {
         }
         e2e.expect(names.contains("Blaze spawner"), "a Blaze spawner reward: " + names);
         e2e.expect(names.contains("Skeleton spawner"), "a Skeleton spawner reward: " + names);
+        String blaze = CratesScenarios.itemNameColor(bot.screenItems().get(names.indexOf("Blaze spawner")));
+        e2e.expect("#FF4D6A".equals(blaze), "the Blaze spawner in its rarity's colour (mythic red): " + blaze);
         bot.closeScreen();
     }
 
