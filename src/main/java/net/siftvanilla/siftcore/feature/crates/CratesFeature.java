@@ -219,7 +219,7 @@ public final class CratesFeature implements Feature, Listener {
         });
         placeholders.register("keyall_countdown", "Time until the next keyall (1h 5m), - when it is off",
             player -> this.keyall.enabled() ? Durations.format(this.keyall.remaining()) : "-");
-        placeholders.register("keyall_reward", "What the next keyall gives (1 Basic key), - when it is off", player -> {
+        placeholders.register("keyall_reward", "What the next keyall gives (1 Uncommon key), - when it is off", player -> {
             var reward = this.keyall.reward();
             return this.keyall.enabled() && reward != null ? TextStyle.plain(reward) : "-";
         });
