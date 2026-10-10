@@ -92,6 +92,36 @@ class PaletteTagsTest {
         static final MessageKey KEY = MessageKey.chat("test.shards", "shards", "amount");
     }
 
+    /** A message whose shard placeholder was renamed from shards to amount, like afk.zone.status-many. */
+    static final class Renamed {
+        static final MessageKey KEY = MessageKey.status("test.renamed", "amount", "time");
+    }
+
+    /**
+     * A server text edited before {@code <shards>} became the shard colour still says {@code <shards>} where the number
+     * went: it would load cleanly and show no amount, so it is reported and the shipped text is used.
+     */
+    @Test
+    void anOldTextWhoseShardsPlaceholderIsNowAColourFallsBack() {
+        Lang lang = new Lang(this.style, MoneyFormat::defaults);
+        lang.register(Renamed.class);
+        YamlConfiguration bundled = new YamlConfiguration();
+        bundled.set("test.renamed", "<secondary>AFK zone: next <shards><amount> shards</shards> in <accent><time>");
+        YamlConfiguration server = new YamlConfiguration();
+        server.set("test.renamed", "<secondary>Next <shards> shards in <time>!");
+        List<net.siftvanilla.siftcore.core.config.ConfigProblem> problems = lang.load(server, bundled, "lang/afk.yml");
+        assertEquals(1, problems.size(), problems.toString());
+        assertTrue(problems.getFirst().toString().contains("leaves out <amount>"), problems.toString());
+        Component text = lang.get(Renamed.KEY, Arg.shards("amount", 3), Arg.text("time", "42s"));
+        assertEquals("AFK zone: next 3 shards in 42s", TextStyle.plain(text), "the shipped text, with the amount");
+
+        server.set("test.renamed", "<secondary>Next <shards><amount> shards</shards> soon");
+        assertEquals(List.of(), lang.load(server, bundled, "lang/afk.yml"), "an edit that uses the colour and the amount is fine");
+        server.set("test.renamed", "<secondary>Wait <time> for more");
+        assertEquals(List.of(), lang.load(server, bundled, "lang/afk.yml"), "leaving a value out on purpose is allowed");
+        assertEquals("Wait 42s for more", TextStyle.plain(lang.get(Renamed.KEY, Arg.shards("amount", 3), Arg.text("time", "42s"))));
+    }
+
     @Test
     void aFeaturesOwnSoundFollowsThePlayersSoundSettings() {
         Sounds sounds = new Sounds();

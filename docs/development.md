@@ -119,7 +119,9 @@ Register the feature in `FeatureCatalog.create()` (one line, in dependency order
 - A placeholder wins over a palette tag of the same name: in a message that declares `<shards>` as a placeholder,
   `<shards>` is the value, not the colour. Write shard amounts with `Arg.shards(name, amount)` (or
   `Arg.amount(name, Currency.SHARDS, amount)`), which renders them purple; to colour the word "shards" too, name the
-  placeholder `amount` and write `<shards><amount> shards</shards>`.
+  placeholder `amount` and write `<shards><amount> shards</shards>`. A server text edited before a message renamed its
+  `shards` placeholder still says `<shards>` where the number went; `Lang.load` reports it and uses the shipped text
+  (`Lang#formerPlaceholder`), so the amount never silently disappears.
 - Placeholders are typed: `Arg.money` (renders `$1,500` in the money colour), `Arg.shards` (`1,500` in the shards
   colour), `Arg.number` (white), `Arg.amount` (money green, shards purple), `Arg.decimal`, `Arg.time`, `Arg.text`
   (untrusted text, inserted literally), `Arg.component` (pre-built safe component, for a value in its own colour).

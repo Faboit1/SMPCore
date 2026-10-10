@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -116,12 +117,58 @@ public final class Lang {
                         + " (allowed: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, colours such as <red> or <#3CC4EE>, <bold>, <shadow:#000000>, <icon:name> <!italic> <newline>"
                         + (key.placeholders().isEmpty() ? "" : " and " + placeholderList(key)) + ")"));
                     chosen = bundledValue;
+                } else {
+                    String stale = formerPlaceholder(key, chosen, bundledValue);
+                    if (stale != null) {
+                        problems.add(new ConfigProblem(fileName, key.path(), stale));
+                        chosen = bundledValue;
+                    }
                 }
             }
             loaded.put(key.path(), List.copyOf(chosen));
         }
         this.entries = Map.copyOf(loaded);
         return problems;
+    }
+
+    /**
+     * Tag names that were placeholders in earlier versions and are palette tags now: {@code <shards>} was the shard
+     * amount in many messages, which now name it {@code <amount>} (or {@code <balance>}) and use {@code <shards>} for
+     * the colour.
+     */
+    static final Set<String> FORMER_PLACEHOLDERS = Set.of("shards");
+
+    /**
+     * Why a server's edited text is from before one of its placeholders became a palette tag, or null when it isn't.
+     * Such a text uses {@code <shards>} as a value (followed by a space, punctuation or the end, where a colour would
+     * be followed by what it colours: "You have <shards> shards.") and leaves out a placeholder the shipped text uses,
+     * so it would load cleanly and show no amount. Texts that leave out a value on purpose are fine.
+     */
+    static String formerPlaceholder(MessageKey key, List<String> user, List<String> bundled) {
+        String userText = String.join("\n", user);
+        String bundledText = String.join("\n", bundled);
+        for (String former : FORMER_PLACEHOLDERS) {
+            if (key.placeholders().contains(former)
+                || !java.util.regex.Pattern.compile("<" + former + ">(?=$|[\\s.,!?;:)\\]])").matcher(userText).find()) {
+                continue;
+            }
+            List<String> missing = new ArrayList<>();
+            for (String name : key.placeholders()) {
+                if (uses(bundledText, name) && !uses(userText, name)) {
+                    missing.add("<" + name + ">");
+                }
+            }
+            if (!missing.isEmpty()) {
+                missing.sort(null);
+                return "uses <" + former + ">, which is the " + former + " colour now, and leaves out " + String.join(" ", missing)
+                    + " (the value it showed before); using the default text. Write " + missing.getFirst() + " where the number goes.";
+            }
+        }
+        return null;
+    }
+
+    private static boolean uses(String text, String placeholder) {
+        return text.contains("<" + placeholder + ">") || text.contains("<" + placeholder + ":");
     }
 
     private static String placeholderList(MessageKey key) {
