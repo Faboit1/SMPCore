@@ -219,8 +219,8 @@ final class MoneyFormatScenarios {
             "without a viewer (holograms) the server's way");
 
         e2e.step("a dialog built by a dialog click (Richest players from the money page) and one built by /baltop");
-        full.rawClick("siftcore:hub/money", null);
-        e2e.dialog(full, "Money");
+        // A fresh Money page: an older one still on record would take the click on a dead token.
+        next(e2e, full, "Money", () -> full.rawClick("siftcore:hub/money", null));
         e2e.click(full, "Richest players");
         Bot.SeenDialog fullTop = e2e.dialog(full, "Richest players");
         e2e.expect(fullTop.bodyText().contains("with $1,234,567."), "your place in full: " + fullTop.body());
@@ -419,10 +419,13 @@ final class MoneyFormatScenarios {
         e2e.eventually(() -> Bukkit.getPlayerExact(richName) == null, richName + " left");
         e2e.sleep(1_000);
         Bot.SeenDialog fullStats = next(e2e, full, richName + "'s stats", () -> full.command("stats " + richName));
-        e2e.expect(fullStats.bodyText().contains("Balance $1,234,567"), "in full: " + fullStats.body());
+        // The stats page is a button per stat: "Balance: $1,234,567".
+        e2e.expect(fullStats.button("Balance") != null && fullStats.button("Balance").label().contains("$1,234,567"),
+            "in full: " + fullStats.buttons());
         e2e.sleep(1_000);
         Bot.SeenDialog shortStats = next(e2e, brief, richName + "'s stats", () -> brief.command("stats " + richName));
-        e2e.expect(shortStats.bodyText().contains("Balance $1.2m"), "short: " + shortStats.body());
+        e2e.expect(shortStats.button("Balance") != null && shortStats.button("Balance").label().contains("$1.2m"),
+            "short: " + shortStats.buttons());
         full.closeScreen();
         brief.closeScreen();
 
