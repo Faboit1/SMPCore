@@ -604,22 +604,28 @@ crates:
         display: "5 totems of undying"
       sword:
         item: netherite_sword
+        name: "Legendary sword"
+        lore: ["From the Legendary crate"]
         enchants: {sharpness: 5, unbreaking: 3, looting: 3, mending: 1}
         weight: 7
         rarity: legendary
-        display: "a maxed netherite sword"
+        display: "a Legendary netherite sword"
       pickaxe:
         item: netherite_pickaxe
+        name: "Legendary pickaxe"
+        lore: ["From the Legendary crate"]
         enchants: {efficiency: 5, unbreaking: 3, fortune: 3, mending: 1}
         weight: 7
         rarity: legendary
-        display: "a maxed netherite pickaxe"
+        display: "a Legendary netherite pickaxe"
       chestplate:
         item: netherite_chestplate
+        name: "Legendary chestplate"
+        lore: ["From the Legendary crate"]
         enchants: {protection: 4, unbreaking: 3, mending: 1}
         weight: 7
         rarity: legendary
-        display: "a maxed netherite chestplate"
+        display: "a Legendary netherite chestplate"
       enchanted-apples:
         item: enchanted_golden_apple
         amount: 3
@@ -632,10 +638,12 @@ crates:
         rarity: legendary
       elytra:
         item: elytra
+        name: "Legendary wings"
+        lore: ["From the Legendary crate"]
         enchants: {unbreaking: 3, mending: 1}
         weight: 5
         rarity: legendary
-        display: "a Mending elytra"
+        display: "Legendary wings"
       skeleton-spawner:
         spawner: skeleton
         weight: 5
@@ -685,40 +693,58 @@ crates:
         display: "8 enchanted golden apples"
       helmet:
         item: netherite_helmet
-        enchants: {protection: 4, unbreaking: 3, mending: 1, respiration: 3, aqua_affinity: 1}
+        name: "Mythic helmet"
+        lore: ["From the Mythic crate"]
+        enchants: {protection: 4, unbreaking: 4, mending: 1, respiration: 3, aqua_affinity: 1}
+        unsafe-enchants: true
         weight: 4
         rarity: legendary
-        display: "a maxed netherite helmet"
+        display: "a Mythic netherite helmet"
       chestplate:
         item: netherite_chestplate
-        enchants: {protection: 4, unbreaking: 3, mending: 1}
+        name: "Mythic chestplate"
+        lore: ["From the Mythic crate"]
+        enchants: {protection: 4, unbreaking: 4, mending: 1, thorns: 3}
+        unsafe-enchants: true
         weight: 4
         rarity: legendary
-        display: "a maxed netherite chestplate"
+        display: "a Mythic netherite chestplate"
       leggings:
         item: netherite_leggings
-        enchants: {protection: 4, unbreaking: 3, mending: 1}
+        name: "Mythic leggings"
+        lore: ["From the Mythic crate"]
+        enchants: {protection: 4, unbreaking: 4, mending: 1, swift_sneak: 3}
+        unsafe-enchants: true
         weight: 4
         rarity: legendary
-        display: "maxed netherite leggings"
+        display: "Mythic netherite leggings"
       boots:
         item: netherite_boots
-        enchants: {protection: 4, unbreaking: 3, mending: 1, feather_falling: 4, depth_strider: 3}
+        name: "Mythic boots"
+        lore: ["From the Mythic crate"]
+        enchants: {protection: 4, unbreaking: 4, mending: 1, feather_falling: 4, depth_strider: 3, soul_speed: 3}
+        unsafe-enchants: true
         weight: 4
         rarity: legendary
-        display: "maxed netherite boots"
+        display: "Mythic netherite boots"
       sword:
         item: netherite_sword
-        enchants: {sharpness: 5, unbreaking: 3, looting: 3, mending: 1, fire_aspect: 2, sweeping_edge: 3}
+        name: "Mythic sword"
+        lore: ["From the Mythic crate"]
+        enchants: {sharpness: 5, unbreaking: 4, looting: 3, mending: 1, fire_aspect: 2, sweeping_edge: 3}
+        unsafe-enchants: true
         weight: 4
         rarity: legendary
-        display: "a maxed netherite sword"
+        display: "a Mythic netherite sword"
       elytra:
         item: elytra
-        enchants: {unbreaking: 3, mending: 1}
+        name: "Mythic wings"
+        lore: ["From the Mythic crate"]
+        enchants: {unbreaking: 4, mending: 1}
+        unsafe-enchants: true
         weight: 4
         rarity: legendary
-        display: "a Mending elytra"
+        display: "Mythic wings"
       shulkers:
         item: shulker_box
         amount: 4
@@ -820,7 +846,8 @@ crates:
         item: elytra
         name: "Celestial wings"
         lore: ["From the Celestial crate"]
-        enchants: {unbreaking: 3, mending: 1}
+        enchants: {unbreaking: 5, mending: 1}
+        unsafe-enchants: true
         weight: 4
         rarity: mythic
         display: "Celestial wings"
@@ -828,7 +855,8 @@ crates:
         item: netherite_helmet
         name: "Celestial helmet"
         lore: ["From the Celestial crate"]
-        enchants: {protection: 4, unbreaking: 3, mending: 1, respiration: 3, aqua_affinity: 1}
+        enchants: {protection: 5, unbreaking: 5, mending: 1, respiration: 3, aqua_affinity: 1}
+        unsafe-enchants: true
         weight: 3
         rarity: celestial
         display: "the Celestial helmet"
@@ -836,7 +864,8 @@ crates:
         item: netherite_chestplate
         name: "Celestial chestplate"
         lore: ["From the Celestial crate"]
-        enchants: {protection: 4, unbreaking: 3, mending: 1, thorns: 3}
+        enchants: {protection: 5, unbreaking: 5, mending: 1, thorns: 3}
+        unsafe-enchants: true
         weight: 3
         rarity: celestial
         display: "the Celestial chestplate"
@@ -844,7 +873,8 @@ crates:
         item: netherite_leggings
         name: "Celestial leggings"
         lore: ["From the Celestial crate"]
-        enchants: {protection: 4, unbreaking: 3, mending: 1, swift_sneak: 3}
+        enchants: {protection: 5, unbreaking: 5, mending: 1, swift_sneak: 3}
+        unsafe-enchants: true
         weight: 3
         rarity: celestial
         display: "the Celestial leggings"
@@ -852,7 +882,8 @@ crates:
         item: netherite_boots
         name: "Celestial boots"
         lore: ["From the Celestial crate"]
-        enchants: {protection: 4, unbreaking: 3, mending: 1, feather_falling: 4, depth_strider: 3, soul_speed: 3}
+        enchants: {protection: 5, unbreaking: 5, mending: 1, feather_falling: 4, depth_strider: 3, soul_speed: 3}
+        unsafe-enchants: true
         weight: 3
         rarity: celestial
         display: "the Celestial boots"
@@ -860,7 +891,8 @@ crates:
         item: netherite_sword
         name: "Celestial blade"
         lore: ["From the Celestial crate"]
-        enchants: {sharpness: 5, unbreaking: 3, looting: 3, mending: 1, fire_aspect: 2, sweeping_edge: 3}
+        enchants: {sharpness: 6, unbreaking: 5, looting: 4, mending: 1, fire_aspect: 2, sweeping_edge: 3}
+        unsafe-enchants: true
         weight: 3
         rarity: celestial
         display: "the Celestial blade"
@@ -868,7 +900,8 @@ crates:
         item: netherite_pickaxe
         name: "Celestial pickaxe"
         lore: ["From the Celestial crate"]
-        enchants: {efficiency: 5, unbreaking: 3, fortune: 3, mending: 1}
+        enchants: {efficiency: 6, unbreaking: 5, fortune: 4, mending: 1}
+        unsafe-enchants: true
         weight: 3
         rarity: celestial
         display: "the Celestial pickaxe"

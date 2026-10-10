@@ -333,15 +333,19 @@ What each crate holds (the full list, with chances, is in `/crates preview <crat
 - **Epic**: 8 diamond blocks, 3 netherite scrap, 128 experience bottles, 3 totems, Protection IV diamond armour,
   Sharpness V sword, Efficiency V pickaxe, an enchanted golden apple, a shulker box, an elytra (3%), a zombie spawner
   (4%), $25,000, $80,000, 200 shards, 3 Rare keys and a Legendary key (2%).
-- **Legendary**: netherite ingots, maxed netherite sword, pickaxe and chestplate, 3 enchanted golden apples, 5 totems,
-  2 shulker boxes, a Mending elytra, a beacon, skeleton (5%) and blaze (2%) spawners, $100,000, $250,000, 750 shards,
+- **Legendary**: netherite ingots, the Legendary netherite sword, pickaxe and chestplate (vanilla's best enchants with
+  Mending), 3 enchanted golden apples, 5 totems, 2 shulker boxes, Legendary wings (a Mending elytra), a beacon, skeleton (5%) and blaze (2%) spawners, $100,000, $250,000, 750 shards,
   2 Epic keys and a Mythic key (2%).
-- **Mythic**: 8 netherite ingots, 2 netherite blocks, a full maxed netherite set and sword, a Mending elytra, 8
-  enchanted golden apples, 4 shulker boxes, a beacon, blaze (4%) and enderman (3%) spawners, $200,000, $600,000,
+- **Mythic**: 8 netherite ingots, 2 netherite blocks, the Mythic netherite set and sword (every useful enchant, Thorns,
+  Swift Sneak and Soul Speed included, and Unbreaking IV), Mythic wings (Unbreaking IV), 8 enchanted golden apples, 4 shulker boxes, a beacon, blaze (4%) and enderman (3%) spawners, $200,000, $600,000,
   2,000 shards, 2 Legendary keys and a Celestial key (2%).
-- **Celestial**: the named Celestial armour, blade, pickaxe and wings (maxed, with Mending), 6
-  netherite blocks, 3 beacons, 32 enchanted golden apples, 16 totems, 8 shulker boxes, 2 blaze spawners, an iron
+- **Celestial**: the Celestial armour, blade, pickaxe and wings, past vanilla's limits (Protection V, Sharpness VI,
+  Efficiency VI, Fortune and Looting IV, Unbreaking V, with Mending; `unsafe-enchants: true`), 6 netherite blocks, 3 beacons, 32 enchanted golden apples, 16 totems, 8 shulker boxes, 2 blaze spawners, an iron
   golem spawner (2%), $500,000, $2,000,000 (5%), 6,000 shards and 2 Mythic keys.
+
+The same piece of gear is better in every higher crate (each enchant at least as high, one higher or added) and is
+named after its crate ("Legendary sword", "Mythic sword", "Celestial blade"), so receipts and announcements show which
+one was won. `CratesSettingsTest#shippedGearGetsBetterWithEveryTier` keeps it that way.
 
 While spawner items are not available (the spawners feature is off) the spawner rewards are left out and the other
 chances grow to fill in.

@@ -172,6 +172,50 @@ class CratesSettingsTest {
         assertEquals("blaze", assertInstanceOf(Reward.Spawner.class, spawner.kind()).mobId());
     }
 
+    /**
+     * The same piece of gear in a higher crate is strictly better: every enchant at least as high as below and one
+     * higher or added, and it is named after its crate so receipts and announcements show the upgrade.
+     */
+    @Test
+    void shippedGearGetsBetterWithEveryTier() throws Exception {
+        CratesSettings settings = parse(bundled(), new ArrayList<>());
+        Map<String, List<String>> ladders = Map.of(
+            "minecraft:netherite_sword", List.of("legendary/sword", "mythic/sword", "celestial/blade"),
+            "minecraft:netherite_pickaxe", List.of("legendary/pickaxe", "celestial/pickaxe"),
+            "minecraft:netherite_chestplate", List.of("legendary/chestplate", "mythic/chestplate", "celestial/chestplate"),
+            "minecraft:netherite_helmet", List.of("mythic/helmet", "celestial/helmet"),
+            "minecraft:netherite_leggings", List.of("mythic/leggings", "celestial/leggings"),
+            "minecraft:netherite_boots", List.of("mythic/boots", "celestial/boots"),
+            "minecraft:elytra", List.of("epic/elytra", "legendary/elytra", "mythic/elytra", "celestial/wings"));
+        for (Map.Entry<String, List<String>> ladder : ladders.entrySet()) {
+            Reward.Item below = null;
+            String belowId = null;
+            for (String path : ladder.getValue()) {
+                String[] parts = path.split("/");
+                Reward reward = settings.crate(parts[0]).reward(parts[1]);
+                Reward.Item item = assertInstanceOf(Reward.Item.class, reward.kind(), path);
+                assertEquals(ladder.getKey(), item.item(), path);
+                if (below != null) {
+                    boolean better = false;
+                    for (Map.Entry<String, Integer> enchant : below.enchants().entrySet()) {
+                        int level = item.enchants().getOrDefault(enchant.getKey(), 0);
+                        assertTrue(level >= enchant.getValue(), path + " keeps " + enchant.getKey() + " of " + belowId);
+                        better |= level > enchant.getValue();
+                    }
+                    better |= item.enchants().size() > below.enchants().size();
+                    assertTrue(better, path + " is better than " + belowId + ": " + item.enchants() + " vs " + below.enchants());
+                }
+                if (!parts[0].equals("epic")) {
+                    String crate = settings.crate(parts[0]).name();
+                    assertTrue(item.name() != null && item.name().startsWith(crate), path + " is named after its crate: " + item.name());
+                    assertTrue(reward.display().contains(crate), path + " says its crate in receipts: " + reward.display());
+                }
+                below = item;
+                belowId = path;
+            }
+        }
+    }
+
     @Test
     void everyRewardKindAndDefaultDisplays() throws Exception {
         String text = HEAD + """
