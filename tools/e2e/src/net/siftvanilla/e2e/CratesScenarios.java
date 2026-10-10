@@ -1407,8 +1407,14 @@ final class CratesScenarios {
             e2e.expect(bot.actionBar().stream().noneMatch(line -> line.contains("Keyall in")), "no hotbar count for chat only: "
                 + bot.actionBar());
             e2e.eventually(() -> bot.chatContains("Keyall: everyone online got 1 Uncommon key."), "the keyall line always shows: " + bot.chat());
+            // Both bots connect from 127.0.0.1: the one online longest got the share, the watcher is told why.
+            e2e.eventually(() -> watcher.chatContains("Another account on your connection got 1 Uncommon key"),
+                "one share per connection: " + watcher.chat());
+            e2e.expect(keys(e2e, watcherName, "uncommon") == 0, "the watcher got no keyall key");
 
             e2e.step("the unopened key reminder off (set through the API): no reminder on join, while the watcher gets one");
+            e2e.console("keys give " + watcherName + " uncommon 1");
+            e2e.eventually(() -> keys(e2e, watcherName, "uncommon") == 1, "the watcher has a key to open");
             ItemSettingsSteps.set(e2e, uuid, CratePlayerSettings.KEY_REMINDER, false);
             ItemSettingsSteps.expectStored(e2e, uuid, "crate-key-reminder", "false");
             bot.quit();
