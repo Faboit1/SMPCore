@@ -48,9 +48,10 @@ $250k, $1m, $5m, $25m of base value, the worth before any multiplier). Each leve
 player's multiplier for that category: a sale line pays `worth x (rank + bonus)` (level 5 with no rank multiplier: 1 + 0.25 =
 1.25x). Each category of a sale is rounded down once, with exact decimal math.
 
-- Credit is the base worth of the units the server bought, plus for units sent to buy orders the smaller of their
-  base worth and what the orders paid after tax (so an overpriced order between alts can't pump mastery). Items the
-  server doesn't buy give no credit. Only `/sell` counts; spawner and crate sales (`WorthLookup.priceFor`) stay
+- Credit is the base worth of the units the server bought. Units /sell sends to buy orders give none: they stay in
+  the economy (the order's owner collects them and can sell them straight back), so two accounts could otherwise pass
+  one stack back and forth for mastery, for free with the order tax at 0. Items the server doesn't buy give no
+  credit. Only `/sell` counts; spawner and crate sales (`WorthLookup.priceFor`) stay
   rank-only and give no credit.
 - Stored in `sell_mastery` (migration `V015`), one row per player and category, written inside the sale's own
   ledger transaction as an additive upsert (`sold = sold + excluded.sold`), with the in-memory totals changed in the

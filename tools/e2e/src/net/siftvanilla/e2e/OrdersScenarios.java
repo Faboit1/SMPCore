@@ -1719,6 +1719,10 @@ final class OrdersScenarios {
         e2e.expect(count(e2e, sellerName, Material.IRON_INGOT) == 0, "the iron left the seller");
         e2e.expect("sell".equals(text(e2e, "SELECT source FROM order_fills WHERE order_id = ?", high)), "stored as a sale");
         e2e.eventually(() -> buyer.chatContains(sellerName + " sold 12 Iron Ingot to your order."), "the owner is told: " + buyer.chat());
+        // Units sold into an order stay in the economy (the owner can sell them back), so they give no mastery (audit R7).
+        e2e.services().database().flush();
+        e2e.expect(number(e2e, "SELECT COALESCE(SUM(sold), 0) FROM sell_mastery WHERE uuid = ?", e2e.uuid(sellerName).toString()) == 0,
+            "selling into a buy order gives no sell mastery");
         long before = e2e.money(sellerName);
         long serverFor24 = e2e.onPlayer(sellerName, () -> worth.priceFor(e2e.player(sellerName), ItemStack.of(Material.IRON_INGOT, 24)));
         inventory(e2e, sellerName, Map.of(0, stack(Material.IRON_INGOT, 32)));

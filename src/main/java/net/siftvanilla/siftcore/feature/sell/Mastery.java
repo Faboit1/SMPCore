@@ -93,9 +93,10 @@ public record Mastery(boolean enabled, List<Long> levels, BigDecimal step) {
     }
 
     /**
-     * What a sale adds to a category's mastery: the base worth of the units the server bought, plus for units sent
-     * to buy orders the smaller of their base worth and what the orders paid after tax (so an overpriced order
-     * between alts can't pump mastery). Units the server doesn't buy ({@code worth} 0) add nothing.
+     * What a sale adds to a category's mastery: the base worth of the units the server bought. Units sent to buy
+     * orders add nothing: they stay in the economy (the order's owner collects them and can sell them straight back),
+     * so crediting them would let two accounts pass one stack back and forth for mastery, for free now that orders
+     * carry no tax. Units the server doesn't buy ({@code worth} 0) add nothing.
      *
      * @throws ArithmeticException on overflow
      */
@@ -106,9 +107,7 @@ public record Mastery(boolean enabled, List<Long> levels, BigDecimal step) {
         if (worth == 0) {
             return 0;
         }
-        long server = Math.multiplyExact(serverUnits, worth);
-        long routed = Math.min(Math.multiplyExact(routedUnits, worth), routedNet);
-        return Math.addExact(server, routed);
+        return Math.multiplyExact(serverUnits, worth);
     }
 
     /** Reads the {@code mastery} section; a missing section means the defaults. */

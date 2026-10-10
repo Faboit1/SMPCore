@@ -60,13 +60,13 @@ class MasteryTest {
     }
 
     @Test
-    void creditCountsBaseWorthAndCapsWhatOrdersPaid() {
+    void creditCountsOnlyWhatTheServerBought() {
         // 64 to the server at $400: 25,600 counts, whatever the multiplier
         assertEquals(25_600, Mastery.credit(64, 400, 0, 0));
-        // 10 to an order that paid $9,000 after tax: capped at their base worth of $4,000
-        assertEquals(25_600 + 4_000, Mastery.credit(64, 400, 10, 9_000));
-        // an order that paid less than the worth counts what it paid
-        assertEquals(1_000, Mastery.credit(0, 400, 10, 1_000));
+        // units sold into buy orders count nothing: the owner can sell them straight back (dupe audit R7)
+        assertEquals(0, Mastery.credit(0, 400, 64, 25_600));
+        assertEquals(4_000, Mastery.credit(10, 400, 64, 25_600));
+        assertEquals(25_600, Mastery.credit(64, 400, 10, 9_000));
         // items the server doesn't buy add nothing, even when an order paid a lot for them
         assertEquals(0, Mastery.credit(0, 0, 100, 1_000_000));
         assertThrows(ArithmeticException.class, () -> Mastery.credit(Long.MAX_VALUE, 2, 0, 0));
