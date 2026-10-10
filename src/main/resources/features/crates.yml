@@ -7,6 +7,9 @@
 # spend a key without paying or pay without a key. Won items go into the inventory, or into the claim box when they
 # don't fit.
 #
+# There are seven crates, from Common to Celestial, each worth about three times the one below (see crates: at the
+# end, and docs/features/crates.md for the numbers).
+#
 # Changes apply with /sift reload. A mistake is reported precisely and the reload is refused; at startup a broken
 # reward is left out of its crate and a broken keyall is switched off.
 
@@ -24,8 +27,8 @@ block-in-combat: true
 # & kits, Keys per bulk open).
 bulk-open: 10
 
-# Sneaking and right-clicking a crate block opens a key straight away, without the crate screen. Each player picks
-# in /settings whether it opens one key, several, or the crate screen after all.
+# Sneaking and right-clicking a crate block opens a key straight away, without the crate screen or the opening
+# animation. Each player picks in /settings whether it opens one key, several, or the crate screen after all.
 quick-open: true
 
 # Players who have unopened keys get a short reminder in chat a few seconds after joining (each player can turn it
@@ -37,29 +40,87 @@ grants:
   # same reference again is refused. References are remembered this long (1d to 3650d).
   remember: 90d
 
+# How the crates look and sound.
+effects:
+  # A floating name above every crate block: the crate's name in its colour, and how to use it.
+  holograms: true
+  # How far above the top of the block the name floats, in blocks (0 to 3).
+  hologram-height: 0.5
+  # Particles circling every crate block, in the crate's colour, while a player is within particle-range blocks
+  # (0 turns them off, at most 64).
+  particle-range: 16
+  # The opening animation. Opening one key from a crate screen or the preview shows a chest window where a row of
+  # rewards rolls past with a tick per step and slows down on the reward that was won, then shows it in its rarity's
+  # colour with a fanfare; opened from a crate block, the reward also spins up out of the block. What is won is
+  # decided and stored before the animation starts: clicking the window or closing it skips to the end, and leaving,
+  # dying or teleporting never changes or loses the reward (what has not reached the inventory waits in the claim
+  # box). Sneak + right-click on a crate block, /crates open and opening several keys at once never animate.
+  animation:
+    enabled: true
+    # How long the row rolls (1s to 10s).
+    length: 4s
+    # How long the window shows the reward before it closes (0s to 10s).
+    reveal: 2s
+    # The sounds, each with a sound id, volume (0 to 2) and pitch (0.5 to 2). Each player's sound settings apply:
+    # tick follows their click sounds, reveal and big-reveal their success sounds.
+    sounds:
+      # Every step of the roll (its pitch rises as the roll slows down).
+      tick:
+        sound: block.note_block.hat
+        volume: 0.6
+        pitch: 1.0
+      # The reward shows.
+      reveal:
+        sound: entity.player.levelup
+        volume: 0.7
+        pitch: 1.2
+      # The reward is of a rarity that is announced (legendary and up in the shipped file).
+      big-reveal:
+        sound: ui.toast.challenge_complete
+        volume: 0.6
+        pitch: 1.0
+
 # Rarity tiers, in order from most common to rarest. Every reward names one (the first one is the default).
 #   label:    the plain text shown in the preview and in the result (no tags or colour codes).
+#   color:    the rarity's colour, as a hex colour like "#FFB12E": the reward's name in the preview, the result, the
+#             receipt and announcements, and the glass of the opening animation when it shows the reward.
 #   audit:    wins of this rarity are also written to the audit log (every win is always in the crate log).
-#   announce: wins of this rarity are announced in chat to everyone (never for vanished staff).
+#   announce: wins of this rarity are announced in chat to everyone (never for vanished staff). Each player picks
+#             in /settings whether they see every announced win, only the rarest rarity's, or none.
 rarities:
   common:
     label: "Common"
+    color: "#C8C8C8"
     audit: false
     announce: false
   uncommon:
     label: "Uncommon"
+    color: "#5BE36B"
     audit: false
     announce: false
   rare:
     label: "Rare"
-    audit: true
+    color: "#4DA6FF"
+    audit: false
     announce: false
   epic:
     label: "Epic"
+    color: "#C65BFF"
     audit: true
-    announce: true
+    announce: false
   legendary:
     label: "Legendary"
+    color: "#FFB12E"
+    audit: true
+    announce: true
+  mythic:
+    label: "Mythic"
+    color: "#FF4D6A"
+    audit: true
+    announce: true
+  celestial:
+    label: "Celestial"
+    color: "#6FF3FF"
     audit: true
     announce: true
 
@@ -69,7 +130,7 @@ keyall:
   # Time between two keyalls (5m to 7d). The next time is stored, so restarts keep the schedule.
   interval: 4h
   # The crate whose keys it gives, and how many each player gets (1 to 64).
-  crate: basic
+  crate: uncommon
   amount: 1
   # When the server was offline at keyall time, the keyall runs this long after the next startup (0s to 1h), so
   # players have time to come back.
@@ -86,9 +147,13 @@ keyall:
     action-bar: 10s
 
 # The crates. The key (basic, rare, ...) is the crate's id: 1 to 32 lowercase letters, digits, - or _. It is stored
-# with every player's keys, so renaming it loses those keys; change name instead.
+# with every player's keys, so renaming it loses those keys; change name instead (the basic crate is called Common).
 #
-#   name:    plain short name. Text says "Basic crate" and "Basic key".
+#   name:    plain short name. Text says "Common crate" and "Common key".
+#   tier:    the crate's place in the ladder (1 is the lowest). Crates are listed by tier, and a crate's colour,
+#            hologram and opening animation follow it. Crates with the same tier keep their file order.
+#   color:   the crate's colour, as a hex colour like "#4DA6FF": its name in every screen, its hologram, the glass of
+#            its opening animation and its particles.
 #   icon:    the item shown for the crate in /crates.
 #   blocks:  optional blocks that act as this crate, as "world x y z". Staff can also add blocks in-game with
 #            /crates block add <crate> while looking at a block (stored in the database, not here).
@@ -97,15 +162,17 @@ keyall:
 #
 # Every reward has:
 #   weight:  how likely it is compared to the other rewards of the crate (the chance is weight / sum of weights;
-#            the preview shows it as a percentage). Decimals are fine.
-#   rarity:  a rarity id from above.
-#   display: optional plain text naming the reward in messages ("You won 8 diamonds from the Basic crate.").
+#            the preview shows it as a percentage). Decimals are fine. The shipped weights of each crate add up to
+#            100, so each weight is its chance in percent.
+#   rarity:  a rarity id from above; the reward is shown in that rarity's colour.
+#   display: optional plain text naming the reward in messages ("You won 8 diamonds from the Common crate.").
 #            Without it, it is made from the reward ("8 diamond", "$5,000", "50 shards", "2 Rare keys").
 #   icon:    optional item shown in the preview instead of the reward's own item.
 # and exactly one of:
 #   item: <item id>        items. amount (default 1, at most 640), optional name and lore (plain text, at most 8
-#                          lines), enchants (enchantment: level; levels above the normal maximum need
-#                          unsafe-enchants: true). Enchanted books get the enchantments stored in the book.
+#                          lines; the name is shown in the reward's rarity colour), enchants (enchantment: level;
+#                          levels above the normal maximum need unsafe-enchants: true). Enchanted books get the
+#                          enchantments stored in the book.
 #   money: <amount>        money (1500, 1.5k, 2m). Paid with the ledger kind crate_reward.
 #   shards: <amount>       shards. Paid with the ledger kind crate_reward.
 #   keys: <crate id>       keys of a crate (amount, default 1, at most 64).
@@ -122,306 +189,690 @@ keyall:
 #                              rarity: legendary
 #
 # What a key is worth on average: /crates info <crate> (money, shards, the sell value of the items and the keys of
-# other crates). The shipped crates keep money a small extra: see docs/features/crates.md for their numbers.
+# other crates). docs/features/crates.md has the numbers of the shipped crates next to how keys are earned, so the
+# crates never print money: keep each tier worth about three times the one below, and keep the money part a third of
+# a key's worth or less. Every crate has a small chance of a key of the next tier, so the lower crates lead upward.
 crates:
   basic:
-    name: "Basic"
+    name: "Common"
+    tier: 1
+    color: "#C8C8C8"
     icon: chest
     blocks: []
     rewards:
       iron:
         item: iron_ingot
-        amount: 16
-        weight: 18
-        rarity: common
-        display: "16 iron ingots"
-      gold:
-        item: gold_ingot
-        amount: 12
+        amount: 24
         weight: 12
         rarity: common
-        display: "12 gold ingots"
+        display: "24 iron ingots"
+      gold:
+        item: gold_ingot
+        amount: 16
+        weight: 10
+        rarity: common
+        display: "16 gold ingots"
       steak:
         item: cooked_beef
         amount: 32
-        weight: 12
+        weight: 8
         rarity: common
         display: "32 steak"
       experience:
         item: experience_bottle
-        amount: 16
+        amount: 32
         weight: 8
         rarity: common
-        display: "16 bottles of experience"
+        display: "32 bottles of experience"
+      ender-pearls:
+        item: ender_pearl
+        amount: 8
+        weight: 5
+        rarity: common
+        display: "8 ender pearls"
+      money-small:
+        money: 1000
+        weight: 12
+        rarity: common
       pickaxe:
         item: iron_pickaxe
-        enchants: {efficiency: 3, unbreaking: 2}
-        weight: 8
-        rarity: common
-        display: "an enchanted iron pickaxe"
+        enchants: {efficiency: 4, unbreaking: 3}
+        weight: 7
+        rarity: uncommon
+        display: "an Efficiency IV iron pickaxe"
       chestplate:
         item: iron_chestplate
-        enchants: {protection: 2}
+        enchants: {protection: 3, unbreaking: 2}
         weight: 6
-        rarity: common
-        display: "an enchanted iron chestplate"
-      money-small:
-        money: 750
-        weight: 10
-        rarity: common
+        rarity: uncommon
+        display: "a Protection III iron chestplate"
       shards:
-        shards: 10
-        weight: 6
-        rarity: common
+        shards: 15
+        weight: 7
+        rarity: uncommon
       diamonds:
         item: diamond
-        amount: 3
+        amount: 4
         weight: 8
         rarity: uncommon
-        display: "3 diamonds"
+        display: "4 diamonds"
       golden-apples:
         item: golden_apple
-        amount: 3
+        amount: 4
         weight: 6
         rarity: uncommon
-        display: "3 golden apples"
+        display: "4 golden apples"
       money-large:
-        money: 2500
-        weight: 4
-        rarity: uncommon
+        money: 4000
+        weight: 5
+        rarity: rare
+      uncommon-key:
+        keys: uncommon
+        weight: 5
+        rarity: rare
       rare-key:
         keys: rare
-        weight: 2
-        rarity: rare
+        weight: 1
+        rarity: epic
 
-  rare:
-    name: "Rare"
-    icon: ender_chest
+  uncommon:
+    name: "Uncommon"
+    tier: 2
+    color: "#5BE36B"
+    icon: barrel
     blocks: []
     rewards:
-      diamonds:
-        item: diamond
-        amount: 8
-        weight: 14
-        rarity: common
-        display: "8 diamonds"
-      emeralds:
-        item: emerald
-        amount: 16
+      iron-blocks:
+        item: iron_block
+        amount: 6
         weight: 10
         rarity: common
-        display: "16 emeralds"
+        display: "6 iron blocks"
+      gold-blocks:
+        item: gold_block
+        amount: 4
+        weight: 10
+        rarity: common
+        display: "4 gold blocks"
+      experience:
+        item: experience_bottle
+        amount: 64
+        weight: 8
+        rarity: common
+        display: "64 bottles of experience"
       money-small:
         money: 3000
         weight: 12
         rarity: common
-      shards:
-        shards: 40
-        weight: 8
-        rarity: common
-      basic-keys:
+      common-keys:
         keys: basic
-        amount: 3
-        weight: 6
+        amount: 2
+        weight: 3
         rarity: common
+      diamonds:
+        item: diamond
+        amount: 10
+        weight: 12
+        rarity: uncommon
+        display: "10 diamonds"
+      emeralds:
+        item: emerald
+        amount: 12
+        weight: 8
+        rarity: uncommon
+        display: "12 emeralds"
       golden-apples:
         item: golden_apple
-        amount: 8
-        weight: 10
-        rarity: uncommon
-        display: "8 golden apples"
-      pickaxe:
-        item: diamond_pickaxe
-        enchants: {efficiency: 4, unbreaking: 3, fortune: 2}
+        amount: 6
         weight: 8
         rarity: uncommon
-        display: "an enchanted diamond pickaxe"
+        display: "6 golden apples"
+      pickaxe:
+        item: diamond_pickaxe
+        enchants: {efficiency: 3, unbreaking: 2}
+        weight: 6
+        rarity: uncommon
+        display: "an Efficiency III diamond pickaxe"
       sword:
         item: diamond_sword
         enchants: {sharpness: 3, unbreaking: 2}
-        weight: 8
-        rarity: uncommon
-        display: "an enchanted diamond sword"
-      chestplate:
-        item: diamond_chestplate
-        enchants: {protection: 3, unbreaking: 2}
         weight: 6
         rarity: uncommon
-        display: "an enchanted diamond chestplate"
+        display: "a Sharpness III diamond sword"
+      shards:
+        shards: 30
+        weight: 6
+        rarity: uncommon
+      boots:
+        item: diamond_boots
+        enchants: {protection: 2, feather_falling: 3}
+        weight: 4
+        rarity: rare
+        display: "Feather Falling III diamond boots"
       money-large:
-        money: 7500
-        weight: 6
-        rarity: uncommon
-      mending:
-        item: enchanted_book
-        enchants: {mending: 1}
+        money: 10000
         weight: 5
         rarity: rare
-        display: "a Mending book"
+      rare-key:
+        keys: rare
+        weight: 2
+        rarity: epic
+
+  rare:
+    name: "Rare"
+    tier: 3
+    color: "#4DA6FF"
+    icon: ender_chest
+    blocks: []
+    rewards:
+      basic-keys:
+        keys: basic
+        amount: 3
+        weight: 4
+        rarity: common
+      diamonds:
+        item: diamond
+        amount: 16
+        weight: 10
+        rarity: uncommon
+        display: "16 diamonds"
+      emeralds:
+        item: emerald
+        amount: 24
+        weight: 7
+        rarity: uncommon
+        display: "24 emeralds"
+      golden-apples:
+        item: golden_apple
+        amount: 12
+        weight: 6
+        rarity: uncommon
+        display: "12 golden apples"
+      ender-pearls:
+        item: ender_pearl
+        amount: 16
+        weight: 6
+        rarity: uncommon
+        display: "16 ender pearls"
+      money-small:
+        money: 8000
+        weight: 12
+        rarity: uncommon
+      uncommon-keys:
+        keys: uncommon
+        amount: 2
+        weight: 4
+        rarity: uncommon
+      shards:
+        shards: 60
+        weight: 6
+        rarity: rare
+      diamond-blocks:
+        item: diamond_block
+        amount: 2
+        weight: 6
+        rarity: rare
+        display: "2 diamond blocks"
+      netherite-scrap:
+        item: netherite_scrap
+        weight: 5
+        rarity: rare
+        display: "a netherite scrap"
+      pickaxe:
+        item: diamond_pickaxe
+        enchants: {efficiency: 4, unbreaking: 3, fortune: 2}
+        weight: 6
+        rarity: rare
+        display: "an Efficiency IV diamond pickaxe"
+      sword:
+        item: diamond_sword
+        enchants: {sharpness: 4, unbreaking: 3}
+        weight: 6
+        rarity: rare
+        display: "a Sharpness IV diamond sword"
+      chestplate:
+        item: diamond_chestplate
+        enchants: {protection: 3, unbreaking: 3}
+        weight: 6
+        rarity: rare
+        display: "a Protection III diamond chestplate"
       totem:
         item: totem_of_undying
         weight: 4
         rarity: rare
         display: "a totem of undying"
+      money-large:
+        money: 25000
+        weight: 5
+        rarity: epic
+      mending:
+        item: enchanted_book
+        enchants: {mending: 1}
+        weight: 5
+        rarity: epic
+        display: "a Mending book"
       epic-key:
         keys: epic
-        weight: 3
-        rarity: rare
+        weight: 2
+        rarity: legendary
 
   epic:
     name: "Epic"
-    icon: shulker_box
+    tier: 4
+    color: "#C65BFF"
+    icon: purple_shulker_box
     blocks: []
     rewards:
       diamond-blocks:
         item: diamond_block
-        amount: 4
-        weight: 12
-        rarity: common
-        display: "4 diamond blocks"
+        amount: 8
+        weight: 10
+        rarity: rare
+        display: "8 diamond blocks"
       money-small:
-        money: 15000
+        money: 25000
         weight: 12
-        rarity: common
+        rarity: rare
       rare-keys:
         keys: rare
         amount: 3
-        weight: 6
-        rarity: common
+        weight: 5
+        rarity: rare
       netherite-scrap:
         item: netherite_scrap
-        amount: 2
+        amount: 3
         weight: 8
-        rarity: uncommon
-        display: "2 netherite scrap"
+        rarity: rare
+        display: "3 netherite scrap"
+      experience:
+        item: experience_bottle
+        amount: 128
+        weight: 4
+        rarity: rare
+        display: "128 bottles of experience"
       shards:
-        shards: 150
-        weight: 8
-        rarity: uncommon
+        shards: 200
+        weight: 6
+        rarity: epic
+      totems:
+        item: totem_of_undying
+        amount: 3
+        weight: 5
+        rarity: epic
+        display: "3 totems of undying"
       helmet:
         item: diamond_helmet
         enchants: {protection: 4, unbreaking: 3}
-        weight: 7
-        rarity: uncommon
+        weight: 5
+        rarity: epic
         display: "a Protection IV diamond helmet"
       leggings:
         item: diamond_leggings
         enchants: {protection: 4, unbreaking: 3}
-        weight: 7
-        rarity: uncommon
+        weight: 5
+        rarity: epic
         display: "Protection IV diamond leggings"
       boots:
         item: diamond_boots
         enchants: {protection: 4, unbreaking: 3, feather_falling: 4}
-        weight: 7
-        rarity: uncommon
+        weight: 5
+        rarity: epic
         display: "Protection IV diamond boots"
       enchanted-apple:
         item: enchanted_golden_apple
         weight: 6
-        rarity: rare
+        rarity: epic
         display: "an enchanted golden apple"
       sword:
         item: diamond_sword
         enchants: {sharpness: 5, unbreaking: 3, looting: 3}
-        weight: 7
-        rarity: rare
+        weight: 6
+        rarity: epic
         display: "a Sharpness V diamond sword"
       pickaxe:
         item: diamond_pickaxe
         enchants: {efficiency: 5, unbreaking: 3, fortune: 3}
-        weight: 7
-        rarity: rare
+        weight: 6
+        rarity: epic
         display: "an Efficiency V diamond pickaxe"
+      shulker:
+        item: shulker_box
+        weight: 3
+        rarity: epic
+        display: "a shulker box"
       money-large:
-        money: 40000
+        money: 80000
         weight: 5
-        rarity: rare
+        rarity: legendary
       elytra:
         item: elytra
-        weight: 2
-        rarity: epic
+        weight: 3
+        rarity: legendary
         display: "an elytra"
       zombie-spawner:
         spawner: zombie
         weight: 4
-        rarity: epic
+        rarity: legendary
         display: "a zombie spawner"
       legendary-key:
         keys: legendary
         weight: 2
-        rarity: epic
+        rarity: legendary
 
   legendary:
     name: "Legendary"
+    tier: 5
+    color: "#FFB12E"
     icon: beacon
     blocks: []
     rewards:
       netherite:
         item: netherite_ingot
-        amount: 2
-        weight: 14
-        rarity: uncommon
-        display: "2 netherite ingots"
+        amount: 4
+        weight: 12
+        rarity: epic
+        display: "4 netherite ingots"
       money-small:
-        money: 75000
-        weight: 17
-        rarity: uncommon
+        money: 100000
+        weight: 15
+        rarity: epic
       epic-keys:
         keys: epic
         amount: 2
-        weight: 8
-        rarity: uncommon
+        weight: 7
+        rarity: epic
+      shulkers:
+        item: shulker_box
+        amount: 2
+        weight: 5
+        rarity: epic
+        display: "2 shulker boxes"
+      totems:
+        item: totem_of_undying
+        amount: 5
+        weight: 5
+        rarity: epic
+        display: "5 totems of undying"
       sword:
         item: netherite_sword
         enchants: {sharpness: 5, unbreaking: 3, looting: 3, mending: 1}
-        weight: 8
-        rarity: rare
+        weight: 7
+        rarity: legendary
         display: "a maxed netherite sword"
       pickaxe:
         item: netherite_pickaxe
         enchants: {efficiency: 5, unbreaking: 3, fortune: 3, mending: 1}
-        weight: 8
-        rarity: rare
+        weight: 7
+        rarity: legendary
         display: "a maxed netherite pickaxe"
       chestplate:
         item: netherite_chestplate
         enchants: {protection: 4, unbreaking: 3, mending: 1}
-        weight: 8
-        rarity: rare
+        weight: 7
+        rarity: legendary
         display: "a maxed netherite chestplate"
       enchanted-apples:
         item: enchanted_golden_apple
         amount: 3
-        weight: 8
-        rarity: rare
+        weight: 7
+        rarity: legendary
         display: "3 enchanted golden apples"
       shards:
-        shards: 500
-        weight: 8
-        rarity: rare
+        shards: 750
+        weight: 7
+        rarity: legendary
       elytra:
         item: elytra
         enchants: {unbreaking: 3, mending: 1}
         weight: 5
-        rarity: epic
+        rarity: legendary
         display: "a Mending elytra"
-      beacon:
-        item: beacon
-        weight: 4
-        rarity: epic
-        display: "a beacon"
       skeleton-spawner:
         spawner: skeleton
         weight: 5
-        rarity: epic
+        rarity: legendary
         display: "a skeleton spawner"
+      beacon:
+        item: beacon
+        weight: 3
+        rarity: mythic
+        display: "a beacon"
       money-large:
-        money: 200000
+        money: 250000
         weight: 4
-        rarity: epic
+        rarity: mythic
       blaze-spawner:
         spawner: blaze
-        weight: 3
-        rarity: legendary
+        weight: 2
+        rarity: mythic
         display: "a blaze spawner"
+      mythic-key:
+        keys: mythic
+        weight: 2
+        rarity: mythic
+
+  mythic:
+    name: "Mythic"
+    tier: 6
+    color: "#FF4D6A"
+    icon: respawn_anchor
+    blocks: []
+    rewards:
+      netherite-ingots:
+        item: netherite_ingot
+        amount: 8
+        weight: 10
+        rarity: legendary
+        display: "8 netherite ingots"
+      money-small:
+        money: 200000
+        weight: 14
+        rarity: legendary
+      enchanted-apples:
+        item: enchanted_golden_apple
+        amount: 8
+        weight: 8
+        rarity: legendary
+        display: "8 enchanted golden apples"
+      helmet:
+        item: netherite_helmet
+        enchants: {protection: 4, unbreaking: 3, mending: 1, respiration: 3, aqua_affinity: 1}
+        weight: 4
+        rarity: legendary
+        display: "a maxed netherite helmet"
+      chestplate:
+        item: netherite_chestplate
+        enchants: {protection: 4, unbreaking: 3, mending: 1}
+        weight: 4
+        rarity: legendary
+        display: "a maxed netherite chestplate"
+      leggings:
+        item: netherite_leggings
+        enchants: {protection: 4, unbreaking: 3, mending: 1}
+        weight: 4
+        rarity: legendary
+        display: "maxed netherite leggings"
+      boots:
+        item: netherite_boots
+        enchants: {protection: 4, unbreaking: 3, mending: 1, feather_falling: 4, depth_strider: 3}
+        weight: 4
+        rarity: legendary
+        display: "maxed netherite boots"
+      sword:
+        item: netherite_sword
+        enchants: {sharpness: 5, unbreaking: 3, looting: 3, mending: 1, fire_aspect: 2, sweeping_edge: 3}
+        weight: 4
+        rarity: legendary
+        display: "a maxed netherite sword"
+      elytra:
+        item: elytra
+        enchants: {unbreaking: 3, mending: 1}
+        weight: 4
+        rarity: legendary
+        display: "a Mending elytra"
+      shulkers:
+        item: shulker_box
+        amount: 4
+        weight: 4
+        rarity: legendary
+        display: "4 shulker boxes"
+      legendary-keys:
+        keys: legendary
+        amount: 2
+        weight: 5
+        rarity: legendary
+      netherite-blocks:
+        item: netherite_block
+        amount: 2
+        weight: 6
+        rarity: mythic
+        display: "2 netherite blocks"
+      beacon:
+        item: beacon
+        weight: 8
+        rarity: mythic
+        display: "a beacon"
+      shards:
+        shards: 2000
+        weight: 6
+        rarity: mythic
+      money-large:
+        money: 600000
+        weight: 6
+        rarity: mythic
+      blaze-spawner:
+        spawner: blaze
+        weight: 4
+        rarity: mythic
+        display: "a blaze spawner"
+      enderman-spawner:
+        spawner: enderman
+        weight: 3
+        rarity: mythic
+        display: "an enderman spawner"
+      celestial-key:
+        keys: celestial
+        weight: 2
+        rarity: celestial
+
+  celestial:
+    name: "Celestial"
+    tier: 7
+    color: "#6FF3FF"
+    icon: end_crystal
+    blocks: []
+    rewards:
+      money-small:
+        money: 500000
+        weight: 18
+        rarity: mythic
+      enchanted-apples:
+        item: enchanted_golden_apple
+        amount: 32
+        weight: 8
+        rarity: mythic
+        display: "32 enchanted golden apples"
+      totems:
+        item: totem_of_undying
+        amount: 16
+        weight: 7
+        rarity: mythic
+        display: "16 totems of undying"
+      shulkers:
+        item: shulker_box
+        amount: 8
+        weight: 5
+        rarity: mythic
+        display: "8 shulker boxes"
+      mythic-keys:
+        keys: mythic
+        amount: 2
+        weight: 6
+        rarity: mythic
+      netherite-blocks:
+        item: netherite_block
+        amount: 6
+        weight: 8
+        rarity: mythic
+        display: "6 netherite blocks"
+      beacons:
+        item: beacon
+        amount: 3
+        weight: 8
+        rarity: mythic
+        display: "3 beacons"
+      blaze-spawners:
+        spawner: blaze
+        amount: 2
+        weight: 5
+        rarity: mythic
+        display: "2 blaze spawners"
+      wings:
+        item: elytra
+        name: "Celestial wings"
+        lore: ["From the Celestial crate"]
+        enchants: {unbreaking: 3, mending: 1}
+        weight: 4
+        rarity: mythic
+        display: "Celestial wings"
+      helmet:
+        item: netherite_helmet
+        name: "Celestial helmet"
+        lore: ["From the Celestial crate"]
+        enchants: {protection: 4, unbreaking: 3, mending: 1, respiration: 3, aqua_affinity: 1}
+        weight: 3
+        rarity: celestial
+        display: "the Celestial helmet"
+      chestplate:
+        item: netherite_chestplate
+        name: "Celestial chestplate"
+        lore: ["From the Celestial crate"]
+        enchants: {protection: 4, unbreaking: 3, mending: 1, thorns: 3}
+        weight: 3
+        rarity: celestial
+        display: "the Celestial chestplate"
+      leggings:
+        item: netherite_leggings
+        name: "Celestial leggings"
+        lore: ["From the Celestial crate"]
+        enchants: {protection: 4, unbreaking: 3, mending: 1, swift_sneak: 3}
+        weight: 3
+        rarity: celestial
+        display: "the Celestial leggings"
+      boots:
+        item: netherite_boots
+        name: "Celestial boots"
+        lore: ["From the Celestial crate"]
+        enchants: {protection: 4, unbreaking: 3, mending: 1, feather_falling: 4, depth_strider: 3, soul_speed: 3}
+        weight: 3
+        rarity: celestial
+        display: "the Celestial boots"
+      blade:
+        item: netherite_sword
+        name: "Celestial blade"
+        lore: ["From the Celestial crate"]
+        enchants: {sharpness: 5, unbreaking: 3, looting: 3, mending: 1, fire_aspect: 2, sweeping_edge: 3}
+        weight: 3
+        rarity: celestial
+        display: "the Celestial blade"
+      pickaxe:
+        item: netherite_pickaxe
+        name: "Celestial pickaxe"
+        lore: ["From the Celestial crate"]
+        enchants: {efficiency: 5, unbreaking: 3, fortune: 3, mending: 1}
+        weight: 3
+        rarity: celestial
+        display: "the Celestial pickaxe"
+      shards:
+        shards: 6000
+        weight: 6
+        rarity: celestial
+      money-large:
+        money: 2000000
+        weight: 5
+        rarity: celestial
+      iron-golem-spawner:
+        spawner: iron_golem
+        weight: 2
+        rarity: celestial
+        display: "an iron golem spawner"
