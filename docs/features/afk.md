@@ -100,12 +100,19 @@ are offsets, 16 to 28 blocks east of the spawn, inside the protected spawn area,
 - **Daily limit** (`rewards.daily-cap`, off by default): the most shards one account earns in the zone per day,
   resetting at midnight server time. The day's total is read from the ledger (kind `afk_reward`) when a player joins,
   so it survives restarts; the last reward of the day is cut to the limit, and the player is told in chat.
-- **Status line.** Every `status-every` (2s) the action bar says `AFK zone: next shard in 42s` (or why the player isn't
-  earning). It pauses for a moment after another message, while a teleport warmup counts down, and while combat-tagged
+- **Status line.** Every `status-every` (1s) the action bar says `AFK zone: next shard in 42s` (or why the player isn't
+  earning), so the countdown goes down by one every second. The checks run once a second on each player's thread, a
+  little early or late now and then; the zone's clock is aligned to them when a player enters and the seconds are
+  rounded, so the line never skips a number or shows one twice. Shards are always in the shards colour (purple,
+  `colors.shards` in `config.yml`), in every AFK and shard text. It pauses for a moment after another message, while a teleport warmup counts down, and while combat-tagged
   (the combat timer owns the action bar then). Players can move it to the boss bar or turn it off (`afk-zone-status`).
   The boss bar (shared `StatusBars`, below the combat timer) updates every second and fills up towards the next shard;
   it shows why nothing is earned while waiting for another account or after the daily limit, and goes away outside the
   zone, in combat and when the player picks another style.
+- **The payout.** "AFK zone: +1 shard, 61 in total" (`afk-zone-payouts`: above the hotbar, in chat or not at all) and a
+  chime (`rewards.sound`, shipped `block.amethyst_block.chime` at volume 0.8, pitch 1.2) the moment shards are paid.
+  The chime follows each player's sound settings: their volume, success sounds, and quiet during combat; it plays
+  even when the payout line is off.
 - **Safety.** Players in the zone are never kicked for being AFK. With `zone.safe` (on), players inside can't be hurt
   (except by the void and kill commands) and can't hurt anyone, even when the zone is outside the protected spawn area;
   `/afkzone info` and the self-test say whether resting players are safe.
@@ -177,7 +184,8 @@ chat lines); the AFK tab mark, placeholders, `AfkStatusChangeEvent` and the kick
 | `rewards.interval`, `rewards.shards` | `60s`, `1` | Shards per interval of continuous presence (5s to 1h) |
 | `rewards.ranks.<tier>` | none (`{}`) | Optional shard tiers (`siftcore.afk.reward.<tier>`); kept empty so ranks give no AFK advantage |
 | `rewards.daily-cap` | `0` | Most zone shards per account per day (0 = none) |
-| `rewards.status-every` | `2s` | The action-bar countdown (0s = never) |
+| `rewards.status-every` | `1s` | The action-bar countdown (0s = never, else at least 1s) |
+| `rewards.sound` | on, `block.amethyst_block.chime`, `0.8`, `1.2` | The sound of a payout: `enabled`, `sound` (any sound id), `volume` (0 to 2), `pitch` (0.5 to 2) |
 
 ## Self-test
 
@@ -187,12 +195,16 @@ connection in the zone has exactly one earner; only online players are tracked.
 
 ## Tests
 
-- Unit (`src/test/java/.../feature/afk`): the classifier, the clock, zone sessions and the shipped config and text
-  (`ActivityClassifierTest`, `AfkClockTest`, `ZoneSessionsTest`, `AfkResourcesTest`), and the AFK settings: group and
+- Unit (`src/test/java/.../feature/afk`): the classifier, the clock, zone sessions (the countdown goes down by one
+  every second with checks up to 300ms early or late, a takeover starts on the checks' rhythm) and the shipped config
+  and text (the 1s status line, the payout sound and turning it off or changing it; `ActivityClassifierTest`,
+  `AfkClockTest`, `ZoneSessionsTest`, `AfkResourcesTest`), and the AFK settings: group and
   order, the old switch's stored values, config-dependent offering, `/afk` always answering, the boss bar's progress
   and the spell bookkeeping behind the welcome-back summary: a `/afk` spell from the command, one the clock noticed
   from the last activity with the shards paid during the idle wait, motion past the motion limit (`AfkPlayerSettingsTest`).
-- End to end (`tools/e2e/.../AfkScenarios.java`): `afk-detect`, `afk-manual`, `afk-kick`, `afk-zone`, `afk-zone-cap`;
+- End to end (`tools/e2e/.../AfkScenarios.java`): `afk-detect`, `afk-manual`, `afk-kick`, `afk-zone`, `afk-zone-cap`,
+  `afk-zone-countdown` (one status line a second for 8.5s, each one second less than the last; a payout plays the
+  chime once with "+1 shard" in purple; with success sounds off it is silent);
   the settings: `afk-settings` (boss bar countdown and chat payouts in the dialog, then off, back on the action bar and
   silent payouts by API), `afk-status-settings` (status lines in chat and off, the welcome-back summary on and off,
   and for a spell noticed on its own: the time since the last activity and the shards paid before the AFK mark) and

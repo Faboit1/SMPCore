@@ -181,6 +181,27 @@ which the tab list footer shows too.
   the setting to work there, build TAB's prefixes from `%siftcore_rank%` (and `%siftcore_rank_color%`) instead of
   `%luckperms-prefix%` and the per-group prefixes. See [features/integrations.md](features/integrations.md#show-my-rank).
 
+## Crates
+
+SiftCore's crates feature runs every crate: seven tiers, Common to Celestial, with keys from the keyall (1 Uncommon
+key every 4 hours), the shard shop and staff ([features/crates.md](features/crates.md)). No crate plugin is
+installed: ExcellentCrates was considered and audited, and its open and reward paths could not be made as safe as
+SiftCore's (one transaction for the key and the reward, the claim box for what doesn't fit), so it is not used.
+
+The crate blocks are placed in game, once, by a staff member standing at spawn:
+
+1. Place seven blocks in a row or an arc inside the protected spawn, at least 3 blocks apart, with 3 blocks of air
+   above each: a chest (Common), then lime, light blue, purple, orange, red and cyan shulker boxes (Uncommon to
+   Celestial). Shulker boxes and chests open their lid while a reward spins above them.
+2. Look at each block and run `/crates block add <crate>`: `basic` (the Common crate keeps its old id), `uncommon`,
+   `rare`, `epic`, `legendary`, `mythic`, `celestial`.
+3. Check with `/crates block list`. Each block shows its floating name and particles within a second; no reload or
+   restart is needed. `/crates block remove` while looking at a block undoes it.
+
+Blocks placed before keep working and get their name and particles automatically. If a `/displays` board sits above
+a crate block, remove it (the floating name replaces it) or raise `effects.hologram-height` in `features/crates.yml`.
+The opening animation, names and particles are switched in that file's `effects` section.
+
 ## Backups and recovery
 
 - **Database backups:** SiftCore copies its SQLite database (`VACUUM INTO` after every queued write, checked with
@@ -207,6 +228,7 @@ which the tab list footer shows too.
 | Record a change to the server | Add a row to [server-undo-log.md](server-undo-log.md): when, what changed (before and after), how to revert it |
 | Restart | Use the panel's restart. Canvas has no `/reload`, and SiftCore saves everything on shutdown |
 | Find out who changed money | `/eco history <player>` and `/sift audit` |
+| Place, move or remove a crate | Look at the block: `/crates block add <crate>`, `/crates block remove`; `/crates block list` shows them (see Crates above) |
 
 Never use `/reload` or plugin managers: Canvas doesn't support reloading plugins, and SiftCore's own
 `/sift reload` already covers its config.

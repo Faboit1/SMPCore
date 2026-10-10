@@ -82,7 +82,7 @@ console).
 | Team size | 5 | 5 | 5 | 5 | not sold | |
 | Sell multiplier | 1x | 1x | 1x | 1x | not sold | |
 | AFK zone shards | 1 per minute | same | same | same | not sold | |
-| Crate keys | keyall: 1 Basic key every 4h | same | same | same | not sold | |
+| Crate keys | keyall: 1 Uncommon key every 4h | same | same | same | not sold | |
 
 **Show my rank** is the one rank perk that is a setting: players with a paid rank get "Show my rank" in the Privacy
 group of `/settings` and can turn their rank tag off. Their rank then disappears from SiftCore's chat, profiles, join
@@ -186,6 +186,10 @@ All of this ships as SiftCore's defaults, so a fresh install needs no edits:
 - `features/sell.yml`: `multipliers: {}` (no rank sell bonuses).
 - `features/afk.yml`: `rewards.ranks: {}` (no rank AFK bonuses).
 - `features/kits.yml`: the prospector, baron and tycoon supply kits (no gear, no keys).
+- `features/crates.yml` and `features/shards.yml`: the seven crate tiers (Common to Celestial) and their keys are
+  earned only in game: the keyall (1 Uncommon key every 4 hours, the same for everyone), the AFK zone's shards (1 a
+  minute, the same for everyone) spent in the shard shop (Common 50 to Celestial 11,000 shards), and crates that give
+  keys of other tiers. No rank changes any of it. `/sift store keys` exists for staff and events, not for the store.
 - `features/integrations.yml`: `store.rank-groups: [prospector, baron, tycoon]`. The store can never grant any other
   group, so a mistyped or malicious command can't hand out staff.
 - TAB (`plugins/TAB/`): sorting `GROUPS:owner,admin,mod,helper,tycoon,baron,prospector,default`, and in `groups.yml`
@@ -290,7 +294,8 @@ store or lock its wallet for 30 days.
 - **Tebex AUP 1.6** bans purchases "with an outcome based on chance ... including lootboxes": no keys, shards or
   crates are sold, alone or inside ranks. Belgium treats paid loot boxes as gambling, and Brazil's ECA Digital
   (since 17 March 2026) bars loot boxes minors can access.
-- **Odds are published anyway:** `/crates preview` shows each reward's chance; publish the same table on the website.
+- **Odds are published anyway:** `/crates preview` shows each reward's chance and rarity; publish the same table on
+  the website (every crate's rewards and what a key is worth are in [features/crates.md](features/crates.md#the-seven-tiers-and-what-a-key-is-worth)).
 - **Before anyone pays:** the full price and perk table is on the website and the store, and linked from the tab list.
 - **Purchase history:** Tebex receipts and `/purchases`.
 - **Creators** paid to promote the server must disclose it.

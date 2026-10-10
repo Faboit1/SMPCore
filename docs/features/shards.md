@@ -20,8 +20,12 @@ shards or money for each other; the config has no money offer type at all.
 
 Crates can pay shards and keys of other crates, so the key prices must stay well above what a key pays back in
 shards. With the shipped crates (`/crates info <crate>` shows the averages) a key returns, counting the keys it gives
-at their shop price, about 9% (basic: 0.6 shards and 0.02 rare keys), 15% (rare), 13% (epic) and 10% (legendary) of
-what it costs in the shard shop, so buying keys never makes shards. Keep it that way when changing prices or rewards.
+at their shop price, 17% (Common: 1.1 shards, 0.05 Uncommon and 0.01 Rare keys), 8% (Uncommon), 15% (Rare), 12%
+(Epic), 14% (Legendary), 12% (Mythic) and 8% (Celestial) of what it costs in the shard shop, so buying keys never
+makes shards. Keep it that way when changing prices or rewards.
+
+Shards are purple everywhere (`colors.shards` in `config.yml`, `#915DFF`): every amount, every mention of the word in
+the shop, the AFK zone, `/shards`, receipts and staff answers.
 
 ## Commands and permissions
 
@@ -45,12 +49,14 @@ Amounts accept the usual shortcuts (`1.5k`). Store deliveries call these command
 
 ## The shard shop
 
-A dialog lists the offers (`Basic key, 50 shards`, or `32x Bottle o' Enchanting, 40 shards` when one unit gives
-several; the description and the per-purchase limit in the tooltip). An offer opens a purchase dialog: the item (for
-item offers), what one unit gives, the price, the balance, the keys the player already has (key offers), an amount
-slider when more than one may be bought, and a Buy button that always names the amount and total. Moving the slider
+A dialog with one line, the balance, then a button per offer in `order`: `Common key, 50 shards` (a key's name in its
+crate's colour, the price in purple), or `32x Bottle o' Enchanting, 40 shards` when one unit gives several. What the
+offer is ("Opens the Common crate at spawn") and how many one purchase may take are in the button's tooltip. There
+are no pages; the dialog scrolls. An offer opens a purchase dialog: the item (for item offers), the price, the
+balance, the keys the player already has (key offers), an amount slider when more than one may be bought, and a Buy
+button that always names the amount and total (what one unit gives is in its tooltip). Moving the slider
 first shows the new total instead of buying. Purchases at or above `shop.confirm-above` (500) ask once more, unless
-the player chose otherwise (`shard-confirm-above`, below). Receipts name what was given (`You bought 2x Basic key for
+the player chose otherwise (`shard-confirm-above`, below). Receipts name what was given (`You bought 2x Common key for
 100 shards.`, with a click to `/crates` for keys). After a purchase the dialog closes, or shows the shop again with the
 new balance for players who keep it open (`shard-shop-stay-open`; not in combat).
 
@@ -102,9 +108,10 @@ either setting.
 
 ## The shards page
 
-Main menu entry `shards` (order 85): the balance, what the AFK zone pays this player (their rank tier) and every how
-long, what they earned there today (of the daily limit, if any), whether they are in the zone, and buttons for the
-shard shop and `Go to the AFK zone` (hidden inside the zone or while the zone is closed).
+Main menu entry `shards` (order 85): the balance on one line, then two buttons: Shard shop and `Go to the AFK zone`,
+whose tooltip says what the zone pays this player (their rank tier) and every how long, and what they earned there
+today (of the daily limit, if any). Inside the zone the button is gone and the page says so instead: "You're in the
+AFK zone now, earning shards: 1 every 1m" and today's total. While the zone is closed it says that.
 
 ## Config (`features/shards.yml`)
 
@@ -117,12 +124,15 @@ shard shop and `Go to the AFK zone` (hidden inside the zone or while the zone is
 | `.item`, `.amount` | | Item offers: the item id, items per unit (1 to 64, default 1) |
 | `.price` | | Shards per unit |
 | `.max` | `1` | Most units per purchase (1 to 64) |
-| `.name`, `.description` | empty | Plain text; an empty name means the item's own name or `<crate> key` |
+| `.name`, `.description` | empty | Plain text; an empty name means the item's own name or `<crate> key` (the crate's name as players know it, in its colour); the description is the button's tooltip |
+| `.order` | `100` | Where the offer is listed (lowest first; offers with the same order keep their file order) |
 | `.permission` | empty | Only players with it see and buy the offer |
 
-The defaults sell basic (50), rare (200), epic (600) and legendary (1,500) keys, 32 bottles o' enchanting (40),
-8 golden apples (120), a totem of undying (250) and a shulker box (300). An offer with a mistake is left out and
-reported when the config loads.
+The defaults sell a key of every crate tier, Common (50), Uncommon (110), Rare (200), Epic (600), Legendary (1,500),
+Mythic (4,000) and Celestial (11,000), then 32 bottles o' enchanting (40), 8 golden apples (120), a totem of undying
+(250) and a shulker box (300). The key prices follow what each key is worth ([crates](crates.md#the-seven-tiers-and-what-a-key-is-worth)):
+an hour in the AFK zone (60 shards) buys about $1,060 of crate value in Common keys and up to $2,400 in the higher
+tiers, so saving up pays. An offer with a mistake is left out and reported when the config loads.
 
 ## Self-test
 
@@ -134,5 +144,6 @@ purchase arithmetic; the pending key purchases in memory match `shard_purchases`
 - Unit (`src/test/java/.../feature/shards`): the shipped shop, purchase arithmetic and text (`ShardsResourcesTest`),
   the key purchase saga (`KeyGrantsTest`), and the shard settings: group and order, the thresholds and how they
   combine with `shop.confirm-above` (`ShardSettingsTest`).
-- End to end (`tools/e2e/.../AfkScenarios.java`): `shard-shop`, `shard-shop-combat`, and `shard-settings` (Always
-  confirm picked in the dialog, Never and Keep the shard shop open by API).
+- End to end (`tools/e2e/.../AfkScenarios.java`): `shard-shop` (the balance line, a key of every tier in order in
+  its crate's colour with a purple price, the tooltips, buying items and keys, refunds), `shard-shop-combat`, and
+  `shard-settings` (Always confirm picked in the dialog, Never and Keep the shard shop open by API).
