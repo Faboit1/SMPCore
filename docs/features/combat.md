@@ -214,7 +214,9 @@ text and group sizes.
 ## Tests
 
 Unit: `AntiFarmTest`, `TagTimingTest`, `CommandFilterTest`, `CombatRefusalsTest`, `KillTrackerFriendsTest`,
-`DeathTextTest`, `CombatResourcesTest` (config, every lang key, the setting lines), `CombatPlayerSettingsTest`
+`DeathTextTest`, `CombatResourcesTest` (config, every lang key, the setting lines, the recap's hearts written "10"
+or "6.5", and the values players read, times, streaks, hearts and positions, in the accent colour with their words
+gray), `CombatPlayerSettingsTest`
 (groups and order, legacy values and config entries of `death-messages`, config-dependent offering, the friends-team
 option, the death filter, kill notices and the kill confirmation line per style, the death location line with
 `death-coordinates` off and in streamer mode, the end notice per style, timer styles and boss bar progress, staff

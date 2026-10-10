@@ -171,7 +171,9 @@ has no such entry.
   regions, streamer mode declared, tpa-friends retired, friend options and favourites offered only when they exist),
   `TeleportDisplayTest` (the countdown and arrival places, title timing, the title cleared on every cancel and
   failure and not on arrival).
-- E2E (`TeleportScenarios`): `tpa-flow`, `tpa-switches`, `tpa-combat`, `tpa-combat-warmup`, and `tpa-settings`
+- E2E (`TeleportScenarios`): `tpa-flow`, `tpa-switches` (also the menu's form: only the name to type, Go to them and
+  Bring them here with their tooltips, an unknown name refused on the form, both ways sending), `tpa-combat`,
+  `tpa-combat-warmup`, and `tpa-settings`
   (Teleport requests from friends saved in the settings dialog: a stranger refused, a friend's request arrives; Pull
   requests from nobody typed as `/settings tpahere-requests nobody`; no pop-up while the player clicks in their own
   inventory, then the pop-up; being pulled asks once more, Deny there; with a /tpa and a /tpahere waiting, picking
