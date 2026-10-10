@@ -424,6 +424,11 @@ public final class E2E {
         this.log.info("  " + message);
     }
 
+    /** Leaves a bot connected after the scenario (for scenarios that continue across a server restart). */
+    public void keep(Bot bot) {
+        this.bots.remove(bot);
+    }
+
     /** Disconnects every bot of this scenario. */
     public void cleanup() {
         for (Bot bot : this.bots) {

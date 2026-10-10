@@ -38,6 +38,7 @@ final class FeatureScenarios {
         list.addAll(MoneyFormatScenarios.all());
         list.addAll(CosmeticsScenarios.all());
         list.addAll(ExtrasScenarios.all());
+        list.addAll(AuditScenarios.all());
         return list;
     }
 }
