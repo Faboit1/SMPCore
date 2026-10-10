@@ -169,6 +169,9 @@ class CombatResourcesTest {
     /** The death location names the server's three worlds the way players know them, never by their folder names. */
     @Test
     void deathLocationNamesTheWorlds() {
+        // The names are the shared ones of lang/core.yml (core.worlds), like the server merges them.
+        Lang lang = net.siftvanilla.siftcore.testing.MergedLang.of(List.of("lang/core.yml", "lang/combat.yml"),
+            net.siftvanilla.siftcore.core.CoreMessages.class, CombatMessages.class);
         assertEquals("Overworld", CombatListener.worldName(lang, "world", "world"));
         assertEquals("Nether", CombatListener.worldName(lang, "world_nether", "world"));
         assertEquals("The End", CombatListener.worldName(lang, "world_the_end", "world"));

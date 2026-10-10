@@ -336,23 +336,13 @@ final class CombatListener implements Listener {
     }
 
     /**
-     * How a world is named in the death location: the server's main world is "Overworld", its nether "Nether" and its
-     * end "The End" (lang {@code combat.worlds}); any other world shows its own name.
+     * How a world is named in the death location ({@link net.siftvanilla.siftcore.core.WorldNames}): the server's main
+     * world is "Overworld", its nether "Nether" and its end "The End"; any other world shows its own name.
      *
      * @param mainWorld the name of the server's main world (the first one loaded), or null when unknown
      */
     static String worldName(Lang lang, String world, String mainWorld) {
-        MessageKey key = null;
-        if (mainWorld != null) {
-            if (world.equals(mainWorld)) {
-                key = CombatMessages.WORLD_OVERWORLD;
-            } else if (world.equals(mainWorld + "_nether")) {
-                key = CombatMessages.WORLD_NETHER;
-            } else if (world.equals(mainWorld + "_the_end")) {
-                key = CombatMessages.WORLD_END;
-            }
-        }
-        return key == null ? world : lang.plain(key);
+        return net.siftvanilla.siftcore.core.WorldNames.of(lang, world, mainWorld);
     }
 
     /**

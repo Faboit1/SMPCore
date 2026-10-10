@@ -3,6 +3,7 @@ package net.siftvanilla.siftcore.feature.spawners;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.WorldNames;
 import net.siftvanilla.siftcore.core.Services;
 import net.siftvanilla.siftcore.core.link.WorthLookup;
 import net.siftvanilla.siftcore.core.text.Arg;
@@ -100,7 +101,7 @@ final class SpawnerDialogs {
             tooltip.add(lang.get(SpawnersMessages.LIST_TOOLTIP_OWNER, Arg.text("owner", this.service.ownerName(spawner.owner))));
         }
         tooltip.addAll(lang.lines(SpawnersMessages.LIST_TOOLTIP, Arg.text("location", spawner.pos.coordinates()),
-            Arg.text("world", spawner.pos.world()), Arg.value("used", used), Arg.value("capacity", capacity),
+            Arg.text("world", WorldNames.of(lang, spawner.pos.world())), Arg.value("used", used), Arg.value("capacity", capacity),
             Arg.value("xp", spawner.xp())));
         return this.services.templates().choiceButton(label, fullness, Templates.lines(tooltip), sub -> showDetails(sub, id, back));
     }
@@ -152,7 +153,7 @@ final class SpawnerDialogs {
         Component tooltip = Templates.lines(lang.lines(SpawnersMessages.DETAILS_OPEN_TOOLTIP,
             Arg.text("owner", this.service.ownerName(spawner.owner)),
             Arg.text("location", spawner.pos.coordinates()),
-            Arg.text("world", spawner.pos.world()),
+            Arg.text("world", WorldNames.of(lang, spawner.pos.world())),
             Arg.value("rate", Math.round(rate)),
             Arg.value("range", Math.max(s.remoteRange(), 6))));
         Button open = Button.of(lang.get(SpawnersMessages.DETAILS_OPEN), tooltip, sub -> openStorage(sub, spawner, back));

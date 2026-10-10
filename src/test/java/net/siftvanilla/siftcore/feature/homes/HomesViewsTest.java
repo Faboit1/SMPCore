@@ -72,7 +72,7 @@ class HomesViewsTest {
         assertTrue(plain(first.tooltip()).contains("Click to teleport to home0."), plain(first.tooltip()));
         Button delete = view.buttons().get(1);
         assertEquals("Delete", plain(delete.label()));
-        assertEquals(Palette.DEFAULT_ERROR, delete.label().color(), "Delete is red");
+        assertEquals(Palette.defaults().primary(), delete.label().color(), "an action label is plain (green and red mean a state)");
         first.handler().handle(null);
         delete.handler().handle(null);
         view.buttons().getLast().handler().handle(null);
@@ -106,7 +106,7 @@ class HomesViewsTest {
         Component tooltip = view.buttons().getFirst().tooltip();
         assertEquals(Palette.DEFAULT_ACCENT, colourOf(tooltip, "100", null), "the position: " + tooltip);
         assertEquals(Palette.DEFAULT_ACCENT, colourOf(tooltip, "home0", null), "the name in the tooltip: " + tooltip);
-        assertEquals(Palette.DEFAULT_ON, view.buttons().getLast().label().color(), "Set a home here is green");
+        assertEquals(Palette.defaults().primary(), view.buttons().getLast().label().color(), "Set a home here is a plain action label");
     }
 
     @Test

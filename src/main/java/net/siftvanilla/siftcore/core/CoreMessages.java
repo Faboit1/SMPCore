@@ -26,6 +26,10 @@ public final class CoreMessages {
     public static final MessageKey DISABLED_WORLD = MessageKey.error("core.disabled-here");
     public static final MessageKey FROZEN = MessageKey.error("core.frozen");
     public static final MessageKey LOADING = MessageKey.info("core.loading");
+    /** How the server's three worlds are named to players ({@link WorldNames}). */
+    public static final MessageKey WORLD_OVERWORLD = MessageKey.ui("core.worlds.overworld");
+    public static final MessageKey WORLD_NETHER = MessageKey.ui("core.worlds.nether");
+    public static final MessageKey WORLD_END = MessageKey.ui("core.worlds.end");
 
     /** Dialog and GUI building blocks shared everywhere. */
     public static final MessageKey UI_BACK = MessageKey.ui("ui.back");

@@ -93,7 +93,7 @@ added as it happens.
   The victim and the killer always see theirs, and so does the console.
 - After a death (not a combat log) the victim gets two private chat lines: where they died (`death-coordinates`,
   on; only the world while streamer mode `hide-coordinates` is on; "You died at 12, 70, -3 in Nether.", the server's
-  main world, its nether and its end named Overworld, Nether and The End by `combat.worlds` in `lang/combat.yml`,
+  main world, its nether and its end named Overworld, Nether and The End by the shared `core.worlds` in `lang/core.yml` (`core.WorldNames`),
   other worlds by their own name) and, after a player kill, the killer's health
   and weapon (`death-recap`, on): `Sam had 6.5 hearts left, using Diamond Sword.` The killer's health is read on the
   killer's thread, which then sends the line.

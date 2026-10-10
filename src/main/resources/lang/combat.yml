@@ -40,12 +40,6 @@ combat:
     location-hidden: "<secondary>You died in <primary><world><secondary>."
     recap: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left."
     recap-using: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left, using <primary><item><secondary>."
-  # How <world> names the server's main world, its nether and its end in the lines above. Other worlds show their
-  # own name.
-  worlds:
-    overworld: "Overworld"
-    nether: "Nether"
-    end: "The End"
   streak:
     reached: "<primary><name> <secondary>is on a kill streak of <accent><count></accent>."
     ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <accent><count></accent>."

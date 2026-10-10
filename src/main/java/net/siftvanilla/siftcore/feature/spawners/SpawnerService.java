@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.siftvanilla.siftcore.core.WorldNames;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.api.economy.TransactionResult;
 import net.siftvanilla.siftcore.api.economy.TransactionStatus;
@@ -1303,7 +1304,7 @@ final class SpawnerService {
             Player owner = Bukkit.getPlayer(spawner.owner);
             if (owner != null) {
                 messenger().send(owner, SpawnersMessages.REFUNDED, Arg.text("mob", lowerName(spawner.mob)), Arg.number("amount", state.stack()),
-                    Arg.text("location", spawner.pos.coordinates()), Arg.text("world", spawner.pos.world()), Arg.number("count", stored));
+                    Arg.text("location", spawner.pos.coordinates()), Arg.text("world", WorldNames.of(this.services.lang(), spawner.pos.world())), Arg.number("count", stored));
                 if (state.xp() > 0) {
                     payOutXp(owner, SpawnersMessages.REFUNDED_XP);
                 }

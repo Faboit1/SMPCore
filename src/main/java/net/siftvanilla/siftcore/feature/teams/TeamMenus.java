@@ -10,6 +10,7 @@ import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.WorldNames;
 import net.siftvanilla.siftcore.api.economy.Currency;
 import net.siftvanilla.siftcore.core.CoreMessages;
 import net.siftvanilla.siftcore.core.Services;
@@ -241,7 +242,7 @@ final class TeamMenus {
         TeamHome home = team.home();
         if (home != null) {
             buttons.add(Button.of(ui(TeamsMessages.BUTTON_HOME), ui(TeamsMessages.BUTTON_HOME_TOOLTIP, count("x", home.blockX()),
-                count("y", home.blockY()), count("z", home.blockZ()), Arg.text("world", home.world()),
+                count("y", home.blockY()), count("z", home.blockZ()), Arg.text("world", WorldNames.of(this.lang, home.world())),
                 time("time", this.settings.get().homeWarmup())), s -> {
                     TeamProblem problem = this.actions.home(s.player());
                     if (problem == null) {
@@ -638,7 +639,7 @@ final class TeamMenus {
             return ui(TeamsMessages.INFO_NO_HOME);
         }
         return ui(TeamsMessages.INFO_HOME, count("x", home.blockX()), count("y", home.blockY()), count("z", home.blockZ()),
-            Arg.text("world", home.world()));
+            Arg.text("world", WorldNames.of(this.lang, home.world())));
     }
 
     private Component homeText(Team team) {
@@ -647,7 +648,7 @@ final class TeamMenus {
             return ui(TeamsMessages.INFO_NO_HOME_TEXT);
         }
         return ui(TeamsMessages.INFO_HOME_TEXT, Arg.number("x", home.blockX()), Arg.number("y", home.blockY()),
-            Arg.number("z", home.blockZ()), Arg.text("world", home.world()));
+            Arg.number("z", home.blockZ()), Arg.text("world", WorldNames.of(this.lang, home.world())));
     }
 
     /** Shows a team's stats, with a Members button that lists them. Call on the viewer's thread. */

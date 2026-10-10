@@ -37,9 +37,6 @@ public final class HomesMessages {
     public static final MessageKey LIST_WHERE = MessageKey.ui("homes.list.where", "world", "x", "y", "z");
     public static final MessageKey LIST_WHERE_HIDDEN = MessageKey.ui("homes.list.where-hidden", "world");
     /** How the main world, its nether and its end are named to players (other worlds show their own name). */
-    public static final MessageKey WORLD_OVERWORLD = MessageKey.ui("homes.worlds.overworld");
-    public static final MessageKey WORLD_NETHER = MessageKey.ui("homes.worlds.nether");
-    public static final MessageKey WORLD_END = MessageKey.ui("homes.worlds.end");
     public static final MessageKey LIST_DELETE = MessageKey.ui("homes.list.delete");
     public static final MessageKey LIST_TELEPORT_TOOLTIP = MessageKey.ui("homes.list.teleport-tooltip", "name");
     public static final MessageKey LIST_DELETE_TOOLTIP = MessageKey.ui("homes.list.delete-tooltip", "name");

@@ -538,7 +538,7 @@ final class TeleportScenarios {
             && list.button("base").tooltip().contains("Click to teleport to base."), "where it is in the tooltip: " + list.button("base").tooltip());
         e2e.expect(list.button("Set a home here") != null && list.button("Delete") != null, "set and delete buttons: " + list.buttons());
         // Green and red mean a state (ON/OFF, online); an action's label says what it does and stays plain.
-        e2e.expect(list.button("Delete").valueColor() == null && list.button("Set a home here").valueColor() == null,
+        e2e.expect(plainLabel(list.button("Delete")) && plainLabel(list.button("Set a home here")),
             "action labels are plain: " + list.button("Delete").valueColor() + " " + list.button("Set a home here").valueColor());
         e2e.expect(list.buttons().stream().noneMatch(button -> button.label().contains("page")), "no pages: " + list.buttons());
         long start = System.currentTimeMillis();
@@ -863,7 +863,7 @@ final class TeleportScenarios {
         Bot.SeenDialog answer = e2e.dialog(host, "Teleport request");
         e2e.expect(answer.body().size() == 1 && answer.bodyText().contains(askerName + " wants to teleport to you."),
             "one line, who asks: " + answer.body());
-        e2e.expect(answer.button("Accept").valueColor() == null && answer.button("Deny").valueColor() == null,
+        e2e.expect(plainLabel(answer.button("Accept")) && plainLabel(answer.button("Deny")),
             "Accept and Deny are plain (green and red mean a state): " + answer.button("Accept").valueColor() + " " + answer.button("Deny").valueColor());
         e2e.expect(answer.button("Accept").tooltip().contains(askerName + " teleports to you.")
             && answer.button("Accept").tooltip().contains("Requests expire after"), "what Accept does, on hover: "
@@ -1725,5 +1725,10 @@ final class TeleportScenarios {
             Files.writeString(config, original);
             e2e.console("sift reload");
         }
+    }
+
+    /** An action button's label is plain: white text (or no colour), never the green or red of a state. */
+    private static boolean plainLabel(Bot.Button button) {
+        return button != null && (button.valueColor() == null || "#FFFFFF".equals(button.valueColor()));
     }
 }

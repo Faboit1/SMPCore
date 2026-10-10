@@ -44,7 +44,7 @@ button per home named after it, with a Delete button next to it, and Set a home 
 prefilled with the first free name: `home`, `home2`, ...; the name rule is on its Set home button's tooltip). Where a
 home is (world and block position, or the world only in streamer mode) is in its button's tooltip. Worlds are named
 the way players know them: the server's main world "Overworld", its nether "Nether" and its end "The End"
-(`homes.worlds` in `lang/homes.yml`, `HomesViews#worldName`); another world shows its own name. The same names are
+(`core.worlds` in `lang/core.yml`, `core.WorldNames`, shared with death locations, spawners and team homes); another world shows its own name. The same names are
 in the delete and "Move home" questions; staff chat lines (`/homes <player>` from the console) keep the folder names.
 No pages: every
 home is in the one dialog, which scrolls. Delete asks for confirmation and comes back to the list. A wrong name in the

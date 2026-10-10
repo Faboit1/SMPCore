@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.WorldNames;
 import net.siftvanilla.siftcore.core.player.Limits;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Lang;
@@ -78,23 +79,13 @@ final class HomesViews {
     }
 
     /**
-     * How a world is named to players: the server's main world is "Overworld", its nether "Nether" and its end
-     * "The End" (lang {@code homes.worlds}); any other world shows its own name.
+     * How a world is named to players ({@link WorldNames}): the server's main world is "Overworld", its nether "Nether"
+     * and its end "The End"; any other world shows its own name.
      *
      * @param mainWorld the name of the server's main world (the first one loaded), or null when unknown
      */
     static String worldName(Lang lang, String world, String mainWorld) {
-        MessageKey key = null;
-        if (mainWorld != null) {
-            if (world.equals(mainWorld)) {
-                key = HomesMessages.WORLD_OVERWORLD;
-            } else if (world.equals(mainWorld + "_nether")) {
-                key = HomesMessages.WORLD_NETHER;
-            } else if (world.equals(mainWorld + "_the_end")) {
-                key = HomesMessages.WORLD_END;
-            }
-        }
-        return key == null ? world : lang.plain(key);
+        return WorldNames.of(lang, world, mainWorld);
     }
 
     /**

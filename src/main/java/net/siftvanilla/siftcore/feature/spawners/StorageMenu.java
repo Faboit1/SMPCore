@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
+import net.siftvanilla.siftcore.core.WorldNames;
 import net.siftvanilla.siftcore.core.scheduler.Task;
 import net.siftvanilla.siftcore.core.text.Arg;
 import net.siftvanilla.siftcore.core.text.Feedback;
@@ -157,7 +158,7 @@ final class StorageMenu extends PagedMenu<StorageMenu.Entry> {
             Arg.number("xp", state.xp()),
             Arg.number("xp-cap", xpCap),
             Arg.text("location", this.spawner.pos.coordinates()),
-            Arg.text("world", this.spawner.pos.world()),
+            Arg.text("world", WorldNames.of(lang, this.spawner.pos.world())),
             Arg.time("interval", s.interval()),
             Arg.number("radius", s.radius())));
         if (this.spawner.lastFull()) {

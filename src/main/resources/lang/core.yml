@@ -27,6 +27,12 @@ core:
   disabled-here: "<primary>You can't do that here."
   frozen: "<primary>You can't do that while frozen."
   loading: "<secondary>Loading..."
+  # How worlds are named to players (homes, death locations, spawners, team homes): the server's main world, its nether
+  # and its end. Other worlds show their own name.
+  worlds:
+    overworld: "Overworld"
+    nether: "Nether"
+    end: "The End"
 
 ui:
   back: "Back"

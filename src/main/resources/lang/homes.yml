@@ -27,12 +27,6 @@ homes:
     fire: "there is fire"
     blocked: "a block fills the space"
     go: "<error>Teleport anyway"
-  # How worlds are named where a home's place shows: the server's main world, its nether and its end. Other worlds
-  # show their own name.
-  worlds:
-    overworld: "Overworld"
-    nether: "Nether"
-    end: "The End"
   # The homes dialog: one status line, then a button per home (click to go there) with Delete next to it.
   list:
     title: "Homes"
