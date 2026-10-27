@@ -1,0 +1,100 @@
+# Text of the sidebar, the tab list and nametags.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+#
+# Sidebar lines and the tab list header and footer can also show placeholders in braces, like {balance}: any of
+# SiftCore's placeholders (/sift placeholders lists them) and these, which the scoreboard provides itself:
+#   {player} {online} {max_players} {ping} {rank} {team} {kills} {deaths} {streak} {best_streak} {playtime} {combat}
+# A value is shown as plain text in the colour around it. A sidebar line is left out while one of its placeholders
+# is empty: {team} without a team, {rank} without a rank label, {combat} out of combat.
+
+scoreboard:
+  sidebar:
+    # The sidebar's heading.
+    title: "SiftVanilla"
+    # Every line features/scoreboard.yml can use, by name.
+    lines:
+      balance: "<primary><icon:money> <secondary>Money <money>{balance}"
+      shards: "<primary><icon:shard> <shards>Shards {shards}"
+      kills: "<primary><icon:kill> <secondary>Kills <accent>{kills}"
+      deaths: "<primary><icon:death> <secondary>Deaths <accent>{deaths}"
+      kdr: "<primary><icon:kdr> <secondary>KDR <accent>{stats_kdr}"
+      streak: "<primary><icon:streak> <secondary>Streak <accent>{streak}"
+      playtime: "<primary><icon:playtime> <secondary>Playtime <accent>{playtime}"
+      team: "<primary><icon:team> <secondary>Team <primary>{team}"
+      rank: "<primary><icon:rank> <secondary>Rank <primary>{rank}"
+      keyall: "<primary><icon:key> <secondary>Keyall <accent>{keyall_countdown}"
+      # Only while a sell booster runs (/booster).
+      booster: "<primary><icon:star> <secondary>Booster <accent>+{booster_percent}% <secondary>{booster_time_left}"
+      bounty: "<primary><icon:bounty> <secondary>Bounty <money>{bounty_total}"
+      combat: "<primary><icon:warning> <secondary>Combat <accent>{combat}"
+      online: "<primary><icon:online> <secondary>Online <accent>{online}"
+      ping: "<primary><icon:ping> <secondary>Ping <accent>{ping}ms"
+      website: "<secondary>siftvanilla.com"
+
+  tab:
+    # Above and below the player list, one entry per line.
+    header:
+      - ""
+      - "<primary>SiftVanilla"
+      - "<accent>{online}<secondary> online"
+      - ""
+    footer:
+      - ""
+      - "<secondary>/menu opens everything on the server"
+      - "<secondary>siftvanilla.com"
+      - ""
+    # A name in the player list. <afk> is the marker below while the player is away, otherwise nothing.
+    name: "<primary><name><afk>"
+    name-ranked: "<secondary><rank> <primary><name><afk>"
+    afk: " <secondary>AFK"
+
+  nametag:
+    # In front of names above heads, for players with a rank label.
+    prefix: "<secondary><rank> "
+
+  # The switch in the settings menu (in the shared Display group).
+  toggle:
+    label: "Sidebar"
+    description: "Show your money and stats on the right of the screen."
+
+  # Which lines the sidebar shows (Display group). The lines of each layout are in features/scoreboard.yml.
+  layout:
+    label: "Sidebar lines"
+    description: "Which lines your sidebar shows: everything, a short money view, or fight stats."
+    full: "Everything"
+    compact: "Money"
+    combat: "Fight stats"
+
+  shown: "<primary>Sidebar shown."
+  hidden: "<primary>Sidebar hidden. /sidebar shows it again."
+  already-shown: "<primary>Your sidebar is already shown."
+  already-hidden: "<primary>Your sidebar is already hidden."
+  off-on-server: "<primary>The sidebar is turned off on this server."
+  # /sidebar while another part of the server draws the sidebar.
+  yielded: "<primary>The sidebar on this server can't be hidden with /sidebar."
+  # /sidebar while the server sets the switch for everyone (features/settings.yml).
+  fixed: "<primary>Your sidebar is set by the server."
+
+  # Names of the parts in /sidebar status.
+  parts:
+    sidebar: "sidebar"
+    tab: "tab list"
+    nametags: "nametags"
+    yielded: "<part> (<plugin>)"
+    none: "none"
+
+  admin:
+    refreshed: "<primary>Refreshed the sidebar, tab list and nametags of <count> players."
+    status:
+      - "<primary>Sidebar, tab list and nametags"
+      - "<secondary>Players <primary><players><secondary>, sidebars shown <primary><sidebars><secondary>, hidden by the player <primary><hidden>"
+      - "<secondary>Nametag teams <primary><teams><secondary>, boards waiting for their player <primary><pending>"
+      - "<secondary>Last refresh took <primary><time>"
+      - "<secondary>Left to other plugins <primary><yielded>"
+    preview-title: "<primary>Sidebar of <name>"
+    preview-line: "<secondary><number>. <primary><line>"
+    preview-empty: "<secondary>No lines are shown right now."
+    preview-hidden: "<secondary><name> has hidden the sidebar; these are the lines it would show."
+    preview-wait: "<primary><name> has only just joined. Try again in a moment."

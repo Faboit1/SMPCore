@@ -1,0 +1,219 @@
+# Spawners: stackable mob spawners that never spawn a mob. While a player is nearby, each spawner works out what its
+# mobs would have dropped and puts the loot and XP into its storage. Players open the storage (sneak and right click
+# with an empty hand), take items, sell everything at once or collect the XP. /spawners lists your spawners.
+# Changes apply with /sift reload.
+
+cycle:
+  # How often an active spawner makes loot. Every cycle a stack of N spawners makes N x kills-per-cycle kills.
+  interval: 30s
+
+activation:
+  # A spawner makes loot only while a player is within this many blocks of it (and its chunk is loaded).
+  # The spawner block also shows its spinning mob within this range.
+  radius: 32
+  # Whether vanished staff keep spawners going.
+  count-vanished: false
+  # Whether AFK players keep spawners going.
+  count-afk: true
+
+storage:
+  # Storage per stacked spawner, in slots. A slot holds 64 items of any kind, so 9 slots hold 576 items.
+  # A mob may set its own slots below. Loot that doesn't fit any more is lost, so players need to empty it.
+  slots-per-spawner: 9
+  # The most XP one stacked spawner keeps. XP beyond that is lost.
+  xp-per-spawner: 6000
+  # How often new loot is written to the database. Loot is also written when its chunk unloads and on shutdown;
+  # after a crash at most this much loot is lost (never duplicated).
+  flush-interval: 60s
+
+stacking:
+  # The most spawners in one stack, unless the mob sets its own stack-cap. Ranks with the permission
+  # siftcore.spawners.stack.<n> can stack <n> more (the highest number wins). Nothing goes above 10000.
+  default-cap: 1000
+
+interaction:
+  # Whether opening the storage needs sneaking (right click with an empty hand). With false, any right click with
+  # an empty hand opens it. Players can pick otherwise in /settings (Spawners, Open spawner storage with).
+  open-requires-sneak: true
+  # /spawners can open a spawner's storage when the player is within this many blocks of it, in the same world.
+  # 0 means only at the spawner itself. Staff with siftcore.spawners.bypass can open any spawner from anywhere.
+  remote-range: 32
+  # Players in combat can't open a spawner's storage (or take, sell and collect XP from it) until their combat
+  # timer ends, like the shop and the auction house. Stacking and picking up still work.
+  block-in-combat: true
+
+breaking:
+  # Picking up a spawner needs a silk touch tool. Without it the spawner stays and the player is told why.
+  # Staff with siftcore.spawners.bypass never need silk touch.
+  require-silk-touch: true
+  # What happens to the items in the storage when a spawner is picked up:
+  #   claim-box: they go to the owner's claim box.
+  #   sell:      everything that sells is sold for the owner (at their sell bonus when online); the rest goes to
+  #              their claim box.
+  # Stored XP goes to the player who picks the spawner up. Owners can pick otherwise for their own pickups in
+  # /settings (Spawners, Storage when I pick up my spawner); teammates and staff always follow this.
+  storage: claim-box
+  # A spawner whose storage would need more claim box stacks than this can't be picked up until it's emptied
+  # (sold or taken out). Keeps a single pickup from flooding a claim box.
+  max-claim-stacks: 108
+
+placement:
+  # The most spawner blocks in one chunk. 0 means no limit. Stacking is never limited by this.
+  max-per-chunk: 0
+  # Worlds where spawners can't be placed (by world name).
+  disabled-worlds: []
+
+natural-spawners:
+  # Mining a natural spawner (dungeons, mineshafts) with silk touch gives a spawner item of its mob, when that mob
+  # is configured below. Off by default because it creates spawners the shop would otherwise sell.
+  silk-touch-pickup: false
+
+xp:
+  # Collected XP repairs items with Mending first, like picking up XP orbs does. Players can pick otherwise in
+  # /settings (Spawners, Spawner XP and mending).
+  apply-mending: true
+
+# The most spawners /spawners lists, all on one page (the dialog scrolls; a line says how many more there are).
+list-limit: 100
+
+# Spawner types. The key is the vanilla mob id. Spawners of a mob that is removed here keep working as storage and
+# can be picked up, but make no loot.
+#   name:            shown on the item and in menus ("Zombie spawner"). Default: the id in sentence case.
+#   enabled:         false stops new ones from being placed or stacked and stops them making loot. Default true.
+#   kills-per-cycle: kills one stacked spawner makes each cycle (decimals are fine; 2.5 means 2 or 3, 2.5 on average).
+#                    Default 2.
+#   xp-per-kill:     XP stored per kill. Default 0.
+#   stack-cap:       (optional) the most spawners in one stack; default stacking.default-cap.
+#   slots:           (optional) storage slots per stacked spawner; default storage.slots-per-spawner.
+#   drops:           per item id: each kill drops it with probability chance (0 to 1, default 1), and then a whole
+#                    amount from min (default 0) to max, every amount equally likely. Looting is ignored.
+#                    Items that can't be sold (sticks, poppies) stay in the storage until a player takes them.
+#
+# Balance: with a 30s cycle a spawner runs 120 cycles an hour. The defaults pay back the shop price in about 65 hours
+# of a player being nearby at the base sell price (docs/features/spawners.md has the numbers per mob).
+mobs:
+  zombie:
+    name: "Zombie"
+    kills-per-cycle: 2.0
+    xp-per-kill: 5
+    drops:
+      rotten_flesh: {min: 0, max: 2}
+      iron_ingot: {min: 1, max: 1, chance: 0.025}
+      carrot: {min: 1, max: 1, chance: 0.025}
+      potato: {min: 1, max: 1, chance: 0.025}
+  zombified_piglin:
+    name: "Zombified piglin"
+    kills-per-cycle: 2.6
+    xp-per-kill: 5
+    slots: 18
+    drops:
+      rotten_flesh: {min: 0, max: 1}
+      gold_nugget: {min: 0, max: 1}
+      gold_ingot: {min: 1, max: 1, chance: 0.025}
+  chicken:
+    name: "Chicken"
+    kills-per-cycle: 1.7
+    xp-per-kill: 2
+    slots: 18
+    drops:
+      chicken: {min: 1, max: 1}
+      feather: {min: 0, max: 2}
+  skeleton:
+    name: "Skeleton"
+    kills-per-cycle: 2.4
+    xp-per-kill: 5
+    slots: 18
+    drops:
+      bone: {min: 0, max: 2}
+      arrow: {min: 0, max: 2}
+  spider:
+    name: "Spider"
+    kills-per-cycle: 2.4
+    xp-per-kill: 5
+    slots: 18
+    drops:
+      string: {min: 0, max: 2}
+      spider_eye: {min: 1, max: 1, chance: 0.333}
+  cave_spider:
+    name: "Cave spider"
+    kills-per-cycle: 2.4
+    xp-per-kill: 5
+    slots: 18
+    drops:
+      string: {min: 0, max: 2}
+      spider_eye: {min: 1, max: 1, chance: 0.333}
+  pig:
+    name: "Pig"
+    kills-per-cycle: 2.1
+    xp-per-kill: 2
+    slots: 18
+    drops:
+      porkchop: {min: 1, max: 3}
+  creeper:
+    name: "Creeper"
+    kills-per-cycle: 2.35
+    xp-per-kill: 5
+    drops:
+      gunpowder: {min: 0, max: 2}
+  slime:
+    name: "Slime"
+    kills-per-cycle: 2.5
+    xp-per-kill: 2
+    slots: 18
+    drops:
+      slime_ball: {min: 0, max: 2}
+  magma_cube:
+    name: "Magma cube"
+    kills-per-cycle: 3.0
+    xp-per-kill: 2
+    drops:
+      magma_cream: {min: 0, max: 1}
+  cow:
+    name: "Cow"
+    kills-per-cycle: 2.0
+    xp-per-kill: 2
+    slots: 27
+    drops:
+      beef: {min: 1, max: 3}
+      leather: {min: 0, max: 2}
+  sheep:
+    name: "Sheep"
+    kills-per-cycle: 2.0
+    xp-per-kill: 2
+    slots: 27
+    drops:
+      mutton: {min: 1, max: 2}
+      white_wool: {min: 1, max: 1}
+  enderman:
+    name: "Enderman"
+    kills-per-cycle: 2.5
+    xp-per-kill: 5
+    drops:
+      ender_pearl: {min: 0, max: 1}
+  witch:
+    name: "Witch"
+    kills-per-cycle: 1.3
+    xp-per-kill: 5
+    slots: 36
+    drops:
+      redstone: {min: 4, max: 8}
+      glowstone_dust: {min: 0, max: 2, chance: 0.25}
+      sugar: {min: 0, max: 2, chance: 0.25}
+      gunpowder: {min: 0, max: 2, chance: 0.25}
+      spider_eye: {min: 0, max: 2, chance: 0.25}
+      glass_bottle: {min: 0, max: 2, chance: 0.25}
+      stick: {min: 0, max: 2, chance: 0.5}
+  blaze:
+    name: "Blaze"
+    kills-per-cycle: 2.5
+    xp-per-kill: 10
+    drops:
+      blaze_rod: {min: 0, max: 1}
+  iron_golem:
+    name: "Iron golem"
+    kills-per-cycle: 3.2
+    xp-per-kill: 0
+    slots: 54
+    drops:
+      iron_ingot: {min: 3, max: 5}
+      poppy: {min: 0, max: 2}

@@ -1,0 +1,205 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# SiftVanilla text: white (&f) for main text, gray (&7) for the rest, money only in &#1AFF1A (prices come from
+# currencies.yml, which already colours them). No bold, no other colours, no separators, sentence case.
+
+help:
+  - "&fAuction house"
+  - "&f/ah &7opens the auction house"
+  - "&f/ah sell <price> [amount] &7lists the item in your hand"
+  - "&f/ah search [text] &7finds items by name"
+  - "&f/ah view [player] &7shows a player's listings"
+  - "&f/ah history &7shows your sales and purchases"
+  - "&f/ah deleted &7shows your deleted items"
+
+admin-help:
+  - "&fAuction house staff commands"
+  - "&f/ahadmin reload &7reloads the configuration"
+  - "&f/ahadmin forceopen <player> [menu] &7opens a menu for a player"
+  - "&f/ahadmin history [player] &7shows sales history"
+  - "&f/ahadmin deleted [player] &7shows deleted items"
+  - "&f/ahadmin logs [player] &7shows every auction action"
+  - "&f/ahadmin limit give|set|take|reset <player> <amount> &7changes extra listing slots"
+
+reload:
+  success: "&fAuction house reloaded."
+  failed: "&fCouldn't reload %file%. The console has the error."
+
+item-lore:
+  - "%lore%"
+  - ""
+  - "&7Price %price%"
+  - "&7Seller &f%seller%"
+  - "&7Ends in &f%expires%"
+  - "&7Click to buy"
+  - "%container%"
+
+item-lore-own:
+  - "%lore%"
+  - ""
+  - "&7Price %price%"
+  - "&7Ends in &f%expires%"
+  - "&7Your listing. Click to take it down."
+  - "%container%"
+
+item-lore-expired:
+  - "%lore%"
+  - ""
+  - "&7Price %price%"
+  - "&7Deleted in &f%deletion%"
+  - "&7Click to take it back"
+  - "%container%"
+
+item-lore-staff:
+  - "%lore%"
+  - ""
+  - "&7Price %price%"
+  - "&7Seller &f%seller%"
+  - "&7Ends in &f%expires%"
+  - "&7Click to buy"
+  - "%container%"
+  - "&7Shift click to remove it"
+
+history-item-lore:
+  - "%lore%"
+  - ""
+  - "&7Seller &f%seller%"
+  - "&7Buyer &f%buyer%"
+  - "&7Price %price%"
+  - "&7Sold &f%time%"
+  - "%container%"
+
+history-admin-item-lore:
+  - "%lore%"
+  - ""
+  - "&7Seller &f%seller%"
+  - "&7Buyer &f%buyer%"
+  - "&7Price %price%"
+  - "&7Sold &f%time%"
+  - "&7Click to take a copy"
+  - "%container%"
+
+deleted-gui-item-lore:
+  - "%lore%"
+  - ""
+  - "&7Seller &f%seller%"
+  - "&7Price %price%"
+  - "&7Deleted &f%time%"
+  - "%container%"
+
+deleted-gui-admin-item-lore:
+  - "%lore%"
+  - ""
+  - "&7Seller &f%seller%"
+  - "&7Price %price%"
+  - "&7Deleted &f%time%"
+  - "&7Click to take it"
+  - "%container%"
+
+# the %container% placeholder is only used when the item is a container (like a shulker)
+container: "&7Right click to see inside"
+
+time:
+  second: "s"
+  minute: "m"
+  hour: "h"
+  day: "d"
+
+sorting:
+  newest: "Newest first"
+  oldest: "Oldest first"
+  cheapest: "Lowest price"
+  priciest: "Highest price"
+
+currency:
+  # used for the %selected_currency% placeholder when none is selected
+  no-currency: "All"
+
+sell:
+  limit-reached: "&fAll %limit% of your listing slots are in use."
+  no-item: "&fHold the item you want to sell."
+  no-currency: "&fAdd a currency to the command."
+  price-too-low: "&fThe price must be at least &#1AFF1A$%amount%&f."
+  price-too-high: "&fThe price can be at most &#1AFF1A$%amount%&f."
+  invalid-price: "&fThat price isn't a number."
+  success: "&fListed on the auction house for %price%&f."
+  # set to "" to disable
+  # these will be shown to all players
+  action-bar-broadcast: ""
+  chat-broadcast: ""
+
+buy:
+  not-enough-money: "&fYou can't afford that."
+  item-not-found: "&fThat listing is gone."
+  inventory-full: "&fYour inventory is full."
+  success: "&fYou bought %amount% %item% for %price%&f."
+  # this will be used when there is 0% tax set for the currency
+  notify-seller: "&f%player% bought your %amount% %item% for %price%&f."
+  # this will be used when a tax is set for the currency
+  #  %amount% (the original amount)
+  #  %tax-amount% (amount after tax)
+  #  %tax-percent% (the % of tax on the currency)
+  #  %tax-fee% (amount taken because of tax)
+  notify-seller-tax: "&f%player% bought your %amount% %item% for %price%&f. You got %tax-amount% &fafter tax."
+  # set to "" to disable
+  # these will be shown to all players
+  action-bar-purchase: ""
+  chat-purchase: ""
+
+admin-action:
+  cancelled: "&f%staff% took down your %amount% %item% on %date%. You can take it back from your expired listings."
+  removed: "&f%staff% removed your %amount% %item% from the auction house on %date%."
+  cancelled-info: "&fListing taken down. The item went back to the seller."
+  removed-info: "&fListing removed."
+  failed: "&fThat listing is gone."
+  take-item: "&fThe item is in your inventory."
+
+my-items:
+  removed: "&fListing taken down. The item is back in your inventory."
+  expired: "&fYour listing of %amount% %item% expired on %date%. Take it back from your expired listings."
+  deleted: "&fYour expired %amount% %item% was deleted on %date%."
+  failed: "&fThat listing is gone."
+
+limit-changed: "&f%player% now has %amount% extra listing slots."
+date-format: "d MMM yyyy, HH:mm"
+limit-bypass-icon: "no limit"
+expired: "Expired"
+blacklisted: "&fThat item can't be sold on the auction house."
+oversized: "&fThat item holds too much data to be sold on the auction house."
+converting: "&fConverter started. The console shows its progress."
+
+data-not-loaded: "&fYour auction data is still loading. Try again in a moment."
+data-not-loaded-other: "&f%player%'s auction data is still loading. Try again in a moment."
+
+input:
+  # keep the first line empty when using sign
+  sign:
+    - ""
+    - "Write what you"
+    - "are looking for"
+    - "on the top line"
+  anvil:
+    title: "Search"
+    item:
+      material: PAPER
+      glow: false
+      name: "&fSearch"
+      lore:
+        - "&7Type a name above"
+  chat:
+    - "&fType what you're looking for in chat, or &7cancel &fto stop."
+
+commands:
+  invalid-value: "&fThat isn't a valid value: %value%"
+  invalid-command: "&fThere's no such command. Type /ah help."
+  missing-argument: "&fAdd the %value% to the command."
+  no-permission: "&fYou can't use that command."
+  out-of-range: "&f%number% must be from %min% to %max%."
+  player-only: "&fOnly players can do that."
+  invalid-player: "&fThere's no player called %player%."
+  invalid-selector: "&fYou can't use a selector here."
+
+update-notifier: "&fA new AxAuctions version is out: %latest% (this server runs %current%)."
+safety: "&fThe auction house turned this off for safety until the server updates it."
+
+# do not change this
+version: 15

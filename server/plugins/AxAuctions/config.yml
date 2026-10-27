@@ -1,0 +1,247 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# SiftVanilla: see docs/features/auction.md in the SiftCore repository for why each value is set.
+
+# No plugin prefix: messages read like the rest of the server.
+prefix: ""
+
+database:
+  # h2, mysql
+  # SiftVanilla runs one server, so the embedded h2 file (plugins/AxAuctions/data.mv.db) is used.
+  type: "h2"
+  # database table prefix
+  prefix: "axauctions"
+
+  # you only need to touch these when using mysql
+  address: 127.0.0.1
+  port: 3306
+  database: admin
+  username: admin
+  password: 'admin'
+  pool:
+    maximum-pool-size: 10
+    minimum-idle: 10
+    maximum-lifetime: 1800000
+    keepalive-time: 0
+    connection-timeout: 5000
+
+# format: language_COUNTRY
+# after changing this, the server will download the default item names
+language: en_US
+
+# if enabled, auctions will be synchronized across all connected servers
+# you must use mysql (and connect all servers to the same database) for this to work!
+# changes will only take effect after a restart
+multi-server-support:
+  # modes:
+  # - disabled (no multiserver sync)
+  # - sql (uses the database to send messages, no setup required)
+  # - proxy (uses plugin messaging, no setup required as long as you are using a bungeecord/velocity proxy)
+  # - redis (requires a redis server)
+  # - rabbitmq (requires a rabbitmq server)
+  # which should i choose? use rabbitmq or redis for the best performance, use sql or proxy is you don't want to set up anything.
+  mode: "disabled"
+  # the channel name to use (the final name will be axauctions:<channel-name>)
+  # keep this value the same for every server where you want the items to be synced
+  channel-name: "primary"
+  # redis credentials
+  redis:
+    address: 127.0.0.1
+    port: 6379
+    username: ''
+    password: ''
+  # rabbitmq credentials
+  rabbitmq:
+    address: 127.0.0.1
+    port: 5672
+    vhost: "/"
+    username: 'guest'
+    password: 'guest'
+
+# should sellers only get their money only when they are online? (otherwise the plugin will attempt to pay the offline player)
+# with some currency plugins this option is automatically enabled
+# the sellers will still be notified about sold items even if this is false
+# SiftVanilla: the economy (Vault) pays offline players, so sellers are paid at once.
+only-give-money-on-join: false
+
+# some economy plugins take time to load, (especially on synced servers) with this setting you can
+# control how many seconds should we wait before giving money to player after login
+delay-money-give-seconds: 3
+
+number-formatting:
+  # modes:
+  # 0 - formatted (customizable, look at the formatted part)
+  # 1 - short (1K)
+  # 2 - raw (1000.4242421412)
+  mode: 0
+  # https://docs.oracle.com/javase/tutorial/i18n/format/decimalFormat.html
+  # SiftVanilla: whole dollars with thousands separators ($10,000).
+  formatted: "#,##0"
+  # format: language_COUNTRY
+  short: "en_US"
+
+# 1 - HH:MM:SS, for example 01:25:35
+# 2 - short format, for example 20m
+# 3 - text format, for example 01h 25m 35s
+timer-format: 3
+
+# https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/text/SimpleDateFormat.html
+# some examples:
+# - day/month/year (most used) format: dd/MM/yyyy hh:mm:ss
+# - month/day/year (usa) format: MM/dd/yyyy h:mm:ss a
+# - year/month/day (default) format: yyyy/MM/dd hh:mm:ss
+date-format: "d MMM yyyy, HH:mm"
+
+# after how long should items expire?
+# in seconds
+# SiftVanilla: 48 hours.
+item-expire-time: 172800
+
+# after how long should items get deleted?
+# only starts if the item have expired
+# in seconds
+# SiftVanilla: expired items wait 7 days to be taken back, then move to /ah deleted (staff can still restore them).
+item-deletion-time: 604800
+
+# the minimum price that items can be sold for in the auction house
+# you can override this for each currency in the currencies.yml
+min-price: 1
+
+# the maximum price that items can be sold for in the auction house
+# you can override this for each currency in the currencies.yml
+# set to -1 to disable
+max-price: 10000000000
+
+# what menu should be opened when the /ah or /ah open command is ran without any arguments?
+# it is recommended to chose main (the primary auction menu) or category (the category selector)
+# possible values: main, category, my-items, expired-items, history, deleted
+default-menu: "main"
+
+# what input method should the /ah search or the [search] action use?
+# possible options:
+# - sign
+# - chat
+# - anvil
+# you can customize the texts in the lang.yml -> input section
+search-mode: "sign"
+
+# should sign input be disabled? if this setting is enabled, the plugin will not listen for packets
+# this doesn't really affect performance, however it can make packet errors and spark reports easier to read
+# make sure that the search-mode is not set to "sign"!
+# changes will only take effect after a restart
+disable-sign-input: false
+
+# if true, even if there is only 1 loaded currency, the selector will show
+force-currency-selector: false
+
+# if disabled, the currency selector will never show
+# SiftVanilla: one currency (money), so never.
+enable-currency-selector: false
+
+# how often should players be able to refresh guis?
+# this doesn't impact performance too much, however you should not set it too low
+gui-refresh-cooldown-milliseconds: 100
+
+# how many threads should the plugin use to load gui items?
+# you can tweak this to your server size, most servers are fine with a single thread, and large servers might need more, 2 is a good middle ground for most servers
+# changes will only take effect after a restart
+gui-loading-threads: 2
+
+# what is the largest item that can be put on the auction house?
+# this limit is recommended to make sure that people can't slow down the opening by spamming massive items
+# enable the debug mode and reload the plugin to get the item sizes printed in the console when /ah sell is used
+# in bytes, the default limits are very high so they are not a problem, but increase this if people are getting "item too large" messages
+# you can set values to -1 to disable the limits
+content-limit-bytes:
+  item: 5000
+  shulker: 20000
+  bundle: 20000
+
+# in the /ah history gui, how many items should be shown at most?
+# note that this doesn't delete any data, it will just not request more than the selected amount
+# set to -1 to allow unlimited
+max-history-length: -1
+
+# if enabled, /ah history will show all auctions made instead of only showing ones related to the player
+# if disabled, you can still access this data with the /ahadmin history admin command
+show-global-history: false
+
+# if enabled, players will be able to skip the purchase confirmation by shift + left-clicking on items they want to buy in the auction gui
+allow-confirmation-skipping: false
+
+# if enabled, the guis/confirm-purchase-gui.yml will be used, when an item is clicked in the auction house,
+# a gui will open asking for a confirmation before purchasing the item
+auction-purchase-confirmation: true
+
+# if enabled, the guis/confirm-listing-gui.yml will be generated in the guis folder and when an item is sold with /ah sell,
+# a gui will open with the listing details asking for a confirmation before listing the item
+# SiftVanilla: on, so a typo in the price can be caught before the item is listed.
+auction-listing-confirmation: true
+
+# if enabled, an expired-items-gui.yml will be generated in the guis folder where the player's expired items will be shown
+# and the my items gui will only show the player's active items
+# note: to make this gui accessible, you will have to manually edit gui files and add an item with a "[MENU] expired-items" action
+# requires a restart to enable
+separate-expired-items: true
+
+# you must define at least 1 alias for both
+# requires a restart to update
+# SiftVanilla: plugins/SiftCore/commands.yml must have "ah: yield-to: AxAuctions", otherwise SiftCore's own /ah
+# shadows these (SiftCore then keeps /ah only while AxAuctions is not running).
+command-aliases:
+  auction:
+    - "ah"
+    - "auction"
+    - "auctionhouse"
+    - "axah"
+  admin:
+    - "ahadmin"
+    - "auctionadmin"
+    - "axahadmin"
+
+# list of items that CAN'T be sold in the auction house
+#
+# supported regex: (optional)
+# - 'name' #  only 'name' is disallowed
+# - 'name*' #  disallows text starting with 'name'
+# - '*name' #  disallows text ending with 'name'
+# - '*name*' #  disallows text containing 'name'
+#
+# you can use some sections from our item builder: (https://docs.artillex-studios.com/item-builder.html)
+#  > name
+#  > material / type
+#  > custom-model-data (only the old variant)
+# SiftVanilla: the same list as SiftCore's own auction house (operator and creative-only items, spawn eggs).
+blacklist-items:
+  - material: "BARRIER"
+  - material: "BEDROCK"
+  - material: "COMMAND_BLOCK"
+  - material: "CHAIN_COMMAND_BLOCK"
+  - material: "REPEATING_COMMAND_BLOCK"
+  - material: "COMMAND_BLOCK_MINECART"
+  - material: "STRUCTURE_BLOCK"
+  - material: "STRUCTURE_VOID"
+  - material: "JIGSAW"
+  - material: "LIGHT"
+  - material: "DEBUG_STICK"
+  - material: "KNOWLEDGE_BOOK"
+  - material: "TEST_BLOCK"
+  - material: "TEST_INSTANCE_BLOCK"
+  - material: "*_SPAWN_EGG"
+
+# should be plugin notify you if there is a new update?
+update-notifier:
+  # if enabled, it will display the message in the console
+  enabled: true
+  # if enabled, it will broadcast the update message to all players who have the <plugin-name>.update-notify permission
+  on-join: false
+
+# in case an exploit is found, if enabled, the plugin will disable some (or all) features to prevent people from abusing them on your server
+# changes will only take effect after a restart
+enable-safety: true
+
+# prints out a lot of information about the plugin in the console
+# this can cause a lot of spam, only use if a developer asks you to
+debug: false
+
+# do not change this
+version: 20

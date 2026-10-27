@@ -1,0 +1,96 @@
+# Text of the combat tag, combat logging, kill credit, death messages and kill streaks (/combat).
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+
+combat:
+  tag:
+    action-bar: "<primary>In combat <accent><time>"
+    # The combat timer on the boss bar, for players who picked it (Combat timer setting).
+    boss-bar: "<primary>In combat <accent><time>"
+    ended: "<primary>You are no longer in combat."
+    ended-title: "<primary>Out of combat"
+    # When a hit puts a player in combat (not when it starts the timer again). Entering combat alert setting.
+    started: "<primary>You are in combat with <name>! <secondary>Don't log out for <accent><time></accent>."
+    started-title: "<error>In combat with <name>"
+    started-staff: "<primary>Staff put you in combat. <secondary>Don't log out for <accent><time></accent>."
+    started-staff-title: "<error>In combat"
+  # The killer's own result after a player kill (Kill confirmation setting).
+  kill:
+    counted: "<primary>Your kill on <name> counted. <secondary>Kill streak <accent><streak></accent>."
+    counted-title: "<primary>Kill counted <secondary>streak <accent><streak>"
+    not-counted: "<primary>Your kill on <name> didn't count: <secondary><reason>."
+    # Used when the reason must stay private (same IP address) or came from another plugin.
+    not-counted-plain: "<primary>Your kill on <name> didn't count."
+    not-counted-title: "<primary>Kill didn't count"
+  blocked:
+    command: "<primary>You can't use that in combat. <accent><time></accent> left."
+    ender-pearl: "<primary>You can't throw ender pearls in combat. <accent><time></accent> left."
+    elytra: "<primary>You can't fly in combat. <accent><time></accent> left."
+    spawn: "<primary>You can't go into spawn in combat. <accent><time></accent> left."
+  logout:
+    announce: "<primary><name> <secondary>logged out in combat."
+    announce-killed: "<primary><name> <secondary>logged out in combat. <primary><killer> <secondary>gets the kill."
+  death:
+    killed: "<primary><victim> <secondary>was killed by <primary><killer><secondary>."
+    killed-using: "<primary><victim> <secondary>was killed by <primary><killer> <secondary>using <primary><item><secondary>."
+    # Only the player who died sees these (Death location and Death recap settings).
+    location: "<secondary>You died at <accent><x>, <y>, <z></accent> in <primary><world><secondary>."
+    # The same while Streamer mode hides coordinates.
+    location-hidden: "<secondary>You died in <primary><world><secondary>."
+    recap: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left."
+    recap-using: "<primary><killer> <secondary>had <accent><hearts></accent> hearts left, using <primary><item><secondary>."
+  streak:
+    reached: "<primary><name> <secondary>is on a kill streak of <accent><count></accent>."
+    ended: "<primary><killer> <secondary>ended <primary><victim><secondary>'s kill streak of <accent><count></accent>."
+  status:
+    tagged: "<primary>You are in combat for <accent><time></accent>."
+    clear: "<primary>You are not in combat."
+  admin:
+    status-tagged: "<primary><name> is in combat for <time>. <secondary>Last hit by <attacker>."
+    status-tagged-no-hit: "<primary><name> is in combat for <time>. <secondary>Nobody hit them."
+    status-clear: "<primary><name> is not in combat."
+    tagged: "<primary><name> is now in combat for <time>."
+    untagged: "<primary><name> is no longer in combat."
+    invalid-time: "<primary><secondary><input></secondary> is not a time from 1s to <max>, like 20s or 2m."
+    kills-header: "<primary>Kills of <name> <secondary>page <page>"
+    kills-counted: "<secondary><ago> ago <primary><killer> <secondary>killed <primary><victim><secondary>, counted"
+    kills-not-counted: "<secondary><ago> ago <primary><killer> <secondary>killed <primary><victim><secondary>, not counted: <reason>"
+    kills-empty: "<secondary>No kills on this page."
+  # Sent to staff with siftcore.admin.combat who keep Staff combat alerts on.
+  staff:
+    combat-log: "<primary><name> <secondary>logged out in combat with <time> <secondary>left. Last hit by <primary><attacker><secondary>."
+    combat-log-no-hit: "<primary><name> <secondary>logged out in combat with <time> <secondary>left."
+    not-counted: "<primary><killer><secondary>'s kill on <primary><victim> <secondary>didn't count: <primary><reason><secondary>."
+  reason:
+    same-team: "same team"
+    friends: "friends"
+    same-ip: "same IP address"
+    repeated-pair: "killed again too soon"
+    cancelled: "cancelled by a plugin"
+  # Labels and descriptions of the combat settings (/settings).
+  settings:
+    death-messages: "Death messages"
+    death-messages-description: "Which deaths of other players you see: all, only player kills, only friends and teammates, or none. Your own deaths and kills always show."
+    kill-streak-announcements: "Kill streak announcements"
+    kill-streak-announcements-description: "Show 'X is on a kill streak' and 'Y ended X's streak' lines."
+    combat-log-announcements: "Combat log announcements"
+    combat-log-announcements-description: "Show 'X logged out in combat' lines."
+    combat-timer-display: "Combat timer"
+    combat-timer-display-description: "Where the 'In combat 12s' countdown shows."
+    combat-tag-alert: "Entering combat alert"
+    combat-tag-alert-description: "How you are told you just entered combat (don't log out!)."
+    kill-feedback: "Kill confirmation"
+    kill-feedback-description: "After you kill a player, see whether it counted and your new streak, or why it didn't count."
+    death-coordinates: "Death location"
+    death-coordinates-description: "After you die, a private chat line with where you died."
+    combat-end-notice: "Combat ended notice"
+    combat-end-notice-description: "How you are told you are out of combat."
+    death-recap: "Death recap"
+    death-recap-description: "When a player kills you, see their weapon and the health they had left."
+    staff-combat-alerts: "Staff combat alerts"
+    staff-combat-alerts-description: "Alerts for players who log out in combat, and optionally for kills that didn't count (farming signs)."
+    options:
+      pvp: "Player kills"
+      combat-logs: "Combat logs"
+      combat-logs-and-farming: "Logs and farming"

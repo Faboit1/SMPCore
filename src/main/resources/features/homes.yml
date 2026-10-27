@@ -1,0 +1,19 @@
+# Homes: /sethome [name], /home [name], /delhome <name> and /homes. Changes apply with /sift reload.
+#
+# Names are 1 to 16 letters, digits, _ or - and are not case sensitive (Base and base are the same home).
+# /sethome with a name that already exists moves that home, which works even at the limit.
+
+# How many homes a player may set. Ranks raise it with permission nodes siftcore.homes.<number> (the highest
+# number a player has wins), or siftcore.homes.unlimited. Suggested LuckPerms nodes per rank:
+#   prospector siftcore.homes.6, baron siftcore.homes.15, tycoon siftcore.homes.40
+default-limit: 2
+
+# How long players stand still before /home teleports them (moving or taking damage cancels it). 0s = at once.
+# Players with siftcore.teleport.bypass-warmup skip it. Nobody can teleport while in combat.
+warmup: 3s
+
+# Time between two home teleports of the same player (siftcore.bypass.cooldown skips it).
+cooldown: 5s
+
+# Worlds where homes can't be set or used. Homes can never be set inside the protected spawn area.
+disabled-worlds: []

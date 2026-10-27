@@ -1,0 +1,105 @@
+# Text of the main menu (/menu) and the SiftVanilla button in the pause screen.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# The pause-screen labels are read once at startup: changes to them apply after a restart.
+
+hub:
+  title: "SiftVanilla"
+  # The one line above the menu's buttons: your money and shards. What each button opens is in its tooltip.
+  body:
+    - "<primary><icon:money> <balance>   <icon:shard> <shards><amount> shards</shards>"
+  menu:
+    label: "Menu"
+    description: "Everything on SiftVanilla in one place"
+  links:
+    label: "Links"
+    description: "Rules, Discord and the store"
+    title: "Links"
+  unavailable: "<primary>That isn't available right now."
+  # Text of the SiftVanilla button in the pause screen. Changes apply after a restart.
+  pause-menu:
+    title: "SiftVanilla"
+    # A line above the buttons; "" shows none (buttons only: each button's tooltip says where it goes).
+    body: ""
+  # The label and the tooltip of each entry's button, in the main menu and the pause-screen menu. Their colours and
+  # icons are in features/hub.yml. Pause-screen changes apply after a restart.
+  entries:
+    menu:
+      label: "Main menu"
+      description: "Everything in one place"
+    money:
+      label: "Money"
+      description: "Balance, payments and the leaderboard"
+    shop:
+      label: "Shop"
+      description: "Buy items and spawners"
+    sell:
+      label: "Sell"
+      description: "Sell items for money"
+    auction:
+      label: "Auction house"
+      description: "Buy and sell with other players"
+    claims:
+      label: "Claim box"
+      description: "Items waiting for you"
+    orders:
+      label: "Orders"
+      description: "Ask players to deliver items"
+    spawners:
+      label: "Spawners"
+      description: "Your spawners and their loot"
+    teams:
+      label: "Team"
+      description: "Your team, members and home"
+    friends:
+      label: "Friends"
+      description: "See who's online and add friends"
+    homes:
+      label: "Homes"
+      description: "Teleport to your homes"
+    rtp:
+      label: "Random teleport"
+      description: "Go somewhere new"
+    spawn:
+      label: "Spawn"
+      description: "Back to spawn"
+    stats:
+      label: "Stats"
+      description: "Your stats and the leaderboards"
+    crates:
+      label: "Crates"
+      description: "Open crates with your keys"
+    kits:
+      label: "Kits"
+      description: "Starter, daily and rank kits"
+    tpa:
+      label: "Teleport to a player"
+      description: "Ask a player to teleport to them"
+    bounties:
+      label: "Bounties"
+      description: "Put a price on a player"
+    shards:
+      label: "Shards"
+      description: "Spend <shards>shards</shards> earned while AFK"
+    prices:
+      label: "Prices"
+      description: "What items sell for"
+    settings:
+      label: "Settings"
+      description: "Your personal settings"
+    report:
+      label: "Report a player"
+      description: "Tell staff about someone breaking the rules"
+    rules:
+      label: "Rules"
+      description: "The server rules"
+    cosmetics:
+      label: "Cosmetics"
+      description: "Chat colour, nickname, tags and more"
+    booster:
+      label: "Sell booster"
+      description: "The server-wide sell booster and what comes next"
+    links:
+      label: "Links"
+      description: "Rules, Discord and the store"

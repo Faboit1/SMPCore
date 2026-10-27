@@ -1,0 +1,162 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+# SiftVanilla: your active listings (expired ones have their own menu). Click one to take it down.
+# Bottom row: previous page, back, sort, category, listing slots, expired listings, history, deleted items, next page.
+
+title: "Your listings"
+# a gui can have 1-6 rows
+rows: 6
+# how many items should be shown on a single page?
+page-size: 45
+# should the gui auto update?
+# in ticks, 20 ticks = 1 second
+# set to -1 to disable auto updater
+auto-update-ticks: -1
+
+# ----- ITEMS -----
+
+previous-page:
+  slot: 45
+  material: "ARROW"
+  conditions:
+    - "%current_page% > 1"
+  name: "&fPrevious page"
+  lore:
+    - "&7You're on page %current_page% of %max_page%"
+  actions:
+    - "[PAGE] previous"
+    - "[SOUND] ui.button.click|0.25|1"
+
+main:
+  slot: 46
+  material: "OAK_DOOR"
+  name: "&fBack"
+  lore:
+    - "&7To the auction house"
+  actions:
+    - "[MENU] main"
+    - "[SOUND] ui.button.click|0.25|1"
+
+sorting-newest:
+  slot: 47
+  material: "HOPPER"
+  conditions:
+    - "%selected_sorting_raw% == newest"
+  name: "&fSort"
+  lore:
+    - "&7Showing &fnewest first"
+    - "&7Click for the next order"
+  actions:
+    - "[SORTING] oldest|priciest"
+    - "[SOUND] ui.button.click|0.25|1"
+
+sorting-oldest:
+  slot: 47
+  material: "HOPPER"
+  conditions:
+    - "%selected_sorting_raw% == oldest"
+  name: "&fSort"
+  lore:
+    - "&7Showing &foldest first"
+    - "&7Click for the next order"
+  actions:
+    - "[SORTING] cheapest|newest"
+    - "[SOUND] ui.button.click|0.25|1"
+
+sorting-cheapest:
+  slot: 47
+  material: "HOPPER"
+  conditions:
+    - "%selected_sorting_raw% == cheapest"
+  name: "&fSort"
+  lore:
+    - "&7Showing &flowest price first"
+    - "&7Click for the next order"
+  actions:
+    - "[SORTING] priciest|oldest"
+    - "[SOUND] ui.button.click|0.25|1"
+
+sorting-priciest:
+  slot: 47
+  material: "HOPPER"
+  conditions:
+    - "%selected_sorting_raw% == priciest"
+  name: "&fSort"
+  lore:
+    - "&7Showing &fhighest price first"
+    - "&7Click for the next order"
+  actions:
+    - "[SORTING] newest|cheapest"
+    - "[SOUND] ui.button.click|0.25|1"
+
+# this will only work if you have the categories enabled!
+# SiftVanilla: steps through the categories in place (the category menu always returns to the auction house).
+category-switch:
+  slot: 48
+  material: "COMPARATOR"
+  conditions:
+    - "%categories_enabled% == true"
+  name: "&fCategory"
+  lore:
+    - "&7Showing &f%selected_category%"
+    - "&7Click for the next category"
+    - "&7Shift click to reset it"
+  actions:
+    - "[CATEGORY]"
+    - "[SOUND] ui.button.click|0.25|1"
+
+slots:
+  slot: 49
+  material: "NAME_TAG"
+  name: "&fListing slots"
+  lore:
+    - "&7You use &f%sell_count% &7of &f%sell_limit%"
+    - "&7Ranks give more"
+
+# this will only work if you have the separate-expired-items setting enabled in the config!
+expired-items:
+  slot: 50
+  material: "CHEST"
+  conditions:
+    - "%expired_items_enabled% == true"
+  name: "&fExpired listings"
+  lore:
+    - "&7Items waiting &f%expired_count%"
+    - "&7Click to take them back"
+  actions:
+    - "[MENU] expired-items"
+    - "[SOUND] ui.button.click|0.25|1"
+
+history:
+  slot: 51
+  material: "BOOK"
+  name: "&fHistory"
+  lore:
+    - "&7Your sales and purchases"
+    - "&7Click to see them"
+  actions:
+    - "[MENU] history"
+    - "[SOUND] ui.button.click|0.25|1"
+
+deleted:
+  slot: 52
+  material: "PAPER"
+  name: "&fDeleted items"
+  lore:
+    - "&7Expired listings you didn't take back"
+    - "&7Click to see them"
+  actions:
+    - "[MENU] deleted"
+    - "[SOUND] ui.button.click|0.25|1"
+
+next-page:
+  slot: 53
+  material: "ARROW"
+  conditions:
+    - "%current_page% < %max_page%"
+  name: "&fNext page"
+  lore:
+    - "&7You're on page %current_page% of %max_page%"
+  actions:
+    - "[PAGE] next"
+    - "[SOUND] ui.button.click|0.25|1"

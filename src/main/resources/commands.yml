@@ -1,0 +1,11 @@
+# Every SiftCore command can be turned off, given different aliases, or given a cooldown here.
+# Only list the commands you want to change; anything not listed keeps its defaults.
+#
+#   <command name>:
+#     enabled: true          # false removes the command entirely
+#     aliases: [hub, m]      # replaces the built-in aliases
+#     cooldown: 3s           # per-player cooldown of the command and its subcommands (bypass: siftcore.bypass.cooldown)
+#     yield-to: AxAuctions   # leaves the command to that plugin while it runs; SiftCore's takes over without it
+#
+# Alias, enabled and yield-to changes apply after a restart. Cooldown changes apply with /sift reload.
+commands: {}

@@ -1,0 +1,63 @@
+# Stats and leaderboards: kills, deaths, streaks, playtime, mobs killed, blocks mined and money earned.
+# Changes apply with /sift reload.
+
+# How often changed stats are written to the database. Stats are also written when a player leaves and when the
+# server stops, so a normal restart loses nothing; this only limits what a crash could lose.
+save-interval: 60s
+
+# How long the stats of an offline player stay in memory after someone looked at them (/stats <player>).
+keep-offline: 5m
+
+leaderboards:
+  # How often the leaderboards are rebuilt. Each rebuild first saves changed stats, then runs one database query
+  # per leaderboard off the main threads. /top, the stats menu and placeholders always read the last rebuild.
+  refresh: 60s
+  # Places kept per leaderboard (10 to 100). Placeholders can read places 1 to this number, and the leaderboard
+  # dialogs list them all in one scrolling page.
+  size: 100
+  # Lines per page of /top typed in the console (players see the whole leaderboard in one dialog).
+  page-size: 10
+  # Players need at least this many kills to appear on the KDR leaderboard.
+  kdr-min-kills: 25
+
+blocks-mined:
+  # Mining counts in survival and adventure only, never in creative or spectator.
+  # Blocks that break instantly (grass, flowers, crops, torches) count too when true.
+  count-instant-blocks: false
+  # A block that a player placed doesn't count when it is mined within this long after it was placed, so
+  # placing and breaking blocks can't be used to farm the stat. Blocks moved by pistons keep their time.
+  # 0s turns this off.
+  ignore-placed-for: 15m
+  # How many recently placed blocks are remembered (the oldest are forgotten first). About 100 bytes each.
+  placed-memory: 50000
+  # Blocks that never count, by name. The defaults grow back by themselves, so a farm could be harvested forever
+  # without mining anything. Use [] to count every block.
+  ignore:
+    - melon
+    - pumpkin
+    - cactus
+    - bamboo
+    - sugar_cane
+    - kelp
+    - kelp_plant
+    - cocoa
+    - chorus_plant
+    - chorus_flower
+
+money-earned:
+  # Money a player receives with one of these ledger kinds counts as earned: selling to the server, auction
+  # sales, filling orders, bounties, spawner loot sales and crate money. Payments between players never count.
+  # Other plugins pay through Vault with the kind vault_<plugin name in lowercase>; vault_axauctions counts
+  # AxAuctions sales.
+  kinds:
+    - sell
+    - ah_sale
+    - order_fill
+    - bounty_claim
+    - spawner_sell
+    - crate_reward
+    - vault_axauctions
+  # Taxes taken from the same player in the same transaction are subtracted from what they earned.
+  tax-kinds:
+    - ah_tax
+    - order_tax

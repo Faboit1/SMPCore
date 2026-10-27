@@ -1,0 +1,41 @@
+# The settings dialog (/settings, and Settings in the main menu and the pause screen).
+# Every feature adds its own settings into shared groups (Chat, Sounds, Privacy...); their text lives in that
+# feature's lang file. This file shapes the dialog and sets the server's defaults. The dialog is buttons only: one
+# coloured button per group, then one button per setting showing its value ("Sounds: ON"); a click changes it at once,
+# and hovering a button says what it does. Players can also search their settings, see what they changed and reset a
+# group or everything; staff use /sift settings for other players.
+
+# When a player can only see one group of settings, open that group directly instead of a list with one entry.
+skip-single-group: true
+
+# The server can override any setting (by its id, as in docs/features/settings.md) in three ways:
+#   hidden:   settings left out of the dialog, commands and placeholders. Everyone gets the server's value for them:
+#             its lock below, else its default below, else the built-in default. What players chose before is kept
+#             and comes back if the setting is shown again. For example: [hide-coordinates]
+#   defaults: what players who never changed a setting get (setting id: value). A player who picks the default in
+#             the dialog follows this from then on, so changing it here later reaches them too.
+#   locked:   values forced on everyone (setting id: value), shown as "set by the server" and not changeable.
+# Values: true/false for switches, an option id for choices, a whole number for numbers. Add the defaults and
+# locked sections below when you need them, for example:
+#   defaults:
+#     feedback-channel: chat
+#     sound-volume: 60
+#   locked:
+#     quiet-in-combat: false
+# Problems (an unknown id, a value a setting can't take) are logged at startup and reload, and /sift selftest
+# lists them.
+hidden: []
+
+# Groups can move in the group list, get another icon (an icons.yml name) or another button colour. Add a
+# categories section when you need it, for example to put Sounds first and give Privacy the star icon in gold:
+#   categories:
+#     sound:
+#       order: 5
+#     privacy:
+#       icon: star
+#       color: "#FFD700"
+# The built-in order: chat 10, social 20, announcements 30, sound 40, teleport 50, economy 60, market 70, combat 80,
+# display 90, privacy 100, afk 110, crates 120, spawners 130, staff 900.
+# The built-in colours: chat #7DD3FC, social #F9A8D4, announcements #FDE68A, sound #5EEAD4, teleport #C4B5FD,
+# economy #1AFF1A (money green), market #FDBA74, combat #FF7B7B, display #A3E635, privacy #CBD5E1,
+# afk #915DFF (shards purple), crates #FFC94D, spawners #E879F9, staff #60A5FA.

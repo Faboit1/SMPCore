@@ -1,0 +1,215 @@
+# Cosmetic rank perks: chat colours (/chatcolor), nicknames (/nick), chat tags (/tags), rank join and leave lines
+# (/joinmessage) and kill effects (/killeffect). They change how things look, never how the game plays.
+# Who gets what is decided by permissions (the LuckPerms rank groups); docs/features/cosmetics.md lists the nodes.
+# A player who loses a perk (an expired rank) silently gets the default; their choice is kept for when they rebuy
+# (a nickname only for nicknames.hold, see below).
+# Durations are written like 30s, 5m or 1h.
+
+# Turns every cosmetic off at once: names, tags, colours and join lines show as without this feature, and no kill
+# effect plays. Players' choices are kept.
+enabled: true
+
+colors:
+  # The vanilla colours players with siftcore.chat.color (chat) and siftcore.command.nick (nicknames) can pick, in
+  # menu order. Red and green are kept for errors, kills and money, and colours too dark to read are refused, so
+  # red, dark_red, green, dark_green, black, dark_blue and dark_gray are skipped if listed.
+  basic:
+    - gold
+    - yellow
+    - aqua
+    - dark_aqua
+    - blue
+    - light_purple
+    - dark_purple
+    - gray
+  # Ready-made hex colours and gradients for players with siftcore.chat.color.hex or siftcore.nick.gradient. They can
+  # also type their own. id: { name: shown in the menus, style: "#RRGGBB" for a colour or "#RRGGBB:#RRGGBB" for a
+  # gradient }. Presets that break the rules below are skipped (and reported).
+  presets:
+    peach: {name: "Peach", style: "#FFB07A"}
+    orange: {name: "Orange", style: "#FF8800"}
+    sky: {name: "Sky", style: "#87CEEB"}
+    orchid: {name: "Orchid", style: "#E58BFF"}
+    river: {name: "River", style: "#5FA8FF"}
+    champagne: {name: "Champagne", style: "#FFD27A"}
+    aquamarine: {name: "Aquamarine", style: "#7FFFD4"}
+    lilac: {name: "Lilac", style: "#C8A2C8"}
+    ocean: {name: "Ocean", style: "#55FFFF:#5555FF"}
+    candy: {name: "Candy", style: "#FF6AD5:#B26BFF"}
+    lemonade: {name: "Lemonade", style: "#FFFF55:#FFAA00"}
+    aurora: {name: "Aurora", style: "#55FFFF:#B26BFF"}
+    frost: {name: "Frost", style: "#FFFFFF:#55FFFF"}
+    lavender: {name: "Lavender", style: "#E58BFF:#8C9EFF"}
+    royal: {name: "Royal", style: "#FFD27A:#B26BFF"}
+    dusk: {name: "Dusk", style: "#5FA8FF:#FF6AD5"}
+    honey: {name: "Honey", style: "#FFD27A:#FFAA00"}
+    nebula: {name: "Nebula", style: "#B26BFF:#5FA8FF"}
+  # How different a colour must be from the error red and the money green of the palette (config.yml), as a
+  # CIEDE2000 colour difference: below 2 people can't tell two colours apart, 20 is clearly a different colour.
+  # Lighter, darker or duller shades of the same red or green (within 25 degrees of hue, like sea green #3CB371)
+  # are refused up to a difference of 40. Gradients are checked along their whole length, so a blend that passes
+  # through red is refused too.
+  min-distance: 20
+  # How readable a colour must be on the chat background, as a contrast ratio against black (1 to 21). 3 refuses
+  # dark gray, dark blue and dark red; 4.5 would also refuse blue and dark purple.
+  min-contrast: 3.0
+  # More colours nobody may pick, as hex (#915DFF), on top of the palette's error and money colours. Colours close
+  # to them are refused the same way. For example "#915DFF" keeps the shard purple and "#3CC4EE" the brand aqua for
+  # the server (then also remove aqua, dark_aqua, light_purple and dark_purple from basic above).
+  reserved: []
+
+nicknames:
+  # Nicknames are letters, digits and underscores, like Minecraft names.
+  min-length: 3
+  max-length: 16
+  # No nickname may contain these words in any case (also with underscores in between), so nobody poses as staff.
+  # Nicknames also may not be another player's name or nickname, or contain a word of the chat filter.
+  reserved-words:
+    - admin
+    - mod
+    - owner
+    - staff
+    - helper
+    - console
+    - server
+    - siftvanilla
+  # How often a player can change their nickname (staff changes don't count).
+  cooldown: 30s
+  # How long a nickname stays reserved for its holder after they were last able to show it: online with the
+  # nickname perk, or when they last left with it. Until then nobody else can take it, even while the holder's rank
+  # has run out or they are away. After that another player may take it; the holder loses it and is told when they
+  # next join. A nickname that becomes a new player's real name is never reserved. 0s frees it as soon as the
+  # holder can't show it.
+  hold: 14d
+
+tags:
+  # The tags players can show before their name in chat (/tags). The key is the tag's id (lowercase letters, digits,
+  # - and _). Changing a key forgets who picked that tag.
+  #   display:     how the tag looks, in MiniMessage: colours, gradients and <bold> are fine (no clicks or hovers)
+  #   description: one line shown when the tag is hovered in /tags
+  #   permission:  who can pick it. The shipped tags use siftcore.tags.prospector, .baron and .tycoon; each rank's
+  #                node includes the tags of the ranks below it. Sold tag packs can use a node of their own.
+  #   month:       optional, like "2026-10": a monthly exclusive. It can only be picked during that month, and
+  #                whoever picks it then keeps it for good (even without the permission later).
+  #   hint:        optional, what unlocks it, shown on locked tags ("Baron rank")
+  list:
+    miner:
+      display: "<gray>[<#9CCBFF>Miner<gray>]"
+      description: "Digs first, asks later"
+      permission: siftcore.tags.prospector
+      hint: "Prospector rank"
+    settler:
+      display: "<gray>[<#9CCBFF>Settler<gray>]"
+      description: "Here to stay"
+      permission: siftcore.tags.prospector
+      hint: "Prospector rank"
+    explorer:
+      display: "<gray>[<#5FA8FF>Explorer<gray>]"
+      description: "Has seen the edge of the map"
+      permission: siftcore.tags.prospector
+      hint: "Prospector rank"
+    trader:
+      display: "<gray>[<#FFD27A>Trader<gray>]"
+      description: "Buys low, sells high"
+      permission: siftcore.tags.baron
+      hint: "Baron rank"
+    builder:
+      display: "<gray>[<#FFD27A>Builder<gray>]"
+      description: "Makes the map prettier"
+      permission: siftcore.tags.baron
+      hint: "Baron rank"
+    grinder:
+      display: "<gray>[<#FFAA00>Grinder<gray>]"
+      description: "Never logs off"
+      permission: siftcore.tags.baron
+      hint: "Baron rank"
+    warrior:
+      display: "<gray>[<#FFAA00>Warrior<gray>]"
+      description: "Lives for the fight"
+      permission: siftcore.tags.baron
+      hint: "Baron rank"
+    nightowl:
+      display: "<gray>[<#87CEEB>Night Owl<gray>]"
+      description: "Online when everyone sleeps"
+      permission: siftcore.tags.baron
+      hint: "Baron rank"
+    lucky:
+      display: "<gray>[<#FFFF55>Lucky<gray>]"
+      description: "Things just work out"
+      permission: siftcore.tags.baron
+      hint: "Baron rank"
+    collector:
+      display: "<gray>[<#E58BFF>Collector<gray>]"
+      description: "One of everything, please"
+      permission: siftcore.tags.baron
+      hint: "Baron rank"
+    mogul:
+      display: "<gray>[<gradient:#FF6AD5:#B26BFF>Mogul</gradient><gray>]"
+      description: "Owns half the auction house"
+      permission: siftcore.tags.tycoon
+      hint: "Tycoon rank"
+    legend:
+      display: "<gray>[<gradient:#FFD27A:#FFAA00>Legend</gradient><gray>]"
+      description: "Stories are told about them"
+      permission: siftcore.tags.tycoon
+      hint: "Tycoon rank"
+    kingpin:
+      display: "<gray>[<gradient:#E58BFF:#5FA8FF>Kingpin</gradient><gray>]"
+      description: "Runs the show"
+      permission: siftcore.tags.tycoon
+      hint: "Tycoon rank"
+    royal:
+      display: "<gray>[<gradient:#B26BFF:#5FA8FF>Royal</gradient><gray>]"
+      description: "Born for the throne"
+      permission: siftcore.tags.tycoon
+      hint: "Tycoon rank"
+    phantom:
+      display: "<gray>[<gradient:#FFFFFF:#87CEEB>Phantom</gradient><gray>]"
+      description: "Here one moment, gone the next"
+      permission: siftcore.tags.tycoon
+      hint: "Tycoon rank"
+    nova:
+      display: "<gray>[<gradient:#55FFFF:#B26BFF>Nova</gradient><gray>]"
+      description: "Shines brighter than the rest"
+      permission: siftcore.tags.tycoon
+      hint: "Tycoon rank"
+    spooky:
+      display: "<gray>[<gradient:#FF8800:#FFD27A>Spooky</gradient><gray>]"
+      description: "October 2026 exclusive, yours for good once picked"
+      permission: siftcore.tags.tycoon
+      month: "2026-10"
+      hint: "Tycoon rank, October 2026 only"
+
+join-messages:
+  # Rank join and leave lines: players with siftcore.join.message are announced as "Baron Alex joined", and players
+  # with siftcore.join.message.custom can write their own (/joinmessage, /leavemessage). They show even when the
+  # plain join and leave messages are off (features/extras.yml). Vanished staff are never announced, and a brand-new
+  # player still gets the first-join welcome.
+  enabled: true
+  # A player's line shows at most this often; quick rejoins get the plain message (or nothing when that is off).
+  cooldown: 60s
+  # The longest custom message in characters ({name} counts as written).
+  max-length: 40
+
+kill-effects:
+  # Particles and a sound where a victim died, picked by the killer (/killeffect). Purely visual. Never played in the
+  # protected spawn area, and players who turned kill effects off in /settings don't see them.
+  enabled: true
+  # The effects players can pick, in menu order (permission siftcore.killeffect.<id>; siftcore.killeffect.* gives
+  # all): hearts, flames, souls, totem, lightning (a visual-only bolt), notes, ender.
+  effects:
+    - hearts
+    - flames
+    - souls
+    - totem
+    - lightning
+    - notes
+    - ender
+  # The shortest time between two effects of one killer.
+  cooldown: 3s
+  # The most effects played per second on the whole server; kills beyond that play none.
+  max-per-second: 4
+  # How far away (in blocks) players see and hear an effect. The lightning effect's bolt can be seen further, up to
+  # the view distance, so it only strikes when nobody within the larger of this range and the view distance turned
+  # kill effects off in /settings; otherwise it shows its sparks and thunder to those who want them.
+  range: 32

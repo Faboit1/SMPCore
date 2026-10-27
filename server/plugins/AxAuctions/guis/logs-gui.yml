@@ -1,0 +1,94 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+# SiftVanilla: staff log viewer (/ahadmin logs [player]).
+
+title: "Auction log"
+# a gui can have 1-6 rows
+rows: 6
+# how many items should be shown on a single page?
+page-size: 45
+
+# ----- LOG TYPES -----
+
+PURCHASE:
+  material: GREEN_BANNER
+  name: "&fPurchase"
+  lore:
+    - "&7Buyer &f%player%"
+    - "&7Seller &f%seller%"
+    - "&7Item &f%item%"
+    - "&7Price %price%"
+    - "&7Date &f%date%"
+
+CREATE_AUCTION:
+  material: YELLOW_BANNER
+  name: "&fNew listing"
+  lore:
+    - "&7Seller &f%player%"
+    - "&7Item &f%item%"
+    - "&7Price %price%"
+    - "&7Date &f%date%"
+
+CANCEL_SELF:
+  material: ORANGE_BANNER
+  name: "&fTaken down by the seller"
+  lore:
+    - "&7Seller &f%player%"
+    - "&7Item &f%item%"
+    - "&7Price %price%"
+    - "&7Date &f%date%"
+
+CANCEL_OTHER:
+  material: RED_BANNER
+  name: "&fRemoved by staff"
+  lore:
+    - "&7Staff &f%player%"
+    - "&7Seller told &f%notify-seller%"
+    - "&7Item returned &f%give-back%"
+    - "&7Seller &f%seller%"
+    - "&7Item &f%item%"
+    - "&7Price %price%"
+    - "&7Date &f%date%"
+
+TAKE_ITEM:
+  material: WHITE_BANNER
+  name: "&fItem taken"
+  lore:
+    - "&7Player &f%player%"
+    - "&7Menu &f%menu%"
+    - "&7Item &f%item%"
+    - "&7Date &f%date%"
+
+# ----- ITEMS -----
+
+previous-page:
+  slot: 45
+  material: "ARROW"
+  conditions:
+    - "%current_page% > 1"
+  name: "&fPrevious page"
+  lore:
+    - "&7You're on page %current_page% of %max_page%"
+  actions:
+    - "[PAGE] previous"
+    - "[SOUND] ui.button.click|0.25|1"
+
+information:
+  slot: 49
+  material: "BOOK"
+  name: "&fAuction log"
+  lore:
+    - "&7Every auction house action,"
+    - "&7newest first"
+
+next-page:
+  slot: 53
+  material: "ARROW"
+  conditions:
+    - "%current_page% < %max_page%"
+  name: "&fNext page"
+  lore:
+    - "&7You're on page %current_page% of %max_page%"
+  actions:
+    - "[PAGE] next"
+    - "[SOUND] ui.button.click|0.25|1"

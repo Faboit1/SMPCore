@@ -1,0 +1,77 @@
+# AFK: noticing players who are away from the keyboard, kicking the ones who stay away, and the AFK zone where
+# players earn shards just by being there. Changes apply with /sift reload.
+
+detection:
+  # A player is AFK after this long without doing anything real (10s to 2h). Real means: looking around, chatting,
+  # running commands, using blocks, entities or menus, attacking, or walking somewhere new.
+  # These don't count, so they can't keep anyone from going AFK: being carried by water, bubble columns, pistons,
+  # minecarts or boats, knockback, jumping in place, walking back and forth or in circles, turning at a perfectly
+  # steady rate or between the same few directions, and repeating the same chat line, command or click.
+  afk-after: 5m
+  # How many degrees the view has to turn to count as looking around (1 to 45).
+  look-threshold: 5
+  # Right after /afk, activity doesn't end the AFK status for this long, so the keys pressed to type the command
+  # don't undo it (0s to 30s).
+  manual-grace: 3s
+  # Looking around and walking count only this long after the player last did something (chatted, ran a command,
+  # used a block, entity or menu, attacked). Anti-AFK scripts that keep turning the view in a random, human-looking
+  # way then still end up AFK. 0s = no limit (0s to 24h).
+  motion-limit: 15m
+
+kick:
+  # Kick players who stay AFK outside the AFK zone. Players with siftcore.afk.bypass-kick are never kicked.
+  enabled: true
+  # Time spent AFK outside the AFK zone before the kick (10s to 24h). It is counted from the moment the player is
+  # marked AFK, so with the defaults a player is kicked after 5m + 30m without activity.
+  after: 30m
+  # Warn the player in chat this long before the kick (0s = no warning; shorter than "after").
+  warn-before: 1m
+
+zone:
+  # The AFK zone: players inside earn shards (see rewards) and are never kicked for being AFK.
+  enabled: true
+  # Where the zone is. /afkzone pos1, /afkzone pos2 and /afkzone set change it in game (saved in
+  # data/afk-zone.yml, which then wins over this section until /afkzone reset).
+  # anchor: spawn    = from, to and arrival are offsets from the world's spawn point, so the zone moves with
+  #                    /setspawn. The default is a box just east of the spawn, inside the protected spawn area.
+  #         absolute = from, to and arrival are world coordinates.
+  anchor: spawn
+  world: world
+  # Two opposite corners, both included: "x y z".
+  from: "16 -16 -6"
+  to: "28 24 6"
+  # Where /afkzone teleports to: auto (the ground in the middle of the zone), "x y z" or "x y z yaw pitch".
+  # It has to be inside the zone.
+  arrival: auto
+  # Players inside the zone can't be hurt and can't hurt anyone, even when the zone is outside the protected
+  # spawn area.
+  safe: true
+  # Standing still before /afkzone teleports (moving or taking damage cancels it). Nobody can teleport in combat.
+  teleport-warmup: 3s
+  # Time between two /afkzone teleports of the same player. 0s = none.
+  teleport-cooldown: 10s
+
+rewards:
+  # Every <interval> spent in the zone without a break pays <shards> shards (5s to 1h). Leaving the zone or being
+  # combat-tagged starts the interval over. Only one account per connection earns at a time.
+  interval: 60s
+  shards: 1
+  # Rank tiers: a player with siftcore.afk.reward.<tier> gets that many shards per interval instead (the highest
+  # granted tier wins; never less than "shards"). Give the nodes to your LuckPerms groups; operators don't get them
+  # by default.
+  # Empty on SiftVanilla: shards buy crate keys, so more shards for paying players is not sold
+  # (docs/monetization.md). Example: { event: 2 }
+  ranks: {}
+  # The most shards one account can earn in the zone per day, resetting at midnight server time. 0 = no limit.
+  daily-cap: 0
+  # How often the action bar shows "AFK zone: next shard in 42s" again while in the zone (0s = never, else at
+  # least 1s). At 1s the countdown goes down by one every second. Players can also turn it off in their settings.
+  status-every: 1s
+  # Played to a player the moment the zone pays them shards. Each player's sound settings apply (their volume,
+  # success sounds and quiet during combat). sound is any sound id, like block.amethyst_block.chime or
+  # entity.experience_orb.pickup; volume 0 to 2, pitch 0.5 to 2.
+  sound:
+    enabled: true
+    sound: block.amethyst_block.chime
+    volume: 0.8
+    pitch: 1.2

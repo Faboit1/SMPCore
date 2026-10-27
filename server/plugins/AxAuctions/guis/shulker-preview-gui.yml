@@ -1,0 +1,27 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+# SiftVanilla: the container's contents fill rows 2-4; plain light gray panes keep the top and bottom rows free.
+
+title: "Contents"
+# a gui can have 1-6 rows
+rows: 5
+
+# ----- ITEMS -----
+
+item:
+  slot: 4
+
+filler:
+  slot: ["0-8", "36-44"]
+  material: "LIGHT_GRAY_STAINED_GLASS_PANE"
+  name: " "
+
+back:
+  slot: 40
+  material: "OAK_DOOR"
+  name: "&fBack"
+  lore:
+    - "&7To the previous menu"
+  actions:
+    - "[BACK]"
+    - "[SOUND] ui.button.click|0.25|1"

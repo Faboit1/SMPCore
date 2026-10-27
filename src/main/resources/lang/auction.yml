@@ -1,0 +1,209 @@
+# Text of the auction house (/ah) and the claim box (/claims).
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Prices are coloured automatically.
+
+auction:
+  hub:
+    label: "Auction house"
+    description: "Buy and sell items with other players"
+    # The claim box's own main menu button (/claims), shown even when another plugin is the auction house.
+    claims-label: "Claim box"
+    claims-description: "Items waiting for you: purchases, returns and what didn't fit"
+
+  menu:
+    title: "Auction house"
+    listing:
+      - "<secondary>Price <price>"
+      - "<secondary>Seller <primary><seller>"
+      - "<secondary>Ends in <primary><time>"
+    buy-hint: "<secondary>Click to buy"
+    own-hint: "<secondary>Your listing. Click to take it down."
+    staff-hint: "<secondary>Listing <primary>#<id><secondary>. Shift right click to remove it."
+    mine: "<primary>Your listings"
+    mine-lore:
+      - "<secondary>You use <primary><count></primary> of <primary><limit></primary> listing slots"
+      - "<secondary>Click to see them"
+    mine-lore-unlimited:
+      - "<secondary>You have <primary><count></primary> listings up"
+      - "<secondary>Click to see them"
+    claims: "<primary>Claim box"
+    claims-lore:
+      - "<secondary>Items waiting <primary><count>"
+      - "<secondary>Bought, expired and returned items"
+      - "<secondary>Click to open"
+    sell: "<primary>Sell an item"
+    sell-lore:
+      - "<secondary>List the item in your hand"
+      - "<secondary>Click to set a price"
+
+  sort:
+    newest: "Newest"
+    ending-soon: "Ending soon"
+    lowest-price: "Lowest price"
+    highest-price: "Highest price"
+
+  category:
+    all: "All items"
+    blocks: "Blocks"
+    tools: "Tools"
+    combat: "Combat"
+    food: "Food"
+    potions: "Potions"
+    books: "Books"
+    spawners: "Spawners"
+    misc: "Everything else"
+
+  mine:
+    title: "Your listings"
+    lore:
+      - "<secondary>Price <price>"
+      - "<secondary>Ends in <primary><time>"
+    hint: "<secondary>Click to take it down"
+    pending: "<secondary>Being listed"
+    history: "<primary>History"
+    history-lore:
+      - "<secondary>Your last sales and purchases"
+      - "<secondary>Click to see them"
+
+  claims:
+    title: "Claim box"
+    lore:
+      - "<secondary><source>"
+      - "<secondary>Waiting for <primary><time>"
+      - "<secondary>Click to claim"
+    source-auction: "From the auction house"
+    source-other: "From <source>"
+    source-overflow: "Didn't fit in your inventory"
+    claim-all: "<primary>Claim all"
+    claim-all-lore:
+      - "<secondary>Items waiting <primary><count>"
+      - "<secondary>Takes everything that fits in your inventory"
+
+  # The dialogs show the item and buttons; what a button does is in its tooltip (hover it).
+  sell:
+    form-title: "Sell an item"
+    form-price: "Price for all of them, like 1500 or 1.5k"
+    form-amount: "How many"
+    form-button: "Next"
+    form-button-tooltip: "<primary>See the listing before it goes up."
+    confirm-title: "List item"
+    confirm-body: "<primary>List <amount> <item> for <price>?"
+    # Only while the auction house takes a tax (tax in features/auction.yml above 0).
+    confirm-tax: "<secondary>Tax when it sells <tax> (<rate>), you get <earn>"
+    confirm-button-tooltip: "<primary>Put it up for <accent><time></accent>.<newline><secondary>If nobody buys it, it waits in your claim box."
+    # Added to the List it tooltip for players with a listing limit.
+    confirm-slots: "<secondary>Listing slots used <accent><used></accent> of <accent><limit>"
+    # The low price warning (players can turn it off). It never blocks the listing.
+    warning-sell: "<error>That's less than /sell pays you for them (<worth>)."
+    warning-market: "<error>That's far below similar listings: they start at <price> each, you ask <yours> each."
+    confirm-button: "List it"
+    listed: "<primary>Listed <amount> <item> for <price>."
+    nothing-in-hand: "<primary>Hold the item you want to sell."
+    blacklisted: "<primary>That item can't be sold on the auction house."
+    filled-container: "<primary>Empty it first. Containers that hold items can't be sold."
+    too-large: "<primary>That item holds too much data to be sold on the auction house."
+    creative: "<primary>You can't sell items in creative mode."
+    price-range: "<primary>The price for <amount> <item> must be from <min> to <max>."
+    amount-range: "<primary>You can sell 1 to <max> of that."
+    slots-full: "<primary>All <limit> of your listing slots are in use."
+    no-slots: "<primary>You can't list items on the auction house."
+    item-changed: "<primary>The item in your hand changed. Try again."
+    cancelled: "<secondary>Nothing was listed."
+    failed: "<primary>Listing failed. Your item was given back."
+
+  buy:
+    confirm-title: "Buy item"
+    confirm-body:
+      - "<primary>Buy <amount> <item> from <seller> for <price>?"
+      - "<secondary>You have <icon:money> <balance>"
+    confirm-button: "Buy"
+    confirm-button-tooltip: "<primary>Pay the seller now.<newline><secondary>The listing ends in <accent><time></accent> otherwise."
+    done: "<primary>You bought <amount> <item> from <seller> for <price>."
+    done-claim-box: "<primary>You bought <amount> <item> from <seller> for <price>. It's waiting in your claim box (/claims)."
+    gone: "<primary>That listing is gone."
+    own: "<primary>That's your own listing."
+    price-changed: "<primary>The price changed. Have another look."
+    expired: "<primary>That listing just expired."
+    pending: "<primary>That listing is still being put up. Try again in a moment."
+    seller-full: "<primary>The seller can't hold that much money."
+    cancelled: "<secondary>Nothing was bought."
+
+  sold: "<primary><buyer> bought your <amount> <item> for <price>."
+  # The same while the auction house takes a tax: what the seller got after it.
+  sold-taxed: "<primary><buyer> bought your <amount> <item> for <price>. You got <earned> after tax."
+
+  cancel:
+    confirm-title: "Take down listing"
+    confirm-body: "<primary>Take down your <amount> <item> listed for <price>?"
+    confirm-button: "Take it down"
+    confirm-button-tooltip: "<primary>The item comes back to you."
+    keep-button: "Keep it up"
+    done: "<primary>Listing taken down. The item is back in your inventory."
+    done-claim-box: "<primary>Listing taken down. The item is in your claim box (/claims)."
+
+  remove:
+    confirm-title: "Remove listing"
+    confirm-body: "<primary>Remove <seller>'s <amount> <item> listed for <price>?"
+    confirm-button: "Remove"
+    confirm-button-tooltip: "<primary>The item goes to their claim box."
+
+  expired:
+    one: "<primary>Your listing of <amount> <item> expired. It's waiting in your claim box (/claims)."
+    many: "<primary><count> of your listings expired. They're waiting in your claim box (/claims)."
+
+  claim:
+    one: "<primary>Claimed <amount> <item>."
+    many: "<primary>Claimed <count> stacks."
+    partial: "<primary>Claimed what fits. <count> left in your claim box (/claims)."
+    empty: "<secondary>Your claim box is empty."
+    reminder: "<primary>You have <count> waiting in your claim box. <click:run_command:'/claims'><secondary>Click to open it, or use /claims.</click>"
+
+  in-combat: "<primary>You can't use the auction house in combat. <time> left."
+
+  history:
+    title: "Auction history"
+    # <count> is how many the history shows at most (history-size in features/auction.yml).
+    header: "<secondary>Your last <count> sales and purchases, newest first"
+    sold: "<primary>Sold <amount> <item> to <name> for <price><newline><secondary><ago> ago"
+    bought: "<primary>Bought <amount> <item> from <name> for <price><newline><secondary><ago> ago"
+    empty: "<secondary>You haven't sold or bought anything yet."
+
+  # The summary a moment after joining (players can turn it off): what sold since they last left.
+  away:
+    sold-one: "<primary>While you were away, <name> bought your <amount> <item> for <price>."
+    sold-many: "<primary>While you were away, <count> of your listings sold for <earned>:"
+    # The same when some of those sales were taxed.
+    sold-one-taxed: "<primary>While you were away, <name> bought your <amount> <item> for <price>. You got <earned> after tax."
+    sold-many-taxed: "<primary>While you were away, <count> of your listings sold. You got <earned> after tax:"
+    sold-line: "<secondary><amount> <item> to <primary><name></primary> for <price>"
+    sold-more: "<secondary>and <count> more. <click:run_command:'/ah history'>Click to see your history, or use /ah history.</click>"
+
+  # Labels and descriptions of the auction settings (/settings, group Shop, auction & orders).
+  settings:
+    sales: "Auction sale alerts"
+    sales-description: "How you are told one of your listings sold."
+    join-summary: "Auction summary on join"
+    join-summary-description: "When you join, tell you what sold while you were away and what waits in your claim box."
+    price-warning: "Low price warning"
+    price-warning-description: "Warn you when you list an item for much less than /sell or similar listings pay. It never blocks the listing."
+    expiry-alerts: "Expired listing alerts"
+    expiry-alerts-description: "How you are told your listings expired and went to your claim box."
+    hide-own: "Hide my own listings"
+    hide-own-description: "Leave your own listings out when browsing the auction house. They stay in Your listings."
+
+  admin:
+    info:
+      - "<primary>Auction house <secondary><active> active listings from <sellers> sellers, <pending> being listed"
+      - "<secondary>Unreadable rows <primary><unreadable><secondary>, claim box items waiting <primary><claims>"
+      - "<secondary>Next expiry <primary><next>"
+    next-expiry: "in <time>"
+    no-expiry: "none"
+    list-header: "<primary>Listings of <name> <secondary>(<count>)"
+    list-line: "<secondary>#<id> <primary><amount> <item> <secondary>for <price>, ends in <primary><time>"
+    list-empty: "<secondary><name> has no listings."
+    removed: "<primary>Removed listing #<id> of <name>. The item went to their claim box."
+    not-found: "<primary>There is no active listing #<id>."
+    failed: "<primary>Listing #<id> was not removed: <reason>."
+    expired: "<primary>Returned <count> expired listings to their sellers."

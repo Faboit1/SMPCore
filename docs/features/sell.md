@@ -1,0 +1,421 @@
+# Sell (`feature/sell`, id `sell`)
+
+Selling items to the server, the worth table every other feature reads prices from, sell categories with mastery
+levels, the price list, top sellers, and the guard that keeps items from villager trades from ever being sold.
+
+## Commands
+
+| Command | Permission (default) | What it does |
+|---|---|---|
+| `/sell` | `siftcore.command.sell` (everyone) | Opens the sell menu: a 5-row grid to drop items into, a live total and a Sell button, plus Add, Give back and Mastery. Closing the menu gives everything back (players who chose "Closing the sell menu: Sell them" sell the grid when they close it themselves). |
+| `/sell hand` | `siftcore.command.sell.hand` (everyone) | Sells the stack in the main hand. A shulker box in the hand sells what is inside it (an empty plain box sells as an item). |
+| `/sell hand all` | `siftcore.command.sell.hand` | Sells every plain stack of the held item's type from the hotbar, the storage slots and shulker boxes there (never armor or the off hand). Asks first like `/sell all`. |
+| `/sell all` | `siftcore.command.sell.all` (everyone) | Sells every sellable item in the hotbar and the 27 storage slots (never armor or the off hand), including what is inside shulker boxes but never the box itself. Asks first above `sell-all.confirm-above` (or from the player's own "Confirm /sell all from" amount). Players can keep the hotbar or leave shulker boxes shut (`/settings`). |
+| `/sell mastery` | `siftcore.command.sell` | The sell mastery dialog: one button per category, "Mining: level 2 of 5" (or "max level"), whose tooltip has the rate, what was sold and every level (done, the next with what is left, later); each opens the category's page (its rate and progress, "Sell your <category> items" and its prices). Opened with the sell menu's Mastery button, that Sell first gives the menu's grid back, so it sells those items too. |
+| `/sell top` | `siftcore.command.sell` | The ten players who sold the most (base value), laid out like every leaderboard: the viewer's own place ("You are number 3 with $1,200.") and a button per place, "1. Alex $1,200". Players who hide from leaderboards are left out (a hidden viewer is told they have no place). |
+| `/sell history` | `siftcore.command.sell` | The player's last 200 sales (to the server and to buy orders), newest first, with what was sold in the tooltip. |
+| `/sell admin mastery <player> [category]` | `siftcore.admin.sell` (operators) | Shows a player's mastery (every category, or one). Works from the console and for offline players. |
+| `/sell admin mastery <player> <category> set <level>` / `reset` | `siftcore.admin.sell` | Sets a category to the start of a level, or back to 0. Audited (`sell.mastery`). |
+| `/sell admin mastery <player> reset` | `siftcore.admin.sell` | Resets every category of the player, including categories no longer configured. Audited. |
+| `/worth` | `siftcore.command.worth` (everyone) | What the held item sells for (each, the stack, the player's bonus for its category, the shop price and the best buy order). For a shulker box: what its contents sell for. With an empty hand it opens the price list. |
+| `/worth <item>` | `siftcore.command.worth` | The same for any item id (`/worth diamond`). Works from the console. The item name is a link to the price list filtered to it. |
+| `/worth list [search...]` | `siftcore.command.worth` | The price list, optionally searched. |
+
+`siftcore.worth.details` (operators) adds where a price comes from (base price, the recipe it was derived from, or
+an override) to `/worth` and the price list. Every `/sell` command shares the `sell` cooldown from `commands.yml`
+(none by default). Hub entries: `sell` (order 25, opens the menu) and `prices`
+(order 26, "Prices", "See what items sell for", opens the price list).
+
+Combat-tagged players can't sell (`block-in-combat`): `/sell`, `/sell hand`, `/sell hand all`, `/sell all`, category
+selling and the menu's Sell button are refused with "You can't sell in combat. 12s left." The menu stays open; only
+the action is refused.
+
+## Rank multipliers and mastery
+
+`siftcore.sell.multiplier.<tier>` for every tier in `multipliers`. The shipped list is empty: paid ranks sell for the
+same prices as everyone ([monetization](../monetization.md)); the mechanism stays for events and staff. Default false: only permissions given explicitly count (`isPermissionSet && hasPermission`), so
+operators do not get a bonus. With several tiers the highest wins. The rank is read from permissions on the
+player's own thread whenever a sale is worked out, and every minute for placeholders.
+
+**Sell categories** (`categories` in `features/sell.yml`): farming, wood, mining, mob drops, fishing and "Blocks and
+other" (the fallback `other`). An item listed in a category (id, `#tag` or `*` pattern) is in that category; an item
+listed in two categories is a config problem. An unlisted item whose price comes from a recipe takes the category of
+the recipe's most valuable ingredient (worked out when the table is generated: an iron block is mining, bread is
+farming, planks are wood). Everything else is `other`.
+
+**Mastery.** Selling a category's items to the server counts toward its levels (`mastery.levels`, default $50k,
+$250k, $1m, $5m, $25m of base value, the worth before any multiplier). Each level adds `mastery.step` (0.05) to the
+player's multiplier for that category: a sale line pays `worth x (rank + bonus)` (level 5 with no rank multiplier: 1 + 0.25 =
+1.25x). Each category of a sale is rounded down once, with exact decimal math.
+
+- Credit is the base worth of the units the server bought. Units /sell sends to buy orders give none: they stay in
+  the economy (the order's owner collects them and can sell them straight back), so two accounts could otherwise pass
+  one stack back and forth for mastery, for free with the order tax at 0. Items the server doesn't buy give no
+  credit. Only `/sell` counts; spawner and crate sales (`WorthLookup.priceFor`) stay
+  rank-only and give no credit.
+- Stored in `sell_mastery` (migration `V015`), one row per player and category, written inside the sale's own
+  ledger transaction as an additive upsert (`sold = sold + excluded.sold`), with the in-memory totals changed in the
+  same transaction, so memory and storage always agree. A player's rows are read at login, before they enter the
+  world (the login waits up to 5 seconds, then the read finishes in the background), on the database writer in order
+  with any sale of an earlier session still being stored. Until they are in memory, selling says "Your sales are
+  still loading. Try again in a moment." so no sale pays too small a bonus or counts from the wrong level.
+- Renaming or removing a category keeps its rows; they are simply not used any more.
+- A level-up (after the sale is stored) says "Mining mastery is now level 2. Mining items sell for 1.6x." in chat
+  with the success sound and fires `api.event.SellMasteryLevelEvent`.
+- Safety: the shop is validated against the best rank multiplier plus the top mastery bonus
+  (`SellSettings#highestMultiplier`, 1.25 with the shipped empty `multipliers`), times the largest server sell
+  booster allowed (`sell.max-percent` in `boosters.yml`, +25%: 1.5625), times the shop's 1.1 margin, so a reload that
+  makes any shop price unsafe with mastery and a booster is refused (see `shop.md`).
+
+## Server sell boosters
+
+A running server booster (`docs/features/boosters.md`) raises what the server pays everyone by its percent, on top of
+rank and mastery: a line pays `worth x (rank + mastery) x (1 + percent/100)`, rounded down once per category like
+every sale. It enters prices in exactly one place, `WorthService.Rates#multiplier(category)`, so `/sell` in every
+form, the sell menu, the shop's quick sell and sell-back, `/worth`, the price list, the details dialog,
+`WorthLookup#priceFor` and spawner storage sales (`WorthLookup#rate`) all pay or show the boosted price, while
+`Rates#own(category)` keeps the player's own bonus for mastery and for text. Buy orders pay their own price and are
+never boosted (`SaleDraft#boost` covers the server part only); the auction house is between players and untouched.
+The percent applied is `ServerBoosters#percent()`: the running booster's, never more than the current
+`sell.max-percent` (a store booster bought for more pays the limit), which is also what every receipt names.
+
+The booster is read when a sale is worked out and again when it is confirmed; if it changed in between (it ended,
+the next one started) the total differs and the confirmation is shown again, like any other price change. The
+receipt and the action bar say so ("You sold 64 diamond for $28,160 incl. +10% booster."), the confirmation dialog
+shows "Sell booster +10%", the sell menu's total "Includes the +10% sell booster", `/worth` "With the +10% sell
+booster you get $4,400." and the price list and details dialog "With the +10% booster $440". The multipliers in
+`ItemSellEvent` are the ones paid, booster included.
+
+## Selling
+
+Every sale goes through `SellService` and `SaleBuilder`, on the player's thread:
+
+1. **Work out a draft** from the live inventory: which slots (whole or partial stacks) and which contents of which
+   shulker boxes the request covers, what goes to buy orders, what the server pays per category, the mastery credit.
+2. **Confirm when needed** (`/sell all`, `/sell hand all`, category selling, "Sell your ..." buttons):
+   `sell-all.confirm` is `always`, `above` (default) or `never`. With `above` each player's "Confirm /sell all
+   from" (`sell_all_confirm`) decides: "Server default" asks from `confirm-above` ($10k), "Always", from $10k, $100k
+   or $1m, or "Never"; the server's `always` and `never` win over it. The dialog "Sell everything" asks
+   `Sell 128 items for $51,200?` (the dialog style: only the question in the body) with "Sell for $51,200", whose tooltip
+   lists the bonus, the booster, the buy-order part, how many come out of shulker boxes and what is kept, "Choose items"
+   (opens the sell menu filled with exactly what the request covers) and "Cancel". Confirming works the sale out again from the
+   live inventory; if any slot, stack, box content, order take or the total differs it shows the dialog again with
+   "Your inventory changed. Check the total, then sell." and the error sound. Nothing is sold that was not shown.
+3. **Fire `api.event.ItemSellEvent` once** (cancellable; source `MENU`, `HAND`, `HAND_ALL`, `ALL` or `CATEGORY`;
+   copies of every item, including what comes out of boxes; `serverTotal`, `ordersTotal`, the order fills and the
+   multiplier per category).
+4. **Let buy orders veto** their fills (`OrderMarket#approve`, the orders feature's own cancellable event); vetoed
+   orders are left out and the sale is worked out again (twice at most, then server only).
+5. **Remove before grant**: every slot is checked to still hold exactly the stack that was priced (`equals`) and
+   emptied or reduced; every shulker box slot is checked to still hold the original box and replaced by the rebuilt
+   box (same positions, the sold stacks gone; an emptied plain box is a plain box again). The player is then saved
+   (`crash-safety.save-player-after-trade`) before the transaction runs, so a crash can never leave the items in the
+   player file next to stored money.
+6. **One `LedgerTx`**: `source(player, MONEY, serverTotal, kind "sell", ref "menu"/"hand"/"hand_all"/"all"/
+   "category")`, then the order side (`OrderMarket#contribute`: escrow transfer, tax sink, guarded check, in-memory
+   change, guarded SQL), then the mastery rows. Note: `64 minecraft:diamond, 32 minecraft:iron_ingot (312 from
+   shulker boxes)`, cut at 255 characters.
+7. **On failure** everything goes back: a slot that still holds what the sale left gets its original back, otherwise
+   the taken items are handed to the player (inventory, then the claim box); nothing is ever dropped. An order
+   refusal (`order_gone`, `order_price_changed`, ...) re-plans from fresh bids and retries once; if that fails too
+   it sells to the server only and says "Buy orders changed, so everything went to the server." The player is saved
+   again after a put-back. If storing the committed sale fails later, the items are given back the same way (to the
+   claim box if the player left or the server is stopping).
+8. After the sale is stored: buy-order owners are told (`OrderMarket#committed`), then the receipt and any level-up.
+
+**Receipt.** `You sold 64 diamond for $25,600.` (or `... with your 1.5x bonus.`, `... with your bonuses.`,
+`You sold 150 items for $9,000, $2,400 of it from buy orders.`) in chat with the success sound and a hover card:
+one line per item (up to 12), the bonus per category, each order fill (`32 diamond to Steve's order $13,440`, net
+after tax), the order tax (only when the orders took one; SiftVanilla's orders take none), the rest to the server and
+how many came from shulker boxes. With "Sale receipts" on
+"Above the hotbar" only `+$25,600` on the action bar and the sound remain (a chat line in combat with quiet in combat
+on), with "Off" nothing; `feedback.action-bar: true` adds the action bar line to chat receipts.
+
+**Level-ups** (`mastery-levelup`, offered while mastery is on): `Mining mastery is now level 1. Mining items sell for
+1.05x.` in chat (default), above the hotbar, as a title (`Mining mastery 1`; a chat line with the full text while in
+combat with quiet in combat on) or not at all. `SellMasteryLevelEvent` fires either way. The action bar and a title
+show one line at a time, so one sale sends at most one pop-up (`SellPrefs.levelUpNotice`): when it levelled up several
+categories the pop-up is a count (`2 sell masteries levelled up. See chat.`, as a title `2 masteries up`) and every
+full line goes to chat; when the sale receipt itself is above the hotbar ("Sale receipts" on "Above the hotbar") and
+the level-up would go there too, the level-up goes to chat so the sale total stays readable.
+
+**Shulker boxes** (`shulker-contents: true`). A single, unstacked shulker box is opened; a stacked box (amount > 1)
+is never touched, and boxes inside boxes are not opened. `/sell hand` on a filled box sells its sellable contents
+and keeps the box in the hand with everything else at its place; a box with nothing sellable says "Nothing in that
+shulker box can be sold." A box in the sell menu has its contents sold and the rebuilt box stays in the grid
+(returned on close). `/sell all` opens boxes (and bundles, when `bundle-contents` is on) when
+`sell-all.shulker-contents` is on, but never sells the box itself; a player's "/sell all opens shulker boxes" switch
+keeps only shulker boxes shut, never bundles;
+items that don't stack stay in boxes too when `skip-unstackable` is on. `/worth` on a box: "What's inside sells
+for $4,075 (13 items)." and, for a plain box, "An empty box sells for $X." Bundles work the same way behind
+`bundle-contents` (off by default).
+
+**Sell menu.** Items in the grid belong to the player until Sell is pressed. Closing the menu, quitting, a kick or a
+server stop hands the grid back (inventory first, the rest to the claim box). Dying with the menu open drops the
+grid with the rest of the inventory (or keeps it with `keepInventory`), exactly as if the items had been in the
+inventory. A player can choose to sell on close (`sell-menu-close`): only a close by the player themselves (close
+reason `PLAYER`, noted by `SellMenus.onClose` before the menu framework hands the close on) sells, through the same
+`SellService.sellMenu` as the Sell button (combat and loading still refuse, so the grid comes back); a death, a quit,
+a kick, a teleport or another screen never sell, so death loot can't be turned into money.
+
+While items sit in the grid, a copy of them is kept in the player's own data (persistent data key `siftcore:sell_grid`,
+`ui.gui.GridBackup`). Every player save (autosave, a trade's save, quit) writes the inventory and the copy together, so
+the player file always holds each item exactly once: in the inventory or in the copy. The copy follows every change of
+the grid before anything can save the player (a click that takes an item out of a slot drops it from the copy right
+away), and is cleared when the items leave the grid (given back, sold, dropped at death). If the server crashes with
+the menu open, the copy in the last saved player file is given back when the player next joins ("The items you left in
+the sell menu when the server stopped are back in your inventory."), the rest into the claim box. A sale from the grid
+updates the copy before the player is saved.
+
+The copy covers every sell menu of the player that has not handed its grid back yet: usually one, for a moment two
+(`/sell` registers a new menu right away but puts it on screen a tick later, and the old one closes in between). Items
+handed back leave the copy first, then go into the inventory, the player is saved, and only then does what did not fit
+go to the claim box (`GridBackup#handBack`): the claim box is stored apart from the player file, so a crash can never
+leave the overflow both there and in the saved copy. At quit the copy is made to hold exactly what menus that never
+got on screen still have (nothing else), so a stale copy can't be saved next to items already given back.
+
+- Slot 45 **Add sellable items** (hopper): moves every plain sellable stack, and every shulker box with something
+  sellable inside, from the hotbar (unless `skip-hotbar`) and storage into empty grid slots. Never the tool in the
+  main hand, armor or the off hand; items that don't stack only when they sell. Each slot is read again right
+  before it moves; it stops when the grid is full.
+- Slot 46 **Give back** (oak door): empties the grid into the inventory (the rest to the claim box) and keeps the
+  menu open.
+- Slot 48 **Total**: up to 8 lines `64 diamond $25,600` and "and 3 more kinds", the bonus, the buy-order part, what
+  can't be sold, "Mastery: +$25,600 toward Mining level 2" (the category the sale helps most) and the hint.
+- Slot 50 **Sell**: remembers the total it showed; if the total is now lower (orders changed, a rank was lost)
+  nothing is sold, the menu redraws and the action bar says "The total is now $X. Press Sell again." Equal or
+  higher sells.
+- Slot 52 **Mastery** (book): the mastery dialog over the menu. Its footer is Back (not Close), which brings the same
+  menu back with its grid; a category's "Sell your <category> items" sells exactly what the button showed (the
+  inventory, never the grid under the dialog; when that changed it asks first with the new numbers) and shows the
+  category again with the new progress. When the sale asks first (above `confirm-above`), its Sell and Cancel return
+  to the category too; nothing in the mastery dialogs closes the menu under them. The category's Prices opens the
+  price list with a Back to the category (the price list replaces the menu, whose grid goes back to the inventory;
+  Back from the mastery list then opens a fresh menu).
+
+## Buy orders
+
+Selling routes units to buy orders when they pay the seller more than the server would. The contract is
+`core.link.OrderMarket` (implemented by the orders feature, `OrdersFeature#market()`). Orders price with the worth
+table, so they are built after selling: `SellFeature` takes a `Supplier<OrderMarket>` and `FeatureCatalog` passes a
+late-bound reference (`orderMarket::get`) that is set to the orders market once orders is built. While the orders
+feature is off the supplier answers `OrderMarket.NONE`: nothing is routed and no order text is shown.
+
+- Conditions: the market is available, the player's "Sell to buy orders first" switch (`sell_orders`) is on
+  (registered at startup in Money & selling, offered only while the market is available, also when the orders
+  feature starts after this one), and `OrderMarket#usable(player)` allows it.
+- `OrderRouting.plan` (pure): per item key, units go to bids, best price first and then oldest, while the order's
+  net per item (`priceEach x (10000 - tax) / 10000`, exact) is strictly more than the seller's own server price
+  (worth x rank x mastery); ties go to the server. A bid's remaining amount is shared by every stack of its key, so
+  an order is never promised the same units twice. Leftover units go to the server when it buys them, otherwise
+  they stay.
+- The menu and `/sell hand` (and hand all) may send items the server doesn't buy to orders; `/sell all` only moves
+  what the server buys.
+- Previews (menu total, confirmations, `/worth`, the price list) read bids through a cache (2,048 lists, dropped
+  whenever the book's revision moves). Sales always read fresh bids, and every take is re-checked inside the
+  transaction.
+
+## The worth table
+
+Built at startup and on every successful `/sift reload` from `features/sell.yml` and the server's own recipes:
+
+1. `base-prices` price raw and natural materials. Keys are item ids, `#tags` or `*` patterns (`music_disc_*`,
+   `*_coral_block`); an id wins over a tag, a tag over a pattern, and every tag and pattern must name an item.
+2. Every item the enabled recipe types make from priced items gets the price of its cheapest recipe: the
+   ingredients (each slot at its cheapest priced option) divided by how many the recipe makes, times `craft-loss`
+   (0.9), rounded down to whole dollars, exact `BigDecimal` math. When every recipe rounds to $0 only because some
+   ingredients are worth less than a dollar (sticks, slabs), those count at their exact value and the cheapest
+   recipe worth at least a dollar is used (armor stands, chiseled stone bricks, chiseled deepslate and tuff).
+3. `overrides` set the final price of single items; 0 makes an item unsellable.
+4. **No recipe gains**: no crafting, stonecutting or smithing recipe may turn ingredients into results that sell for
+   more than the ingredients do. A violation (a base price set above what an item is made from, a smithing template
+   priced above what copying it costs) is a config problem: the reload is refused and startup reports it.
+   Furnace-type recipes may add value on purpose (raw iron smelts into a more valuable ingot).
+
+Recipe loops (ingot / block / nugget, re-dyeing shulker boxes, templates that copy themselves) are priced in layers
+inside each strongly connected component, so prices never chain around a loop. Recipes whose ingredients leave
+something behind (a milk bucket leaves its bucket) and special recipes are not used. Items worth less than $1 are not
+sellable. The table is written to `plugins/SiftCore/data/worth-generated.yml` with the origin of every price. At
+startup: `Worth table: 1019 sellable items (404 base, 615 from recipes, 0 overrides) in 6 categories, using 1519 of
+1585 recipes (66 special recipes skipped). Best multiplier 1.25x (rank 1x plus mastery 0.25), up to 1.5625x with the
+largest sell booster (+25%).` (the shipped config: no rank multipliers; the item and recipe counts are from one boot).
+
+Default prices include seeds, saplings, flowers, leaves, coral, concrete, cobwebs, bells, goat horns, pottery
+sherds, music discs, smithing templates (the netherite upgrade $2,500 and every armor trim $1,000, both below what
+copying them costs, so netherite gear now has a price), elytra, tridents, enchanted golden apples, experience
+bottles, mob heads and silk-touched ores at no more than one drop (placing a silk-touched ore and mining it with
+Fortune always pays more). Filled buckets of mobs, spawners and spawn eggs are never priced. Every price stays at or
+below shop price / 1.925, which the shop's validator enforces anyway.
+
+**Only plain items sell.** An item sells only when it is exactly the default item of its type
+(`stack.isSimilar(ItemStack.of(type))`): renamed, enchanted (including enchanted books), damaged, dyed, written,
+filled, villager-traded or plugin-tagged items are refused. Enchantments and potions are never priced: both would
+turn XP or brewing into money.
+
+## Villager trades never sell
+
+Villagers buy cheap items for emeralds and sell goods for emeralds, and cured villagers trade for almost nothing, so
+without a guard a trading hall would print money. `TradeGuard` (`mark-villager-trades: true`) closes it:
+
+- Every trade result of a villager or wandering trader carries a marker (`siftcore:traded` in its custom data), so
+  it is no longer a plain item and can't be sold, including emeralds villagers pay with. Trades are marked when a
+  villager gains one, when a player opens a merchant, and a trade whose result is somehow unmarked is refused. Mined
+  emeralds still sell.
+- The marker follows the item: whatever is crafted, smelted, cooked, cut in a stonecutter, smithed, repaired or
+  ground from a marked item is marked. A recipe or fuel that would hand back a new plain container (a marked milk
+  or lava bucket leaving a bucket) is refused.
+- Placed marked blocks are remembered in their chunk's data, also in their block form (redstone dust as wire, a
+  banner on a wall, both halves of a bed): whatever they drop later, mined, sheared, blown up, washed away, pushed off
+  by a piston or fallen, is marked. Marked blocks moved by pistons, falling, fading (coral) or stripped with an axe
+  stay marked; mobs can't pick them up. Item frames and paintings keep the marker as entities.
+- Buckets: emptying a marked bucket of fish (fishermen and wandering traders sell them) leaves a marked bucket and a
+  marked fish whose drops are marked; filling or milking with a marked bucket gives a marked filled bucket and
+  drinking marked milk leaves a marked bucket; cauldrons go through the same bucket events. Dispensers, catching a
+  fish and recipes or fuel that leave a bucket behind make a new plain bucket with no event that could keep the
+  marker, so marked buckets (and marked fish) can't be used there.
+- What crops and plants grow into is not followed: farming from traded seeds or saplings is ordinary farming.
+- Marked items work everywhere else, including paying villagers. Turning the option off stops new marking only.
+
+`/sell hand` on a marked item says "Items from villager trades can't be sold."; `/worth` says what a plain one
+would sell for.
+
+## Price list and item details
+
+`/worth` with an empty hand, `/worth list [search]` and the `prices` hub entry open the price list, a paged menu of
+every sellable item with its real icon: "Sells for $400 each", "With your bonus $600" (above 1x), "Category Mining",
+"The shop sells it for $1,000", "Best buy order $450 each" (while the orders feature runs), "You carry 64, worth $38,400", and
+for `siftcore.worth.details` where the price comes from. Sort: Name, Highest price, Lowest price. Filter: All and
+each category. Search: name and id; an exact name match comes first. The sort and filter are remembered per player
+(`worth_sort`, `worth_filter`; a filter the list was opened with, from mastery or a search, is only remembered once
+the player picks one).
+
+Clicking an item opens its **details** dialog, the one place where selling, the shop and buy orders meet for one
+item: the price each, with the player's bonus, and the category mastery level, then the buttons "Sell your 64 for
+$25,600" (the `/sell hand all` rules and confirmation; how many the player carries is in its label), "Buy in the shop
+for $1,000" (the shop's purchase dialog), "Order it" (the orders form, while the orders feature runs) and Back. Each
+button's tooltip says what it does, and the Sell and Order it tooltips name the best buy order ("Best buy order $500
+each").
+
+## Placeholders
+
+| Placeholder | Value |
+|---|---|
+| `%siftcore_sell_multiplier%` | The player's rank multiplier (`1`, `1.1`, ... `1.5`); mastery not included. |
+| `%siftcore_sell_multiplier_<category>%` | Rank plus the category's mastery bonus, like `1.6` (a running server booster comes on top and is not included). |
+| `%siftcore_sell_mastery_<category>%` | The player's mastery level in a category (0-5). |
+| `%siftcore_sell_sold%` | Everything the player sold to the server, at base value, in their money format. |
+| `%siftcore_worth_<item>%` | What one plain item sells for (`worth_diamond` gives `$400`), empty when it can't be sold. |
+| `%siftcore_sell_top_name_<n>%`, `%siftcore_sell_top_value_<n>%` | The n-th best seller (1-10) and what they sold (in the viewer's money format, the server's way without a viewer; so is `worth_<item>`). |
+
+Top sellers are read from storage in the background (`SUM(sold) GROUP BY uuid` over `sell_mastery`) every
+`top.refresh` (5m); `/sell top` and the placeholders only read that snapshot. Players who hide from leaderboards
+(`hide-from-leaderboards`, staff and test accounts with `siftcore.stats.hide`) get no place: each read first reads who
+hides (`HiddenSellers`: online players' loaded values, else the stored rows, else the server's default; a lock or a
+hidden setting ignores stored rows; a failed read keeps the last answer), and `TopSellers.build` leaves them out of the
+list and the ranks, so the places below move up and `sell_top_name_<n>` never names them. Their own total
+(`sell_sold`) is still theirs. When anyone turns the switch on or off (`SettingChangeEvent`), the list is read again
+at the first 30-second check at least a second later (the event comes just before the value is stored) instead of
+after `top.refresh`; a hidden viewer's own place in `/sell top` follows their switch at once.
+
+## Settings (`/settings`, Money & selling)
+
+Registered at startup by `SellPrefs.register` in `SettingCategories.ECONOMY`, at their catalog places between the
+payment settings (`docs/features/economy.md`); each is offered only while the config gives it a meaning. Text:
+`lang/sell.yml` `sell.settings`. The shared option names ("Server default", "Always", "From $10,000", "Never",
+"Chat", "Above the hotbar", "Title", "Off") come from `lang/settings.yml`.
+
+| Order | Id | Kind, default | Offered while | Read in | Effect |
+|---|---|---|---|---|---|
+| 1 | `sell_receipts` "Sale receipts" (shared, `SharedSettings`) | choice chat/actionbar/off, chat | selling declares it reads it | `SellService.receipt` (and spawner storage sales) | `chat`: the detailed receipt; `actionbar`: only `+$total` above the hotbar and the sound; `off`: nothing. Old rows read on as chat and off as actionbar. |
+| - | `hide-from-leaderboards` (shared, `SharedSettings`, Privacy) | switch, off | `siftcore.stats.hide` | `HiddenSellers.load` before each top sellers read, `SellDialogs.top` | Leaves the player out of `/sell top` and the `sell_top_*` placeholders. |
+| 3 | `sell_all_confirm` "Confirm /sell all from" | choice server/always/10k/100k/1m/never, server | `sell-all.confirm: above` | `SellService.asks` (`SellAll.asks(total, choice)`) | From which total `/sell all`, `/sell hand all`, category selling and "Sell your ..." ask first. Was a switch: old rows on read as server, off as never. |
+| 4 | `sell-all-hotbar` "Hotbar on /sell all" | choice server/keep/sell, server | always | `SellService.personal` (`SellAll.personal`, the `SaleBuilder` slots) and the menu's Add (`SellMenus.addSellable`) | Keep the hotbar or sell it too, whatever `skip-hotbar` says; server default follows it. `/sell hand` and the menu grid are not affected. |
+| 5 | `sell_orders` "Sell to buy orders first" | switch, on | the order market is available | `SellService.routing` | Send items to buy orders that pay more than the server. |
+| 10 | `sell-all-shulkers` "/sell all opens shulker boxes" | switch, on | `shulker-contents` and `sell-all.shulker-contents` are on (`SellSettings.shulkerSwitchOffered`) | `SellService.personal` (`SellSettings.personal`, `SellAll.opens`, `SaleBuilder.openable`) | Off leaves shulker boxes shut on `/sell all` and category selling (players can only turn it off). Bundles are not affected, and a choice stored while the switch is not offered changes nothing. |
+| 11 | `sell-menu-close` "Closing the sell menu" | choice return/sell, return | always | `SellMenus.closed` (`SellPrefs.sellsOnClose`) | `sell`: closing the menu yourself (Esc, close reason `PLAYER`) sells what in the grid sells first (exactly like the Sell button, receipt included), then gives the rest back. Quitting, dying (the grid drops), a teleport, another screen or a plugin closing it always give back or drop as before. |
+| 12 | `mastery-levelup` "Sell mastery level-ups" | choice chat/actionbar/title/off, chat | `mastery.enabled` | `SellService.levelUps` (`SellPrefs.levelUpNotice`, `Messenger.alert`) | How level-ups are announced to the player: one pop-up per sale at most, never over an action bar receipt (see Level-ups). |
+
+## Integration
+
+- `SellFeature#worth()` returns the `WorthService`: `core.link.WorthLookup` (price of a plain item, with or without
+  the player's rank multiplier and the running booster; `rate(player)` gives spawner sales the rank multiplier, the
+  booster and the two combined) and `feature.sell.Pricing.Source` (the table, the recipes, the highest multiplier
+  including mastery and the largest booster allowed, for the shop's validator; during a reload `latest()` uses the
+  booster limit being loaded).
+- Consumes `core.link.ServerBoosters` (`boosters.boosters()`): the running booster's percent and the limit.
+- `SellFeature#link()` (`SellLink`): the viewer's sell-back price, how many they carry and selling from a shop page.
+- `SellFeature#shop(ShopOffers)`: the shop's prices and purchase dialog for `/worth`, the price list and details.
+- Consumes `core.teleport.CombatStatus` (the shared combat tags) and `Supplier<OrderMarket>`.
+- Events: `api.event.ItemSellEvent` (before anything moves), `api.event.SellMasteryLevelEvent` (after a stored sale).
+- Shared helpers in `core.item`: `ContainerItems` (shulker boxes and bundles), `ItemCategories`/`ItemCategory` (the
+  auction and orders classifier) and `ItemPatterns` (`*` patterns).
+
+## Config (`features/sell.yml`)
+
+`craft-loss`, `recipe-types`, `multipliers`, `block-in-combat` (true), `mark-villager-trades` (true),
+`shulker-contents` (true), `bundle-contents` (false), `sell-all.skip-unstackable` (true) / `skip-hotbar` (false) /
+`confirm` (above) / `confirm-above` (10k) / `shulker-contents` (true), `feedback.action-bar` (false), `top.refresh`
+(5m), `categories.<id>` (`name`, `icon`, `items`), `mastery.enabled` (true) / `levels` / `step` (0.05),
+`base-prices`, `overrides`. A reload with any problem is refused as a whole (and so is a reload that makes a shop
+price unsafe, see `shop.md`). Keys added after the first release are optional and fall back to their defaults.
+
+## Not done (and why)
+
+- Tooltip prices ("Sells for $X" in the inventory, S16): needs a packet library (PacketEvents) that is not in the
+  build; left off until the owner approves the dependency.
+- A top-sellers display template and a "sold" stats board belong to the displays and stats features; the
+  `sell_top_*` placeholders are ready for them.
+- Rejected from SellPlugin: close-to-sell for everyone (it is a player's own choice here, never on death or quit), enchantment and potion pricing, multipliers up to 3x (an endless loop
+  against the shop), per-player YAML data, "~" estimates (previews here are exact and re-checked at sale).
+
+## Self-tests (`/sift selftest`)
+
+- `worth table`: no calculation problems, the table is not empty, base prices unchanged, every price within the
+  money limit, every derived price names its recipe.
+- `only plain items sell`: renamed, PDC-tagged and damaged items are refused, a plain one is accepted.
+- `sale math`: 64 diamonds at 1.5x pay exactly $38,400.
+- `generated worth file`: `data/worth-generated.yml` exists and is not empty.
+- `no recipe gains`: the no-gain check passes on the live table.
+- `sell categories cover the table`: every item is in a category that exists, listed items in their own.
+- `shop safe with mastery and boosters`: the highest multiplier is the best rank plus the top bonus, the shop
+  validates against it with the largest booster allowed, and no shop item sells back for its price at that.
+- `a sell booster raises sales by exactly its percent`: 64 diamonds at +10% pay exactly 10% more, and nothing is
+  boosted without a booster.
+- `shulker rebuild keeps other contents`: taking one kind out of a box leaves every other stack at its position and
+  an emptied box is a plain box.
+- `villager trades are marked`: the marker makes a copy that does not sell and is otherwise unchanged.
+
+## Tests
+
+Unit: `WorthCalculatorTest` (derivation, loops, loss, overrides, rounding, the no-gain check and copy recipes,
+patterns, netherite gear from the template, sub-dollar chains), `SellSettingsTest`, `SellCategoriesTest` (parse,
+duplicates, derived categories), `MasteryTest` (levels, credit caps, additive multiplier), `MasteryBookTest`,
+`OrderRoutingTest` (ties to the server, best price then oldest, pooling across stacks, tax rounding, unpriced items,
+no bids, overflow), `SalePlanTest` (per-category rounding), `MultipliersTest`, `SaleMathTest`, `ItemKeysTest`,
+`WorthFileTest`, `SellHistoryTest`, `core.item.ContainerItemsTest`. End to end (`tools/e2e`):
+`SellShopScenarios` (`sell-hand`, `sell-refusals`, `sell-all`, `sell-bonus`, `sell-menu`, `sell-menu-quit`,
+`sell-menu-death`, `worth`, `sell-mastery-back`: Back from the mastery dialogs keeps the grid and a category sale sells
+only what it showed, `sell-grid-copy`: the copy in the player's data follows the grid and a copy left by a crash comes
+back once on the next join, `sell-grid-crash`: the player file on disk after a save with items in the grid, after a
+close, and after `/sell` replaced a menu that still held items gives each item back exactly once when the player joins
+after a simulated crash, `sell-mastery-stays`: a category sale that asks first returns to the details with the menu
+still open, and Prices has a Back) and `SellPlusScenarios` (`sell-all-confirm`, `sell-hand-all`, `sell-shulker-hand`,
+`sell-shulker-menu`, `sell-shulker-all`, `sell-shulker-failure`, `sell-combat-blocked`, `worth-browser-open`,
+`worth-details-sell`, `mastery-credit-and-level`, `sell-menu-add-and-giveback`, `sell-top-and-history`,
+`sell-traded-refused`, `sell-traded-block`, `sell-traded-bucket`, `sell-choose-items`).
+
+Settings: `SellPrefsTest` (group and catalog order, the shared settings it reads, offered only while the config gives
+each a meaning, old switch rows of `sell_all_confirm`, level-up notices: one pop-up per sale, a count with the lines in
+chat for several, chat when the receipt is above the hotbar, only a player's own close sells, the text loads),
+`SellSettingsTest` (`SellAll.asks` with the player's choice and the server's always/never winning, `SellAll.personal`
+and `opens` (bundles are not the shulker switch's), the switch ignored while not offered, `withSellAll`),
+`TopSellersTest` (places, ranks, hidden players take no place, `HiddenSellers.decide`) and `MasteryBookTest` (the top
+sellers read on SQLite, with a hidden player).
+End to end in `MoneyScenarios` (changes with `/settings <id> <value>` unless the dialog is named):
+`money-settings-dialog` (the group's choices and option names), `sell-all-settings`
+(from $1m sells at once, always asks for one diamond, keep the hotbar, server default sells it, boxes left shut and
+then opened), `sell-menu-close-setting` (closing sells and the copy is cleared, give back, quitting gives back) and
+`sell-mastery-levelup-setting` (a title instead of chat, off says nothing, one sale levelling up two categories
+sends one count above the hotbar and both lines to chat, with the receipt above the hotbar the level-up goes to chat)
+and `sell-top-hidden` (a hidden top seller has no place in `/sell top` or `sell_top_name_1`, and their own `/sell top`
+says so).

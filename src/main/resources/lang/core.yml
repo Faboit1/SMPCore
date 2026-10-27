@@ -1,0 +1,149 @@
+# Shared text: the answers every feature uses, common button labels, teleport countdowns, the shared settings
+# and the money format setting.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Money and numbers are coloured automatically.
+
+core:
+  players-only: "<primary>Only players can do that."
+  no-permission: "<primary>You can't do that."
+  player-not-found: "<primary>Nobody called <name> has played here."
+  player-not-online: "<primary><name> is not online."
+  not-yourself: "<primary>You can't do that to yourself."
+  cooldown: "<primary>Wait <time> before doing that again."
+  invalid-amount: "<primary><secondary><input></secondary> is not an amount. Try 1500, 1.5k or 2m."
+  amount-not-whole: "<primary><secondary><input></secondary> is not a whole amount."
+  amount-not-positive: "<primary>The amount has to be more than zero."
+  amount-too-large: "<primary>The most you can use is <max>."
+  invalid-number: "<primary><secondary><input></secondary> must be a number from <min> to <max>."
+  not-enough-money: "<primary>You need <amount> for that."
+  not-enough-shards: "<primary>You need <shards><amount> shards</shards> for that."
+  balance-limit: "<primary>That would go over the balance limit."
+  economy-unavailable: "<primary>Trading is paused for a moment. Try again soon."
+  action-failed: "<primary>Something went wrong. Nothing was changed."
+  slow-down: "<primary>Slow down a little."
+  inventory-full: "<primary>Your inventory is full."
+  disabled-here: "<primary>You can't do that here."
+  frozen: "<primary>You can't do that while frozen."
+  loading: "<secondary>Loading..."
+  # How worlds are named to players (homes, death locations, spawners, team homes): the server's main world, its nether
+  # and its end. Other worlds show their own name.
+  worlds:
+    overworld: "Overworld"
+    nether: "Nether"
+    end: "The End"
+
+ui:
+  back: "Back"
+  close: "Close"
+  confirm: "Confirm"
+  cancel: "Cancel"
+  submit: "Submit"
+  ok: "Okay"
+  "yes": "Yes"
+  "no": "No"
+  next-page: "<primary>Next page"
+  next-page-lore: "<secondary>Go to page <page> of <pages>"
+  previous-page: "<primary>Previous page"
+  previous-page-lore: "<secondary>Go to page <page> of <pages>"
+  sort: "<primary>Sort"
+  filter: "<primary>Filter"
+  option: "<secondary>• <option>"
+  option-selected: "<primary>• <option>"
+  cycle-hint: "<secondary>Left click for next, right click for previous"
+  search: "<primary>Search"
+  search-lore: "<secondary>Click to search by name"
+  search-active-lore:
+    - "<secondary>Showing results for <primary><query>"
+    - "<secondary>Left click to change, right click to clear"
+  search-title: "Search"
+  search-input: "Name contains"
+  search-clear: "Clear search"
+  empty: "<primary>Nothing here"
+  empty-lore: "<secondary>There is nothing to show yet"
+  error-line: "<primary><error>"
+  invalid-input: "<primary>Check <field> and try again."
+  expired: "<primary>That menu expired. Open it again."
+  # A switch's state on its button ("Sound effects: ON"), and a button that shows a value ("Mention sound: Bell").
+  "on": "<on>ON"
+  "off": "<off>OFF"
+  value-button: "<label>: <value>"
+  done: "Done"
+
+teleport:
+  warmup: "<primary>Teleporting in <time>. Don't move."
+  cancelled-move: "<primary>Teleport cancelled because you moved."
+  cancelled-damage: "<primary>Teleport cancelled because you took damage."
+  cancelled-replaced: "<secondary>Your previous teleport was cancelled."
+  in-combat: "<primary>You can't teleport in combat. <time> left."
+  frozen: "<primary>You can't teleport while frozen."
+  done: "<primary>Teleported."
+  failed: "<primary>That teleport didn't work. Try again."
+  # The teleport-display setting (Settings > Teleports & homes).
+  settings:
+    display: "Teleport countdown"
+    display-description: "Where the warmup countdown and the arrival message show. Cancel messages (moved, hit, in combat) always show."
+
+# Settings several features read, kept in core (Settings > Sounds, Privacy, Display...). A label, then one line that
+# says what it does.
+shared-settings:
+  sound-volume:
+    label: "Sound volume"
+    description: "How loud menu clicks, chimes, error notes and pings are. 0 mutes them all."
+  sound-notify:
+    label: "Notification pings"
+    description: "Ping for requests, payments, sales and other alerts. The messages still arrive without it."
+  sound-mention:
+    label: "Mention sound"
+    description: "The sound when someone mentions you. Default follows Notification pings."
+  sound-pm:
+    label: "Private message sound"
+    description: "The sound when you get a private message. Default follows Notification pings."
+  sound-clicks:
+    label: "Menu click sounds"
+    description: "Play a click when you use buttons in menus."
+  sound-success:
+    label: "Success chimes"
+    description: "Chime when something works, like a sale or a purchase."
+  sound-errors:
+    label: "Error sounds"
+    description: "Play a low note when something can't be done. Errors stay readable without it."
+  sound-team-chat:
+    label: "Team chat sound"
+    description: "Play a sound when a teammate writes in team chat."
+  quiet-in-combat:
+    label: "Quiet during combat"
+    description: "While you are in combat: no notification pings, chimes or pop-ups. Chat lines and error sounds stay."
+  feedback-channel:
+    label: "Quick results and errors"
+    description: "Where short results and errors appear: above the hotbar, in chat, or both. Repeating status lines (combat timer, AFK) stay above the hotbar."
+  hide-coordinates:
+    label: "Streamer mode: hide coordinates"
+    description: "Don't show your coordinates in your homes list, home windows, random teleport and death location messages."
+  seen-privacy:
+    label: "Who sees when I was last online"
+    description: "Who can see when you were last online, in /seen and friend profiles. Staff can always see it; being online still shows in the tab list."
+  balance-privacy:
+    label: "Who can see my balance"
+    description: "Who can see your money with /balance and your name, in your /stats and on your chat card. The money leaderboard stays public."
+  hide-from-leaderboards:
+    label: "Hide me from leaderboards"
+    description: "Leave yourself out of every leaderboard, baltop and the leaderboard holograms (staff and test accounts)."
+  friends-tpa:
+    label: "Auto-accept /tpa from"
+    description: "Whose /tpa to you is accepted without asking: nobody, favourite friends, all friends, or friends and teammates. /tpahere always asks."
+  sell-receipts:
+    label: "Sale receipts"
+    description: "A detailed receipt in chat, only the total above the hotbar, or nothing. Also used when selling spawner storage."
+# The "Money format" setting (Display group): how amounts of money are written for the player. Each option shows a
+# sample, <sample>, written that way ($1,234,567 by default).
+money-format:
+  label: "Money format"
+  description: "Show amounts the server's way, always in full ($1,234,567) or short ($1.2m). Confirmations always show the exact amount."
+  # Extra words the settings search finds it by.
+  keywords: "money amounts numbers digits balance prices short full compact thousands millions k m"
+  options:
+    server: "The server's way (<sample>)"
+    full: "In full (<sample>)"
+    short: "Short (<sample>)"

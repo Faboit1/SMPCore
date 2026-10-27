@@ -1,0 +1,132 @@
+# Text of stats and leaderboards (/stats, /top, /playtime, /sift stats).
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Money is coloured automatically; other values are coloured with <accent>.
+
+stats:
+  # The stats dialog: one button per stat, "Kills: 4", whose click opens that stat's leaderboard.
+  view:
+    title-self: "Your stats"
+    title-other: "<name>'s stats"
+    labels:
+      kills: "Kills"
+      deaths: "Deaths"
+      kdr: "KDR"
+      streak: "Streak"
+      playtime: "Playtime"
+      mobs: "Mobs killed"
+      blocks: "Blocks mined"
+      earned: "Money earned"
+      balance: "Balance"
+    # The value of the Streak button.
+    streak-value: "<accent><streak></accent><secondary> (best <accent><best></accent>)"
+    # The last line of a stat button's tooltip; <board> is the leaderboard's title.
+    open-board: "<primary>Click for the leaderboard <secondary>(<board>)"
+    # /stats <player> from the console.
+    console:
+      - "<primary>Stats of <name>"
+      - "<secondary>Kills <primary><kills><secondary>, deaths <primary><deaths><secondary>, KDR <primary><kdr>"
+      - "<secondary>Streak <primary><streak><secondary>, best <primary><best>"
+      - "<secondary>Playtime <primary><playtime>"
+      - "<secondary>Mobs killed <primary><mobs><secondary>, blocks mined <primary><blocks>"
+      - "<secondary>Money earned <earned><secondary>, balance <balance>"
+    load-failed: "<primary>Those stats can't be loaded right now. Try again soon."
+    # Shown instead of the balance when the player keeps it from the viewer (Who can see my balance setting).
+    balance-hidden: "<secondary>hidden"
+
+  # Each leaderboard: the button label and the dialog title.
+  boards:
+    kills:
+      button: "Kills"
+      title: "Most kills"
+    deaths:
+      button: "Deaths"
+      title: "Most deaths"
+    kdr:
+      button: "KDR"
+      title: "Best KDR"
+    streak:
+      button: "Best streak"
+      title: "Best streaks"
+    playtime:
+      button: "Playtime"
+      title: "Most playtime"
+    mobs:
+      button: "Mobs killed"
+      title: "Most mobs killed"
+    blocks:
+      button: "Blocks mined"
+      title: "Most blocks mined"
+    earned:
+      button: "Money earned"
+      title: "Top earners"
+    money:
+      button: "Balance"
+      title: "Richest players"
+
+  # A leaderboard: one or two short lines, then every listed player as a button (click for their stats). No pages.
+  top:
+    you: "<secondary>You are number <accent><rank></accent> with <accent><value></accent>."
+    not-listed: "<secondary>You are not on this leaderboard yet."
+    # How many players are listed (at most leaderboards.size in features/stats.yml, 100) and when it was rebuilt.
+    shown: "<secondary>Top <accent><count></accent>, updated <accent><time></accent> ago."
+    empty: "<secondary>Nobody is on this leaderboard yet."
+    kdr-rule: "<secondary>Players need <accent><kills></accent> kills to be listed."
+    not-ready: "<secondary>The leaderboards are still being built. Check again in a minute."
+    # A listed player's button, and your own.
+    entry: "<secondary><rank>. <primary><name> <accent><value>"
+    entry-you: "<secondary><rank>. <accent><name> <value>"
+    entry-tooltip: "<primary>Click for <name>'s stats."
+    # A player's place, in the tooltips of the stats and the leaderboard buttons.
+    place: "<secondary>Number <accent><rank></accent> on this leaderboard"
+    not-placed: "<secondary>Not on this leaderboard yet"
+    unknown: "<primary><secondary><input></secondary> is not a leaderboard. Try <boards>."
+    # /top from the console without a leaderboard.
+    list: "<primary>Leaderboards: <secondary><boards>"
+    console-header: "<primary><title> <secondary>page <page> of <pages>"
+    console-line: "<secondary><rank>. <primary><name> <value>"
+    console-empty: "<secondary>Nobody is on this leaderboard yet."
+
+  # /top without a leaderboard: a button per leaderboard.
+  picker:
+    title: "Leaderboards"
+
+  playtime:
+    self: "<primary>You have played for <accent><time></accent>."
+    other: "<primary><name> has played for <accent><time></accent>."
+
+  # Stat names in staff messages.
+  names:
+    kills: "kills"
+    deaths: "deaths"
+    mobs: "mobs killed"
+    blocks: "blocks mined"
+    earned: "money earned"
+    playtime: "playtime"
+
+  admin:
+    set: "<primary>Set <name>'s <stat> to <value>."
+    added: "<primary>Added <value> to <name>'s <stat>."
+    reset: "<primary>Reset every stat of <name>."
+    save-failed: "<primary>The change to <name>'s stats is kept in memory but could not be saved yet. It is retried with the next save."
+    unknown-stat: "<primary><secondary><input></secondary> is not a stat. Use <stats>."
+    invalid-value: "<primary><secondary><input></secondary> is not a valid amount of <stat>."
+    refreshed: "<primary>Leaderboards rebuilt in <time>."
+    refresh-busy: "<secondary>The leaderboards are already being rebuilt."
+    refresh-failed: "<primary>The leaderboards could not be rebuilt. The previous ones stay; the console has the details."
+
+  # A player moved up a leaderboard (Leaderboard climb alerts setting). <board> is the board's button label.
+  climbed: "<primary>You climbed to number <accent><rank></accent> on the <board> leaderboard."
+
+  # Labels and descriptions of the stats settings (/settings).
+  settings:
+    leaderboard-rank-alerts: "Leaderboard climb alerts"
+    leaderboard-rank-alerts-description: "Tell you when you move up a leaderboard: only inside the top 10, at any listed place, or never."
+    options:
+      top-10: "Top 10 only"
+      all: "Any place"
+
+  hub:
+    label: "Stats"
+    description: "Your stats and the leaderboards"

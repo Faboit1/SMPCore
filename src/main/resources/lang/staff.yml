@@ -1,0 +1,296 @@
+# Text of the staff tools.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Player names, reasons and messages are inserted literally. A value may be a list: each entry is one line.
+
+staff:
+  console: "Console"
+  no-reason: "No reason given"
+  permanent: "permanent"
+  type:
+    ban: "Ban"
+    mute: "Mute"
+    kick: "Kick"
+    warn: "Warning"
+  duration:
+    missing: "<primary>Give a time like 30m, 12h or 7d."
+    invalid: "<primary><secondary><input></secondary> is not a time. Try 30m, 12h or 7d."
+    too-short: "<primary>That is too short. The shortest is 1s."
+    too-long: "<primary>The longest is <max>. Leave the time out to make it permanent."
+    # /tempban always needs a time; a permanent ban is /ban.
+    too-long-ban: "<primary>The longest is <max>. Use /ban for a permanent ban."
+  reason-too-long: "<primary>Keep the reason under <max> characters."
+
+  # The staff hierarchy (hierarchy in features/staff.yml).
+  hierarchy:
+    refused: "<primary>You can't do that to <name>. <secondary>Their staff rank is the same as or higher than yours."
+    unknown: "<primary>Couldn't check <name>'s staff rank, so nothing was done. Try again."
+
+  vanish:
+    "on": "<primary>You are vanished. Players can't see you."
+    "off": "<primary>You are visible again."
+    on-other: "<primary><name> is vanished now."
+    off-other: "<primary><name> is visible again."
+    reminder: "<secondary>You are vanished"
+    cleared: "<primary>You are no longer staff, so you are visible again."
+    # Sent on join to staff who have Join vanished on (/settings staff).
+    joined: "<primary>You joined vanished. <secondary>Players can't see you; /vanish shows you."
+    # Sent to staff with Fake join/leave on vanish on when this server shows no join or leave line for them to imitate.
+    no-fake-line: "<secondary>No fake join or leave line: this server shows none for you right now."
+    # The same, to staff who vanished or revealed another staff member (/vanish <player>) who has the setting on.
+    no-fake-line-other: "<secondary>No fake join or leave line for <name>: this server shows none for them right now."
+
+  freeze:
+    done: "<primary>Froze <name>."
+    undone: "<primary>Unfroze <name>."
+    frozen: "<primary>Staff froze you. <secondary>Stay online, staff will talk to you here."
+    unfrozen: "<primary>You can move again."
+    reminder: "<primary>Frozen by staff. Do not log out."
+    blocked: "<primary>You can't do that while frozen."
+    blocked-command: "<primary>You can't use that command while frozen."
+    logout: "<primary><name> logged out while frozen."
+    logout-banned: "<primary><name> logged out while frozen and was banned."
+
+  # Shown when a muted player tries to talk. The chat feature uses the same text for private messages.
+  muted: "<primary>You are muted for <time> more. <secondary>Reason: <primary><reason>"
+  muted-permanent: "<primary>You are muted. <secondary>Reason: <primary><reason>"
+  mute:
+    done: "<primary>Muted <name> for <time>."
+    done-permanent: "<primary>Muted <name> permanently."
+    target: "<primary>You were muted for <time>. <secondary>Reason: <primary><reason>"
+    target-permanent: "<primary>You were muted. <secondary>Reason: <primary><reason>"
+    undone: "<primary>Unmuted <name>."
+    lifted: "<primary>You can talk again."
+    expired: "<primary>Your mute is over. You can talk again."
+    not-muted: "<primary><name> isn't muted."
+
+  ban:
+    # The confirmation staff with Confirm bans on (/settings staff) see before a ban from them goes through.
+    confirm:
+      title: "Ban <name>?"
+      body:
+        - "<secondary>Player <primary><name>"
+        - "<secondary>Length <primary><length>"
+        - "<secondary>Reason <primary><reason>"
+      button: "Ban"
+      cancelled: "<secondary>Didn't ban <name>."
+    done: "<primary>Banned <name> for <time>."
+    done-permanent: "<primary>Banned <name> permanently."
+    undone: "<primary>Unbanned <name>."
+    not-banned: "<primary><name> isn't banned."
+    # The screen a banned player sees when they are removed or try to join.
+    screen:
+      - "<primary>You are banned from SiftVanilla."
+      - ""
+      - "<secondary>Reason: <primary><reason>"
+      - "<secondary>Time left: <primary><time>"
+      - ""
+      - "<secondary><appeal>"
+    screen-permanent:
+      - "<primary>You are banned from SiftVanilla."
+      - ""
+      - "<secondary>Reason: <primary><reason>"
+      - "<secondary>This ban is permanent."
+      - ""
+      - "<secondary><appeal>"
+
+  kick:
+    done: "<primary>Kicked <name>."
+    screen:
+      - "<primary>You were kicked from SiftVanilla."
+      - ""
+      - "<secondary>Reason: <primary><reason>"
+
+  warn:
+    done: "<primary>Warned <name>."
+    done-offline: "<primary>Warned <name>. They will see it when they join."
+    target: "<primary>Staff warned you. <secondary>Reason: <primary><reason>"
+    missed: "<primary>Staff warned you <ago> ago while you were away. <secondary>Reason: <primary><reason>"
+
+  # Sent to staff with siftcore.staff.notify (not to the staff member who did it).
+  notify:
+    ban: "<secondary><staff> banned <primary><name><secondary> for <time>: <primary><reason>"
+    ban-permanent: "<secondary><staff> banned <primary><name><secondary> permanently: <primary><reason>"
+    unban: "<secondary><staff> unbanned <primary><name><secondary>."
+    mute: "<secondary><staff> muted <primary><name><secondary> for <time>: <primary><reason>"
+    mute-permanent: "<secondary><staff> muted <primary><name><secondary> permanently: <primary><reason>"
+    unmute: "<secondary><staff> unmuted <primary><name><secondary>."
+    kick: "<secondary><staff> kicked <primary><name><secondary>: <primary><reason>"
+    warn: "<secondary><staff> warned <primary><name><secondary>: <primary><reason>"
+    freeze: "<secondary><staff> froze <primary><name><secondary>."
+    unfreeze: "<secondary><staff> unfroze <primary><name><secondary>."
+
+  history:
+    title: "History of <name>"
+    header: "<primary>History of <name> <secondary>(<count> entries)"
+    count: "<secondary><accent><count></accent> entries, newest first"
+    # When there are more than history.list-size in features/staff.yml.
+    capped: "<secondary>The newest <accent><shown></accent> of <accent><count></accent> are listed."
+    empty: "<secondary><name> has no punishments."
+    entry: "<primary><type> <secondary><ago> ago by <primary><staff>"
+    reason: "<secondary>Reason: <primary><reason>"
+    length: "<secondary>Length: <primary><length><secondary>, <state>"
+  state:
+    active: "<primary>active<secondary>, <left> left"
+    active-permanent: "<primary>active"
+    expired: "<secondary>expired"
+    lifted: "<secondary>lifted by <name>"
+
+  chat:
+    format: "<secondary>Staff <primary><name><secondary>: <primary><message>"
+    "on": "<primary>Staff chat on. Your messages go to staff only."
+    "off": "<primary>Staff chat off. Your messages are public again."
+    # Sent with "on" to staff who turned Show staff chat off (/settings staff).
+    hidden: "<secondary>Show staff chat is off in /settings staff, so you only see your own staff chat lines."
+
+  report:
+    sent: "<primary>Thanks. Staff will look at your report about <name>."
+    too-short: "<primary>Tell staff a bit more, at least <min> characters."
+    too-long: "<primary>Keep it under <max> characters."
+    duplicate: "<primary>You already reported <name>. Staff will look at it."
+    too-many: "<primary>You have <count> open reports. Wait until staff look at them."
+    handled: "<primary>Staff looked at your report about <name>. Thanks for helping."
+    form-title: "Report a player"
+    form-player: "Player name"
+    form-reason: "What happened"
+    form-submit: "Send report"
+    form-submit-tooltip: "<primary>Tell staff who broke the rules and what happened.<newline><secondary>Only staff see it."
+    notify: "<secondary>Report <primary>#<id><secondary>: <primary><reporter><secondary> reported <primary><target><secondary>: <primary><reason>"
+    notify-hover: "<secondary>Click to review this report"
+  hub:
+    report: "Report a player"
+    report-description: "Tell staff about someone breaking the rules"
+
+  reports:
+    title: "Open reports"
+    count: "<secondary><accent><count></accent> open, oldest first"
+    # When there are more than reports.list-size in features/staff.yml.
+    capped: "<secondary>The oldest <accent><shown></accent> of <accent><count></accent> are listed."
+    empty: "<secondary>There are no open reports."
+    line: "<primary>#<id> <target> <secondary>by <reporter>, <age> ago, <status>"
+    online: "online"
+    offline: "offline"
+    button: "#<id> <target>"
+    # Under the report's line in its button's tooltip.
+    button-tooltip: "<secondary>Click to review it"
+    detail-title: "Report #<id>"
+    detail:
+      - "<secondary>Player: <primary><target> <secondary>(<status>)"
+      - "<secondary>Reported by: <primary><reporter>"
+      - "<secondary>Sent: <primary><age> ago"
+      - "<secondary>Reason: <primary><reason>"
+    teleport: "Teleport to <name>"
+    handle: "Mark handled"
+    dismiss: "Dismiss"
+    handled: "<primary>Report #<id> is marked handled."
+    dismissed: "<primary>Report #<id> was dismissed."
+    closed: "<primary>Report #<id> is already closed."
+    teleported: "<primary>Teleported to <name>."
+    console-line: "<primary>#<id> <target> <secondary>by <reporter>, <age> ago, <status>: <primary><reason>"
+
+  inspect:
+    title-inventory: "<name>'s inventory"
+    title-ender: "<name>'s ender chest"
+    slot:
+      hotbar: "<secondary>Hotbar slot <slot>"
+      storage: "<secondary>Inventory"
+      helmet: "<secondary>Helmet slot"
+      chestplate: "<secondary>Chestplate slot"
+      leggings: "<secondary>Leggings slot"
+      boots: "<secondary>Boots slot"
+      off-hand: "<secondary>Off hand"
+      ender-chest: "<secondary>Ender chest"
+    take-hint: "<secondary>Click to take it"
+    info-name: "<primary><name>"
+    info-lore:
+      - "<icon:health> <secondary>Health <primary><health>"
+      - "<icon:hunger> <secondary>Food <primary><food>"
+      - "<icon:experience> <secondary>Level <primary><level>"
+      - "<secondary>Game mode <primary><mode>"
+    refresh: "<primary>Refresh"
+    refresh-lore: "<secondary>Load the items again"
+    clear-inventory: "<primary>Clear inventory"
+    clear-ender: "<primary>Clear ender chest"
+    clear-lore: "<secondary>Deletes every item after you confirm"
+    switch-ender: "<primary>Ender chest"
+    switch-ender-lore: "<secondary>See <name>'s ender chest"
+    switch-inventory: "<primary>Inventory"
+    switch-inventory-lore: "<secondary>See <name>'s inventory"
+    taken: "<primary>Took <amount> <item> from <name>."
+    claim-box: "<primary>Your inventory was full, so the rest went to your claim box (/claims)."
+    changed: "<primary>That slot changed, so nothing was taken. The view is up to date now."
+    cleared: "<primary>Deleted <name>'s items. <secondary>Stacks removed: <primary><count>"
+    clear-title: "Delete items?"
+    clear-body-inventory:
+      - "<primary>Delete everything in <name>'s inventory?"
+      - "<secondary>This can't be undone."
+    clear-body-ender:
+      - "<primary>Delete everything in <name>'s ender chest?"
+      - "<secondary>This can't be undone."
+    clear-confirm: "Delete"
+    self: "<primary>Open your own inventory instead."
+    view-only: "<primary>You can look, but not take or delete."
+    gone: "<primary><name> left, so the view closed."
+
+  alts:
+    header: "<primary>Accounts on <name>'s address <secondary>(<count>)"
+    line: "<primary><name> <secondary>(<seen><status>)"
+    none: "<secondary>No other account uses <name>'s address."
+    unknown: "<secondary>There is no address on record for <name>."
+  seen:
+    now: "online now"
+    ago: "<ago> ago"
+  status:
+    banned: ", banned"
+    muted: ", muted"
+
+  whois:
+    title: "<name>"
+    header: "<primary><name>"
+    identity:
+      - "<secondary>UUID <primary><uuid>"
+      - "<secondary>First joined <primary><first>"
+      - "<secondary>Seen <primary><seen>"
+    online:
+      - "<secondary>At <primary><world> <x>, <y>, <z>"
+      - "<icon:ping> <secondary>Ping <primary><ping> ms"
+      - "<secondary>Game mode <primary><mode>"
+    money: "<icon:money> <balance> <secondary>and <shards><shard-count> shards"
+    alts: "<secondary>Accounts on the same address <primary><count>"
+    now: "<secondary>Right now <primary><list>"
+    clean: "no punishments"
+    banned: "banned (<time>)"
+    muted: "muted (<time>)"
+    frozen: "frozen"
+    vanished: "vanished"
+    left: "<time> left"
+    history: "Punishment history"
+    inventory: "Inventory"
+    ender: "Ender chest"
+
+  # Labels and descriptions of the staff settings (/settings staff).
+  settings:
+    chat: "Show staff chat"
+    chat-description: "Show staff chat from other staff. Your own messages always echo."
+    punish-alerts: "Punishment alerts"
+    punish-alerts-description: "Tell you when other staff ban, mute, kick, warn or freeze someone."
+    report-alerts: "Report alerts"
+    report-alerts-description: "How you are told about new player reports. /reports always lists them."
+    vanish-on-join: "Join vanished"
+    vanish-on-join-description: "Always join the server vanished."
+    vanish-reminder: "Vanish reminder"
+    vanish-reminder-description: "Remind you above the hotbar that you are vanished."
+    see-vanished: "See vanished staff"
+    see-vanished-description: "Show other vanished staff to you."
+    freeze-alerts: "Frozen player logout alerts"
+    freeze-alerts-description: "Tell you when a frozen player logs out."
+    confirm-bans: "Confirm bans"
+    confirm-bans-description: "Ask you to confirm player, length and reason before a ban goes through."
+    fake-messages: "Fake join/leave on vanish"
+    fake-messages-description: "Show a normal leave line when you vanish and a join line when you reappear."
+
+  broadcast: "<primary><message>"
+  clearchat:
+    done: "<secondary>Chat was cleared by staff."
+    confirm: "<primary>Cleared chat for <count> players."

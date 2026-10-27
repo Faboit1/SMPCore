@@ -1,0 +1,22 @@
+# Teleport requests: /tpa <player>, /tpahere <player>, /tpaccept [player], /tpdeny [player], /tpacancel [player]
+# and /tpatoggle. Changes apply with /sift reload.
+#
+# A player can have requests from several players at once (one from each sender; sending again replaces the
+# older one). The target gets a chat message they can click to accept or deny. Players can turn requests off with
+# /tpatoggle (or in their settings); requests to them are then declined automatically.
+# Staff with siftcore.tpa.bypass teleport straight to a player with /tpa (no request), and their /tpahere reaches
+# players who turned requests off.
+#
+# With the other modules: vanished staff can't be found, a player who ignores the sender never gets the request,
+# the sender is told when the target is AFK, and with a friends list players can let friends come without asking
+# (/tpatoggle friends or the settings menu; this only skips /tpa, a /tpahere from a friend still asks).
+
+# How long a request waits for an answer.
+expire-after: 60s
+
+# How long the player who moves stands still before teleporting (moving or taking damage cancels it).
+# 0s = at once. Players with siftcore.teleport.bypass-warmup skip it. Nobody can teleport while in combat.
+warmup: 3s
+
+# Time between two requests sent by the same player (siftcore.bypass.cooldown skips it).
+request-cooldown: 5s

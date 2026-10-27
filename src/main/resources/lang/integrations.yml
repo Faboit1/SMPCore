@@ -1,0 +1,165 @@
+# Text of the plugin hooks and the admin tools under /sift (status, backups, exports, audit, registries, store)
+# and /purchases.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+
+integrations:
+  status:
+    header: "<primary>Integrations <secondary>(version <version>)"
+    line: "<secondary><name>: <primary><state>"
+    active: "active"
+    active-detail: "active, <detail>"
+    missing: "not installed"
+    "off": "turned off in integrations.yml"
+    failed: "failed to start, see the server log"
+    overridden: "installed, but another plugin's economy is used instead"
+
+  backup:
+    started: "<secondary>Backing up the database..."
+    done: "<primary>Backup saved as <file> <secondary>(<size>, <time>)."
+    pruned: "<secondary>Deleted <count> older backups, keeping the newest <keep>."
+    failed: "<primary>The backup failed: <secondary><detail>"
+    running: "<primary>A backup is already running."
+    mysql: "<primary>The database <database> is on a database server, so back it up there: <secondary>mysqldump --single-transaction <database>"
+    list-header: "<primary><count> backups <secondary>in <folder>"
+    list-line: "<primary><file> <secondary><size>, <age> ago"
+    list-empty: "<primary>There are no backups yet. <secondary>Make one with /sift backup."
+    next: "<secondary>The next automatic backup is in <time>; the newest <keep> are kept."
+    automatic-off: "<secondary>Automatic backups are off (backups.interval in integrations.yml)."
+
+  export:
+    started: "<secondary>Exporting balances and the ledger..."
+    done: "<primary>Exported <balances> balances and <rows> ledger rows to <folder> <secondary>in <time>."
+    failed: "<primary>The export failed: <secondary><detail>"
+    running: "<primary>An export is already running."
+
+  audit:
+    header: "<primary>Audit log <secondary>action <action>, player <player>, page <page>"
+    line: "<secondary><time> <primary><actor> <secondary><action> <primary><target> <secondary><details>"
+    line-no-target: "<secondary><time> <primary><actor> <secondary><action> <details>"
+    empty: "<primary>No audit entries match."
+    more: "<secondary>Older entries: <command>"
+    failed: "<primary>The audit log could not be read: <secondary><detail>"
+    any: "any"
+    ago: "<time> ago"
+
+  registry:
+    permissions-header: "<primary><count> permissions <secondary>page <page> of <pages>"
+    permission-line: "<primary><node> <secondary><description>, <default>"
+    placeholders-header: "<primary><count> placeholders <secondary>page <page> of <pages>"
+    placeholder-line: "<primary>%siftcore_<name>% <secondary><description>, now <value>"
+    empty: "<primary>Nothing matches <secondary><filter>."
+    more: "<secondary>Next page: <command>"
+    docs-done: "<primary>Wrote permissions.md (<permissions> nodes) and placeholders.md (<placeholders>) to <folder>."
+    docs-failed: "<primary>The docs could not be written: <secondary><detail>"
+
+  store:
+    delivered: "<primary>Delivered <what> to <name> <secondary>(ref <ref>)."
+    already: "<primary>Already delivered <secondary>ref <ref> gave <what> to <name> <time> ago, nothing changed."
+    failed: "<primary>Not delivered: <secondary><reason>"
+    rank-pending: "<primary>The rank delivery <ref> is recorded but LuckPerms failed: <secondary><detail>. Run the same command again to finish it."
+    unknown-player: "<primary>Nobody called <name> has joined. <secondary>Use their account id to deliver before they join."
+    bad-duration-input: "<primary><input> <secondary>is not a duration. Try 30d, 12h or permanent."
+    bad-booster-length: "<primary><input> <secondary>is not a length. Try 30m, 2h or 48h."
+    # After a booster bought for more than sell.max-percent was delivered (it is never refused for that).
+    booster-capped: "<primary>It was bought for +<percent>% but pays +<paid>% <secondary>while sell.max-percent in boosters.yml is lower."
+    check: "<primary><ref> <secondary>gave <primary><what> <secondary>to <primary><name> <secondary><time> ago, <state>, by <actor>"
+    check-none: "<primary>Nothing was delivered under <ref>."
+    history-header: "<primary>Store deliveries of <name> <secondary>(<count>)"
+    history-line: "<secondary><time> ago <primary><what> <secondary>ref <ref>, <state>"
+    history-empty: "<primary><name> has no store deliveries."
+    resumed: "<primary>Finished the interrupted store delivery <ref>: <what> for <name>."
+    was-revoked: "<primary><ref> <secondary>was revoked, so it can't be delivered again."
+    revoked: "<primary>Revoked <ref>: <what> from <name>. <secondary><detail>"
+    already-revoked: "<primary><ref> <secondary>was revoked before, nothing changed."
+    unknown-ref: "<primary>Nothing was delivered under <ref>, <secondary>so there is nothing to revoke."
+    revoke-pending: "<primary>The revoke of <ref> is recorded but LuckPerms failed: <secondary><detail>. Run the same command again to finish it."
+    revoke:
+      took: "Took back <taken>."
+      took-part: "Took back <taken> of <total>; they had no more."
+      keys: "Keys can't be taken back from here: <command>"
+      rank-cut: "Their <rank> rank now ends in <time>."
+      rank-removed: "Their <rank> rank was taken away."
+      rank-kept: "No time was left to take; they keep <rank> from another grant."
+      booster-ended: "The running booster was ended; the next one in line started."
+      booster-removed: "The booster was taken out of line before it started."
+      booster-over: "The booster had already run, so nothing was ended."
+    what:
+      money: "<amount>"
+      shards: "<shards><amount> shards</shards>"
+      keys: "<keys>"
+      rank: "<rank> for <time>"
+      rank-permanent: "<rank> permanently"
+      booster: "a +<percent>% sell booster for <time>"
+    # Who a booster from the server itself (the console, community goals) went to.
+    who-server: "the server"
+    state:
+      done: "delivered"
+      pending: "waiting for LuckPerms"
+      revoking: "being revoked, waiting for LuckPerms"
+      revoked: "revoked (<reason>)"
+    reason:
+      bad-ref: "the reference must be 1 to <max> letters, digits, dots, dashes, plus signs or underscores"
+      bad-amount: "the amount must be more than zero"
+      too-much: "that is more than one delivery may give (<max>, store settings in integrations.yml)"
+      unknown-crate: "there is no such crate (crates: <crates>)"
+      no-luckperms: "LuckPerms is not installed, so ranks can't be granted"
+      luckperms-off: "LuckPerms is turned off in integrations.yml, so ranks can't be granted"
+      group-not-allowed: "that group can't be granted by the store (allowed: <groups>)"
+      unknown-group: "LuckPerms has no such group"
+      bad-duration: "the duration must be from <min> to <max>, or permanent"
+      cancelled: "another plugin cancelled it"
+      balance-limit: "it would go over the balance limit"
+      unavailable: "the economy is read-only after storage failures"
+      storage: "the database could not store it, nothing was given"
+      other: "<reason>"
+      unknown-booster: "there is no such booster (sell is the only kind)"
+      bad-booster-percent: "the percent must be from 1 to <max>"
+      bad-booster-duration: "the length must be from <min> to <max>"
+      no-boosters: "boosters are not available on this server"
+    notify:
+      money: "<primary>Your store purchase arrived: <amount> was added to your balance. <secondary>Thank you for supporting the server."
+      shards: "<primary>Your store purchase arrived: <shards><amount> shards</shards>. <secondary>Thank you for supporting the server."
+      keys: "<primary>Your store purchase arrived: <keys>. <secondary>Open them with /crates."
+      rank: "<primary>Your store purchase arrived: you are <rank> for <time>. <secondary>Thank you for supporting the server."
+      rank-permanent: "<primary>Your store purchase arrived: you are <rank> for good. <secondary>Thank you for supporting the server."
+      booster: "<primary>Your store purchase arrived: a +<percent>% sell booster for everyone online, running now for <time>. <secondary>Thank you for supporting the server."
+      booster-queued: "<primary>Your store purchase arrived: a +<percent>% sell booster for everyone online, for <time>. <secondary>It starts after the boosters before it (number <position> in line)."
+      revoked: "<primary>A store purchase was cancelled, so <what> was taken back."
+    announce: "<primary><name> <secondary>supported the server with <primary><what><secondary>. Thank you."
+
+  # /purchases: your store purchases, newest first (staff: /purchases <player>).
+  purchases:
+    title: "Your purchases"
+    title-other: "<name>'s purchases"
+    # The one line above the list: how many purchases, or that only the newest show.
+    count: "<secondary>Purchases: <accent><count></accent>, newest first"
+    newest: "<secondary>Your newest <accent><count></accent> purchases"
+    empty: "<primary>You have no store purchases yet."
+    empty-other: "<primary><name> has no store purchases."
+    # A purchase's button: what it gave.
+    what: "<primary><what>"
+    # A purchase's tooltip. <date> is the day of the purchase (UTC), <time> how long ago, <ref> the order id, shortened.
+    when: "<secondary>Bought <accent><date></accent> (<time> ago)"
+    status: "<secondary>Status: <state>"
+    ref: "<secondary>Order id: <primary><ref>"
+    help: "<secondary>Missing something? Ask staff with the order id."
+    # One purchase in the console (/purchases <player>).
+    detail: "<secondary><date> (<time> ago), <state>, ref <ref>"
+    state:
+      delivered: "<on>delivered"
+      pending: "<accent>being delivered"
+      revoking: "<off>being taken back"
+      revoked: "<off>taken back <secondary>(<reason>)"
+      running: "<on>running now<secondary>, <accent><time></accent> left"
+      queued: "<accent>waiting<secondary>, number <accent><position></accent> in line"
+    header: "<primary>Store purchases of <name> <secondary>(<count>)"
+
+  forms:
+    action: "Action"
+
+  # The switch in /settings (Privacy group), for players with siftcore.settings.hide-rank.
+  settings:
+    show-my-rank: "Show my rank"
+    show-my-rank-description: "Show your rank tag next to your name in chat, the player list and above your head."

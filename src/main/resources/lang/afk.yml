@@ -1,0 +1,81 @@
+# Text of AFK detection, /afk and the AFK zone.
+# Tags, checked when the file loads: <primary> <secondary> <money> <error> <shards> <on> <off> <accent>, named and hex colours (<red>, <#3CC4EE>),
+# <bold>, <shadow:#000000>, <icon:name>, <!italic>, <newline>, click and hover, plus each message's own placeholders
+# (shown in angle brackets). Gradients, rainbow and obfuscated text are rejected: such an entry keeps the shipped text.
+# Numbers and times are coloured automatically.
+
+afk:
+  now-afk: "<secondary>You are now AFK."
+  now-afk-manual: "<primary>You are now AFK. <secondary>Move around or type to come back."
+  back: "<secondary>Welcome back."
+  kick-warning: "<primary>You'll be kicked for being AFK in <time>. <secondary>Chat, run a command or use something to stay."
+  # The same warning as a title (the AFK kick warning setting): a short title and a line under it.
+  kick-warning-title: "<primary>AFK kick in <time>"
+  kick-warning-subtitle: "<secondary>Chat, run a command or use something to stay"
+  # The welcome-back summary (shown in chat when coming back after at least a minute, or with shards earned).
+  return-summary: "<secondary>You were away for <time>."
+  return-summary-shard: "<secondary>You were away for <time> and earned <shards>1 shard</shards> in the AFK zone."
+  return-summary-shards: "<secondary>You were away for <time> and earned <shards><amount> shards</shards> in the AFK zone."
+  # The disconnect screen of a player kicked for being AFK.
+  kick-reason: "<primary>You were AFK for too long.<newline><secondary>You can rejoin right away."
+  # What %siftcore_afk_status% shows for an AFK player (empty for everyone else).
+  placeholder: "AFK"
+  list:
+    header: "<primary>AFK players <secondary>(<count>)"
+    line: "<primary><name> <secondary>for <time>"
+    line-zone: "<primary><name> <secondary>for <time>, in the AFK zone"
+    line-manual: "<primary><name> <secondary>for <time>, by /afk"
+    empty: "<secondary>Nobody is AFK."
+  zone:
+    # <amount> is how many shards one wait pays, <time> how long the wait is.
+    entered: "<primary>AFK zone. <secondary>Stay here to earn <shards>shards</shards>: <amount> every <accent><time></accent>."
+    left: "<secondary>You left the AFK zone."
+    # The countdown on the action bar (or the boss bar), shown again every second.
+    status: "<secondary>AFK zone: next <shards>shard</shards> in <accent><time>"
+    status-many: "<secondary>AFK zone: next <shards><amount> shards</shards> in <accent><time>"
+    waiting-alt: "<secondary>AFK zone: another account on your connection is earning"
+    combat: "<secondary>AFK zone: no <shards>shards</shards> while in combat"
+    capped: "<secondary>AFK zone: today's limit of <shards><cap> shards</shards> reached"
+    # The moment shards are paid. <balance> is the player's shards after it.
+    earned-one: "<secondary>AFK zone: <shards>+1 shard</shards>, <balance> in total"
+    earned-many: "<secondary>AFK zone: <shards>+<amount> shards</shards>, <balance> in total"
+    capped-now: "<primary>You earned today's AFK zone limit of <shards><cap> shards</shards>. <secondary>It resets at midnight."
+    closed: "<primary>The AFK zone is closed right now."
+    no-fighting: "<primary>No fighting in the AFK zone."
+    already-there: "<secondary>You are already in the AFK zone."
+  admin:
+    header: "<primary>AFK zone <secondary><where>"
+    source-config: "<secondary>Set in features/afk.yml"
+    source-game: "<secondary>Set in game with /afkzone (data/afk-zone.yml)"
+    turned-off: "<secondary>The zone is turned off in features/afk.yml."
+    world-missing: "<primary>The world <world> is not loaded, so the zone is closed."
+    arrival: "<secondary>Players arrive at <primary><where>"
+    arrival-auto: "<secondary>Players arrive on the ground in the middle of the zone"
+    players: "<secondary>Players inside <count>, earning <earning>"
+    rewards: "<shards>Shards</shards> <secondary>every <time>: <shards><amount></shards>"
+    rank-rewards: "<secondary>Per group instead: <primary><ranks>"
+    cap: "<secondary>Daily limit <shards><cap> shards</shards> per account"
+    no-cap: "<secondary>No daily limit"
+    protected: "<secondary>Inside the protected spawn area: nobody can be hurt there."
+    safe: "<secondary>Outside the protected spawn area, but players inside can't be hurt (zone.safe)."
+    unsafe: "<primary>Outside the protected spawn area and zone.safe is off: players resting there can be attacked."
+    corner-set: "<primary>Corner <corner> set to <where>."
+    corner-next: "<secondary>Now stand at the opposite corner and use /afkzone pos<corner>."
+    zone-set: "<primary>The AFK zone is now <where>."
+    arrival-set: "<primary>Players now arrive at <where>."
+    arrival-outside: "<primary>Stand inside the AFK zone to set where players arrive."
+    reset: "<primary>The AFK zone is back to the one in features/afk.yml: <where>."
+    nothing-to-reset: "<secondary>The AFK zone already comes from features/afk.yml."
+    unknown-world: "<primary>There's no world called <world>."
+    save-failed: "<primary>The zone changed, but data/afk-zone.yml could not be saved. Check the console."
+  settings:
+    status: "AFK zone countdown"
+    status-description: "Where the time until your next <shards>shard</shards> shows while you are in the AFK zone."
+    payouts: "AFK zone payout messages"
+    payouts-description: "How you are told about <shards>shards</shards> you earn in the AFK zone. Reaching the daily limit always shows."
+    kick-warning: "AFK kick warning style"
+    kick-warning-description: "How you are warned before an AFK kick. The warning itself can't be turned off."
+    status-messages: "AFK status messages"
+    status-messages-description: "'You are now AFK' and 'Welcome back' messages. /afk always answers."
+    return-summary: "Welcome-back summary"
+    return-summary-description: "When you come back, show how long you were away and the <shards>shards</shards> you earned."

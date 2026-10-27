@@ -1,0 +1,130 @@
+# Buy orders (/orders): a player asks for a number of items at a price each. The money for the whole order is held
+# by the server right away. Other players deliver matching items and are paid from that money; the buyer collects
+# the items from /orders. Only exact items count: plain items of the type (no name, enchantments, damage or other
+# changes), or one exact variant for enchanted books, potions and spawners. Amounts accept 1500, 1.5k, 2m and so on.
+
+# How long a new order stays open. When it ends, the money it still holds goes back to the buyer and delivered
+# items stay collectable. Between 30s and 90d.
+duration: 7d
+
+# How often the server looks for orders that ended and refunds them. Between 5s and 1h.
+expiry-check: 30s
+
+# How long before an order ends its owner is told (once per order, or when they next join). 0 turns it off (and
+# with it the players' Order ending warnings switch in /settings).
+expiry-warning: 12h
+
+limits:
+  # Active orders a player may have at once. Ranks raise it with the permission siftcore.orders.limit.<n>
+  # (the highest number wins); siftcore.orders.limit.unlimited removes the limit. 0 means only ranks can order.
+  # Only active orders count; finished ones never do.
+  active-orders: 3
+  # The lowest price each.
+  min-price: 1
+  # The most items one order may ask for.
+  max-quantity: 100000
+  # The most money one order may hold (quantity times price each).
+  max-total: 100b
+
+# Percent of every delivery's value the player who delivers pays as tax (it leaves the economy). From 0 to 50,
+# decimals allowed (2.5). 0 means no tax: sellers get the whole price, and no tax is mentioned anywhere (the order
+# list, the delivery menu, quick deliver, receipts).
+tax: 0
+
+# Whether players in combat are kept out of orders (they can't turn loot into money mid-fight): browsing,
+# delivering, quick deliver, placing, collecting and selling to orders are refused while tagged.
+block-in-combat: true
+
+# Whether players are told when they join that delivered items wait in their orders.
+join-reminder: true
+
+# Whether deliveries (and sales routed to orders) are refused when the order's owner was last seen from the
+# seller's internet address, so alt accounts can't move money between each other through orders.
+refuse-same-ip: false
+
+pricing:
+  # The new-order form suggests a price each that leaves sellers this many percent more than the server pays for
+  # the item (after the tax, when there is one). Items the server does not buy get no suggestion.
+  suggest-margin: 10
+  # The lowest price each as a percent of what the server pays for the item. 0 turns it off.
+  min-vs-worth: 0
+  # The highest price each as a multiple of what the server pays for the item (stops $1m cobblestone orders used
+  # to move money between accounts). 0 turns it off; otherwise at least 1.
+  max-vs-worth: 0
+
+books:
+  # Orders for enchanted books with exactly one enchantment at one level (picked from a list). A delivered book
+  # must have that one enchantment and nothing else: books combined in an anvil (they carry a repair cost) or with
+  # more enchantments don't match, so nothing extra is lost and anvil costs can't be laundered.
+  enabled: true
+  # Whether curses (Curse of Binding, Curse of Vanishing) can be ordered.
+  allow-curses: false
+
+potions:
+  # Orders for potions, splash potions, lingering potions and tipped arrows of one base potion type.
+  enabled: true
+
+spawners:
+  # Orders for SiftCore spawners of one mob (only while the spawner feature provides spawners). They match by the
+  # spawner feature's own item identity, never by name or lore. Plain spawners can never be ordered.
+  enabled: true
+
+history:
+  # How many past orders and deliveries the history menus show.
+  max-entries: 200
+  # How long finished orders (and their deliveries) are kept in storage, like 180d. 0 keeps them forever.
+  keep: 0
+
+extend:
+  # Whether owners can extend an active order to the full duration from now, for free.
+  enabled: true
+  # An order must end at most this long after it was placed, however often it is extended.
+  max-lifetime: 30d
+
+announce:
+  # Orders that hold at least this much are announced in chat. 0 turns it off. In /settings each player picks which
+  # announcements they see (all, only from a bigger amount, or none) and whether their own orders are announced.
+  min-total: 1m
+  # The least time between two announcements of the same player.
+  cooldown: 10m
+
+# Item types nobody can order as plain items. Entries are item keys (diamond or minecraft:diamond); * matches any
+# text, so "*_spawn_egg" covers every spawn egg. The defaults are items survival players can't get, and items whose
+# worth is in data a plain item never has. Enchanted books, potions and spawners are ordered as exact variants
+# instead (see above); their plain forms can never be ordered.
+blocked-items:
+  - command_block
+  - chain_command_block
+  - repeating_command_block
+  - command_block_minecart
+  - structure_block
+  - structure_void
+  - jigsaw
+  - barrier
+  - light
+  - debug_stick
+  - knowledge_book
+  - test_block
+  - test_instance_block
+  - bedrock
+  - end_portal_frame
+  - reinforced_deepslate
+  - budding_amethyst
+  - spawner
+  - trial_spawner
+  - vault
+  - petrified_oak_slab
+  - farmland
+  - dirt_path
+  - chorus_plant
+  - frogspawn
+  - "*_spawn_egg"
+  - "infested_*"
+  - potion
+  - splash_potion
+  - lingering_potion
+  - tipped_arrow
+  - written_book
+  - filled_map
+  - suspicious_stew
+  - firework_star

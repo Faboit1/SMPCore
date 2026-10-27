@@ -1,0 +1,125 @@
+# The main menu (/menu, /hub).
+
+# Buttons per row in the main menu.
+columns: 2
+
+pause-menu:
+  # Adds a SiftVanilla button to the pause screen (and the quick actions key) that opens the menu.
+  # Changes to this section and to lang/hub.yml pause-menu text apply after a restart.
+  enabled: true
+  # The buttons shown in the pause-screen menu, by hub entry id. Entries of disabled features open the main menu.
+  entries:
+    - menu
+    - money
+    - shop
+    - sell
+    - auction
+    - orders
+    - spawners
+    - crates
+    - kits
+    - teams
+    - friends
+    - homes
+    - rtp
+    - spawn
+    - stats
+    - settings
+    - report
+
+# How each button of the main menu and the pause-screen menu looks, by entry id: an icon in front of the label (a
+# name from icons.yml) and the label's colour ("#RRGGBB"). An entry left out is white with no icon. The labels and
+# tooltips are in lang/hub.yml (pause screen) and each feature's lang file (main menu). Pause-screen changes apply
+# after a restart.
+buttons:
+  menu:
+    icon: star
+    color: "#3CC4EE"
+  money:
+    icon: money
+    color: "#1AFF1A"
+  shop:
+    icon: shop
+    color: "#34D399"
+  sell:
+    icon: economy
+    color: "#A3E635"
+  prices:
+    icon: paper
+    color: "#FDE68A"
+  booster:
+    icon: experience
+    color: "#FDE047"
+  auction:
+    icon: auction
+    color: "#FDBA74"
+  claims:
+    icon: bundle
+    color: "#CBD5E1"
+  orders:
+    icon: order
+    color: "#FCD34D"
+  spawners:
+    icon: spawner
+    color: "#E879F9"
+  crates:
+    icon: crate
+    color: "#FFC94D"
+  kits:
+    icon: kit
+    color: "#60A5FA"
+  teams:
+    icon: team
+    color: "#F9A8D4"
+  friends:
+    icon: social
+    color: "#F472B6"
+  homes:
+    icon: home
+    color: "#86EFAC"
+  rtp:
+    icon: teleport
+    color: "#C4B5FD"
+  tpa:
+    icon: teleport
+    color: "#A78BFA"
+  spawn:
+    icon: compass
+    color: "#7DD3FC"
+  stats:
+    icon: kill
+    color: "#FF7B7B"
+  bounties:
+    icon: bounty
+    color: "#F87171"
+  cosmetics:
+    icon: rank
+    color: "#F0ABFC"
+  shards:
+    icon: shard
+    color: "#915DFF"
+  settings:
+    icon: settings
+    color: "#CBD5E1"
+  report:
+    icon: warning
+    color: "#FCA5A5"
+  rules:
+    icon: book
+    color: "#93C5FD"
+  links:
+    icon: map
+    color: "#3CC4EE"
+
+# Links shown in the pause screen's "Server links" and the menu's Links button.
+# label: what the button says. url: https or http address.
+server-links:
+  rules:
+    label: "Rules"
+    url: "https://siftvanilla.com/rules"
+  discord:
+    label: "Discord"
+    url: "https://discord.gg/siftvanilla"
+  store:
+    label: "Store"
+    url: "https://store.siftvanilla.com"

@@ -1,0 +1,39 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axauctions.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+# SiftVanilla: shown after /ah sell, so the price can be checked before the item is listed.
+
+title: "Confirm listing"
+# a gui can have 1-6 rows
+rows: 3
+# valid values: CHEST, WORKBENCH, HOPPER, DISPENSER, BREWING
+type: CHEST
+
+# ----- ITEMS -----
+
+item:
+  slot: 13
+  lore:
+    - "%lore%"
+    - ""
+    - "&7Price %price%"
+    - "&7Ends in &f%expires%"
+    - "%container%"
+
+confirm:
+  slot: 11
+  material: "LIME_STAINED_GLASS_PANE"
+  name: "&fList it"
+  lore:
+    - "&7Put it on the auction house"
+  actions:
+    - "[SOUND] ui.button.click|0.25|1"
+
+cancel:
+  slot: 15
+  material: "RED_STAINED_GLASS_PANE"
+  name: "&fCancel"
+  lore:
+    - "&7Keep the item"
+  actions:
+    - "[BACK]"
+    - "[SOUND] ui.button.click|0.25|1"
